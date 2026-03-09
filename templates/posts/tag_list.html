@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}Теги - Поток{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4"><i class="bi bi-tags"></i> Популярные теги</h2>
+        
+        <div class="card">
+            <div class="card-body">
+                {% for tag in tags %}
+                    <a href="{% url 'posts:tag_detail' tag.slug %}" class="tag" style="font-size: {% widthratio tag.posts_count 10 100 %}%">
+                        #{{ tag.name }} <span class="badge bg-secondary">{{ tag.posts_count }}</span>
+                    </a>
+                {% empty %}
+                    <p class="text-muted">Пока нет тегов</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

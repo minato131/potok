@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+
+{% block title %}Настройки чата - {{ chat.name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-gear"></i> Настройки чата
+                    </h4>
+                    <a href="{% url 'messenger:chat_detail' chat.id %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Назад
+                    </a>
+                </div>
+            </div>
+            
+            <div class="card-body">
+                <!-- Информация о чате -->
+                <h5>Информация о чате</h5>
+                <dl class="row">
+                    <dt class="col-sm-3">Название</dt>
+                    <dd class="col-sm-9">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>{{ chat.name }}</span>
+                            {% if is_admin %}
+                                <button class="btn btn-sm btn-outline-primary" 
+                                        onclick="showRenameForm()">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                            {% endif %}
+                        </div>
+                        
+                        {% if is_admin %}
+                            <form id="rename-form" method="post" style="display: none;" class="mt-2">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="rename">
+                                <div class="input-group">
+                                    <input type="text" name="name" class="form-control" 
+                                           value="{{ chat.name }}" required>
+                                    <button type="submit" class="btn btn-success">Сохранить</button>
+                                    <button type="button" class="btn btn-secondary" 
+                                            onclick="hideRenameForm()">Отмена</button>
+                                </div>
+                            </form>
+                        {% endif %}
+                    </dd>
+                    
+                    <dt class="col-sm-3">Тип</dt>
+                    <dd class="col-sm-9">
+                        {% if chat.chat_type == 'group' %}
+                            Групповой чат
+                        {% else %}
+                            Личный диалог
+                        {% endif %}
+                    </dd>
+                    
+                    <dt class="col-sm-3">Создан</dt>
+                    <dd class="col-sm-9">{{ chat.created_at|date:"d.m.Y H:i" }}</dd>
+                </dl>
+                
+                <hr>
+                
+                <!-- Участники -->
+                <h5 class="mb-3">Участники ({{ participants.count }})</h5>
+                <div class="list-group mb-3">
+                    {% for participant in participants %}
+                        <div class="list-group-item d-flex align-items-center">
+                            <a href="{% url 'accounts:profile_by_username' participant.user.username %}">
+                                {% if participant.user.avatar %}
+                                    <img src="{{ participant.user.avatar.url }}" 
+                                         class="avatar me-3">
+                                {% else %}
+                                    <div class="avatar bg-secondary text-white d-flex align-items-center justify-content-center me-3">
+                                        {{ participant.user.username|first|upper }}
+                                    </div>
+                                {% endif %}
+                            </a>
+                            <div class="flex-grow-1">
+                                <a href="{% url 'accounts:profile_by_username' participant.user.username %}" 
+                                   class="text-decoration-none">
+                                    {{ participant.user.get_full_name|default:participant.user.username }}
+                                </a>
+                                <br>
+                                <small class="text-muted">@{{ participant.user.username }}</small>
+                                {% if participant.is_admin %}
+                                    <span class="badge bg-warning ms-2">Админ</span>
+                                {% endif %}
+                            </div>
+                            
+                            {% if is_admin and participant.user != request.user %}
+                                <form method="post" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="remove_participant">
+                                    <input type="hidden" name="user_id" value="{{ participant.user.id }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                                            onclick="return confirm('Удалить участника?')">
+                                        <i class="bi bi-person-x"></i>
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Добавление новых участников (только для админов) -->
+                {% if is_admin %}
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">Добавить участников</h6>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" class="d-flex">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="add_participant">
+                                <select name="user_id" class="form-control me-2" required>
+                                    <option value="">Выберите пользователя...</option>
+                                    {% for user in other_users %}
+                                        <option value="{{ user.id }}">
+                                            {{ user.get_full_name|default:user.username }} (@{{ user.username }})
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-person-plus"></i> Добавить
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <hr>
+                
+                <!-- Опасная зона -->
+                <div class="alert alert-warning">
+                    <h6 class="alert-heading">Опасная зона</h6>
+                    <form method="post" class="mt-2">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="leave">
+                        <button type="submit" class="btn btn-danger"
+                                onclick="return confirm('Вы уверены, что хотите покинуть чат?')">
+                            <i class="bi bi-box-arrow-right"></i> Покинуть чат
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showRenameForm() {
+        document.getElementById('rename-form').style.display = 'block';
+    }
+    
+    function hideRenameForm() {
+        document.getElementById('rename-form').style.display = 'none';
+    }
+</script>
+{% endblock %}

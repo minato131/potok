@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+
+{% block title %}Избранное - Поток{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-bookmark-fill text-warning"></i> Избранные посты</h2>
+        </div>
+
+        {% for bookmark in page_obj %}
+            <div class="card post-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <h5 class="card-title">
+                            <a href="{% url 'posts:post_detail' bookmark.post.pk %}" class="text-decoration-none text-dark">
+                                {{ bookmark.post.title }}
+                            </a>
+                        </h5>
+                        <small class="text-muted">{{ bookmark.created_at|date:"d.m.Y H:i" }}</small>
+                    </div>
+                    
+                    <div class="d-flex align-items-center mb-3">
+                        <a href="{% url 'accounts:profile_by_username' bookmark.post.author.username %}" class="text-decoration-none d-flex align-items-center">
+                            {% if bookmark.post.author.avatar %}
+                                <img src="{{ bookmark.post.author.avatar.url }}" class="comment-avatar" alt="avatar">
+                            {% else %}
+                                <img src="/static/images/default-avatar.png" class="comment-avatar" alt="avatar">
+                            {% endif %}
+                            <span class="ms-2">{{ bookmark.post.author.get_full_name|default:bookmark.post.author.username }}</span>
+                        </a>
+                        {% if bookmark.notes %}
+                            <span class="ms-3 text-muted">
+                                <i class="bi bi-pencil"></i> {{ bookmark.notes }}
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    <p class="card-text">{{ bookmark.post.content|truncatewords:30 }}</p>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="post-stats">
+                            <span class="me-3"><i class="bi bi-eye"></i> {{ bookmark.post.views_count }}</span>
+                            <span class="me-3"><i class="bi bi-heart"></i> {{ bookmark.post.likes_count }}</span>
+                            <span><i class="bi bi-chat"></i> {{ bookmark.post.comments_count }}</span>
+                        </div>
+                        <div>
+                            <a href="{% url 'posts:post_detail' bookmark.post.pk %}" class="btn btn-outline-primary btn-sm me-2">
+                                <i class="bi bi-eye"></i> Читать
+                            </a>
+                            <a href="{% url 'posts:bookmark_toggle' bookmark.post.pk %}" class="btn btn-outline-warning btn-sm">
+                                <i class="bi bi-bookmark-x"></i> Удалить
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% empty %}
+            <div class="alert alert-info text-center">
+                <i class="bi bi-info-circle"></i> У вас пока нет избранных постов.
+                <a href="{% url 'posts:post_list' %}">Перейти к ленте</a>
+            </div>
+        {% endfor %}
+
+        <!-- Пагинация -->
+        {% if page_obj.has_other_pages %}
+            <nav aria-label="Page navigation" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1">
+                                <i class="bi bi-chevron-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">
+                                <i class="bi bi-chevron-double-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

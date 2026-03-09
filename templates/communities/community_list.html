@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Сообщества - Поток{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-people"></i> Сообщества</h2>
+            {% if user.is_authenticated %}
+                <a href="{% url 'communities:community_create' %}" class="btn btn-potochny">
+                    <i class="bi bi-plus-circle"></i> Создать сообщество
+                </a>
+            {% endif %}
+        </div>
+
+        <!-- Фильтры и поиск -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-5">
+                        <input type="text" name="q" class="form-control" 
+                               placeholder="Поиск сообществ..." value="{{ query }}">
+                    </div>
+                    <div class="col-md-3">
+                        <select name="privacy" class="form-control">
+                            <option value="">Все сообщества</option>
+                            <option value="public" {% if privacy == 'public' %}selected{% endif %}>Публичные</option>
+                            <option value="private" {% if privacy == 'private' %}selected{% endif %}>Закрытые</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select name="sort" class="form-control">
+                            <option value="-created_at" {% if sort == '-created_at' %}selected{% endif %}>Новые</option>
+                            <option value="name" {% if sort == 'name' %}selected{% endif %}>По названию</option>
+                            <option value="-members_count" {% if sort == '-members_count' %}selected{% endif %}>По популярности</option>
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Сетка сообществ -->
+        <div class="row">
+            {% for community in page_obj %}
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        {% if community.avatar %}
+                            <img src="{{ community.avatar.url }}" class="card-img-top" 
+                                 alt="{{ community.name }}" style="height: 160px; object-fit: cover;">
+                        {% else %}
+                            <div class="bg-secondary text-white d-flex align-items-center justify-content-center" 
+                                 style="height: 160px;">
+                                <i class="bi bi-people" style="font-size: 3rem;"></i>
+                            </div>
+                        {% endif %}
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <a href="{% url 'communities:community_detail' community.slug %}" 
+                                   class="text-decoration-none text-dark">
+                                    {{ community.name }}
+                                </a>
+                            </h5>
+                            <p class="card-text text-muted small">
+                                {{ community.description|truncatewords:20 }}
+                            </p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">
+                                    <i class="bi bi-people"></i> {{ community.members_count }}
+                                </small>
+                                {% if community.privacy == 'private' %}
+                                    <span class="badge bg-warning">Закрытое</span>
+                                {% else %}
+                                    <span class="badge bg-success">Публичное</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="card-footer bg-transparent">
+                            <small class="text-muted">
+                                Создал: 
+                                <a href="{% url 'accounts:profile_by_username' community.creator.username %}">
+                                    {{ community.creator.username }}
+                                </a>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="col-12">
+                    <div class="alert alert-info text-center">
+                        <i class="bi bi-info-circle"></i> Сообществ пока нет.
+                        {% if user.is_authenticated %}
+                            <a href="{% url 'communities:community_create' %}">Создать первое?</a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- Пагинация -->
+        {% if page_obj.has_other_pages %}
+            <nav aria-label="Page navigation" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}{% if privacy %}&privacy={{ privacy }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}">
+                                <i class="bi bi-chevron-double-left"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}{% if privacy %}&privacy={{ privacy }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}">
+                                    {{ num }}
+                                </a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}{% if privacy %}&privacy={{ privacy }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}">
+                                <i class="bi bi-chevron-double-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+
+{% block title %}Участники {{ community.name }} - Поток{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-people"></i> 
+                        Участники сообщества "{{ community.name }}"
+                    </h4>
+                    <a href="{% url 'communities:community_detail' community.slug %}" 
+                       class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Назад
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Фильтр по ролям -->
+                <div class="mb-4">
+                    <div class="btn-group" role="group">
+                        <a href="?role=" class="btn {% if not current_role %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                            Все
+                        </a>
+                        <a href="?role=admin" class="btn {% if current_role == 'admin' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                            Администраторы
+                        </a>
+                        <a href="?role=moderator" class="btn {% if current_role == 'moderator' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                            Модераторы
+                        </a>
+                        <a href="?role=member" class="btn {% if current_role == 'member' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                            Участники
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Список участников -->
+                <div class="row">
+                    {% for membership in page_obj %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card">
+                                <div class="card-body d-flex align-items-center">
+                                    <a href="{% url 'accounts:profile_by_username' membership.user.username %}">
+                                        {% if membership.user.avatar %}
+                                            <img src="{{ membership.user.avatar.url }}" 
+                                                 class="avatar-medium me-3" alt="avatar">
+                                        {% else %}
+                                            <img src="/static/images/default-avatar.png" 
+                                                 class="avatar-medium me-3" alt="avatar">
+                                        {% endif %}
+                                    </a>
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-1">
+                                            <a href="{% url 'accounts:profile_by_username' membership.user.username %}" 
+                                               class="text-decoration-none">
+                                                {{ membership.user.get_full_name|default:membership.user.username }}
+                                            </a>
+                                        </h6>
+                                        <small class="text-muted">@{{ membership.user.username }}</small>
+                                        <br>
+                                        <span class="badge bg-{% if membership.role == 'admin' %}danger{% elif membership.role == 'moderator' %}info{% else %}secondary{% endif %}">
+                                            {{ membership.get_role_display }}
+                                        </span>
+                                        {% if membership.joined_at %}
+                                            <small class="text-muted d-block">
+                                                С {{ membership.joined_at|date:"d.m.Y" }}
+                                            </small>
+                                        {% endif %}
+                                    </div>
+                                    
+                                    {% if user_membership and user_membership.role == 'admin' and membership.user != request.user %}
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                                    type="button" data-bs-toggle="dropdown">
+                                                <i class="bi bi-gear"></i>
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                {% if membership.role != 'admin' %}
+                                                    <li>
+                                                        <form method="post" action="">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="user_id" value="{{ membership.user.id }}">
+                                                            <input type="hidden" name="action" value="make_admin">
+                                                            <button type="submit" class="dropdown-item">
+                                                                Сделать администратором
+                                                            </button>
+                                                        </form>
+                                                    </li>
+                                                {% endif %}
+                                                {% if membership.role == 'moderator' %}
+                                                    <li>
+                                                        <form method="post" action="">
+                                                            {% csrf_token %}
+                                                            <input type="hidden" name="user_id" value="{{ membership.user.id }}">
+                                                            <input type="hidden" name="action" value="remove_moderator">
+                                                            <button type="submit" class="dropdown-item">
+                                                                Снять модератора
+                                                            </button>
+                                                        </form>
+                                                    </li>
+                                                {% endif %}
+                                                <li>
+                                                    <hr class="dropdown-divider">
+                                                </li>
+                                                <li>
+                                                    <form method="post" action="">
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="user_id" value="{{ membership.user.id }}">
+                                                        <input type="hidden" name="action" value="ban">
+                                                        <button type="submit" class="dropdown-item text-danger">
+                                                            Заблокировать
+                                                        </button>
+                                                    </form>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                В сообществе пока нет участников
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Пагинация -->
+                {% if page_obj.has_other_pages %}
+                    <nav aria-label="Page navigation" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if current_role %}&role={{ current_role }}{% endif %}">
+                                        <i class="bi bi-chevron-double-left"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_role %}&role={{ current_role }}{% endif %}">
+                                        <i class="bi bi-chevron-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% if current_role %}&role={{ current_role }}{% endif %}">
+                                            {{ num }}
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_role %}&role={{ current_role }}{% endif %}">
+                                        <i class="bi bi-chevron-right"></i>
+                                    </a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if current_role %}&role={{ current_role }}{% endif %}">
+                                        <i class="bi bi-chevron-double-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

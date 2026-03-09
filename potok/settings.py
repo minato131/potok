@@ -30,6 +30,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # Наши приложения
     'accounts',
+    'posts',
+    'communities',
+    'messenger',
 ]
 
 MIDDLEWARE = [

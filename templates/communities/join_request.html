@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}Заявка на вступление - {{ community.name }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h4>
+                    <i class="bi bi-envelope"></i> 
+                    Заявка на вступление в "{{ community.name }}"
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> 
+                    Это закрытое сообщество. Отправьте заявку, и модераторы рассмотрят её.
+                </div>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.message.id_for_label }}" class="form-label">
+                            {{ form.message.label }}
+                        </label>
+                        {{ form.message }}
+                        {% if form.message.help_text %}
+                            <small class="form-text text-muted">{{ form.message.help_text }}</small>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send"></i> Отправить заявку
+                        </button>
+                        <a href="{% url 'communities:community_detail' community.slug %}" 
+                           class="btn btn-secondary">
+                            <i class="bi bi-x-lg"></i> Отмена
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

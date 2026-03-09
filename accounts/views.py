@@ -3,7 +3,7 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.contrib.auth.forms import AuthenticationForm
 from .forms import CustomUserCreationForm, CustomUserChangeForm
 from .models import User, Follow
@@ -14,7 +14,7 @@ def register_view(request):
     Регистрация нового пользователя
     """
     if request.user.is_authenticated:
-        return redirect('home')
+        return redirect('posts:post_list')  # <-- ИСПРАВЛЕНО
 
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
@@ -22,7 +22,7 @@ def register_view(request):
             user = form.save()
             login(request, user)
             messages.success(request, 'Регистрация прошла успешно!')
-            return redirect('home')
+            return redirect('posts:post_list')  # <-- ИСПРАВЛЕНО
         else:
             messages.error(request, 'Пожалуйста, исправьте ошибки в форме')
     else:
@@ -36,7 +36,7 @@ def login_view(request):
     Авторизация пользователя
     """
     if request.user.is_authenticated:
-        return redirect('home')
+        return redirect('posts:post_list')  # <-- ИСПРАВЛЕНО
 
     if request.method == 'POST':
         form = AuthenticationForm(request, data=request.POST)
@@ -47,7 +47,7 @@ def login_view(request):
             if user is not None:
                 login(request, user)
                 messages.success(request, f'Добро пожаловать, {user.username}!')
-                return redirect('home')
+                return redirect('posts:post_list')  # <-- ИСПРАВЛЕНО
         else:
             messages.error(request, 'Неверное имя пользователя или пароль')
     else:
@@ -62,7 +62,7 @@ def logout_view(request):
     """
     logout(request)
     messages.info(request, 'Вы вышли из системы')
-    return redirect('home')
+    return redirect('posts:post_list')  # <-- ИСПРАВЛЕНО
 
 
 @login_required
@@ -77,7 +77,7 @@ def profile_view(request, username=None):
         user = request.user
 
     # Получаем статистику
-    posts_count = user.post_set.count()
+    posts_count = user.posts.count()  # <-- ИСПРАВЛЕНО: было post_set, стало posts (related_name в модели)
     followers_count = Follow.objects.filter(following=user).count()
     following_count = Follow.objects.filter(follower=user).count()
 
@@ -89,12 +89,16 @@ def profile_view(request, username=None):
             following=user
         ).exists()
 
+    # Получаем посты пользователя
+    user_posts = user.posts.filter(status='published').order_by('-created_at')[:10]  # <-- ИСПРАВЛЕНО
+
     context = {
         'profile_user': user,
         'posts_count': posts_count,
         'followers_count': followers_count,
         'following_count': following_count,
         'is_following': is_following,
+        'user_posts': user_posts,  # <-- ДОБАВЛЕНО для отображения в профиле
     }
     return render(request, 'accounts/profile.html', context)
 
@@ -109,7 +113,7 @@ def profile_edit_view(request):
         if form.is_valid():
             form.save()
             messages.success(request, 'Профиль успешно обновлен!')
-            return redirect('profile')
+            return redirect('accounts:profile')  # <-- ИСПРАВЛЕНО
         else:
             messages.error(request, 'Пожалуйста, исправьте ошибки')
     else:
@@ -128,7 +132,7 @@ def follow_view(request, user_id):
     # Нельзя подписаться на самого себя
     if request.user == user_to_follow:
         messages.error(request, 'Нельзя подписаться на самого себя')
-        return redirect('profile', username=user_to_follow.username)
+        return redirect('accounts:profile_by_username', username=user_to_follow.username)
 
     # Проверяем, есть ли уже подписка
     follow, created = Follow.objects.get_or_create(
@@ -142,7 +146,7 @@ def follow_view(request, user_id):
         follow.delete()
         messages.info(request, f'Вы отписались от {user_to_follow.username}')
 
-    return redirect('profile', username=user_to_follow.username)
+    return redirect('accounts:profile_by_username', username=user_to_follow.username)
 
 
 @login_required
@@ -180,4 +184,33 @@ def following_list_view(request, username):
         'page_obj': page_obj,
         'profile_user': user,
         'title': 'Подписки'
+    })
+
+
+@login_required
+def user_list_view(request):
+    """
+    Список всех пользователей
+    """
+    users = User.objects.all().annotate(
+        posts_count=Count('posts')
+    ).order_by('-date_joined')
+
+    # Поиск
+    query = request.GET.get('q')
+    if query:
+        users = users.filter(
+            Q(username__icontains=query) |
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query) |
+            Q(email__icontains=query)
+        )
+
+    paginator = Paginator(users, 12)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    return render(request, 'accounts/user_list.html', {
+        'page_obj': page_obj,
+        'query': query
     })

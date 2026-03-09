@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block title %}Категории - Поток{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4"><i class="bi bi-folder"></i> Категории</h2>
+        
+        <div class="row">
+            {% for category in categories %}
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <a href="{% url 'posts:category_detail' category.slug %}" 
+                                   class="text-decoration-none">
+                                    {{ category.name }}
+                                </a>
+                            </h5>
+                            <p class="card-text text-muted">
+                                {{ category.description|truncatewords:20 }}
+                            </p>
+                            <small class="text-muted">
+                                <i class="bi bi-file-text"></i> {{ category.posts.count }} постов
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        Категории пока не созданы
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
