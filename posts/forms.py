@@ -126,3 +126,59 @@ class PostSearchForm(forms.Form):
         initial='-created_at',  # <-- добавили значение по умолчанию
         widget=forms.Select(attrs={'class': 'form-control'})
     )
+
+
+class TagForm(forms.ModelForm):
+    """
+    Форма создания/редактирования тега
+    """
+
+    class Meta:
+        model = Tag
+        fields = ['name']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Введите название тега'
+            }),
+        }
+
+    def clean_name(self):
+        name = self.cleaned_data.get('name')
+        # Приводим к нижнему регистру и убираем пробелы
+        name = name.strip().lower().replace(' ', '-')
+        return name
+
+
+class CategoryForm(forms.ModelForm):
+    """
+    Форма создания/редактирования категории
+    """
+
+    class Meta:
+        model = Category
+        fields = ['name', 'description', 'parent', 'order']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Название категории'
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 4,
+                'placeholder': 'Описание категории'
+            }),
+            'parent': forms.Select(attrs={
+                'class': 'form-control'
+            }),
+            'order': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': 0
+            }),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Исключаем текущую категорию из выбора родителя
+        if self.instance and self.instance.pk:
+            self.fields['parent'].queryset = Category.objects.exclude(id=self.instance.id)

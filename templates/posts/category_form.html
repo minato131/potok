@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if category %}Редактирование{% else %}Создание{% endif %} категории - Поток{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h4>
+                    {% if category %}
+                        <i class="bi bi-pencil"></i> Редактирование категории
+                    {% else %}
+                        <i class="bi bi-plus-circle"></i> Создание категории
+                    {% endif %}
+                </h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.name.id_for_label }}" class="form-label">
+                            {{ form.name.label }} <span class="text-danger">*</span>
+                        </label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                            <div class="text-danger">{{ form.name.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">
+                            {{ form.description.label }}
+                        </label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                            <div class="text-danger">{{ form.description.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.parent.id_for_label }}" class="form-label">
+                            {{ form.parent.label }}
+                        </label>
+                        {{ form.parent }}
+                        <small class="form-text text-muted">Оставьте пустым, если это корневая категория</small>
+                        {% if form.parent.errors %}
+                            <div class="text-danger">{{ form.parent.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.order.id_for_label }}" class="form-label">
+                            {{ form.order.label }}
+                        </label>
+                        {{ form.order }}
+                        <small class="form-text text-muted">Чем меньше число, тем выше в списке</small>
+                        {% if form.order.errors %}
+                            <div class="text-danger">{{ form.order.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> Сохранить
+                    </button>
+                    <a href="{% url 'posts:category_list' %}" class="btn btn-secondary">
+                        Отмена
+                    </a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -139,54 +139,161 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
+            <!-- Логотип -->
             <a class="navbar-brand" href="{% url 'posts:post_list' %}">
                 <i class="bi bi-water"></i> Поток
             </a>
+
+            <!-- Кнопка для мобильной версии -->
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
+
+            <!-- Основное меню -->
             <div class="collapse navbar-collapse" id="navbarNav">
-                <form class="d-flex mx-auto" action="{% url 'posts:post_list' %}" method="get" style="width: 40%;">
-                    <input class="form-control me-2" type="search" name="query" placeholder="Поиск постов..." value="{{ request.GET.query }}">
-                    <button class="btn btn-outline-light" type="submit"><i class="bi bi-search"></i></button>
-                </form>
-                <ul class="navbar-nav ms-auto">
+                <!-- Левая часть - основные разделы -->
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'posts:post_list' %}">
+                            <i class="bi bi-house-door"></i> Лента
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'communities:community_list' %}">
+                            <i class="bi bi-people"></i> Сообщества
+                        </a>
+                    </li>
                     {% if user.is_authenticated %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'posts:post_create' %}">
-                                <i class="bi bi-plus-circle"></i> Создать пост
+                            <a class="nav-link" href="{% url 'messenger:chat_list' %}">
+                                <i class="bi bi-chat-dots"></i> Сообщения
+                                {% with unread_messages=user.chats.all.0.unread_count %}
+                                    {% if unread_messages > 0 %}
+                                        <span class="badge bg-danger">{{ unread_messages }}</span>
+                                    {% endif %}
+                                {% endwith %}
                             </a>
                         </li>
+                    {% endif %}
+                </ul>
+
+                <!-- Поиск (по центру) -->
+                <form class="d-flex mx-auto" action="{% url 'posts:search' %}" method="get" style="width: 40%;">
+                    <input class="form-control me-2" type="search" name="q" placeholder="Поиск постов, сообществ, пользователей..." value="{{ request.GET.q }}">
+                    <button class="btn btn-outline-light" type="submit">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </form>
+
+                <!-- Правая часть - пользовательское меню -->
+                <ul class="navbar-nav ms-auto">
+                    {% if user.is_authenticated %}
+                        <!-- Создать пост -->
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'posts:bookmarks' %}">
-                                <i class="bi bi-bookmark"></i> Избранное
+                            <a class="nav-link" href="{% url 'posts:post_create' %}">
+                                <i class="bi bi-plus-circle"></i> Создать
                             </a>
                         </li>
+
+                        <!-- Закладки (Избранное) -->
+                        <li class="nav-item">
+                            <a class="nav-link position-relative" href="{% url 'posts:bookmarks' %}">
+                                <i class="bi bi-bookmark"></i> Закладки
+                                {% with bookmarks_count=user.bookmarks.count %}
+                                    {% if bookmarks_count > 0 %}
+                                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-info">
+                                            {{ bookmarks_count }}
+                                        </span>
+                                    {% endif %}
+                                {% endwith %}
+                            </a>
+                        </li>
+
+                        <!-- Уведомления -->
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                                {% if user.avatar %}
-                                    <img src="{{ user.avatar.url }}" class="avatar" alt="avatar">
-                                {% else %}
-                                    <img src="/static/images/default-avatar.png" class="avatar" alt="avatar">
+                            <a class="nav-link position-relative" href="#" id="notificationDropdown" role="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-bell"></i>
+                                {% if unread_notifications_count > 0 %}
+                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                        {{ unread_notifications_count }}
+                                    </span>
                                 {% endif %}
-                                {{ user.username }}
+                            </a>
+                            <div class="dropdown-menu dropdown-menu-end" style="width: 300px;" id="notification-menu">
+                                <h6 class="dropdown-header">Уведомления</h6>
+                                <div id="notifications-list">
+                                    <!-- Через AJAX будут подгружаться -->
+                                    <span class="dropdown-item-text text-muted">Загрузка...</span>
+                                </div>
+                                <div class="dropdown-divider"></div>
+                                <a class="dropdown-item text-center" href="{% url 'accounts:notifications' %}">
+                                    Все уведомления
+                                </a>
+                            </div>
+                        </li>
+
+                        <!-- Профиль -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                                {% if user.avatar %}
+                                    <img src="{{ user.avatar.url }}" class="avatar" alt="avatar" style="width: 30px; height: 30px; border-radius: 50%; object-fit: cover;">
+                                {% else %}
+                                    <div class="avatar bg-secondary text-white d-inline-flex align-items-center justify-content-center"
+                                         style="width: 30px; height: 30px; border-radius: 50%; font-size: 14px;">
+                                        {{ user.username|first|upper }}
+                                    </div>
+                                {% endif %}
+                                <span class="ms-1">{{ user.username|truncatechars:10 }}</span>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="{% url 'accounts:profile' %}">
-                                    <i class="bi bi-person"></i> Мой профиль
-                                </a></li>
-                                <li><a class="dropdown-item" href="{% url 'accounts:profile_edit' %}">
-                                    <i class="bi bi-gear"></i> Настройки
-                                </a></li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'accounts:profile' %}">
+                                        <i class="bi bi-person"></i> Мой профиль
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'accounts:profile_edit' %}">
+                                        <i class="bi bi-gear"></i> Настройки
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'posts:bookmarks' %}">
+                                        <i class="bi bi-bookmark"></i> Закладки
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'accounts:password_change' %}">
+                                        <i class="bi bi-key"></i> Сменить пароль
+                                    </a>
+                                </li>
+
+                                <!-- Для модераторов и админов -->
+                                {% if user.is_staff or user.is_superuser %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'moderation:panel' %}">
+                                            <i class="bi bi-shield"></i> Панель модератора
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'admin:index' %}">
+                                            <i class="bi bi-tools"></i> Админка
+                                        </a>
+                                    </li>
+                                {% endif %}
+
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item text-danger" href="{% url 'accounts:logout' %}">
-                                    <i class="bi bi-box-arrow-right"></i> Выйти
-                                </a></li>
+                                <li>
+                                    <a class="dropdown-item text-danger" href="{% url 'accounts:logout' %}">
+                                        <i class="bi bi-box-arrow-right"></i> Выйти
+                                    </a>
+                                </li>
                             </ul>
                         </li>
                     {% else %}
+                        <!-- Для неавторизованных -->
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'accounts:login' %}">
                                 <i class="bi bi-box-arrow-in-right"></i> Вход

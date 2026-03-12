@@ -1,10 +1,357 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
-<body>
+{% extends 'base.html' %}
+{% load static %}
 
-</body>
-</html>
+{% block title %}Редактирование профиля - Поток{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0"><i class="bi bi-gear"></i> Редактирование профиля</h4>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" id="profile-edit-form">
+                    {% csrf_token %}
+                    
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Аватар -->
+                    <div class="text-center mb-4">
+                        <div class="position-relative d-inline-block">
+                            {% if user.avatar %}
+                                <img src="{{ user.avatar.url }}" class="avatar-large mb-2" id="avatar-preview">
+                            {% else %}
+                                <div class="avatar-large bg-secondary text-white d-flex align-items-center justify-content-center mx-auto mb-2" 
+                                     style="width: 150px; height: 150px; font-size: 3rem;" id="avatar-preview">
+                                    {{ user.username|first|upper }}
+                                </div>
+                            {% endif %}
+                            
+                            <label for="id_avatar" class="btn btn-sm btn-primary position-absolute bottom-0 end-0">
+                                <i class="bi bi-camera"></i>
+                            </label>
+                        </div>
+                        <small class="text-muted d-block">Нажмите на иконку, чтобы изменить аватар</small>
+                    </div>
+                    
+                    <!-- Основная информация -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.first_name.id_for_label }}" class="form-label">
+                                {{ form.first_name.label }}
+                            </label>
+                            {{ form.first_name }}
+                            {% if form.first_name.errors %}
+                                <div class="text-danger">{{ form.first_name.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="{{ form.last_name.id_for_label }}" class="form-label">
+                                {{ form.last_name.label }}
+                            </label>
+                            {{ form.last_name }}
+                            {% if form.last_name.errors %}
+                                <div class="text-danger">{{ form.last_name.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Email -->
+                    <div class="mb-3">
+                        <label for="{{ form.email.id_for_label }}" class="form-label">
+                            {{ form.email.label }} <span class="text-danger">*</span>
+                        </label>
+                        <div class="input-group">
+                            {{ form.email }}
+                            <button class="btn btn-outline-secondary" type="button" id="verify-email" {% if user.email_verified %}disabled{% endif %}>
+                                {% if user.email_verified %}
+                                    <i class="bi bi-check-lg text-success"></i> Подтвержден
+                                {% else %}
+                                    Подтвердить
+                                {% endif %}
+                            </button>
+                        </div>
+                        {% if form.email.errors %}
+                            <div class="text-danger">{{ form.email.errors }}</div>
+                        {% endif %}
+                        <small class="form-text text-muted">{{ form.email.help_text }}</small>
+                    </div>
+
+                    <!-- Модальное окно для подтверждения email -->
+                    <div class="modal fade" id="verifyEmailModal" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Подтверждение email</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>На ваш email <span id="email-display"></span> отправлен код подтверждения.</p>
+                                    <div class="mb-3">
+                                        <label class="form-label">Введите код:</label>
+                                        <input type="text" class="form-control" id="verification-code" maxlength="6">
+                                    </div>
+                                    <div id="verification-message" class="alert" style="display: none;"></div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                    <button type="button" class="btn btn-primary" id="confirm-code">Подтвердить</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Дата рождения -->
+                    <div class="mb-3">
+                        <label for="{{ form.birth_date.id_for_label }}" class="form-label">
+                            {{ form.birth_date.label }}
+                        </label>
+                        {{ form.birth_date }}
+                        {% if form.birth_date.errors %}
+                            <div class="text-danger">{{ form.birth_date.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- О себе -->
+                    <div class="mb-3">
+                        <label for="{{ form.bio.id_for_label }}" class="form-label">
+                            {{ form.bio.label }}
+                        </label>
+                        {{ form.bio }}
+                        <small class="form-text text-muted">
+                            Расскажите о себе. Максимум 500 символов.
+                        </small>
+                        <div class="text-end">
+                            <small id="bio-counter" class="text-muted">0/500</small>
+                        </div>
+                        {% if form.bio.errors %}
+                            <div class="text-danger">{{ form.bio.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Настройки приватности -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">Настройки приватности</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="private_profile" 
+                                           name="private_profile" {% if user.private_profile %}checked{% endif %}>
+                                    <label class="form-check-label" for="private_profile">
+                                        Закрытый профиль
+                                    </label>
+                                    <small class="form-text text-muted d-block">
+                                        Только подписчики смогут видеть ваши посты
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="hide_email" 
+                                           name="hide_email" {% if user.hide_email %}checked{% endif %}>
+                                    <label class="form-check-label" for="hide_email">
+                                        Скрыть email
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Кто может писать вам сообщения:</label>
+                                <select name="message_privacy" class="form-control">
+                                    <option value="everyone" {% if user.message_privacy == 'everyone' %}selected{% endif %}>Все</option>
+                                    <option value="followers" {% if user.message_privacy == 'followers' %}selected{% endif %}>Только подписчики</option>
+                                    <option value="none" {% if user.message_privacy == 'none' %}selected{% endif %}>Никто</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Настройки уведомлений -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">Уведомления</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="email_likes" 
+                                           name="email_likes" {% if user.email_likes %}checked{% endif %}>
+                                    <label class="form-check-label" for="email_likes">
+                                        Email при лайках
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="email_comments" 
+                                           name="email_comments" {% if user.email_comments %}checked{% endif %}>
+                                    <label class="form-check-label" for="email_comments">
+                                        Email при комментариях
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="email_follows" 
+                                           name="email_follows" {% if user.email_follows %}checked{% endif %}>
+                                    <label class="form-check-label" for="email_follows">
+                                        Email при новых подписчиках
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="email_messages" 
+                                           name="email_messages" {% if user.email_messages %}checked{% endif %}>
+                                    <label class="form-check-label" for="email_messages">
+                                        Email при новых сообщениях
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Социальные сети -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h5 class="mb-0">Социальные сети</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="bi bi-telegram"></i> Telegram
+                                </label>
+                                <input type="text" name="telegram" class="form-control" 
+                                       value="{{ user.telegram|default:'' }}" placeholder="@username">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="bi bi-vk"></i> VK
+                                </label>
+                                <input type="text" name="vk" class="form-control" 
+                                       value="{{ user.vk|default:'' }}" placeholder="id или ссылка">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="bi bi-github"></i> GitHub
+                                </label>
+                                <input type="text" name="github" class="form-control" 
+                                       value="{{ user.github|default:'' }}" placeholder="username">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Кнопки -->
+                    <div class="d-flex justify-content-between">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg"></i> Сохранить изменения
+                        </button>
+                        <a href="{% url 'accounts:profile' %}" class="btn btn-secondary">
+                            <i class="bi bi-x-lg"></i> Отмена
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Предпросмотр аватара
+    $('#id_avatar').change(function() {
+        var file = this.files[0];
+        if (file) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                $('#avatar-preview').attr('src', e.target.result).removeClass('bg-secondary');
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+    
+    // Счетчик символов для био
+    $('#id_bio').on('input', function() {
+        var length = $(this).val().length;
+        $('#bio-counter').text(length + '/500');
+        if (length > 500) {
+            $('#bio-counter').addClass('text-danger');
+        } else {
+            $('#bio-counter').removeClass('text-danger');
+        }
+    });
+    
+    // Подтверждение email
+    $('#verify-email').click(function() {
+        var btn = $(this);
+        var email = $('#id_email').val();
+        
+        if (!email) {
+            alert('Введите email');
+            return;
+        }
+
+        $('#email-display').text(email);
+        $('#verifyEmailModal').modal('show');
+
+        $.ajax({
+            url: '{% url "accounts:verify_email" %}',
+            method: 'POST',
+            data: {
+                'email': email,
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            },
+            success: function(data) {
+                $('#verification-message').removeClass('alert-danger').addClass('alert-success')
+                    .text('Код отправлен! Проверьте почту.').show();
+            },
+            error: function(xhr) {
+                $('#verification-message').removeClass('alert-success').addClass('alert-danger')
+                    .text('Ошибка при отправке кода').show();
+            }
+        });
+    });
+
+    // Подтверждение кода
+    $('#confirm-code').click(function() {
+        var code = $('#verification-code').val();
+
+        if (!code || code.length !== 6) {
+            alert('Введите 6-значный код');
+            return;
+        }
+
+        $.ajax({
+            url: '{% url "accounts:confirm_email" %}',
+            method: 'POST',
+            data: {
+                'code': code,
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            },
+            success: function(data) {
+                $('#verifyEmailModal').modal('hide');
+                $('#verify-email').html('<i class="bi bi-check-lg text-success"></i> Подтвержден').prop('disabled', true);
+                location.reload(); // Перезагружаем для обновления статуса
+            },
+            error: function(xhr) {
+                alert('Неверный код подтверждения');
+            }
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+
+{% block title %}Массовое редактирование тегов - Поток{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h4><i class="bi bi-pencil-square"></i> Массовое редактирование тегов</h4>
+            </div>
+            <div class="card-body">
+                <form method="post" id="bulk-edit-form">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Выберите действие:</label>
+                        <select name="action" class="form-control" id="action-select">
+                            <option value="merge">Объединить теги</option>
+                            <option value="rename">Переименовать</option>
+                            <option value="delete">Удалить выбранные</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3" id="merge-options">
+                        <label class="form-label">Выберите теги для объединения:</label>
+                        <select name="merge_tags" class="form-control" multiple size="10">
+                            {% for tag in tags %}
+                                <option value="{{ tag.id }}">
+                                    {{ tag.name }} ({{ tag.posts.count }} постов)
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text text-muted">
+                            Удерживайте Ctrl (Cmd на Mac) для выбора нескольких
+                        </small>
+                        
+                        <div class="mt-3">
+                            <label class="form-label">Основной тег (в него будут объединены остальные):</label>
+                            <select name="main_tag" class="form-control">
+                                <option value="">-- Выберите --</option>
+                                {% for tag in tags %}
+                                    <option value="{{ tag.id }}">{{ tag.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3" id="rename-options" style="display: none;">
+                        <label class="form-label">Выберите тег для переименования:</label>
+                        <select name="rename_tag" class="form-control">
+                            {% for tag in tags %}
+                                <option value="{{ tag.id }}">{{ tag.name }}</option>
+                            {% endfor %}
+                        </select>
+                        
+                        <div class="mt-3">
+                            <label class="form-label">Новое название:</label>
+                            <input type="text" name="new_name" class="form-control">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3" id="delete-options" style="display: none;">
+                        <label class="form-label">Выберите теги для удаления:</label>
+                        <select name="delete_tags" class="form-control" multiple size="10">
+                            {% for tag in tags %}
+                                <option value="{{ tag.id }}">
+                                    {{ tag.name }} ({{ tag.posts.count }} постов)
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text text-muted">
+                            Удерживайте Ctrl (Cmd на Mac) для выбора нескольких
+                        </small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg"></i> Применить
+                    </button>
+                    <a href="{% url 'posts:tag_list' %}" class="btn btn-secondary">
+                        Отмена
+                    </a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $('#action-select').change(function() {
+        var action = $(this).val();
+        
+        $('#merge-options').hide();
+        $('#rename-options').hide();
+        $('#delete-options').hide();
+        
+        if (action === 'merge') {
+            $('#merge-options').show();
+        } else if (action === 'rename') {
+            $('#rename-options').show();
+        } else if (action === 'delete') {
+            $('#delete-options').show();
+        }
+    });
+</script>
+{% endblock %}

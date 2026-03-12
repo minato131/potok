@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block title %}Удаление тега - Поток{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card border-danger">
+            <div class="card-header bg-danger text-white">
+                <h4 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Подтверждение удаления</h4>
+            </div>
+            <div class="card-body">
+                {% if not user.is_staff and not user.is_superuser %}
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        У вас нет прав для удаления тегов.
+                    </div>
+                {% else %}
+                    <p class="lead">Вы уверены, что хотите удалить тег <strong>"{{ tag.name }}"</strong>?</p>
+
+                    <div class="alert alert-warning">
+                        <i class="bi bi-info-circle"></i>
+                        <strong>Внимание:</strong> Тег будет удален из всех постов, где он используется.
+                        <hr>
+                        <div class="mb-2">
+                            <strong>Статистика:</strong>
+                            <ul class="mb-0">
+                                <li>Постов с этим тегом: <strong>{{ tag.posts.count }}</strong></li>
+                                <li>Дата создания: {{ tag.created_at|date:"d.m.Y H:i" }}</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash"></i> Да, удалить тег
+                            </button>
+                            <a href="{% url 'posts:tag_detail' tag.slug %}" class="btn btn-secondary">
+                                <i class="bi bi-x-lg"></i> Отмена
+                            </a>
+                        </div>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

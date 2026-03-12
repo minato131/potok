@@ -2,14 +2,14 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Q, Count
+from django.db.models import Count, Q
 from django.utils import timezone
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib.auth import get_user_model
 
 from .models import Post, Comment, Like, Category, Tag, Bookmark, PostView
-from .forms import PostForm, CommentForm, PostSearchForm
+from .forms import PostForm, CommentForm, PostSearchForm, TagForm, CategoryForm
 
 User = get_user_model()
 
@@ -383,39 +383,6 @@ def category_detail(request, slug):
         'posts': posts
     })
 
-
-def tag_list(request):
-    """
-    Список всех тегов
-    """
-    tags = Tag.objects.annotate(
-        posts_count=Count('posts')
-    ).filter(posts_count__gt=0).order_by('-posts_count')
-
-    return render(request, 'posts/tag_list.html', {'tags': tags})
-
-
-def tag_detail(request, slug):
-    """
-    Детальная страница тега
-    """
-    tag = get_object_or_404(Tag, slug=slug)
-    posts = Post.objects.filter(
-        tags=tag,
-        status='published'
-    ).select_related('author').order_by('-created_at')
-
-    paginator = Paginator(posts, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-
-    return render(request, 'posts/tag_detail.html', {
-        'tag': tag,
-        'page_obj': page_obj,
-        'posts_count': posts.count()
-    })
-
-
 def search(request):
     """
     Глобальный поиск
@@ -460,3 +427,185 @@ def search(request):
         'total_results': total_results,
     }
     return render(request, 'posts/search_results.html', context)
+
+
+@login_required
+def category_create(request):
+    """
+    Создание новой категории (только для админов)
+    """
+    if not request.user.is_staff:
+        messages.error(request, 'У вас нет прав для создания категорий')
+        return redirect('posts:category_list')
+
+    if request.method == 'POST':
+        form = CategoryForm(request.POST)
+        if form.is_valid():
+            category = form.save()
+            messages.success(request, f'Категория "{category.name}" создана')
+            return redirect('posts:category_detail', slug=category.slug)
+    else:
+        form = CategoryForm()
+
+    return render(request, 'posts/category_form.html', {'form': form})
+
+
+@login_required
+def category_edit(request, slug):
+    """
+    Редактирование категории
+    """
+    category = get_object_or_404(Category, slug=slug)
+
+    if not request.user.is_staff:
+        messages.error(request, 'У вас нет прав для редактирования категорий')
+        return redirect('posts:category_detail', slug=category.slug)
+
+    if request.method == 'POST':
+        form = CategoryForm(request.POST, instance=category)
+        if form.is_valid():
+            category = form.save()
+            messages.success(request, f'Категория "{category.name}" обновлена')
+            return redirect('posts:category_detail', slug=category.slug)
+    else:
+        form = CategoryForm(instance=category)
+
+    return render(request, 'posts/category_form.html', {'form': form, 'category': category})
+
+
+def tag_list(request):
+    """
+    Список всех тегов с количеством постов
+    """
+    # Получаем все теги с подсчетом количества постов
+    tags = Tag.objects.annotate(
+        posts_count=Count('posts', filter=Q(posts__status='published'))  # <-- Используем Q без models.
+    ).order_by('-posts_count', 'name')
+
+    # Поиск по тегам
+    query = request.GET.get('q')
+    if query:
+        tags = tags.filter(name__icontains=query)
+
+    # Пагинация
+    paginator = Paginator(tags, 30)  # 30 тегов на страницу
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Для AJAX запросов (если нужен автокомплит)
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        data = [{
+            'id': tag.id,
+            'name': tag.name,
+            'slug': tag.slug,
+            'posts_count': tag.posts_count
+        } for tag in tags[:10]]
+        return JsonResponse({'tags': data})
+
+    # Статистика
+    total_tags = Tag.objects.count()
+    tags_with_posts = tags.filter(posts_count__gt=0).count()
+
+    context = {
+        'page_obj': page_obj,
+        'query': query,
+        'total_tags': total_tags,
+        'tags_with_posts': tags_with_posts,
+    }
+    return render(request, 'posts/tag_list.html', context)
+
+def tag_detail(request, slug):
+    """
+    Детальная страница тега
+    """
+    tag = get_object_or_404(Tag, slug=slug)
+    posts = Post.objects.filter(
+        tags=tag,
+        status='published'
+    ).select_related('author').prefetch_related('tags').order_by('-created_at')
+
+    paginator = Paginator(posts, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Похожие теги
+    similar_tags = Tag.objects.filter(
+        posts__in=posts[:20]
+    ).exclude(id=tag.id).annotate(
+        common_count=Count('posts')
+    ).order_by('-common_count')[:10]
+
+    context = {
+        'tag': tag,
+        'page_obj': page_obj,
+        'posts_count': posts.count(),
+        'similar_tags': similar_tags,
+    }
+    return render(request, 'posts/tag_detail.html', context)
+
+
+@login_required
+def tag_create(request):
+    """
+    Создание нового тега
+    """
+    # Проверка прав
+    if not request.user.is_staff and not request.user.is_superuser:
+        messages.error(request, 'У вас нет прав для создания тегов')
+        return redirect('posts:tag_list')
+
+    if request.method == 'POST':
+        form = TagForm(request.POST)
+        if form.is_valid():
+            tag = form.save()
+            messages.success(request, f'Тег "{tag.name}" успешно создан')
+            return redirect('posts:tag_detail', slug=tag.slug)
+        else:
+            messages.error(request, 'Пожалуйста, исправьте ошибки в форме')
+    else:
+        form = TagForm()
+
+    return render(request, 'posts/tag_form.html', {'form': form, 'is_create': True})
+
+
+@login_required
+def tag_edit(request, slug):
+    """
+    Редактирование тега
+    """
+    tag = get_object_or_404(Tag, slug=slug)
+
+    if not request.user.is_staff:
+        messages.error(request, 'У вас нет прав для редактирования тегов')
+        return redirect('posts:tag_detail', slug=tag.slug)
+
+    if request.method == 'POST':
+        form = TagForm(request.POST, instance=tag)
+        if form.is_valid():
+            tag = form.save()
+            messages.success(request, f'Тег "{tag.name}" обновлен')
+            return redirect('posts:tag_detail', slug=tag.slug)
+    else:
+        form = TagForm(instance=tag)
+
+    return render(request, 'posts/tag_form.html', {'form': form, 'tag': tag})
+
+
+@login_required
+def tag_delete(request, slug):
+    """
+    Удаление тега
+    """
+    tag = get_object_or_404(Tag, slug=slug)
+
+    if not request.user.is_staff:
+        messages.error(request, 'У вас нет прав для удаления тегов')
+        return redirect('posts:tag_detail', slug=tag.slug)
+
+    if request.method == 'POST':
+        name = tag.name
+        tag.delete()
+        messages.success(request, f'Тег "{name}" удален')
+        return redirect('posts:tag_list')
+
+    return render(request, 'posts/tag_confirm_delete.html', {'tag': tag})

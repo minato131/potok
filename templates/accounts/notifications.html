@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}Уведомления - Поток{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0"><i class="bi bi-bell"></i> Уведомления</h4>
+                <div>
+                    <form method="post" action="{% url 'accounts:notification_mark_all_read' %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-check-all"></i> Все прочитано
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Фильтры -->
+            <div class="card-body pb-0">
+                <ul class="nav nav-pills nav-fill">
+                    <li class="nav-item">
+                        <a class="nav-link {% if not filter_type %}active{% endif %}" 
+                           href="{% url 'accounts:notifications' %}">
+                            Все
+                        </a>
+                    </li>
+                    {% for type_code, type_name in notification_types %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if filter_type == type_code %}active{% endif %}" 
+                               href="?type={{ type_code }}">
+                                {{ type_name }}
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            
+            <!-- Список уведомлений -->
+            <div class="card-body">
+                {% if page_obj %}
+                    <div class="list-group">
+                        {% for notification in page_obj %}
+                            <div class="list-group-item list-group-item-action {% if not notification.is_read %}list-group-item-primary{% endif %}">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">{{ notification.title }}</h6>
+                                    <small class="text-muted">{{ notification.created_at|timesince }} назад</small>
+                                </div>
+                                <p class="mb-1">{{ notification.message }}</p>
+                                <div class="d-flex justify-content-between align-items-center mt-2">
+                                    <small class="text-muted">
+                                        <span class="badge bg-secondary">{{ notification.get_notification_type_display }}</span>
+                                    </small>
+                                    {% if notification.link %}
+                                        <a href="{{ notification.link }}" class="btn btn-sm btn-outline-primary">
+                                            Перейти
+                                        </a>
+                                    {% endif %}
+                                    {% if not notification.is_read %}
+                                        <form method="post" action="{% url 'accounts:notification_mark_read' notification.id %}" class="d-inline">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-success">
+                                                <i class="bi bi-check"></i>
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Пагинация -->
+                    {% if page_obj.has_other_pages %}
+                        <nav aria-label="Page navigation" class="mt-4">
+                            <ul class="pagination justify-content-center">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page=1{% if filter_type %}&type={{ filter_type }}{% endif %}">
+                                            <i class="bi bi-chevron-double-left"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                                
+                                {% for num in page_obj.paginator.page_range %}
+                                    {% if page_obj.number == num %}
+                                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                    {% endif %}
+                                {% endfor %}
+                                
+                                {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filter_type %}&type={{ filter_type }}{% endif %}">
+                                            <i class="bi bi-chevron-right"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    {% endif %}
+                {% else %}
+                    <p class="text-muted text-center">У вас пока нет уведомлений</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

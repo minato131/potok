@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Подтверждение email</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 10px 10px 0 0;
+        }
+        .content {
+            background: #f9f9f9;
+            padding: 30px;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+        }
+        .code {
+            background: white;
+            font-size: 32px;
+            font-weight: bold;
+            text-align: center;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            border: 2px dashed #667eea;
+            color: #667eea;
+            letter-spacing: 5px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #666;
+            font-size: 12px;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Поток</h1>
+        <p>Социальная сеть для общения и обмена идеями</p>
+    </div>
+
+    <div class="content">
+        <h2>Подтверждение email адреса</h2>
+
+        <p>Здравствуйте, <strong>{{ user.get_full_name|default:user.username }}</strong>!</p>
+
+        <p>Вы получили это письмо, потому что запросили подтверждение email адреса на сайте {{ site_name }}.</p>
+
+        <p>Ваш код подтверждения:</p>
+
+        <div class="code">{{ code }}</div>
+
+        <p>Введите этот код в форму подтверждения на сайте.</p>
+
+        <div class="warning">
+            <strong>⚠️ Важно:</strong> Код действителен в течение 10 минут.
+            Никому не сообщайте этот код!
+        </div>
+
+        <p>Если вы не запрашивали подтверждение email, просто проигнорируйте это письмо.</p>
+
+        <p>С уважением,<br>Команда {{ site_name }}</p>
+    </div>
+
+    <div class="footer">
+        <p>© {% now "Y" %} {{ site_name }}. Все права защищены.</p>
+        <p>Это автоматическое письмо, пожалуйста, не отвечайте на него.</p>
+    </div>
+</body>
+</html>

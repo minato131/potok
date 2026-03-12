@@ -37,6 +37,76 @@ class User(AbstractUser):
         auto_now=True,
         verbose_name='Дата обновления'
     )
+    email_verified = models.BooleanField(
+        default=False,
+        verbose_name='Email подтвержден'
+    )
+    private_profile = models.BooleanField(
+        default=False,
+        verbose_name='Закрытый профиль'
+    )
+    hide_email = models.BooleanField(
+        default=True,
+        verbose_name='Скрыть email'
+    )
+    message_privacy = models.CharField(
+        max_length=20,
+        choices=[
+            ('everyone', 'Все'),
+            ('followers', 'Только подписчики'),
+            ('none', 'Никто'),
+        ],
+        default='everyone',
+        verbose_name='Кто может писать'
+    )
+
+    # Социальные сети
+    telegram = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='Telegram'
+    )
+    vk = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='VK'
+    )
+    github = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name='GitHub'
+    )
+
+    # Настройки уведомлений
+    email_likes = models.BooleanField(
+        default=True,
+        verbose_name='Уведомления о лайках'
+    )
+    email_comments = models.BooleanField(
+        default=True,
+        verbose_name='Уведомления о комментариях'
+    )
+    email_follows = models.BooleanField(
+        default=True,
+        verbose_name='Уведомления о подписчиках'
+    )
+    email_messages = models.BooleanField(
+        default=True,
+        verbose_name='Уведомления о сообщениях'
+    )
+    last_activity = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Последняя активность'
+    )
+
+    @property
+    def is_online(self):
+        """Проверяет, был ли пользователь активен в последние 5 минут"""
+        if not self.last_activity:
+            return False
+        from django.utils import timezone
+        return (timezone.now() - self.last_activity).seconds < 300
 
     def __str__(self):
         return self.username
@@ -82,9 +152,7 @@ class Follow(models.Model):
     class Meta:
         verbose_name = 'Подписка'
         verbose_name_plural = 'Подписки'
-        # Запрещаем повторную подписку
         unique_together = ('follower', 'following')
-        # Нельзя подписаться на самого себя (проверим на уровне приложения)
 
     def __str__(self):
         return f"{self.follower.username} подписан на {self.following.username}"
@@ -98,3 +166,75 @@ class Follow(models.Model):
     def save(self, *args, **kwargs):
         self.clean()
         super().save(*args, **kwargs)
+
+
+class Notification(models.Model):
+    """
+    Модель уведомлений пользователя
+    """
+    NOTIFICATION_TYPES = [
+        ('like', 'Лайк'),
+        ('comment', 'Комментарий'),
+        ('follow', 'Подписка'),
+        ('mention', 'Упоминание'),
+        ('message', 'Сообщение'),
+        ('community_invite', 'Приглашение в сообщество'),
+        ('community_request', 'Заявка в сообщество'),
+        ('report', 'Жалоба рассмотрена'),
+    ]
+
+    recipient = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='notifications',
+        verbose_name='Получатель'
+    )
+    sender = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='sent_notifications',
+        null=True,
+        blank=True,
+        verbose_name='Отправитель'
+    )
+    notification_type = models.CharField(
+        max_length=20,
+        choices=NOTIFICATION_TYPES,
+        verbose_name='Тип уведомления'
+    )
+    title = models.CharField(
+        max_length=200,
+        verbose_name='Заголовок'
+    )
+    message = models.TextField(
+        verbose_name='Текст уведомления'
+    )
+    link = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name='Ссылка'
+    )
+    is_read = models.BooleanField(
+        default=False,
+        verbose_name='Прочитано'
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Дата создания'
+    )
+
+    class Meta:
+        verbose_name = 'Уведомление'
+        verbose_name_plural = 'Уведомления'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['recipient', '-created_at']),
+            models.Index(fields=['recipient', 'is_read']),
+        ]
+
+    def __str__(self):
+        return f"{self.recipient.username}: {self.title}"
+
+    def mark_as_read(self):
+        self.is_read = True
+        self.save(update_fields=['is_read'])

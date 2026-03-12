@@ -1,23 +1,188 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Теги - Поток{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-12">
-        <h2 class="mb-4"><i class="bi bi-tags"></i> Популярные теги</h2>
-        
-        <div class="card">
-            <div class="card-body">
-                {% for tag in tags %}
-                    <a href="{% url 'posts:tag_detail' tag.slug %}" class="tag" style="font-size: {% widthratio tag.posts_count 10 100 %}%">
-                        #{{ tag.name }} <span class="badge bg-secondary">{{ tag.posts_count }}</span>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-1"><i class="bi bi-tags"></i> Теги</h2>
+                <p class="text-muted">
+                    Всего тегов: {{ total_tags }} •
+                    Используется: {{ tags_with_posts }}
+                </p>
+            </div>
+            <div>
+                {% if user.is_staff or user.is_superuser %}
+                    <a href="{% url 'posts:tag_create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Создать тег
                     </a>
-                {% empty %}
-                    <p class="text-muted">Пока нет тегов</p>
-                {% endfor %}
+                {% endif %}
+                <a href="{% url 'posts:post_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Назад
+                </a>
             </div>
         </div>
+
+        <!-- Поиск тегов -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-10">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text" name="q" class="form-control form-control-lg"
+                                   placeholder="Поиск тегов..." value="{{ query|default:'' }}">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100 h-100">
+                            Найти
+                        </button>
+                    </div>
+                </form>
+                {% if query %}
+                    <div class="mt-2">
+                        <a href="{% url 'posts:tag_list' %}" class="text-decoration-none">
+                            <i class="bi bi-x-circle"></i> Сбросить фильтр
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Облако тегов -->
+        <div class="card">
+            <div class="card-header">
+                <ul class="nav nav-tabs card-header-tabs">
+                    <li class="nav-item">
+                        <a class="nav-link active" data-bs-toggle="tab" href="#cloud">
+                            <i class="bi bi-cloud"></i> Облако тегов
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" data-bs-toggle="tab" href="#list">
+                            <i class="bi bi-list-ul"></i> Список
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body">
+                <div class="tab-content">
+                    <!-- Облако тегов -->
+                    <div class="tab-pane active" id="cloud">
+                        {% if page_obj %}
+                            {% for tag in page_obj %}
+                                <a href="{% url 'posts:tag_detail' tag.slug %}"
+                                   class="tag d-inline-block m-2 text-decoration-none"
+                                   style="font-size: {% widthratio tag.posts_count|add:1 2 120 %}%">
+                                    #{{ tag.name }}
+                                    <span class="badge bg-secondary">{{ tag.posts_count }}</span>
+                                </a>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-5">
+                                <i class="bi bi-tags" style="font-size: 3rem; color: #ccc;"></i>
+                                <h5 class="mt-3">Теги не найдены</h5>
+                                {% if query %}
+                                    <p class="text-muted">По запросу "{{ query }}" ничего не найдено</p>
+                                    <a href="{% url 'posts:tag_list' %}" class="btn btn-outline-primary">
+                                        Сбросить поиск
+                                    </a>
+                                {% else %}
+                                    <p class="text-muted">Пока нет ни одного тега</p>
+                                    {% if user.is_staff or user.is_superuser %}
+                                        <a href="{% url 'posts:tag_create' %}" class="btn btn-primary">
+                                            <i class="bi bi-plus-circle"></i> Создать первый тег
+                                        </a>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Список тегов -->
+                    <div class="tab-pane fade" id="list">
+                        {% if page_obj %}
+                            <div class="list-group">
+                                {% for tag in page_obj %}
+                                    <a href="{% url 'posts:tag_detail' tag.slug %}"
+                                       class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <i class="bi bi-tag"></i> #{{ tag.name }}
+                                            <small class="text-muted ms-2">slug: {{ tag.slug }}</small>
+                                        </div>
+                                        <div>
+                                            <span class="badge bg-primary rounded-pill me-2">{{ tag.posts_count }}</span>
+                                            {% if user.is_staff or user.is_superuser %}
+                                                <a href="{% url 'posts:tag_edit' tag.slug %}" class="btn btn-sm btn-outline-secondary">
+                                                    <i class="bi bi-pencil"></i>
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    </a>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Пагинация -->
+        {% if page_obj.has_other_pages %}
+            <nav aria-label="Page navigation" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}">
+                                <i class="bi bi-chevron-double-left"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    <li class="page-item active">
+                        <span class="page-link">
+                            Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}
+                        </span>
+                    </li>
+
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}">
+                                <i class="bi bi-chevron-double-right"></i>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Инициализация вкладок Bootstrap
+    var triggerTabList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tab"]'))
+    triggerTabList.forEach(function (triggerEl) {
+        var tabTrigger = new bootstrap.Tab(triggerEl)
+        triggerEl.addEventListener('click', function (event) {
+            event.preventDefault()
+            tabTrigger.show()
+        })
+    })
+</script>
 {% endblock %}
