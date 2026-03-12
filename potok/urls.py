@@ -9,6 +9,7 @@ urlpatterns = [
     path('', include('posts.urls')),
     path('communities/', include('communities.urls')),
     path('messenger/', include('messenger.urls')),
+    path('moderation/', include('moderation.urls')),
 ]
 
 if settings.DEBUG:

@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+
+{% block title %}Панель модератора - Поток{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4"><i class="bi bi-shield-shaded"></i> Панель модератора</h2>
+        
+        <!-- Статистика -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card text-white bg-warning">
+                    <div class="card-body">
+                        <h5 class="card-title">Ожидающих жалоб</h5>
+                        <h2>{{ stats.pending_reports }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-danger">
+                    <div class="card-body">
+                        <h5 class="card-title">Активных блокировок</h5>
+                        <h2>{{ stats.active_bans }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-info">
+                    <div class="card-body">
+                        <h5 class="card-title">Жалоб сегодня</h5>
+                        <h2>{{ stats.reports_today }}</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Ожидающие жалобы -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Ожидающие жалобы</h5>
+                        <a href="{% url 'moderation:report_list' %}?status=pending" class="btn btn-sm btn-primary">
+                            Все жалобы
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        {% if pending_reports %}
+                            <div class="list-group">
+                                {% for report in pending_reports %}
+                                    <a href="{% url 'moderation:report_detail' report.id %}" 
+                                       class="list-group-item list-group-item-action">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <strong>{{ report.get_report_type_display }}</strong>
+                                                <br>
+                                                <small class="text-muted">
+                                                    От: {{ report.reporter.username }} |
+                                                    На: {{ report.content_object }}
+                                                </small>
+                                            </div>
+                                            <small class="text-muted">
+                                                {{ report.created_at|timesince }} назад
+                                            </small>
+                                        </div>
+                                    </a>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p class="text-muted text-center">Нет ожидающих жалоб</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Активные блокировки -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Активные блокировки</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if active_bans %}
+                            <div class="list-group">
+                                {% for ban in active_bans %}
+                                    <div class="list-group-item">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong>
+                                                    <a href="{% url 'moderation:user_detail' ban.user.id %}">
+                                                        {{ ban.user.username }}
+                                                    </a>
+                                                </strong>
+                                                <br>
+                                                <small class="text-muted">
+                                                    Причина: {{ ban.reason|truncatechars:50 }}
+                                                </small>
+                                            </div>
+                                            <div>
+                                                {% if ban.ban_type == 'temporary' %}
+                                                    <span class="badge bg-warning">
+                                                        До {{ ban.expires_at|date:"d.m.Y" }}
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">Постоянно</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p class="text-muted text-center">Нет активных блокировок</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Последние действия -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">Последние действия модераторов</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Время</th>
+                                <th>Модератор</th>
+                                <th>Действие</th>
+                                <th>Описание</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in recent_actions %}
+                                <tr>
+                                    <td>{{ log.created_at|date:"d.m.Y H:i" }}</td>
+                                    <td>
+                                        <a href="{% url 'accounts:profile_by_username' log.moderator.username %}">
+                                            {{ log.moderator.username }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ log.get_action_display }}</span>
+                                    </td>
+                                    <td>{{ log.description }}</td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center">Нет действий</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+
+{% block title %}Жалоба #{{ report.id }} - Поток{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 mx-auto">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">
+                    <i class="bi bi-flag"></i> Жалоба #{{ report.id }}
+                </h4>
+                <a href="{% url 'moderation:report_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Назад
+                </a>
+            </div>
+            
+            <div class="card-body">
+                <!-- Информация о жалобе -->
+                <dl class="row">
+                    <dt class="col-sm-3">Статус</dt>
+                    <dd class="col-sm-9">
+                        {% if report.status == 'pending' %}
+                            <span class="badge bg-warning">Ожидает рассмотрения</span>
+                        {% elif report.status == 'approved' %}
+                            <span class="badge bg-success">Одобрена</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Отклонена</span>
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-sm-3">Тип жалобы</dt>
+                    <dd class="col-sm-9">{{ report.get_report_type_display }}</dd>
+
+                    <dt class="col-sm-3">Жалобщик</dt>
+                    <dd class="col-sm-9">
+                        <a href="{% url 'accounts:profile_by_username' report.reporter.username %}">
+                            {{ report.reporter.get_full_name|default:report.reporter.username }}
+                        </a>
+                        <br>
+                        <small class="text-muted">@{{ report.reporter.username }}</small>
+                    </dd>
+
+                    <dt class="col-sm-3">Объект жалобы</dt>
+                    <dd class="col-sm-9">
+                        <strong>{{ report.content_type.name }}</strong>
+                        <br>
+                        {% if report.content_object %}
+                            {% if report.content_type.model == 'post' %}
+                                <a href="{% url 'posts:post_detail' report.object_id %}">
+                                    Пост #{{ report.object_id }}
+                                </a>
+                            {% elif report.content_type.model == 'comment' %}
+                                <a href="{% url 'posts:post_detail' report.content_object.post.id %}#comment-{{ report.object_id }}">
+                                    Комментарий #{{ report.object_id }}
+                                </a>
+                            {% elif report.content_type.model == 'user' %}
+                                <a href="{% url 'accounts:profile_by_username' report.content_object.username %}">
+                                    {{ report.content_object.username }}
+                                </a>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-danger">Объект удален</span>
+                        {% endif %}
+                    </dd>
+
+                    <dt class="col-sm-3">Описание</dt>
+                    <dd class="col-sm-9">
+                        <div class="p-3 bg-light rounded">
+                            {{ report.description|linebreaks|default:"Нет описания" }}
+                        </div>
+                    </dd>
+
+                    <dt class="col-sm-3">Дата</dt>
+                    <dd class="col-sm-9">{{ report.created_at|date:"d.m.Y H:i" }}</dd>
+
+                    {% if report.moderated_by %}
+                        <dt class="col-sm-3">Модератор</dt>
+                        <dd class="col-sm-9">
+                            <a href="{% url 'accounts:profile_by_username' report.moderated_by.username %}">
+                                {{ report.moderated_by.username }}
+                            </a>
+                            <br>
+                            <small class="text-muted">{{ report.moderated_at|date:"d.m.Y H:i" }}</small>
+                        </dd>
+
+                        {% if report.moderation_comment %}
+                            <dt class="col-sm-3">Комментарий</dt>
+                            <dd class="col-sm-9">
+                                <div class="p-3 bg-light rounded">
+                                    {{ report.moderation_comment }}
+                                </div>
+                            </dd>
+                        {% endif %}
+                    {% endif %}
+                </dl>
+
+                {% if report.status == 'pending' %}
+                    <hr>
+                    
+                    <!-- Форма модерации -->
+                    <h5 class="mb-3">Действия модератора</h5>
+                    
+                    <form method="post" class="mb-3">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">Комментарий (необязательно)</label>
+                            <textarea name="comment" class="form-control" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" name="action" value="approve" 
+                                    class="btn btn-success"
+                                    onclick="return confirm('Одобрить жалобу? Контент будет скрыт.')">
+                                <i class="bi bi-check-lg"></i> Одобрить жалобу
+                            </button>
+                            <button type="submit" name="action" value="reject" 
+                                    class="btn btn-secondary"
+                                    onclick="return confirm('Отклонить жалобу?')">
+                                <i class="bi bi-x-lg"></i> Отклонить
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <!-- Быстрые действия -->
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6 class="mb-2">Быстрые действия:</h6>
+                            <div class="btn-group">
+                                {% if report.content_type.model == 'user' %}
+                                    <a href="{% url 'moderation:ban_user' report.object_id %}" 
+                                       class="btn btn-sm btn-outline-danger">
+                                        Заблокировать пользователя
+                                    </a>
+                                {% else %}
+                                    <a href="{% url 'moderation:hide_content' report.content_type.model report.object_id %}" 
+                                       class="btn btn-sm btn-outline-warning"
+                                       onclick="return confirm('Скрыть контент?')">
+                                        Скрыть контент
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

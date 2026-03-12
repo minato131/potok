@@ -1,0 +1,164 @@
+{% extends 'base.html' %}
+
+{% block title %}Управление жалобами - Поток{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-flag"></i> Управление жалобами</h2>
+            <a href="{% url 'moderation:panel' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Назад
+            </a>
+        </div>
+
+        <!-- Фильтры -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Статус</label>
+                        <select name="status" class="form-control">
+                            <option value="">Все</option>
+                            <option value="pending" {% if status == 'pending' %}selected{% endif %}>Ожидает</option>
+                            <option value="approved" {% if status == 'approved' %}selected{% endif %}>Одобрено</option>
+                            <option value="rejected" {% if status == 'rejected' %}selected{% endif %}>Отклонено</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Тип жалобы</label>
+                        <select name="type" class="form-control">
+                            <option value="">Все</option>
+                            <option value="spam" {% if report_type == 'spam' %}selected{% endif %}>Спам</option>
+                            <option value="abuse" {% if report_type == 'abuse' %}selected{% endif %}>Оскорбления</option>
+                            <option value="illegal" {% if report_type == 'illegal' %}selected{% endif %}>Незаконное</option>
+                            <option value="adult" {% if report_type == 'adult' %}selected{% endif %}>18+</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Поиск</label>
+                        <input type="text" name="q" class="form-control" value="{{ query }}" placeholder="Поиск...">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-funnel"></i> Применить
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Список жалоб -->
+        <div class="card">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Тип</th>
+                                <th>Объект</th>
+                                <th>Жалобщик</th>
+                                <th>Статус</th>
+                                <th>Дата</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for report in page_obj %}
+                                <tr>
+                                    <td>#{{ report.id }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ report.get_report_type_display }}</span>
+                                    </td>
+                                    <td>
+                                        {% if report.content_object %}
+                                            {% if report.content_type.model == 'post' %}
+                                                <a href="{% url 'posts:post_detail' report.object_id %}">
+                                                    Пост #{{ report.object_id }}
+                                                </a>
+                                            {% elif report.content_type.model == 'comment' %}
+                                                <a href="{% url 'posts:post_detail' report.content_object.post.id %}#comment-{{ report.object_id }}">
+                                                    Комментарий
+                                                </a>
+                                            {% elif report.content_type.model == 'user' %}
+                                                <a href="{% url 'accounts:profile_by_username' report.content_object.username %}">
+                                                    {{ report.content_object.username }}
+                                                </a>
+                                            {% else %}
+                                                {{ report.content_object }}
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-danger">Удален</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'accounts:profile_by_username' report.reporter.username %}">
+                                            {{ report.reporter.username }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        {% if report.status == 'pending' %}
+                                            <span class="badge bg-warning">Ожидает</span>
+                                        {% elif report.status == 'approved' %}
+                                            <span class="badge bg-success">Одобрено</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Отклонено</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ report.created_at|date:"d.m.Y H:i" }}</td>
+                                    <td>
+                                        <a href="{% url 'moderation:report_detail' report.id %}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center">Нет жалоб</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Пагинация -->
+                {% if page_obj.has_other_pages %}
+                    <nav aria-label="Page navigation" class="mt-4">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1{% if status %}&status={{ status }}{% endif %}{% if report_type %}&type={{ report_type }}{% endif %}{% if query %}&q={{ query }}{% endif %}">
+                                        <i class="bi bi-chevron-double-left"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if page_obj.number == num %}
+                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% if status %}&status={{ status }}{% endif %}{% if report_type %}&type={{ report_type }}{% endif %}{% if query %}&q={{ query }}{% endif %}">
+                                            {{ num }}
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if status %}&status={{ status }}{% endif %}{% if report_type %}&type={{ report_type }}{% endif %}{% if query %}&q={{ query }}{% endif %}">
+                                        <i class="bi bi-chevron-double-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

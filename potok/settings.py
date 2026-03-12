@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'posts',
     'communities',
     'messenger',
+    'moderation',
 ]
 
 MIDDLEWARE = [
