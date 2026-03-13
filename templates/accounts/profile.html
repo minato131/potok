@@ -81,15 +81,12 @@
                             </a>
                         </div>
                     {% else %}
-                        <button class="btn {% if is_following %}btn-outline-secondary following{% else %}btn-primary{% endif %} w-100 follow-btn" 
+                        <button class="btn {% if is_following %}btn-outline-secondary{% else %}btn-primary{% endif %} w-100 follow-btn"
                                 data-user-id="{{ profile_user.id }}">
-                            {% if is_following %}
-                                <i class="bi bi-check-lg"></i> <span>Подписан</span>
-                            {% else %}
-                                <i class="bi bi-person-plus"></i> Подписаться
-                            {% endif %}
+                            <i class="bi {% if is_following %}bi-check-lg{% else %}bi-person-plus{% endif %}"></i>
+                            <span>{% if is_following %}Подписан{% else %}Подписаться{% endif %}</span>
                         </button>
-                        
+
                         <button class="btn btn-outline-primary w-100 mt-2" onclick="openChat({{ profile_user.id }})">
                             <i class="bi bi-chat"></i> Написать сообщение
                         </button>
@@ -361,78 +358,113 @@
 
 {% block extra_js %}
 <script>
-    // Подписка/отписка
-    $('.follow-btn').click(function() {
-        var btn = $(this);
-        var userId = btn.data('user-id');
-        
-        $.ajax({
-            url: '{% url "accounts:follow" 0 %}'.replace('0', userId),
-            method: 'POST',
-            data: {
-                'csrfmiddlewaretoken': '{{ csrf_token }}'
-            },
-            success: function(data) {
-                if (data.action === 'followed') {
-                    btn.removeClass('btn-primary').addClass('btn-outline-secondary following');
-                    btn.html('<i class="bi bi-check-lg"></i> <span>Подписан</span>');
-                    $('#followers-count').text(parseInt($('#followers-count').text()) + 1);
-                } else {
-                    btn.removeClass('btn-outline-secondary following').addClass('btn-primary');
-                    btn.html('<i class="bi bi-person-plus"></i> Подписаться');
-                    $('#followers-count').text(parseInt($('#followers-count').text()) - 1);
+    // Отключаем все предыдущие обработчики перед добавлением новых
+    $(document).ready(function() {
+        // Удаляем все старые обработчики с кнопки подписки
+        $('.follow-btn').off('click');
+
+        // Единый обработчик для подписки/отписки
+        $('.follow-btn').click(function(e) {
+            e.preventDefault(); // Предотвращаем любое стандартное поведение
+
+            var btn = $(this);
+            var userId = btn.data('user-id');
+            var currentCount = parseInt($('#followers-count').text());
+
+            // Блокируем кнопку на время запроса
+            btn.prop('disabled', true);
+
+            $.ajax({
+                url: '{% url "accounts:follow" 0 %}'.replace('0', userId),
+                method: 'POST',
+                data: {
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                },
+                success: function(data) {
+                    if (data.action === 'followed') {
+                        btn.removeClass('btn-primary').addClass('btn-outline-secondary');
+                        btn.find('i').removeClass('bi-person-plus').addClass('bi-check-lg');
+                        btn.find('span').text('Подписан');
+                    } else {
+                        btn.removeClass('btn-outline-secondary').addClass('btn-primary');
+                        btn.find('i').removeClass('bi-check-lg').addClass('bi-person-plus');
+                        btn.find('span').text('Подписаться');
+                    }
+
+                    // Обновляем счетчик подписчиков данными с сервера
+                    if (data.followers_count !== undefined) {
+                        $('#followers-count').text(data.followers_count);
+                    }
+                },
+                error: function(xhr) {
+                    console.error('Ошибка:', xhr);
+                    alert(xhr.responseJSON?.error || 'Произошла ошибка. Попробуйте еще раз.');
+
+                    // Возвращаем счетчик к исходному значению в случае ошибки
+                    $('#followers-count').text(currentCount);
+                },
+                complete: function() {
+                    // Разблокируем кнопку после завершения запроса
+                    btn.prop('disabled', false);
                 }
-            }
+            });
         });
+
+        // Загрузка аватара
+        $('#avatar-upload').change(function() {
+            var formData = new FormData();
+            formData.append('avatar', this.files[0]);
+            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+            $.ajax({
+                url: '{% url "accounts:profile_edit" %}',
+                method: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(data) {
+                    if (data.avatar_url) {
+                        $('#profile-avatar').attr('src', data.avatar_url + '?t=' + new Date().getTime());
+                    }
+                    location.reload(); // Перезагружаем для обновления всех данных
+                },
+                error: function(xhr) {
+                    alert('Ошибка при загрузке аватара');
+                }
+            });
+        });
+
+        // Открыть чат
+        window.openChat = function(userId) {
+            $('#chatModal').modal('show');
+            window.currentChatUserId = userId;
+        };
+
+        window.sendMessage = function() {
+            var message = $('#chat-form textarea').val();
+            if (!message) {
+                alert('Введите сообщение');
+                return;
+            }
+
+            $.ajax({
+                url: '{% url "messenger:create_private_chat" %}',
+                method: 'POST',
+                data: {
+                    'participant': window.currentChatUserId,
+                    'initial_message': message,
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                },
+                success: function(data) {
+                    if (data.chat_id) {
+                        window.location.href = '/messenger/chat/' + data.chat_id + '/';
+                    }
+                },
+                error: function() {
+                    alert('Ошибка при создании чата');
+                }
+            });
+        };
     });
-    
-    // Загрузка аватара
-    $('#avatar-upload').change(function() {
-        var formData = new FormData();
-        formData.append('avatar', this.files[0]);
-        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
-        
-        $.ajax({
-            url: '{% url "accounts:profile_edit" %}',
-            method: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            success: function(data) {
-                if (data.avatar_url) {
-                    $('#profile-avatar').attr('src', data.avatar_url + '?t=' + new Date().getTime());
-                }
-                location.reload(); // Перезагружаем для обновления всех данных
-            }
-        });
-    });
-    
-    // Открыть чат
-    var currentUserId = null;
-    
-    function openChat(userId) {
-        currentUserId = userId;
-        $('#chatModal').modal('show');
-    }
-    
-    function sendMessage() {
-        var message = $('#chat-form textarea').val();
-        if (!message) return;
-        
-        $.ajax({
-            url: '{% url "messenger:create_private_chat" %}',
-            method: 'POST',
-            data: {
-                'participant': currentUserId,
-                'initial_message': message,
-                'csrfmiddlewaretoken': '{{ csrf_token }}'
-            },
-            success: function(data) {
-                if (data.chat_id) {
-                    window.location.href = '/messenger/chat/' + data.chat_id + '/';
-                }
-            }
-        });
-    }
 </script>
 {% endblock %}

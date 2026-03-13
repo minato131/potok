@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+
+{% block title %}Профиль пользователя {{ target_user.username }} - Модерация{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                {% if target_user.avatar %}
+                    <img src="{{ target_user.avatar.url }}" class="avatar-large mb-3">
+                {% else %}
+                    <div class="avatar-large bg-secondary text-white d-flex align-items-center justify-content-center mx-auto mb-3">
+                        {{ target_user.username|first|upper }}
+                    </div>
+                {% endif %}
+                <h4>{{ target_user.get_full_name|default:target_user.username }}</h4>
+                <p class="text-muted">@{{ target_user.username }}</p>
+                
+                <div class="d-grid gap-2">
+                    <a href="{% url 'moderation:ban_user' target_user.id %}" class="btn btn-danger">
+                        <i class="bi bi-shield-lock"></i> Заблокировать
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5>Статистика</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 text-center">
+                        <h3>{{ stats.posts }}</h3>
+                        <small class="text-muted">постов</small>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <h3>{{ stats.comments }}</h3>
+                        <small class="text-muted">комментариев</small>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <h3>{{ stats.communities }}</h3>
+                        <small class="text-muted">сообществ</small>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <h3>{{ stats.reports_received }}</h3>
+                        <small class="text-muted">жалоб</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        {% if active_bans %}
+        <div class="card mb-3">
+            <div class="card-header bg-warning">
+                <h5>Активные блокировки</h5>
+            </div>
+            <div class="card-body">
+                {% for ban in active_bans %}
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ ban.get_ban_type_display }}</strong>
+                            <p class="mb-0">{{ ban.reason }}</p>
+                            <small class="text-muted">
+                                Заблокирован: {{ ban.created_at|date:"d.m.Y H:i" }}
+                                {% if ban.expires_at %}до {{ ban.expires_at|date:"d.m.Y H:i" }}{% endif %}
+                            </small>
+                        </div>
+                        <a href="{% url 'moderation:lift_ban' ban.id %}" class="btn btn-sm btn-success">
+                            Снять блокировку
+                        </a>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -186,4 +186,51 @@
         location.reload();
     }, 5000);
 </script>
+<script>
+    let isSubmitting = false;
+
+    $('#message-form').submit(function(e) {
+        e.preventDefault();
+
+        if (isSubmitting) {
+            console.log('Предотвращена повторная отправка');
+            return;
+        }
+
+        var form = $(this);
+        var content = $('#id_content').val().trim();
+
+        if (!content) {
+            alert('Введите сообщение');
+            return;
+        }
+
+        isSubmitting = true;
+        var submitBtn = form.find('button[type="submit"]');
+        submitBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Отправка...');
+
+        $.ajax({
+            url: form.attr('action'),
+            method: 'POST',
+            data: form.serialize(),
+            success: function(data) {
+                if (data.status === 'ok') {
+                    $('#id_content').val('');
+                    // Перезагружаем чат для отображения нового сообщения
+                    location.reload();
+                } else if (data.status === 'duplicate') {
+                    alert('Сообщение уже отправлено');
+                }
+            },
+            error: function(xhr) {
+                console.error('Ошибка:', xhr);
+                alert('Ошибка при отправке сообщения');
+            },
+            complete: function() {
+                isSubmitting = false;
+                submitBtn.prop('disabled', false).html('<i class="bi bi-send"></i>');
+            }
+        });
+    });
+</script>
 {% endblock %}

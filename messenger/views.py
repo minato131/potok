@@ -96,7 +96,21 @@ def chat_detail(request, chat_id):
 @login_required
 @require_POST
 def send_message(request, chat_id):
+    """
+    Отправка сообщения в чат с защитой от дублирования
+    """
     chat = get_object_or_404(Chat, id=chat_id, participants=request.user)
+
+    # Проверяем, не было ли только что отправлено такое же сообщение
+    last_message = chat.messages.filter(author=request.user).order_by('-created_at').first()
+    if last_message:
+        time_diff = timezone.now() - last_message.created_at
+        if time_diff.seconds < 2 and last_message.content == request.POST.get('content'):
+            # Сообщение отправлено повторно в течение 2 секунд - игнорируем
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'status': 'duplicate', 'message': 'Сообщение уже отправлено'})
+            messages.warning(request, 'Сообщение уже отправлено')
+            return redirect('messenger:chat_detail', chat_id=chat_id)
 
     form = MessageForm(request.POST)
     if form.is_valid():
@@ -115,6 +129,7 @@ def send_message(request, chat_id):
                 title = f'Новое сообщение в {chat.name}'
                 message_text = f'@{request.user.username}: {message.content[:50]}...'
 
+            from accounts.utils import create_notification
             create_notification(
                 recipient=participant.user,
                 sender=request.user,

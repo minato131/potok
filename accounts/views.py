@@ -105,19 +105,43 @@ def logout_view(request):
 def profile_view(request, username=None):
     """
     Просмотр профиля пользователя
-    Если username не указан - показываем профиль текущего пользователя
     """
     if username:
         user = get_object_or_404(User, username=username)
     else:
         user = request.user
 
-    # Получаем статистику
-    posts_count = user.posts.count()  # <-- ИСПРАВЛЕНО: было post_set, стало posts (related_name в модели)
+    # Статистика
+    posts_count = user.posts.filter(status='published').count()
     followers_count = Follow.objects.filter(following=user).count()
     following_count = Follow.objects.filter(follower=user).count()
 
-    # Проверяем, подписан ли текущий пользователь на просматриваемого
+    # Посты пользователя
+    user_posts = user.posts.filter(status='published').order_by('-created_at')[:10]
+
+    # Комментарии пользователя
+    from posts.models import Comment
+    user_comments = Comment.objects.filter(
+        author=user,
+        is_deleted=False
+    ).select_related('post').order_by('-created_at')[:10]
+
+    # Сообщества пользователя
+    from communities.models import CommunityMembership
+    user_communities = CommunityMembership.objects.filter(
+        user=user,
+        status='active'
+    ).select_related('community').order_by('-joined_at')[:10]
+
+    # Закладки пользователя (только для своего профиля)
+    user_bookmarks = []
+    if request.user == user:
+        from posts.models import Bookmark
+        user_bookmarks = Bookmark.objects.filter(
+            user=user
+        ).select_related('post').order_by('-created_at')[:10]
+
+    # Проверка подписки
     is_following = False
     if request.user.is_authenticated and request.user != user:
         is_following = Follow.objects.filter(
@@ -125,16 +149,16 @@ def profile_view(request, username=None):
             following=user
         ).exists()
 
-    # Получаем посты пользователя
-    user_posts = user.posts.filter(status='published').order_by('-created_at')[:10]  # <-- ИСПРАВЛЕНО
-
     context = {
         'profile_user': user,
         'posts_count': posts_count,
         'followers_count': followers_count,
         'following_count': following_count,
         'is_following': is_following,
-        'user_posts': user_posts,  # <-- ДОБАВЛЕНО для отображения в профиле
+        'user_posts': user_posts,
+        'user_comments': user_comments,
+        'user_communities': user_communities,
+        'user_bookmarks': user_bookmarks,
     }
     return render(request, 'accounts/profile.html', context)
 
@@ -160,9 +184,14 @@ def profile_edit_view(request):
 
 @login_required
 def follow_view(request, user_id):
+    """
+    Подписка/отписка от пользователя (поддерживает AJAX)
+    """
     user_to_follow = get_object_or_404(User, id=user_id)
 
     if request.user == user_to_follow:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'Нельзя подписаться на себя'}, status=400)
         messages.error(request, 'Нельзя подписаться на самого себя')
         return redirect('accounts:profile_by_username', username=user_to_follow.username)
 
@@ -172,9 +201,8 @@ def follow_view(request, user_id):
     )
 
     if created:
-        messages.success(request, f'Вы подписались на {user_to_follow.username}')
-
-        # Уведомление о новой подписке
+        # Создаем уведомление
+        from .utils import create_notification
         create_notification(
             recipient=user_to_follow,
             sender=request.user,
@@ -183,9 +211,30 @@ def follow_view(request, user_id):
             message=f'@{request.user.username} подписался на вас',
             link=f'/accounts/profile/{request.user.username}/'
         )
+
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            # Возвращаем ТОЛЬКО количество подписчиков пользователя, на которого подписались
+            followers_count = Follow.objects.filter(following=user_to_follow).count()
+            return JsonResponse({
+                'action': 'followed',
+                'followers_count': followers_count,  # Только это нужно для обновления
+                'message': f'Вы подписались на {user_to_follow.username}'
+            })
+        messages.success(request, f'Вы подписались на {user_to_follow.username}')
     else:
         follow.delete()
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            # Возвращаем ТОЛЬКО количество подписчиков пользователя, от которого отписались
+            followers_count = Follow.objects.filter(following=user_to_follow).count()
+            return JsonResponse({
+                'action': 'unfollowed',
+                'followers_count': followers_count,  # Только это нужно для обновления
+                'message': f'Вы отписались от {user_to_follow.username}'
+            })
         messages.info(request, f'Вы отписались от {user_to_follow.username}')
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'error': 'Invalid request'}, status=400)
 
     return redirect('accounts:profile_by_username', username=user_to_follow.username)
 
@@ -196,7 +245,9 @@ def followers_list_view(request, username):
     Список подписчиков пользователя
     """
     user = get_object_or_404(User, username=username)
-    followers = Follow.objects.filter(following=user).select_related('follower')
+    followers = Follow.objects.filter(
+        following=user
+    ).select_related('follower').order_by('-created_at')  # Добавил сортировку
 
     paginator = Paginator(followers, 20)
     page_number = request.GET.get('page')
@@ -215,7 +266,9 @@ def following_list_view(request, username):
     Список подписок пользователя
     """
     user = get_object_or_404(User, username=username)
-    following = Follow.objects.filter(follower=user).select_related('following')
+    following = Follow.objects.filter(
+        follower=user
+    ).select_related('following').order_by('-created_at')  # Добавил сортировку
 
     paginator = Paginator(following, 20)
     page_number = request.GET.get('page')
