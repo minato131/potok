@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Добро пожаловать в Поток!</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+            border-radius: 12px 12px 0 0;
+        }
+        .content {
+            background: #f8fafc;
+            padding: 40px;
+            border: 1px solid #e2e8f0;
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+        }
+        .button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            padding: 14px 40px;
+            border-radius: 30px;
+            margin: 20px 0;
+            font-weight: 500;
+        }
+        .features {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+            border: 1px solid #e2e8f0;
+        }
+        .feature-item {
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .feature-icon {
+            font-size: 24px;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #718096;
+            font-size: 14px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 20px;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 30px 0;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        .stat-label {
+            color: #718096;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 style="margin:0; font-size: 2.5rem;">✨ {{ site_name }}</h1>
+        <p style="margin:10px 0 0; opacity:0.9; font-size: 1.2rem;">Твоя новая социальная сеть</p>
+    </div>
+
+    <div class="content">
+        <h2 style="margin-top:0;">Привет, {{ user.get_full_name|default:user.username }}!</h2>
+
+        <p style="font-size: 1.1rem;">🎉 <strong>Добро пожаловать в Поток!</strong> Твой email успешно подтвержден.</p>
+
+        <p>Мы рады, что ты с нами! Теперь ты можешь:</p>
+
+        <div class="features">
+            <div class="feature-item">
+                <span class="feature-icon">📝</span>
+                <span><strong>Создавать посты</strong> и делиться мыслями</span>
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">💬</span>
+                <span><strong>Общаться</strong> в комментариях и личных сообщениях</span>
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">👥</span>
+                <span><strong>Вступать в сообщества</strong> по интересам</span>
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">🔖</span>
+                <span><strong>Сохранять</strong> понравившиеся посты в закладки</span>
+            </div>
+        </div>
+
+        <!-- Статистика (можно динамически подставлять) -->
+        <div class="stats">
+            <div>
+                <div class="stat-number">100+</div>
+                <div class="stat-label">пользователей</div>
+            </div>
+            <div>
+                <div class="stat-number">500+</div>
+                <div class="stat-label">постов</div>
+            </div>
+            <div>
+                <div class="stat-number">50+</div>
+                <div class="stat-label">сообществ</div>
+            </div>
+        </div>
+
+        <div style="text-align: center;">
+            <a href="{{ site_url }}" class="button">
+                🚀 Перейти к ленте
+            </a>
+        </div>
+
+        <p style="margin-top: 30px;">А вот несколько советов для начала:</p>
+        <ul>
+            <li>Заполни свой профиль - добавь аватар и информацию о себе</li>
+            <li>Найди интересные сообщества в разделе <strong>"Сообщества"</strong></li>
+            <li>Подпишись на друзей, чтобы видеть их посты в ленте</li>
+        </ul>
+
+        <p>Если у тебя возникнут вопросы, просто ответь на это письмо - мы всегда на связи!</p>
+
+        <p style="margin-bottom:0;">С наилучшими пожеланиями,<br><strong>Команда {{ site_name }}</strong></p>
+    </div>
+
+    <div class="footer">
+        <p>Ты получил это письмо, потому что зарегистрировался на сайте {{ site_name }}.</p>
+        <p>© {% now "Y" %} {{ site_name }}. Все права защищены.</p>
+        <p style="margin-top: 10px;">
+            <a href="{{ site_url }}" style="color: #667eea; text-decoration: none;">Сайт</a> •
+        </p>
+    </div>
+</body>
+</html>

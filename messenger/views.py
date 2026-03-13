@@ -6,7 +6,7 @@ from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.utils import timezone
-
+from accounts.utils import create_notification
 from .models import Chat, Message, ChatParticipant
 from .forms import MessageForm, ChatCreateForm, GroupChatCreateForm
 from django.contrib.auth import get_user_model
@@ -96,9 +96,6 @@ def chat_detail(request, chat_id):
 @login_required
 @require_POST
 def send_message(request, chat_id):
-    """
-    Отправка сообщения в чат
-    """
     chat = get_object_or_404(Chat, id=chat_id, participants=request.user)
 
     form = MessageForm(request.POST)
@@ -108,10 +105,27 @@ def send_message(request, chat_id):
         message.author = request.user
         message.save()
 
-        # Обновляем время чата
-        chat.save()  # updated_at обновится автоматически
+        # Уведомления всем участникам чата
+        participants = ChatParticipant.objects.filter(chat=chat).exclude(user=request.user)
+        for participant in participants:
+            if chat.chat_type == 'private':
+                title = 'Новое сообщение'
+                message_text = f'@{request.user.username}: {message.content[:50]}...'
+            else:
+                title = f'Новое сообщение в {chat.name}'
+                message_text = f'@{request.user.username}: {message.content[:50]}...'
 
-        # Если это AJAX запрос
+            create_notification(
+                recipient=participant.user,
+                sender=request.user,
+                notification_type='message',
+                title=title,
+                message=message_text,
+                link=f'/messenger/chat/{chat.id}/'
+            )
+
+        chat.save()
+
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({
                 'status': 'ok',

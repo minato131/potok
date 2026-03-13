@@ -19,12 +19,14 @@ class PostForm(forms.ModelForm):
                 'class': 'form-control',
                 'rows': 10,
                 'placeholder': 'Содержание поста...'
+                # Убрали 'required' отсюда
             }),
             'category': forms.Select(attrs={
                 'class': 'form-control'
             }),
             'tags': forms.SelectMultiple(attrs={
-                'class': 'form-control'
+                'class': 'form-control',
+                'size': 5
             }),
             'image': forms.FileInput(attrs={
                 'class': 'form-control'
@@ -39,12 +41,16 @@ class PostForm(forms.ModelForm):
 
     def clean_title(self):
         title = self.cleaned_data.get('title')
+        if not title:
+            raise ValidationError('Заголовок обязателен')
         if len(title) < 5:
             raise ValidationError('Заголовок должен содержать минимум 5 символов')
         return title
 
     def clean_content(self):
         content = self.cleaned_data.get('content')
+        if not content:
+            raise ValidationError('Содержание обязательно')
         if len(content) < 10:
             raise ValidationError('Содержание должно содержать минимум 10 символов')
         return content

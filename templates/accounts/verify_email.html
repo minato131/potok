@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Подтверждение email - Поток{% endblock %}
+
+{% block extra_css %}
+<style>
+    .verification-container {
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    
+    .code-input {
+        font-size: 32px;
+        letter-spacing: 12px;
+        font-weight: 600;
+        text-align: center;
+        border: 2px solid #dee2e6;
+        border-radius: 12px;
+        padding: 15px;
+        transition: all 0.3s;
+        background: #f8fafc;
+    }
+    
+    .code-input:focus {
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        outline: none;
+        background: white;
+    }
+    
+    .timer {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #667eea;
+        font-family: monospace;
+    }
+    
+    .timer-warning {
+        color: #dc3545;
+    }
+    
+    .email-highlight {
+        background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%);
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px dashed #667eea;
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="verification-container">
+    <div class="card">
+        <div class="card-header bg-primary text-white text-center py-3">
+            <h4 class="mb-0">
+                <i class="bi bi-envelope-check me-2"></i>
+                Подтверждение email
+            </h4>
+        </div>
+        
+        <div class="card-body p-4">
+            <!-- Иконка и заголовок -->
+            <div class="text-center mb-4">
+                <div class="mb-3">
+                    <i class="bi bi-envelope-open" style="font-size: 4rem; color: #667eea;"></i>
+                </div>
+                <h5>Мы отправили код на</h5>
+                <div class="email-highlight mb-3">
+                    <i class="bi bi-envelope me-2"></i>
+                    {{ email }}
+                </div>
+                <p class="text-muted">
+                    Введите 6-значный код из письма
+                </p>
+            </div>
+
+            <!-- Форма ввода кода -->
+            <form method="post" id="verification-form">
+                {% csrf_token %}
+                
+                <div class="mb-4">
+                    <label for="{{ form.code.id_for_label }}" class="form-label">
+                        Код подтверждения
+                    </label>
+                    {{ form.code }}
+                    {% if form.code.errors %}
+                        <div class="text-danger mt-2">
+                            {% for error in form.code.errors %}
+                                <i class="bi bi-exclamation-circle"></i> {{ error }}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Таймер -->
+                <div class="text-center mb-4">
+                    <div class="small text-muted mb-1">Код действителен</div>
+                    <div id="timer" class="timer">10:00</div>
+                </div>
+
+                <!-- Кнопка подтверждения -->
+                <button type="submit" class="btn btn-primary w-100 py-3 mb-3">
+                    <i class="bi bi-check-lg me-2"></i>
+                    Подтвердить email
+                </button>
+            </form>
+
+            <hr class="my-4">
+
+            <!-- Повторная отправка -->
+            <div class="text-center">
+                <p class="mb-2 text-muted">Не получили письмо?</p>
+                
+                <!-- Кнопка для показа формы -->
+                <button type="button" class="btn btn-link text-decoration-none" 
+                        data-bs-toggle="collapse" data-bs-target="#resendSection">
+                    <i class="bi bi-arrow-repeat me-1"></i>
+                    Отправить код повторно
+                </button>
+
+                <!-- Форма повторной отправки (скрыта) -->
+                <div class="collapse mt-3" id="resendSection">
+                    <div class="card card-body bg-light">
+                        <form method="post" action="{% url 'accounts:resend_code' %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="email" value="{{ full_email }}">
+                            
+                            <div class="alert alert-info mb-3">
+                                <i class="bi bi-info-circle"></i>
+                                Новый код будет отправлен на {{ email }}
+                            </div>
+                            
+                            <button type="submit" class="btn btn-outline-primary w-100">
+                                <i class="bi bi-send me-2"></i>
+                                Отправить новый код
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ссылка на помощь -->
+            <div class="text-center mt-4">
+                <small class="text-muted">
+                    <i class="bi bi-question-circle"></i>
+                    Проблемы с подтверждением? 
+                    <a href="#" data-bs-toggle="modal" data-bs-target="#helpModal">
+                        Помощь
+                    </a>
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно помощи -->
+<div class="modal fade" id="helpModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-question-circle text-primary me-2"></i>
+                    Помощь с подтверждением
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item">
+                        <i class="bi bi-1-circle-fill text-primary me-2"></i>
+                        Проверьте папку "Спам" - письмо могло попасть туда
+                    </div>
+                    <div class="list-group-item">
+                        <i class="bi bi-2-circle-fill text-primary me-2"></i>
+                        Убедитесь, что вы правильно ввели email
+                    </div>
+                    <div class="list-group-item">
+                        <i class="bi bi-3-circle-fill text-primary me-2"></i>
+                        Подождите 1-2 минуты - письмо может идти с задержкой
+                    </div>
+                    <div class="list-group-item">
+                        <i class="bi bi-4-circle-fill text-primary me-2"></i>
+                        Используйте кнопку "Отправить повторно"
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Понятно
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Таймер обратного отсчета
+    function startTimer(duration, display) {
+        var timer = duration, minutes, seconds;
+        var interval = setInterval(function () {
+            minutes = parseInt(timer / 60, 10);
+            seconds = parseInt(timer % 60, 10);
+
+            minutes = minutes < 10 ? "0" + minutes : minutes;
+            seconds = seconds < 10 ? "0" + seconds : seconds;
+
+            display.textContent = minutes + ":" + seconds;
+
+            if (--timer < 0) {
+                clearInterval(interval);
+                display.textContent = "Код истек";
+                display.classList.add('timer-warning');
+                
+                // Показываем кнопку повторной отправки
+                document.getElementById('resendSection').classList.add('show');
+            }
+        }, 1000);
+    }
+
+    // Запускаем таймер на 10 минут
+    window.onload = function () {
+        // Проверяем, есть ли сохраненное время в localStorage
+        var startTime = localStorage.getItem('verification_start');
+        var now = new Date().getTime();
+        
+        if (!startTime) {
+            // Первый запуск - сохраняем время
+            startTime = now;
+            localStorage.setItem('verification_start', startTime);
+        }
+        
+        var elapsed = Math.floor((now - startTime) / 1000); // сколько прошло секунд
+        var remaining = Math.max(600 - elapsed, 0); // осталось секунд (600 = 10 минут)
+        
+        var display = document.querySelector('#timer');
+        startTimer(remaining, display);
+    };
+
+    // Очищаем localStorage при успешном подтверждении
+    document.getElementById('verification-form').addEventListener('submit', function() {
+        localStorage.removeItem('verification_start');
+    });
+
+    // Автоматическое переключение между полями (если используешь отдельные поля)
+    document.querySelectorAll('.code-input').forEach((input, index, inputs) => {
+        input.addEventListener('input', (e) => {
+            if (e.target.value.length === 1 && index < inputs.length - 1) {
+                inputs[index + 1].focus();
+            }
+        });
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' && index > 0 && e.target.value.length === 0) {
+                inputs[index - 1].focus();
+            }
+        });
+    });
+
+    // Маскирование email (если нужно)
+    function maskEmail(email) {
+        var parts = email.split('@');
+        if (parts.length !== 2) return email;
+        
+        var name = parts[0];
+        var domain = parts[1];
+        
+        if (name.length <= 2) {
+            var maskedName = name[0] + '*'.repeat(name.length - 1);
+        } else {
+            var maskedName = name[0] + '*'.repeat(name.length - 2) + name[name.length - 1];
+        }
+        
+        return maskedName + '@' + domain;
+    }
+</script>
+{% endblock %}

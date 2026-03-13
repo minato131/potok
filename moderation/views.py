@@ -6,7 +6,7 @@ from django.db.models import Q, Count
 from django.utils import timezone
 from django.contrib.contenttypes.models import ContentType
 from django.http import JsonResponse
-
+from accounts.utils import create_notification
 from .models import Report, Ban, ModerationLog
 from .forms import ReportForm, BanForm, ModerationActionForm
 from posts.models import Post, Comment
@@ -161,13 +161,7 @@ def report_list(request):
 @login_required
 @user_passes_test(is_moderator)
 def report_detail(request, report_id):
-    """
-    Детальная страница жалобы
-    """
-    report = get_object_or_404(
-        Report.objects.select_related('reporter', 'moderated_by'),
-        id=report_id
-    )
+    report = get_object_or_404(Report.objects.select_related('reporter'), id=report_id)
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -175,12 +169,44 @@ def report_detail(request, report_id):
 
         if action == 'approve':
             report.approve(request.user, comment)
+
+            # Уведомление пользователю, который подал жалобу
+            create_notification(
+                recipient=report.reporter,
+                sender=request.user,
+                notification_type='report',
+                title='Жалоба рассмотрена',
+                message=f'Ваша жалоба одобрена. {comment}',
+                link=f'/moderation/report/{report.id}/'
+            )
+
+            # Уведомление автору контента (если есть)
+            if report.content_object and hasattr(report.content_object, 'author'):
+                create_notification(
+                    recipient=report.content_object.author,
+                    sender=request.user,
+                    notification_type='report',
+                    title='Жалоба на ваш контент',
+                    message=f'На ваш контент поступила жалоба, и она была одобрена. {comment}',
+                    link='#'
+                )
+
             messages.success(request, 'Жалоба одобрена, контент скрыт')
         elif action == 'reject':
             report.reject(request.user, comment)
+
+            # Уведомление пользователю, который подал жалобу
+            create_notification(
+                recipient=report.reporter,
+                sender=request.user,
+                notification_type='report',
+                title='Жалоба рассмотрена',
+                message=f'Ваша жалоба отклонена. {comment}',
+                link=f'/moderation/report/{report.id}/'
+            )
+
             messages.success(request, 'Жалоба отклонена')
 
-        # Логируем действие
         ModerationLog.objects.create(
             moderator=request.user,
             action='approve_report' if action == 'approve' else 'reject_report',

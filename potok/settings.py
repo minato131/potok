@@ -28,12 +28,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.humanize',
     # Наши приложения
     'accounts',
     'posts',
     'communities',
     'messenger',
     'moderation',
+
 ]
 
 MIDDLEWARE = [
@@ -128,12 +130,12 @@ EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True') == 'True'
 EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False') == 'True'
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@potok.local')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'tinton220221@gmail.com')
 
 # For console backend (development)
 if EMAIL_BACKEND == 'django.core.mail.backends.console.EmailBackend':
-    EMAIL_HOST_USER = ''
-    EMAIL_HOST_PASSWORD = ''
+    EMAIL_HOST_USER = 'tinton220221@gmail.com'
+    EMAIL_HOST_PASSWORD = 'scdo iesb jidf rzqa'
 
 # Logging for email errors
 LOGGING = {
@@ -155,3 +157,6 @@ LOGGING = {
         },
     },
 }
+
+EMAIL_HOST_USER = 'tinton220221@gmail.com'
+EMAIL_HOST_PASSWORD = 'scdo iesb jidf rzqa'

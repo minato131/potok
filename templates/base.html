@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -136,7 +137,9 @@
             color: white;
         }
     </style>
-    {% block extra_css %}{% endblock %}
+    {% block extra_css %}
+        <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% endblock %}
 </head>
 <body>
         <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -167,13 +170,13 @@
                     </li>
                     {% if user.is_authenticated %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'messenger:chat_list' %}">
+                            <a class="nav-link position-relative" href="{% url 'messenger:chat_list' %}">
                                 <i class="bi bi-chat-dots"></i> Сообщения
-                                {% with unread_messages=user.chats.all.0.unread_count %}
-                                    {% if unread_messages > 0 %}
-                                        <span class="badge bg-danger">{{ unread_messages }}</span>
-                                    {% endif %}
-                                {% endwith %}
+                                {% if unread_messages_count > 0 %}
+                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                        {{ unread_messages_count }}
+                                    </span>
+                                {% endif %}
                             </a>
                         </li>
                     {% endif %}
@@ -216,19 +219,30 @@
                             <a class="nav-link position-relative" href="#" id="notificationDropdown" role="button" data-bs-toggle="dropdown">
                                 <i class="bi bi-bell"></i>
                                 {% if unread_notifications_count > 0 %}
-                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notification-badge">
                                         {{ unread_notifications_count }}
                                     </span>
                                 {% endif %}
                             </a>
-                            <div class="dropdown-menu dropdown-menu-end" style="width: 300px;" id="notification-menu">
-                                <h6 class="dropdown-header">Уведомления</h6>
-                                <div id="notifications-list">
-                                    <!-- Через AJAX будут подгружаться -->
-                                    <span class="dropdown-item-text text-muted">Загрузка...</span>
+                            <div class="dropdown-menu dropdown-menu-end" style="width: 350px;" id="notification-menu">
+                                <div class="dropdown-header d-flex justify-content-between align-items-center">
+                                    <span>Уведомления</span>
+                                    <button class="btn btn-sm btn-link p-0" id="mark-all-read" style="font-size: 12px;">
+                                        <i class="bi bi-check-all"></i> Все прочитано
+                                    </button>
                                 </div>
                                 <div class="dropdown-divider"></div>
-                                <a class="dropdown-item text-center" href="{% url 'accounts:notifications' %}">
+                                <div id="notifications-list" style="max-height: 400px; overflow-y: auto;">
+                                    <!-- Уведомления будут подгружаться через AJAX -->
+                                    <div class="text-center py-3">
+                                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                            <span class="visually-hidden">Загрузка...</span>
+                                        </div>
+                                        <p class="text-muted small mt-2">Загрузка уведомлений...</p>
+                                    </div>
+                                </div>
+                                <div class="dropdown-divider"></div>
+                                <a class="dropdown-item text-center text-primary" href="{% url 'accounts:notifications' %}">
                                     Все уведомления
                                 </a>
                             </div>
@@ -342,5 +356,88 @@
         }, 5000);
     </script>
     {% block extra_js %}{% endblock %}
+
+<script>
+    // Функция загрузки уведомлений
+    function loadNotifications() {
+        $.ajax({
+            url: '{% url "accounts:notifications_ajax" %}',
+            method: 'GET',
+            success: function(data) {
+                updateNotificationsList(data);
+            },
+            error: function(xhr, status, error) {
+                console.error('Ошибка загрузки уведомлений:', error);
+            }
+        });
+    }
+
+    // Функция обновления списка уведомлений
+    function updateNotificationsList(data) {
+        var list = $('#notifications-list');
+        list.empty();
+
+        if (data.notifications && data.notifications.length > 0) {
+            $.each(data.notifications, function(i, notif) {
+                var item = $('<a>', {
+                    class: 'dropdown-item',
+                    href: notif.link,
+                    html: '<div class="d-flex justify-content-between align-items-start">' +
+                          '<div class="flex-grow-1 me-2">' +
+                          '<small><strong>' + notif.title + '</strong></small>' +
+                          '<p class="small text-muted mb-0">' + notif.message + '</p>' +
+                          '</div>' +
+                          '<small class="text-muted" style="font-size: 10px;">' + notif.created_at + '</small>' +
+                          '</div>'
+                });
+                list.append(item);
+            });
+
+            // Обновляем счетчик
+            $('#notification-badge').text(data.count).show();
+        } else {
+            list.html('<div class="text-center py-3"><i class="bi bi-bell-slash text-muted" style="font-size: 2rem;"></i><p class="text-muted small mt-2">Нет новых уведомлений</p></div>');
+            $('#notification-badge').hide();
+        }
+    }
+
+    // Отметить все как прочитанные
+    $('#mark-all-read').click(function() {
+        $.ajax({
+            url: '{% url "accounts:notification_mark_all_read" %}',
+            method: 'POST',
+            data: {
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            },
+            success: function() {
+                loadNotifications();
+            }
+        });
+    });
+
+    // Загружаем уведомления при открытии дропдауна
+    $('#notificationDropdown').on('show.bs.dropdown', function() {
+        loadNotifications();
+    });
+
+    // Периодическая проверка новых уведомлений (каждые 30 секунд)
+    setInterval(function() {
+        if (document.visibilityState === 'visible') {
+            $.ajax({
+                url: '{% url "accounts:notifications_ajax" %}',
+                method: 'GET',
+                success: function(data) {
+                    if (data.count > 0) {
+                        $('#notification-badge').text(data.count).show();
+                        // Обновляем список только если дропдаун открыт
+                        if ($('#notificationDropdown').attr('aria-expanded') === 'true') {
+                            updateNotificationsList(data);
+                        }
+                    }
+                }
+            });
+        }
+    }, 30000);
+</script>
 </body>
 </html>

@@ -5,7 +5,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q, Count
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-
+from accounts.utils import create_notification
 from .models import Community, CommunityMembership, CommunityPost, CommunityJoinRequest
 from .forms import CommunityForm, CommunityPostForm, CommunityJoinRequestForm
 from posts.models import Post
@@ -195,12 +195,8 @@ def community_edit(request, slug):
 
 @login_required
 def community_join(request, slug):
-    """
-    Вступление в сообщество
-    """
     community = get_object_or_404(Community, slug=slug)
 
-    # Проверяем, не состоит ли уже
     membership = CommunityMembership.objects.filter(
         user=request.user,
         community=community
@@ -213,20 +209,35 @@ def community_join(request, slug):
             messages.info(request, 'Вы уже состоите в этом сообществе')
         return redirect('communities:community_detail', slug=community.slug)
 
-    # Для публичных сообществ - сразу добавляем
     if community.privacy == 'public':
-        CommunityMembership.objects.create(
+        membership = CommunityMembership.objects.create(
             user=request.user,
             community=community,
             status='active'
         )
         community.update_stats()
+
+        # Уведомление админам сообщества
+        admins = CommunityMembership.objects.filter(
+            community=community,
+            role__in=['admin', 'moderator'],
+            status='active'
+        ).select_related('user')
+
+        for admin in admins:
+            create_notification(
+                recipient=admin.user,
+                sender=request.user,
+                notification_type='community',
+                title='Новый участник',
+                message=f'@{request.user.username} присоединился к сообществу "{community.name}"',
+                link=f'/communities/{community.slug}/'
+            )
+
         messages.success(request, f'Вы вступили в сообщество "{community.name}"!')
         return redirect('communities:community_detail', slug=community.slug)
 
-    # Для закрытых - создаем заявку
     elif community.privacy == 'private':
-        # Проверяем, нет ли уже активной заявки
         existing_request = CommunityJoinRequest.objects.filter(
             community=community,
             user=request.user,
@@ -240,12 +251,30 @@ def community_join(request, slug):
         if request.method == 'POST':
             form = CommunityJoinRequestForm(request.POST)
             if form.is_valid():
-                CommunityJoinRequest.objects.create(
+                join_request = CommunityJoinRequest.objects.create(
                     community=community,
                     user=request.user,
                     message=form.cleaned_data['message']
                 )
-                messages.success(request, 'Заявка отправлена! Ожидайте решения модераторов.')
+
+                # Уведомление админам о новой заявке
+                admins = CommunityMembership.objects.filter(
+                    community=community,
+                    role__in=['admin', 'moderator'],
+                    status='active'
+                ).select_related('user')
+
+                for admin in admins:
+                    create_notification(
+                        recipient=admin.user,
+                        sender=request.user,
+                        notification_type='community_request',
+                        title='Новая заявка',
+                        message=f'@{request.user.username} хочет вступить в "{community.name}"',
+                        link=f'/communities/{community.slug}/requests/'
+                    )
+
+                messages.success(request, 'Заявка отправлена!')
                 return redirect('communities:community_detail', slug=community.slug)
         else:
             form = CommunityJoinRequestForm()
@@ -254,11 +283,6 @@ def community_join(request, slug):
             'form': form,
             'community': community
         })
-
-    # Для скрытых - недоступно
-    else:
-        messages.error(request, 'Это сообщество закрыто для вступления')
-        return redirect('communities:community_detail', slug=community.slug)
 
 
 @login_required
@@ -370,12 +394,8 @@ def community_members(request, slug):
 
 @login_required
 def community_manage_requests(request, slug):
-    """
-    Управление заявками на вступление
-    """
     community = get_object_or_404(Community, slug=slug)
 
-    # Проверка прав (только админы и модераторы)
     membership = CommunityMembership.objects.filter(
         user=request.user,
         community=community,
@@ -387,11 +407,6 @@ def community_manage_requests(request, slug):
         messages.error(request, 'У вас нет прав на управление заявками')
         return redirect('communities:community_detail', slug=community.slug)
 
-    pending_requests = CommunityJoinRequest.objects.filter(
-        community=community,
-        approved__isnull=True
-    ).select_related('user').order_by('created_at')
-
     if request.method == 'POST':
         request_id = request.POST.get('request_id')
         action = request.POST.get('action')
@@ -399,18 +414,53 @@ def community_manage_requests(request, slug):
         join_request = get_object_or_404(CommunityJoinRequest, id=request_id, community=community)
 
         if action == 'approve':
-            if join_request.approve(request.user):
-                messages.success(request, f'Заявка от {join_request.user.username} одобрена')
-            else:
-                messages.error(request, 'Не удалось одобрить заявку')
+            membership = CommunityMembership.objects.create(
+                user=join_request.user,
+                community=community,
+                status='active'
+            )
+            join_request.approved = True
+            join_request.processed_at = timezone.now()
+            join_request.processed_by = request.user
+            join_request.save()
+
+            # Уведомление пользователю об одобрении
+            create_notification(
+                recipient=join_request.user,
+                sender=request.user,
+                notification_type='community',
+                title='Заявка одобрена',
+                message=f'Ваша заявка на вступление в "{community.name}" одобрена',
+                link=f'/communities/{community.slug}/'
+            )
+
+            messages.success(request, f'Заявка от {join_request.user.username} одобрена')
         elif action == 'reject':
-            join_request.reject(request.user)
+            join_request.approved = False
+            join_request.processed_at = timezone.now()
+            join_request.processed_by = request.user
+            join_request.save()
+
+            # Уведомление пользователю об отказе
+            create_notification(
+                recipient=join_request.user,
+                sender=request.user,
+                notification_type='community',
+                title='Заявка отклонена',
+                message=f'Ваша заявка на вступление в "{community.name}" отклонена',
+                link='#'
+            )
+
             messages.info(request, f'Заявка от {join_request.user.username} отклонена')
 
         return redirect('communities:community_manage_requests', slug=community.slug)
 
-    context = {
+    pending_requests = CommunityJoinRequest.objects.filter(
+        community=community,
+        approved__isnull=True
+    ).select_related('user')
+
+    return render(request, 'communities/community_requests.html', {
         'community': community,
-        'pending_requests': pending_requests,
-    }
-    return render(request, 'communities/community_requests.html', context)
+        'pending_requests': pending_requests
+    })

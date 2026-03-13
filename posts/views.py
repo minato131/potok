@@ -1,15 +1,19 @@
+from datetime import timedelta
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Count, Q
+from django.db.models import Count, Q, F, OuterRef, Subquery
 from django.utils import timezone
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib.auth import get_user_model
-
+from accounts.models import Notification
+from communities.models import Community
 from .models import Post, Comment, Like, Category, Tag, Bookmark, PostView
 from .forms import PostForm, CommentForm, PostSearchForm, TagForm, CategoryForm
+from accounts.utils import create_notification
 
 User = get_user_model()
 
@@ -71,20 +75,40 @@ def post_list(request):
     ).filter(posts_count__gt=0).order_by('-posts_count')[:15]
 
     # Категории для навигации
-    categories = Category.objects.filter(parent=None)
+    categories = Category.objects.filter(parent=None)[:5]
 
     # Общее количество пользователей
     total_users = User.objects.count()
 
+    # Онлайн пользователи (активные за последние 5 минут)
+    online_users = User.objects.filter(
+        last_activity__gte=timezone.now() - timedelta(minutes=5)
+    )[:10]
+
+    # Рекомендуемые сообщества
+    recommended_communities = Community.objects.filter(
+        status='active'
+    ).order_by('-members_count')[:5]
+
+    # Топ постов недели - ИСПРАВЛЕНО (без сложных аннотаций)
+    week_ago = timezone.now() - timedelta(days=7)
+    top_posts = Post.objects.filter(
+        status='published',
+        created_at__gte=week_ago
+    ).order_by('-views_count', '-comments_count')[:5]
+
+    # Добавляем в контекст
     context = {
         'page_obj': page_obj,
         'search_form': search_form,
         'popular_tags': popular_tags,
         'categories': categories,
         'total_users': total_users,
+        'online_users': online_users,
+        'recommended_communities': recommended_communities,
+        'top_posts': top_posts,
     }
 
-    # ВАЖНО: всегда возвращаем HttpResponse
     return render(request, 'posts/post_list.html', context)
 
 
@@ -107,7 +131,7 @@ def post_detail(request, pk):
         recent_view = PostView.objects.filter(
             post=post,
             user=request.user,
-            viewed_at__gte=timezone.now() - timezone.timedelta(hours=1)
+            viewed_at__gte=timezone.now() - timedelta(hours=1)
         ).exists()
 
         if not recent_view:
@@ -166,6 +190,11 @@ def post_create(request):
             form.save_m2m()  # Сохраняем ManyToMany поля (теги)
             messages.success(request, 'Пост успешно создан!')
             return redirect('posts:post_detail', pk=post.pk)
+        else:
+            # Если форма не валидна, показываем ошибки
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f'{field}: {error}')
     else:
         form = PostForm()
 
@@ -173,7 +202,6 @@ def post_create(request):
         'form': form,
         'title': 'Создать пост'
     })
-
 
 @login_required
 def post_edit(request, pk):
@@ -225,9 +253,6 @@ def post_delete(request, pk):
 @login_required
 @require_POST
 def comment_create(request, post_pk):
-    """
-    Создание комментария (с поддержкой ответов)
-    """
     post = get_object_or_404(Post, pk=post_pk)
     parent_id = request.POST.get('parent_id')
 
@@ -243,7 +268,49 @@ def comment_create(request, post_pk):
 
         comment.save()
 
-        # Обновляем счетчик комментариев у поста
+        # Уведомление автору поста
+        if post.author != request.user:
+            create_notification(
+                recipient=post.author,
+                sender=request.user,
+                notification_type='comment',
+                title='Новый комментарий',
+                message=f'@{request.user.username} прокомментировал ваш пост: "{comment.content[:50]}..."',
+                link=f'/posts/post/{post.pk}/#comment-{comment.pk}',
+                content_object=comment
+            )
+
+        # Уведомление автору родительского комментария (если это ответ)
+        if parent_id and parent.author != request.user:
+            create_notification(
+                recipient=parent.author,
+                sender=request.user,
+                notification_type='comment',
+                title='Ответ на комментарий',
+                message=f'@{request.user.username} ответил на ваш комментарий: "{comment.content[:50]}..."',
+                link=f'/posts/post/{post.pk}/#comment-{comment.pk}',
+                content_object=comment
+            )
+
+        # Проверка на упоминания (@username)
+        import re
+        mentions = re.findall(r'@(\w+)', comment.content)
+        for username in mentions:
+            try:
+                mentioned_user = User.objects.get(username=username)
+                if mentioned_user != request.user and mentioned_user != post.author:
+                    create_notification(
+                        recipient=mentioned_user,
+                        sender=request.user,
+                        notification_type='mention',
+                        title='Упоминание',
+                        message=f'@{request.user.username} упомянул вас в комментарии',
+                        link=f'/posts/post/{post.pk}/#comment-{comment.pk}',
+                        content_object=comment
+                    )
+            except User.DoesNotExist:
+                pass
+
         post.comments_count = post.comments.filter(is_deleted=False).count()
         post.save(update_fields=['comments_count'])
 
@@ -255,9 +322,6 @@ def comment_create(request, post_pk):
 @login_required
 @require_POST
 def like_toggle(request):
-    """
-    Переключение лайка (AJAX)
-    """
     content_type = request.POST.get('content_type')
     object_id = request.POST.get('object_id')
     like_type = request.POST.get('like_type', 'like')
@@ -265,13 +329,11 @@ def like_toggle(request):
     if content_type not in ['post', 'comment']:
         return JsonResponse({'error': 'Invalid content type'}, status=400)
 
-    # Проверяем существование объекта
     if content_type == 'post':
         obj = get_object_or_404(Post, pk=object_id)
     else:
         obj = get_object_or_404(Comment, pk=object_id)
 
-    # Ищем существующий лайк
     like = Like.objects.filter(
         user=request.user,
         content_type=content_type,
@@ -279,17 +341,14 @@ def like_toggle(request):
     ).first()
 
     if like:
-        # Если лайк уже есть и того же типа - удаляем
         if like.like_type == like_type:
             like.delete()
             action = 'removed'
         else:
-            # Если другой тип - обновляем
             like.like_type = like_type
             like.save()
             action = 'updated'
     else:
-        # Создаем новый лайк
         like = Like.objects.create(
             user=request.user,
             content_type=content_type,
@@ -298,7 +357,27 @@ def like_toggle(request):
         )
         action = 'added'
 
-    # Обновляем счетчик у объекта
+        # Уведомление о новом лайке
+        if obj.author != request.user:
+            if content_type == 'post':
+                title = 'Новый лайк'
+                message = f'@{request.user.username} оценил ваш пост "{obj.title[:30]}..."'
+                link = f'/posts/post/{obj.pk}/'
+            else:
+                title = 'Новый лайк'
+                message = f'@{request.user.username} оценил ваш комментарий'
+                link = f'/posts/post/{obj.post.pk}/#comment-{obj.pk}'
+
+            create_notification(
+                recipient=obj.author,
+                sender=request.user,
+                notification_type='like',
+                title=title,
+                message=message,
+                link=link,
+                content_object=obj
+            )
+
     likes_count = Like.objects.filter(
         content_type=content_type,
         object_id=object_id
@@ -382,6 +461,7 @@ def category_detail(request, slug):
         'category': category,
         'posts': posts
     })
+
 
 def search(request):
     """
@@ -479,7 +559,7 @@ def tag_list(request):
     """
     # Получаем все теги с подсчетом количества постов
     tags = Tag.objects.annotate(
-        posts_count=Count('posts', filter=Q(posts__status='published'))  # <-- Используем Q без models.
+        posts_count=Count('posts', filter=Q(posts__status='published'))
     ).order_by('-posts_count', 'name')
 
     # Поиск по тегам
@@ -488,11 +568,11 @@ def tag_list(request):
         tags = tags.filter(name__icontains=query)
 
     # Пагинация
-    paginator = Paginator(tags, 30)  # 30 тегов на страницу
+    paginator = Paginator(tags, 30)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    # Для AJAX запросов (если нужен автокомплит)
+    # Для AJAX запросов
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         data = [{
             'id': tag.id,
@@ -513,6 +593,7 @@ def tag_list(request):
         'tags_with_posts': tags_with_posts,
     }
     return render(request, 'posts/tag_list.html', context)
+
 
 def tag_detail(request, slug):
     """

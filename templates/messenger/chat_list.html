@@ -26,104 +26,59 @@
                         <div class="d-flex align-items-center">
                             {% if chat.chat_type == 'private' %}
                                 {# Получаем второго участника диалога #}
-                                {% with other_user=chat.participants.all|first %}
-                                    {% if other_user == request.user %}
-                                        {% with other_user=chat.participants.all|last %}
-                                            <div class="me-3 position-relative">
-                                                {% if other_user.avatar %}
-                                                    <img src="{{ other_user.avatar.url }}" class="avatar-medium rounded-circle"
-                                                         style="width: 50px; height: 50px; object-fit: cover;">
-                                                {% else %}
-                                                    <div class="avatar-medium bg-secondary text-white d-flex align-items-center justify-content-center rounded-circle"
-                                                         style="width: 50px; height: 50px; font-size: 20px;">
-                                                        {{ other_user.username|first|upper }}
-                                                    </div>
-                                                {% endif %}
-                                                {% if other_user.is_online %}
-                                                    <span class="position-absolute bottom-0 end-0 bg-success rounded-circle"
-                                                          style="width: 12px; height: 12px; border: 2px solid white;"></span>
-                                                {% endif %}
-                                            </div>
-                                            <div class="flex-grow-1">
-                                                <div class="d-flex justify-content-between">
-                                                    <h6 class="mb-0 {% if chat.unread > 0 %}fw-bold{% endif %}">
-                                                        {{ other_user.get_full_name|default:other_user.username }}
-                                                    </h6>
-                                                    <small class="text-muted">
-                                                        @{{ other_user.username }}
-                                                    </small>
-                                                </div>
-                                                <div class="d-flex justify-content-between align-items-center">
-                                                    <small class="{% if chat.unread > 0 %}text-dark fw-bold{% else %}text-muted{% endif %}">
-                                                        {% with last=chat.get_last_message %}
-                                                            {% if last %}
-                                                                {% if last.author == request.user %}
-                                                                    <span class="text-muted">Вы:</span>
-                                                                {% endif %}
-                                                                {% if last.is_deleted %}
-                                                                    <em class="text-muted">Сообщение удалено</em>
-                                                                {% else %}
-                                                                    {{ last.content|truncatechars:30 }}
-                                                                {% endif %}
-                                                            {% else %}
-                                                                <span class="text-muted">Нет сообщений</span>
-                                                            {% endif %}
-                                                        {% endwith %}
-                                                    </small>
-                                                    {% if chat.unread > 0 %}
-                                                        <span class="badge bg-danger rounded-pill">{{ chat.unread }}</span>
+                                {% with participants=chat.participants.all %}
+                                    {% for participant in participants %}
+                                        {% if participant != request.user %}
+                                            {% with other_user=participant %}
+                                                <div class="me-3 position-relative">
+                                                    {% if other_user.avatar %}
+                                                        <img src="{{ other_user.avatar.url }}" class="avatar-medium rounded-circle"
+                                                             style="width: 50px; height: 50px; object-fit: cover;">
+                                                    {% else %}
+                                                        <div class="avatar-medium bg-secondary text-white d-flex align-items-center justify-content-center rounded-circle"
+                                                             style="width: 50px; height: 50px; font-size: 20px;">
+                                                            {{ other_user.username|first|upper }}
+                                                        </div>
+                                                    {% endif %}
+                                                    {% if other_user.is_online %}
+                                                        <span class="position-absolute bottom-0 end-0 bg-success rounded-circle"
+                                                              style="width: 12px; height: 12px; border: 2px solid white;"></span>
                                                     {% endif %}
                                                 </div>
-                                            </div>
-                                        {% endwith %}
-                                    {% else %}
-                                        <div class="me-3 position-relative">
-                                            {% if other_user.avatar %}
-                                                <img src="{{ other_user.avatar.url }}" class="avatar-medium rounded-circle"
-                                                     style="width: 50px; height: 50px; object-fit: cover;">
-                                            {% else %}
-                                                <div class="avatar-medium bg-secondary text-white d-flex align-items-center justify-content-center rounded-circle"
-                                                     style="width: 50px; height: 50px; font-size: 20px;">
-                                                    {{ other_user.username|first|upper }}
-                                                </div>
-                                            {% endif %}
-                                            {% if other_user.is_online %}
-                                                <span class="position-absolute bottom-0 end-0 bg-success rounded-circle"
-                                                      style="width: 12px; height: 12px; border: 2px solid white;"></span>
-                                            {% endif %}
-                                        </div>
-                                        <div class="flex-grow-1">
-                                            <div class="d-flex justify-content-between">
-                                                <h6 class="mb-0 {% if chat.unread > 0 %}fw-bold{% endif %}">
-                                                    {{ other_user.get_full_name|default:other_user.username }}
-                                                </h6>
-                                                <small class="text-muted">
-                                                    @{{ other_user.username }}
-                                                </small>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <small class="{% if chat.unread > 0 %}text-dark fw-bold{% else %}text-muted{% endif %}">
-                                                    {% with last=chat.get_last_message %}
-                                                        {% if last %}
-                                                            {% if last.author == request.user %}
-                                                                <span class="text-muted">Вы:</span>
-                                                            {% endif %}
-                                                            {% if last.is_deleted %}
-                                                                <em class="text-muted">Сообщение удалено</em>
-                                                            {% else %}
-                                                                {{ last.content|truncatechars:30 }}
-                                                            {% endif %}
-                                                        {% else %}
-                                                            <span class="text-muted">Нет сообщений</span>
+                                                <div class="flex-grow-1">
+                                                    <div class="d-flex justify-content-between">
+                                                        <h6 class="mb-0 {% if chat.unread > 0 %}fw-bold{% endif %}">
+                                                            {{ other_user.get_full_name|default:other_user.username }}
+                                                        </h6>
+                                                        <small class="text-muted">
+                                                            @{{ other_user.username }}
+                                                        </small>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <small class="{% if chat.unread > 0 %}text-dark fw-bold{% else %}text-muted{% endif %}">
+                                                            {% with last=chat.get_last_message %}
+                                                                {% if last %}
+                                                                    {% if last.author == request.user %}
+                                                                        <span class="text-muted">Вы:</span>
+                                                                    {% endif %}
+                                                                    {% if last.is_deleted %}
+                                                                        <em class="text-muted">Сообщение удалено</em>
+                                                                    {% else %}
+                                                                        {{ last.content|truncatechars:30 }}
+                                                                    {% endif %}
+                                                                {% else %}
+                                                                    <span class="text-muted">Нет сообщений</span>
+                                                                {% endif %}
+                                                            {% endwith %}
+                                                        </small>
+                                                        {% if chat.unread > 0 %}
+                                                            <span class="badge bg-danger rounded-pill">{{ chat.unread }}</span>
                                                         {% endif %}
-                                                    {% endwith %}
-                                                </small>
-                                                {% if chat.unread > 0 %}
-                                                    <span class="badge bg-danger rounded-pill">{{ chat.unread }}</span>
-                                                {% endif %}
-                                            </div>
-                                        </div>
-                                    {% endif %}
+                                                    </div>
+                                                </div>
+                                            {% endwith %}
+                                        {% endif %}
+                                    {% endfor %}
                                 {% endwith %}
                             {% else %}
                                 {# Групповой чат #}

@@ -25,11 +25,15 @@ urlpatterns = [
         success_url='/accounts/profile/'
     ), name='password_change'),
 
-    # Новые URL-ы для уведомлений
+    # URL-ы для уведомлений
     path('notifications/', views.notifications_list, name='notifications'),
     path('notifications/ajax/', views.notifications_ajax, name='notifications_ajax'),
     path('notifications/<int:notification_id>/read/', views.notification_mark_read, name='notification_mark_read'),
     path('notifications/read-all/', views.notification_mark_all_read, name='notification_mark_all_read'),
     path('verify-email/', views.verify_email, name='verify_email'),
     path('confirm-email/', views.confirm_email, name='confirm_email'),
+
+    # URL-ы для подтверждения email
+    path('verify-email/', views.verify_email, name='verify_email'),
+    path('resend-code/', views.resend_code, name='resend_code'),
 ]

@@ -55,17 +55,26 @@ class Chat(models.Model):
         """Получить последнее сообщение в чате"""
         return self.messages.order_by('-created_at').first()
 
+    def get_unread_count_for_user(self, user):
+        """
+        Возвращает количество непрочитанных сообщений для пользователя в этом чате
+        """
+        participant = ChatParticipant.objects.filter(user=user, chat=self).first()
+        if not participant:
+            return 0
+
+        return self.messages.filter(
+            created_at__gt=participant.last_read
+        ).exclude(author=user).count()
+
     @staticmethod
-    def get_unread_count_for_user(user):
-        """Возвращает общее количество непрочитанных сообщений для пользователя"""
+    def get_total_unread_for_user(user):
+        """
+        Возвращает общее количество непрочитанных сообщений для пользователя во всех чатах
+        """
         total = 0
         for chat in user.chats.all():
-            participant = ChatParticipant.objects.filter(user=user, chat=chat).first()
-            if participant:
-                unread = chat.messages.filter(
-                    created_at__gt=participant.last_read
-                ).exclude(author=user).count()
-                total += unread
+            total += chat.get_unread_count_for_user(user)
         return total
 
 

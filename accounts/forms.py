@@ -3,6 +3,7 @@ from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.core.exceptions import ValidationError
 from .models import User
 from django.contrib.auth.forms import PasswordChangeForm
+from django.core.validators import RegexValidator
 
 class CustomUserCreationForm(UserCreationForm):
     """
@@ -107,4 +108,35 @@ class CustomPasswordChangeForm(PasswordChangeForm):
     new_password2 = forms.CharField(
         label='Подтверждение пароля',
         widget=forms.PasswordInput(attrs={'class': 'form-control'})
+    )
+
+class EmailVerificationForm(forms.Form):
+    """
+    Форма для ввода кода подтверждения
+    """
+    code = forms.CharField(
+        max_length=6,
+        min_length=6,
+        required=True,
+        validators=[RegexValidator(r'^\d{6}$', 'Введите 6 цифр')],
+        widget=forms.TextInput(attrs={
+            'class': 'form-control code-input',
+            'placeholder': '000000',
+            'autocomplete': 'off',
+            'maxlength': '6'
+        }),
+        label='Код подтверждения'
+    )
+
+
+class ResendCodeForm(forms.Form):
+    """
+    Форма для повторной отправки кода
+    """
+    email = forms.EmailField(
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ваш email'
+        }),
+        label='Email'
     )

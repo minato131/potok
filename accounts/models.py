@@ -1,7 +1,10 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
-
+from django.db import models
+from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 
 class User(AbstractUser):
     """
@@ -40,6 +43,19 @@ class User(AbstractUser):
     email_verified = models.BooleanField(
         default=False,
         verbose_name='Email подтвержден'
+    )
+
+    # Добавляем недостающие поля
+    email_verification_code = models.CharField(
+        max_length=6,
+        blank=True,
+        null=True,
+        verbose_name='Код подтверждения'
+    )
+    email_verification_sent = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name='Код отправлен'
     )
     private_profile = models.BooleanField(
         default=False,
@@ -238,3 +254,21 @@ class Notification(models.Model):
     def mark_as_read(self):
         self.is_read = True
         self.save(update_fields=['is_read'])
+
+    @classmethod
+    def create_notification(cls, recipient, sender, notification_type, title, message, link=''):
+        """
+        Создает новое уведомление
+        """
+        if recipient == sender:
+            return None
+
+        notification = cls.objects.create(
+            recipient=recipient,
+            sender=sender,
+            notification_type=notification_type,
+            title=title,
+            message=message,
+            link=link
+        )
+        return notification

@@ -11,12 +11,22 @@
                 <h4>{{ title }}</h4>
             </div>
             <div class="card-body">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
                 <form method="post" enctype="multipart/form-data" id="post-form">
                     {% csrf_token %}
 
                     {% if form.non_field_errors %}
                         <div class="alert alert-danger">
-                            {{ form.non_field_errors }}
+                            {% for error in form.non_field_errors %}
+                                {{ error }}
+                            {% endfor %}
                         </div>
                     {% endif %}
 
@@ -26,12 +36,15 @@
                                 {{ field.label }}
                                 {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
                             </label>
+
                             {{ field }}
+
                             {% if field.help_text %}
                                 <small class="form-text text-muted">{{ field.help_text }}</small>
                             {% endif %}
+
                             {% if field.errors %}
-                                <div class="text-danger">
+                                <div class="text-danger mt-1">
                                     {% for error in field.errors %}
                                         {{ error }}
                                     {% endfor %}
@@ -57,13 +70,13 @@
 {% endblock %}
 
 {% block extra_js %}
-<!-- Подключаем Select2 для красивых выпадающих списков -->
+<!-- Подключаем SimpleMDE для красивого редактирования текста -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css">
+<script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script>
+
+<!-- Подключаем Select2 для тегов -->
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-
-<!-- Подключаем SimpleMDE -->
-<script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css">
 
 <script>
     $(document).ready(function() {
@@ -73,20 +86,60 @@
             spellChecker: false,
             status: false,
             toolbar: ["bold", "italic", "heading", "|", "quote", "code", "|", "unordered-list", "ordered-list", "|", "link", "image", "|", "preview", "guide"],
-            placeholder: "Введите содержание поста..."
+            placeholder: "Введите содержание поста...",
+            forceSync: true  // Важно: синхронизирует с оригинальным полем
         });
 
-        // Инициализация Select2 для тегов и категорий
+        // Инициализация Select2 для тегов
         $('#id_tags').select2({
             placeholder: 'Выберите теги',
             allowClear: true,
             width: '100%'
         });
 
+        // Инициализация Select2 для категории
         $('#id_category').select2({
             placeholder: 'Выберите категорию',
             allowClear: true,
             width: '100%'
+        });
+
+        // Отключаем HTML5 валидацию для всей формы
+        $('#post-form').attr('novalidate', true);
+
+        // Добавляем свою валидацию
+        $('#post-form').submit(function(e) {
+            var title = $('#id_title').val().trim();
+            var content = simplemde.value().trim();
+
+            console.log('Проверка формы:', {title: title, content: content});
+
+            if (!title) {
+                alert('Заголовок обязателен');
+                e.preventDefault();
+                return false;
+            }
+
+            if (title.length < 5) {
+                alert('Заголовок должен содержать минимум 5 символов');
+                e.preventDefault();
+                return false;
+            }
+
+            if (!content) {
+                alert('Содержание обязательно');
+                e.preventDefault();
+                return false;
+            }
+
+            if (content.length < 10) {
+                alert('Содержание должно содержать минимум 10 символов');
+                e.preventDefault();
+                return false;
+            }
+
+            console.log('Форма валидна, отправляем...');
+            return true;
         });
     });
 </script>

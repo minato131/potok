@@ -1,5 +1,7 @@
-from datetime import timezone
-
+from django.utils import timezone
+from datetime import timedelta
+from .utils import generate_verification_code, send_verification_email, mask_email, send_welcome_email
+from .forms import EmailVerificationForm, ResendCodeForm
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
@@ -9,6 +11,7 @@ from django.db.models import Q, Count
 from django.contrib.auth.forms import AuthenticationForm
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
+from .models import Notification
 
 from .forms import CustomUserCreationForm, CustomUserChangeForm, CustomPasswordChangeForm
 from .models import User, Follow, Notification
@@ -26,27 +29,43 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def register_view(request):
     """
     Регистрация нового пользователя
     """
     if request.user.is_authenticated:
-        return redirect('posts:post_list')  # <-- ИСПРАВЛЕНО
+        return redirect('posts:post_list')
 
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            login(request, user)
-            messages.success(request, 'Регистрация прошла успешно!')
-            return redirect('posts:post_list')  # <-- ИСПРАВЛЕНО
+            # Создаем пользователя
+            user = form.save(commit=False)
+            user.email_verified = False
+            user.save()
+
+            # Генерируем и отправляем код
+            code = generate_verification_code()
+            user.email_verification_code = code
+            user.email_verification_sent = timezone.now()  # теперь работает
+            user.save(update_fields=['email_verification_code', 'email_verification_sent'])
+
+            # Отправляем email
+            if send_verification_email(user, code):
+                request.session['verification_email'] = user.email
+                messages.success(request, 'Регистрация успешна! Проверьте почту для подтверждения.')
+                return redirect('accounts:verify_email')
+            else:
+                # Если письмо не отправилось
+                user.delete()
+                messages.error(request, 'Ошибка отправки письма. Попробуйте позже.')
         else:
             messages.error(request, 'Пожалуйста, исправьте ошибки в форме')
     else:
         form = CustomUserCreationForm()
 
     return render(request, 'accounts/register.html', {'form': form})
-
 
 def login_view(request):
     """
@@ -141,17 +160,12 @@ def profile_edit_view(request):
 
 @login_required
 def follow_view(request, user_id):
-    """
-    Подписка/отписка от пользователя
-    """
     user_to_follow = get_object_or_404(User, id=user_id)
 
-    # Нельзя подписаться на самого себя
     if request.user == user_to_follow:
         messages.error(request, 'Нельзя подписаться на самого себя')
         return redirect('accounts:profile_by_username', username=user_to_follow.username)
 
-    # Проверяем, есть ли уже подписка
     follow, created = Follow.objects.get_or_create(
         follower=request.user,
         following=user_to_follow
@@ -159,6 +173,16 @@ def follow_view(request, user_id):
 
     if created:
         messages.success(request, f'Вы подписались на {user_to_follow.username}')
+
+        # Уведомление о новой подписке
+        create_notification(
+            recipient=user_to_follow,
+            sender=request.user,
+            notification_type='follow',
+            title='Новый подписчик',
+            message=f'@{request.user.username} подписался на вас',
+            link=f'/accounts/profile/{request.user.username}/'
+        )
     else:
         follow.delete()
         messages.info(request, f'Вы отписались от {user_to_follow.username}')
@@ -266,7 +290,7 @@ def notifications_ajax(request):
     """
     AJAX-запрос для получения последних уведомлений
     """
-    notifications = request.user.notifications.filter(is_read=False)[:5]
+    notifications = request.user.notifications.filter(is_read=False).order_by('-created_at')[:10]
 
     data = {
         'count': request.user.notifications.filter(is_read=False).count(),
@@ -284,7 +308,6 @@ def notifications_ajax(request):
         })
 
     return JsonResponse(data)
-
 
 @login_required
 @require_POST
@@ -347,45 +370,103 @@ def send_verification_email(user, code):
         return False
 
 
-@login_required
 def verify_email(request):
     """
-    Отправка кода подтверждения на email
+    Страница подтверждения email
+    """
+    # Проверяем, есть ли email в сессии
+    email = request.session.get('verification_email')
+    if not email:
+        messages.error(request, 'Сессия истекла. Пожалуйста, войдите снова.')
+        return redirect('accounts:login')
+
+    try:
+        user = User.objects.get(email=email, email_verified=False)
+    except User.DoesNotExist:
+        messages.error(request, 'Пользователь не найден или уже подтвержден.')
+        return redirect('accounts:login')
+
+    # Проверяем, не истек ли код (10 минут)
+    if user.email_verification_sent:
+        time_diff = timezone.now() - user.email_verification_sent
+        if time_diff > timedelta(minutes=10):  # теперь timedelta определен
+            # Код истек
+            user.email_verification_code = None
+            user.save(update_fields=['email_verification_code'])
+            messages.warning(request, 'Код истек. Запросите новый.')
+            return redirect('accounts:resend_code')
+
+    if request.method == 'POST':
+        form = EmailVerificationForm(request.POST)
+        if form.is_valid():
+            code = form.cleaned_data['code']
+
+            if code == user.email_verification_code:
+                # Код верный - подтверждаем email
+                user.email_verified = True
+                user.email_verification_code = None
+                user.save(update_fields=['email_verified', 'email_verification_code'])
+
+                # Отправляем приветственное письмо
+                from .utils import send_welcome_email
+                send_welcome_email(user)
+
+                # Автоматически логиним пользователя
+                login(request, user)
+
+                # Очищаем сессию
+                if 'verification_email' in request.session:
+                    del request.session['verification_email']
+
+                messages.success(request, 'Email успешно подтвержден! Добро пожаловать!')
+                return redirect('posts:post_list')
+            else:
+                messages.error(request, 'Неверный код подтверждения')
+    else:
+        form = EmailVerificationForm()
+
+    # Маскируем email для отображения
+    masked_email = mask_email(email)
+
+    return render(request, 'accounts/verify_email.html', {
+        'form': form,
+        'email': masked_email,
+        'full_email': email,
+    })
+
+
+def resend_code(request):
+    """
+    Повторная отправка кода подтверждения
     """
     if request.method == 'POST':
         email = request.POST.get('email')
 
-        # Проверяем, что email принадлежит пользователю
-        if email != request.user.email:
-            return JsonResponse({
-                'status': 'error',
-                'message': 'Email не совпадает с вашим текущим email'
-            }, status=400)
+        if not email:
+            messages.error(request, 'Email не указан')
+            return redirect('accounts:resend_code')
 
-        # Генерируем код подтверждения
-        verification_code = ''.join(random.choices(string.digits, k=6))
+        try:
+            # Используем существующее поле email_verified
+            user = User.objects.get(email=email, email_verified=False)
 
-        # Сохраняем код в сессии с временной меткой
-        request.session['verification_code'] = {
-            'code': verification_code,
-            'email': email,
-            'created_at': timezone.now().timestamp()
-        }
+            # Генерируем новый код
+            code = generate_verification_code()
+            user.email_verification_code = code
+            user.email_verification_sent = timezone.now()
+            user.save(update_fields=['email_verification_code', 'email_verification_sent'])
 
-        # Отправляем код на почту
-        if send_verification_email(request.user, verification_code):
-            return JsonResponse({
-                'status': 'success',
-                'message': 'Код отправлен. Проверьте почту.'
-            })
-        else:
-            return JsonResponse({
-                'status': 'error',
-                'message': 'Ошибка при отправке письма. Попробуйте позже.'
-            }, status=500)
+            # Отправляем новый код
+            if send_verification_email(user, code):
+                request.session['verification_email'] = email
+                messages.success(request, 'Новый код отправлен на вашу почту')
+                return redirect('accounts:verify_email')
+            else:
+                messages.error(request, 'Ошибка отправки письма')
+        except User.DoesNotExist:
+            messages.error(request, 'Пользователь с таким email не найден или уже подтвержден')
 
-    return JsonResponse({'status': 'error', 'message': 'Метод не поддерживается'}, status=405)
-
+    return render(request, 'accounts/resend_code.html')
 
 @login_required
 def confirm_email(request):
