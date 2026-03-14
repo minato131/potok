@@ -135,10 +135,6 @@ class PostSearchForm(forms.Form):
 
 
 class TagForm(forms.ModelForm):
-    """
-    Форма создания/редактирования тега
-    """
-
     class Meta:
         model = Tag
         fields = ['name']
@@ -149,18 +145,21 @@ class TagForm(forms.ModelForm):
             }),
         }
 
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+
     def clean_name(self):
         name = self.cleaned_data.get('name')
-        # Приводим к нижнему регистру и убираем пробелы
         name = name.strip().lower().replace(' ', '-')
+
+        # Проверяем существование тега
+        if Tag.objects.filter(name=name).exists():
+            raise ValidationError('Тег с таким названием уже существует')
+
         return name
 
-
 class CategoryForm(forms.ModelForm):
-    """
-    Форма создания/редактирования категории
-    """
-
     class Meta:
         model = Category
         fields = ['name', 'description', 'parent', 'order']
@@ -184,7 +183,7 @@ class CategoryForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        # Исключаем текущую категорию из выбора родителя
         if self.instance and self.instance.pk:
             self.fields['parent'].queryset = Category.objects.exclude(id=self.instance.id)

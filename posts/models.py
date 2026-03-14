@@ -27,6 +27,14 @@ class Tag(models.Model):
         auto_now_add=True,
         verbose_name='Дата создания'
     )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_tags',
+        verbose_name='Создатель'
+    )
 
     class Meta:
         verbose_name = 'Тег'
@@ -77,6 +85,14 @@ class Category(models.Model):
     created_at = models.DateTimeField(
         auto_now_add=True,
         verbose_name='Дата создания'
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_categories',
+        verbose_name='Создатель'
     )
 
     class Meta:

@@ -165,15 +165,25 @@ def profile_view(request, username=None):
 
 @login_required
 def profile_edit_view(request):
-    """
-    Редактирование профиля текущего пользователя
-    """
     if request.method == 'POST':
+        # Для AJAX запроса с аватаром
+        if request.FILES.get('avatar'):
+            user = request.user
+            user.avatar = request.FILES['avatar']
+            user.save()
+
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'status': 'success',
+                    'avatar_url': user.avatar.url
+                })
+
+        # Обычная форма
         form = CustomUserChangeForm(request.POST, request.FILES, instance=request.user)
         if form.is_valid():
-            form.save()
+            user = form.save()
             messages.success(request, 'Профиль успешно обновлен!')
-            return redirect('accounts:profile')  # <-- ИСПРАВЛЕНО
+            return redirect('accounts:profile')
         else:
             messages.error(request, 'Пожалуйста, исправьте ошибки')
     else:

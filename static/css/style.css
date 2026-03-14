@@ -145,22 +145,30 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.avatar-large {
+.avatar-medium {
     width: 60px;
     height: 60px;
     border-radius: 50%;
     object-fit: cover;
     border: 2px solid #fff;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.avatar-medium {
-    width: 50px;
-    height: 50px;
+.avatar-large {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #fff;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.comment-avatar {
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     object-fit: cover;
     border: 2px solid #fff;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 /* ===== ГРАДИЕНТЫ ===== */

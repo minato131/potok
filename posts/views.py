@@ -90,12 +90,31 @@ def post_list(request):
         status='active'
     ).order_by('-members_count')[:5]
 
-    # Топ постов недели - ИСПРАВЛЕНО (без сложных аннотаций)
+    # Топ постов недели
     week_ago = timezone.now() - timedelta(days=7)
     top_posts = Post.objects.filter(
         status='published',
         created_at__gte=week_ago
     ).order_by('-views_count', '-comments_count')[:5]
+
+    # Проверяем лайки для каждого поста (если пользователь авторизован)
+    if request.user.is_authenticated:
+        liked_posts = Like.objects.filter(
+            user=request.user,
+            content_type='post'
+        ).values_list('object_id', flat=True)
+
+        bookmarked_posts = Bookmark.objects.filter(
+            user=request.user
+        ).values_list('post_id', flat=True)
+    else:
+        liked_posts = []
+        bookmarked_posts = []
+
+    # Добавляем информацию о лайках и закладках к каждому посту
+    for post in page_obj:
+        post.user_like = post.pk in liked_posts
+        post.is_bookmarked = post.pk in bookmarked_posts
 
     # Добавляем в контекст
     context = {
@@ -322,78 +341,79 @@ def comment_create(request, post_pk):
 @login_required
 @require_POST
 def like_toggle(request):
-    content_type = request.POST.get('content_type')
-    object_id = request.POST.get('object_id')
-    like_type = request.POST.get('like_type', 'like')
+    """
+    Переключение лайка (AJAX)
+    """
+    try:
+        content_type = request.POST.get('content_type')
+        object_id = request.POST.get('object_id')
+        like_type = request.POST.get('like_type', 'like')
 
-    if content_type not in ['post', 'comment']:
-        return JsonResponse({'error': 'Invalid content type'}, status=400)
+        print(f"Получен запрос: content_type={content_type}, object_id={object_id}")  # Отладка
 
-    if content_type == 'post':
-        obj = get_object_or_404(Post, pk=object_id)
-    else:
-        obj = get_object_or_404(Comment, pk=object_id)
+        if content_type not in ['post', 'comment']:
+            return JsonResponse({'error': 'Invalid content type'}, status=400)
 
-    like = Like.objects.filter(
-        user=request.user,
-        content_type=content_type,
-        object_id=object_id
-    ).first()
+        # Проверяем существование объекта
+        if content_type == 'post':
+            obj = get_object_or_404(Post, pk=object_id)
+        else:
+            obj = get_object_or_404(Comment, pk=object_id)
 
-    if like:
-        if like.like_type == like_type:
+        # Ищем существующий лайк
+        like = Like.objects.filter(
+            user=request.user,
+            content_type=content_type,
+            object_id=object_id
+        ).first()
+
+        if like:
+            # Если лайк уже есть - удаляем
             like.delete()
             action = 'removed'
         else:
-            like.like_type = like_type
-            like.save()
-            action = 'updated'
-    else:
-        like = Like.objects.create(
-            user=request.user,
-            content_type=content_type,
-            object_id=object_id,
-            like_type=like_type
-        )
-        action = 'added'
-
-        # Уведомление о новом лайке
-        if obj.author != request.user:
-            if content_type == 'post':
-                title = 'Новый лайк'
-                message = f'@{request.user.username} оценил ваш пост "{obj.title[:30]}..."'
-                link = f'/posts/post/{obj.pk}/'
-            else:
-                title = 'Новый лайк'
-                message = f'@{request.user.username} оценил ваш комментарий'
-                link = f'/posts/post/{obj.post.pk}/#comment-{obj.pk}'
-
-            create_notification(
-                recipient=obj.author,
-                sender=request.user,
-                notification_type='like',
-                title=title,
-                message=message,
-                link=link,
-                content_object=obj
+            # Создаем новый лайк
+            like = Like.objects.create(
+                user=request.user,
+                content_type=content_type,
+                object_id=object_id,
+                like_type=like_type
             )
+            action = 'added'
 
-    likes_count = Like.objects.filter(
-        content_type=content_type,
-        object_id=object_id
-    ).count()
+            # Уведомление автору поста
+            if obj.author != request.user:
+                from accounts.utils import create_notification
+                create_notification(
+                    recipient=obj.author,
+                    sender=request.user,
+                    notification_type='like',
+                    title='Новый лайк',
+                    message=f'@{request.user.username} оценил ваш пост',
+                    link=f'/posts/post/{obj.pk}/'
+                )
 
-    if content_type == 'post':
-        obj.likes_count = likes_count
-    else:
-        obj.likes_count = likes_count
-    obj.save(update_fields=['likes_count'])
+        # Обновляем счетчик
+        likes_count = Like.objects.filter(
+            content_type=content_type,
+            object_id=object_id
+        ).count()
 
-    return JsonResponse({
-        'action': action,
-        'likes_count': likes_count,
-        'like_type': like_type
-    })
+        if content_type == 'post':
+            obj.likes_count = likes_count
+        else:
+            obj.likes_count = likes_count
+        obj.save(update_fields=['likes_count'])
+
+        return JsonResponse({
+            'action': action,
+            'likes_count': likes_count,
+            'like_type': like_type
+        })
+
+    except Exception as e:
+        print(f"Ошибка в like_toggle: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 @login_required
@@ -512,20 +532,18 @@ def search(request):
 @login_required
 def category_create(request):
     """
-    Создание новой категории (только для админов)
+    Создание новой категории (доступно всем авторизованным)
     """
-    if not request.user.is_staff:
-        messages.error(request, 'У вас нет прав для создания категорий')
-        return redirect('posts:category_list')
-
     if request.method == 'POST':
-        form = CategoryForm(request.POST)
+        form = CategoryForm(request.POST, user=request.user)
         if form.is_valid():
-            category = form.save()
+            category = form.save(commit=False)
+            category.created_by = request.user
+            category.save()
             messages.success(request, f'Категория "{category.name}" создана')
             return redirect('posts:category_detail', slug=category.slug)
     else:
-        form = CategoryForm()
+        form = CategoryForm(user=request.user)
 
     return render(request, 'posts/category_form.html', {'form': form})
 
@@ -533,22 +551,23 @@ def category_create(request):
 @login_required
 def category_edit(request, slug):
     """
-    Редактирование категории
+    Редактирование категории (только создатель или админ)
     """
     category = get_object_or_404(Category, slug=slug)
 
-    if not request.user.is_staff:
-        messages.error(request, 'У вас нет прав для редактирования категорий')
+    # Проверяем права
+    if category.created_by != request.user and not request.user.is_staff:
+        messages.error(request, 'У вас нет прав для редактирования этой категории')
         return redirect('posts:category_detail', slug=category.slug)
 
     if request.method == 'POST':
-        form = CategoryForm(request.POST, instance=category)
+        form = CategoryForm(request.POST, instance=category, user=request.user)
         if form.is_valid():
             category = form.save()
             messages.success(request, f'Категория "{category.name}" обновлена')
             return redirect('posts:category_detail', slug=category.slug)
     else:
-        form = CategoryForm(instance=category)
+        form = CategoryForm(instance=category, user=request.user)
 
     return render(request, 'posts/category_form.html', {'form': form, 'category': category})
 
@@ -628,23 +647,20 @@ def tag_detail(request, slug):
 @login_required
 def tag_create(request):
     """
-    Создание нового тега
+    Создание нового тега (доступно всем авторизованным)
     """
-    # Проверка прав
-    if not request.user.is_staff and not request.user.is_superuser:
-        messages.error(request, 'У вас нет прав для создания тегов')
-        return redirect('posts:tag_list')
-
     if request.method == 'POST':
-        form = TagForm(request.POST)
+        form = TagForm(request.POST, user=request.user)
         if form.is_valid():
-            tag = form.save()
+            tag = form.save(commit=False)
+            tag.created_by = request.user
+            tag.save()
             messages.success(request, f'Тег "{tag.name}" успешно создан')
             return redirect('posts:tag_detail', slug=tag.slug)
         else:
             messages.error(request, 'Пожалуйста, исправьте ошибки в форме')
     else:
-        form = TagForm()
+        form = TagForm(user=request.user)
 
     return render(request, 'posts/tag_form.html', {'form': form, 'is_create': True})
 
@@ -652,22 +668,23 @@ def tag_create(request):
 @login_required
 def tag_edit(request, slug):
     """
-    Редактирование тега
+    Редактирование тега (только создатель или админ)
     """
     tag = get_object_or_404(Tag, slug=slug)
 
-    if not request.user.is_staff:
-        messages.error(request, 'У вас нет прав для редактирования тегов')
+    # Проверяем права
+    if tag.created_by != request.user and not request.user.is_staff:
+        messages.error(request, 'У вас нет прав для редактирования этого тега')
         return redirect('posts:tag_detail', slug=tag.slug)
 
     if request.method == 'POST':
-        form = TagForm(request.POST, instance=tag)
+        form = TagForm(request.POST, instance=tag, user=request.user)
         if form.is_valid():
             tag = form.save()
             messages.success(request, f'Тег "{tag.name}" обновлен')
             return redirect('posts:tag_detail', slug=tag.slug)
     else:
-        form = TagForm(instance=tag)
+        form = TagForm(instance=tag, user=request.user)
 
     return render(request, 'posts/tag_form.html', {'form': form, 'tag': tag})
 
@@ -675,12 +692,13 @@ def tag_edit(request, slug):
 @login_required
 def tag_delete(request, slug):
     """
-    Удаление тега
+    Удаление тега (только создатель или админ)
     """
     tag = get_object_or_404(Tag, slug=slug)
 
-    if not request.user.is_staff:
-        messages.error(request, 'У вас нет прав для удаления тегов')
+    # Проверяем права
+    if tag.created_by != request.user and not request.user.is_staff:
+        messages.error(request, 'У вас нет прав для удаления этого тега')
         return redirect('posts:tag_detail', slug=tag.slug)
 
     if request.method == 'POST':

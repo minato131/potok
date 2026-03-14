@@ -13,18 +13,31 @@
             height: 40px;
             border-radius: 50%;
             object-fit: cover;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .avatar-large {
             width: 120px;
             height: 120px;
             border-radius: 50%;
             object-fit: cover;
+            border: 3px solid #fff;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
         }
         .avatar-medium {
             width: 60px;
             height: 60px;
             border-radius: 50%;
             object-fit: cover;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .comment-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #fff;
         }
         .follow-btn.following:hover {
             background-color: #dc3545;
@@ -37,104 +50,215 @@
             content: "Отписаться";
         }
 
-        /* Стили для постов */
+        /* ===== ЗАМЕТНЫЕ ИЗМЕНЕНИЯ ===== */
+
+        /* Посты - жирная рамка */
         .post-card {
-            transition: transform 0.2s;
-            border: none;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
+            border: 2px solid #dee2e6 !important;
+            border-radius: 16px;
+            margin-bottom: 25px;
+            background: white;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
         .post-card:hover {
+            border-color: #667eea !important;
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
             transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-        }
-        .post-stats {
-            font-size: 0.9rem;
-            color: #6c757d;
-        }
-        .post-stats i {
-            margin-right: 4px;
         }
 
-        /* Стили для комментариев */
-        .comment {
-            border-left: 3px solid #dee2e6;
-            padding-left: 15px;
-            margin-top: 15px;
-        }
-        .comment-reply {
-            margin-left: 45px;
-            border-left-color: #adb5bd;
-        }
-        .comment-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            margin-right: 10px;
+        /* Левая колонка - заметная */
+        .sidebar-card, .card.sticky-top {
+            border: 2px solid #dee2e6 !important;
+            border-radius: 16px;
+            background: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            padding: 20px;
         }
 
-        /* Стили для тегов */
-        .tag {
-            display: inline-block;
-            padding: 3px 8px;
-            background-color: #e9ecef;
-            border-radius: 3px;
-            font-size: 0.85rem;
-            color: #495057;
-            text-decoration: none;
-            margin-right: 5px;
-            margin-bottom: 5px;
-        }
-        .tag:hover {
-            background-color: #dee2e6;
-            color: #212529;
-        }
-
-        /* Стили для лайков */
-        .like-btn {
+        /* Кнопки лайков и действий */
+        .like-btn, .bookmark-btn, .action-btn {
+            border: 2px solid #ced4da !important;
+            background: white;
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-weight: 600;
+            transition: all 0.2s;
             cursor: pointer;
-            transition: transform 0.2s;
+            color: #495057;
         }
         .like-btn:hover {
-            transform: scale(1.1);
+            border-color: #dc3545 !important;
+            background: #fff5f5;
+            color: #dc3545;
+            transform: scale(1.05);
         }
         .like-btn.liked {
-            color: #dc3545;
+            border-color: #dc3545 !important;
+            background: #dc3545;
+            color: white;
         }
-
-        /* Стили для избранного */
-        .bookmark-btn {
-            cursor: pointer;
+        .bookmark-btn:hover {
+            border-color: #ffc107 !important;
+            background: #fff9e6;
+            color: #ffc107;
+            transform: scale(1.05);
         }
         .bookmark-btn.active {
-            color: #ffc107;
+            border-color: #ffc107 !important;
+            background: #ffc107;
+            color: white;
         }
 
-        /* Адаптивность */
-        @media (max-width: 768px) {
-            .comment-reply {
-                margin-left: 20px;
-            }
-            .post-card {
-                margin-bottom: 15px;
-            }
+        /* Теги - яркие */
+        .tag, .tag-badge {
+            display: inline-block;
+            padding: 6px 14px;
+            background: #e9ecef;
+            border: 2px solid #ced4da;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #212529;
+            text-decoration: none;
+            margin: 0 5px 5px 0;
+            transition: all 0.2s;
+        }
+        .tag:hover {
+            background: #667eea;
+            border-color: #5a67d8;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
         }
 
-        /* Кастомные цвета (можно поменять под свой стиль) */
-        .bg-potochny {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        /* Комментарии */
+        .comment {
+            border-left: 5px solid #667eea;
+            padding: 15px 0 10px 20px;
+            margin: 15px 0;
+            background: #f8f9fa;
+            border-radius: 0 12px 12px 0;
         }
-        .text-potochny {
+        .comment-avatar {
+            border: 2px solid #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        /* Разделители */
+        hr {
+            border-top: 2px solid #dee2e6;
+            opacity: 1;
+        }
+
+        /* Кнопки в целом */
+        .btn {
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border: none;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        /* Статистика поста */
+        .post-stats {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 30px;
+            border: 2px solid #e9ecef;
+            display: inline-flex;
+            gap: 20px;
+            font-weight: 500;
+        }
+        .post-stats a {
+            text-decoration: none !important;
+            color: inherit;
+        }
+
+        .post-stats a:hover {
             color: #667eea;
         }
-        .btn-potochny {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
+
+        /* Стили для ссылки на комментарии */
+        .comment-link {
+            text-decoration: none !important;
+            color: #6c757d;
+            padding: 5px 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
         }
-        .btn-potochny:hover {
-            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-            color: white;
+
+        .comment-link:hover {
+            color: #667eea;
+            transform: scale(1.1);
+        }
+
+        .comment-link i {
+            font-size: 1rem;
+        }
+
+        /* Статистика поста */
+        .post-stats {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+        .like-btn {
+            background: transparent !important;
+            border: 1px solid #6c757d !important;
+            color: #6c757d !important;
+            border-radius: 30px !important;
+            padding: 5px 15px !important;
+            transition: all 0.2s !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 5px !important;
+            cursor: pointer !important;
+        }
+
+        .like-btn:hover {
+            border-color: #dc3545 !important;
+            color: #dc3545 !important;
+            background: transparent !important;
+        }
+
+        /* Когда лайкнуто - ВСЁ БЕЛОЕ */
+        .like-btn.liked,
+        .like-btn.liked i,
+        .like-btn.liked span,
+        .like-btn.liked .likes-count {
+            color: white !important;
+        }
+
+        .like-btn.liked {
+            background-color: #dc3545 !important;
+            border-color: #dc3545 !important;
+        }
+
+        .like-btn.liked i {
+            color: white !important;
+        }
+
+        .like-btn.liked .likes-count {
+            color: white !important;
+            font-weight: 600 !important;
+        }
+
+        .like-btn i {
+            font-size: 1.1rem !important;
+        }
+
+        .like-btn .likes-count {
+            font-weight: 500 !important;
+            color: inherit !important;
         }
     </style>
     {% block extra_css %}
@@ -142,7 +266,7 @@
     {% endblock %}
 </head>
 <body>
-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <!-- Логотип -->
             <a class="navbar-brand" href="{% url 'posts:post_list' %}">
@@ -252,7 +376,7 @@
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
                                 {% if user.avatar %}
-                                    <img src="{{ user.avatar.url }}" class="avatar" alt="avatar" style="width: 30px; height: 30px; border-radius: 50%; object-fit: cover;">
+                                    <img src="{{ user.avatar.url }}" class="avatar" alt="avatar">
                                 {% else %}
                                     <div class="avatar bg-secondary text-white d-inline-flex align-items-center justify-content-center"
                                          style="width: 30px; height: 30px; border-radius: 50%; font-size: 14px;">

@@ -385,12 +385,15 @@ def community_post_create(request, slug):
         form = CommunityPostForm(request.POST, request.FILES)
         if form.is_valid():
             post = form.save(community, request.user)
-
-            # Обновляем статистику
             community.update_stats()
-
             messages.success(request, 'Пост успешно опубликован в сообществе!')
             return redirect('posts:post_detail', pk=post.pk)
+        else:
+            # Выводим ошибки формы для отладки
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f'{field}: {error}')
+            print("Ошибки формы:", form.errors)  # Отладка
     else:
         form = CommunityPostForm()
 
@@ -398,7 +401,6 @@ def community_post_create(request, slug):
         'form': form,
         'community': community
     })
-
 
 @login_required
 def community_members(request, slug):

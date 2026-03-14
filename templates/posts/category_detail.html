@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}{{ category.name }} - Поток{% endblock %}
 
@@ -12,17 +13,31 @@
                         <h2>{{ category.name }}</h2>
                         {% if category.parent %}
                             <small class="text-muted">
-                                Родительская категория: 
+                                Родительская категория:
                                 <a href="{% url 'posts:category_detail' category.parent.slug %}">
                                     {{ category.parent.name }}
                                 </a>
                             </small>
                         {% endif %}
+
+                        <!-- Информация о создателе категории -->
+                        {% if category.created_by %}
+                            <small class="text-muted d-block mt-2">
+                                Создатель:
+                                <a href="{% url 'accounts:profile_by_username' category.created_by.username %}">
+                                    {{ category.created_by.username }}
+                                </a>
+                            </small>
+                        {% endif %}
                     </div>
-                    <a href="{% url 'posts:post_list' %}?category={{ category.id }}" 
-                       class="btn btn-outline-primary">
-                        <i class="bi bi-search"></i> Все посты в категории
-                    </a>
+
+                    {% if user == category.created_by or user.is_staff %}
+                        <div>
+                            <a href="{% url 'posts:category_edit' category.slug %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-pencil"></i> Редактировать
+                            </a>
+                        </div>
+                    {% endif %}
                 </div>
                 
                 {% if category.description %}

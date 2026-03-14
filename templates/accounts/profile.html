@@ -398,27 +398,52 @@
 
         // Загрузка аватара
         $('#avatar-upload').change(function() {
-            var formData = new FormData();
-            formData.append('avatar', this.files[0]);
-            formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+                var file = this.files[0];
+                if (!file) return;
 
-            $.ajax({
-                url: '{% url "accounts:profile_edit" %}',
-                method: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                success: function(data) {
-                    if (data.avatar_url) {
-                        $('#profile-avatar').attr('src', data.avatar_url + '?t=' + new Date().getTime());
+                var formData = new FormData();
+                formData.append('avatar', file);
+                formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+                // Показываем индикатор загрузки
+                var $btn = $(this).next('label');
+                var originalHtml = $btn.html();
+                $btn.html('<i class="bi bi-arrow-repeat spin"></i> Загрузка...');
+
+                $.ajax({
+                    url: '{% url "accounts:profile_edit" %}',
+                    method: 'POST',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        if (response.status === 'success') {
+                            if (response.avatar_url) {
+                                $('#profile-avatar').attr('src', response.avatar_url + '?t=' + new Date().getTime());
+                            }
+                            // Показываем сообщение об успехе
+                            var alert = $('<div>', {
+                                class: 'alert alert-success alert-dismissible fade show',
+                                role: 'alert',
+                                html: 'Аватар успешно обновлен! <button type="button" class="btn-close" data-bs-dismiss="alert"></button>'
+                            });
+                            $('.container').prepend(alert);
+
+                            // Автоматически скрываем через 3 секунды
+                            setTimeout(function() {
+                                alert.fadeOut('slow', function() { $(this).remove(); });
+                            }, 3000);
+                        }
+                    },
+                    error: function(xhr) {
+                        console.error('Ошибка:', xhr.responseText);
+                        alert('Ошибка при загрузке аватара');
+                    },
+                    complete: function() {
+                        $btn.html(originalHtml);
                     }
-                    location.reload(); // Перезагружаем для обновления всех данных
-                },
-                error: function(xhr) {
-                    alert('Ошибка при загрузке аватара');
-                }
+                });
             });
-        });
 
         // Открыть чат
         window.openChat = function(userId) {

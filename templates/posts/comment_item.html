@@ -2,9 +2,11 @@
     <div class="d-flex">
         <a href="{% url 'accounts:profile_by_username' comment.author.username %}">
             {% if comment.author.avatar %}
-                <img src="{{ comment.author.avatar.url }}" class="comment-avatar" alt="avatar">
+                <img src="{{ comment.author.avatar.url }}" class="comment-avatar" alt="{{ comment.author.username }}">
             {% else %}
-                <img src="/static/images/default-avatar.png" class="comment-avatar" alt="avatar">
+                <div class="comment-avatar bg-secondary text-white d-flex align-items-center justify-content-center">
+                    {{ comment.author.username|first|upper }}
+                </div>
             {% endif %}
         </a>
         <div class="flex-grow-1">

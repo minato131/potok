@@ -61,8 +61,9 @@ class CommunityPostForm(forms.ModelForm):
         widget=forms.Textarea(attrs={
             'class': 'form-control',
             'rows': 10,
-            'placeholder': 'Содержание поста...'
-        })
+            'placeholder': 'Содержание поста...',
+            'required': 'required'
+    })
     )
     image = forms.ImageField(
         required=False,

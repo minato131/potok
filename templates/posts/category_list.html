@@ -1,19 +1,27 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Категории - Поток{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-12">
-        <h2 class="mb-4"><i class="bi bi-folder"></i> Категории</h2>
-        
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-folder"></i> Категории</h2>
+            {% if user.is_authenticated %}
+                <a href="{% url 'posts:category_create' %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Создать категорию
+                </a>
+            {% endif %}
+        </div>
+
         <div class="row">
             {% for category in categories %}
                 <div class="col-md-4 mb-3">
                     <div class="card h-100">
                         <div class="card-body">
                             <h5 class="card-title">
-                                <a href="{% url 'posts:category_detail' category.slug %}" 
+                                <a href="{% url 'posts:category_detail' category.slug %}"
                                    class="text-decoration-none">
                                     {{ category.name }}
                                 </a>
@@ -21,9 +29,32 @@
                             <p class="card-text text-muted">
                                 {{ category.description|truncatewords:20 }}
                             </p>
-                            <small class="text-muted">
-                                <i class="bi bi-file-text"></i> {{ category.posts.count }} постов
-                            </small>
+
+                            {% if category.created_by %}
+                                <small class="text-muted d-block">
+                                    Создатель:
+                                    <a href="{% url 'accounts:profile_by_username' category.created_by.username %}">
+                                        {{ category.created_by.username }}
+                                    </a>
+                                </small>
+                            {% endif %}
+
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    <i class="bi bi-file-text"></i> {{ category.posts.count }} постов
+                                </small>
+                                <small class="text-muted ms-3">
+                                    <i class="bi bi-folder"></i> {{ category.children.count }} подкатегорий
+                                </small>
+                            </div>
+
+                            {% if user == category.created_by or user.is_staff %}
+                                <div class="mt-2">
+                                    <a href="{% url 'posts:category_edit' category.slug %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
