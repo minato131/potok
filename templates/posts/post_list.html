@@ -278,34 +278,39 @@
         </div>
 
         <!-- Рекомендуемые сообщества -->
-        <div class="card card-custom mb-4">
-            <div class="card-header bg-transparent d-flex justify-content-between align-items-center border-custom">
-                <h6 class="mb-0"><i class="bi bi-people"></i> Рекомендуемые сообщества</h6>
-                <a href="{% url 'communities:community_list' %}" class="btn btn-sm btn-link">Все</a>
-            </div>
-            <div class="card-body">
-                {% for community in recommended_communities %}
-                    <div class="d-flex align-items-center mb-3">
-                        {% if community.avatar %}
-                            <img src="{{ community.avatar.url }}" class="avatar me-2">
-                        {% else %}
-                            <div class="avatar bg-gradient text-white d-flex align-items-center justify-content-center me-2">
-                                {{ community.name|first|upper }}
-                            </div>
-                        {% endif %}
-                        <div class="flex-grow-1">
-                            <a href="{% url 'communities:community_detail' community.slug %}" class="text-decoration-none fw-bold">
-                                {{ community.name }}
-                            </a>
-                            <br>
-                            <small class="text-muted">{{ community.members_count }} участников</small>
-                        </div>
+        <div class="card mb-4">
+    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="bi bi-people"></i> Рекомендуемые сообщества</h6>
+        <a href="{% url 'communities:community_list' %}" class="btn btn-sm btn-link">Все</a>
+    </div>
+    <div class="card-body">
+        {% for community in recommended_communities %}
+            <div class="d-flex align-items-center mb-3">
+                {% if community.avatar %}
+                    <img src="{{ community.avatar.url }}" class="avatar me-2" style="width: 40px; height: 40px; border-radius: 50%;">
+                {% else %}
+                    <div class="avatar bg-gradient text-white d-flex align-items-center justify-content-center me-2"
+                         style="width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                        {{ community.name|first|upper }}
                     </div>
-                {% empty %}
-                    <p class="text-muted mb-0">Нет рекомендаций</p>
-                {% endfor %}
+                {% endif %}
+                <div class="flex-grow-1">
+                    {% if community.slug %}
+                        <a href="{% url 'communities:community_detail' community.slug %}" class="text-decoration-none fw-bold">
+                            {{ community.name }}
+                        </a>
+                    {% else %}
+                        <span class="fw-bold">{{ community.name }}</span>
+                    {% endif %}
+                    <br>
+                    <small class="text-muted">{{ community.members_count }} участников</small>
+                </div>
             </div>
-        </div>
+        {% empty %}
+            <p class="text-muted mb-0">Нет рекомендаций</p>
+        {% endfor %}
+    </div>
+</div>
 
         <!-- Топ недели -->
         <div class="card card-custom">

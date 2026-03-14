@@ -37,45 +37,63 @@
                                     <i class="bi bi-file-text"></i> {{ community.posts_count }} постов • 
                                     Создано {{ community.created_at|date:"d.m.Y" }}
                                 </p>
-                                {% if community.privacy == 'private' %}
-                                    <span class="badge bg-warning"><i class="bi bi-lock"></i> Закрытое сообщество</span>
+                                {% if community.privacy == 'public' %}
+                                    <span class="badge bg-success"><i class="bi bi-globe"></i> Публичное</span>
+                                {% elif community.privacy == 'private' %}
+                                    <span class="badge bg-warning"><i class="bi bi-lock"></i> Закрытое (по заявкам)</span>
+                                {% elif community.privacy == 'hidden' %}
+                                    <span class="badge bg-secondary"><i class="bi bi-eye-slash"></i> Скрытое</span>
                                 {% endif %}
                             </div>
-                            
+
                             <div>
                                 {% if user.is_authenticated %}
                                     {% if user_membership %}
                                         {% if user_membership.role == 'admin' or user_membership.role == 'moderator' %}
                                             <div class="btn-group me-2">
-                                                <a href="{% url 'communities:community_edit' community.slug %}" 
+                                                <a href="{% url 'communities:community_edit' community.slug %}"
                                                    class="btn btn-outline-primary">
                                                     <i class="bi bi-pencil"></i> Редактировать
                                                 </a>
-                                                <a href="{% url 'communities:community_manage_requests' community.slug %}" 
+                                                <a href="{% url 'communities:community_manage_requests' community.slug %}"
                                                    class="btn btn-outline-info">
                                                     <i class="bi bi-envelope"></i> Заявки
                                                 </a>
                                             </div>
                                         {% endif %}
-                                        <a href="{% url 'communities:community_leave' community.slug %}" 
+                                        <a href="{% url 'communities:community_leave' community.slug %}"
                                            class="btn btn-outline-danger"
                                            onclick="return confirm('Вы уверены, что хотите покинуть сообщество?')">
                                             <i class="bi bi-box-arrow-right"></i> Покинуть
                                         </a>
                                     {% elif pending_request %}
-                                        <button class="btn btn-secondary" disabled>
-                                            <i class="bi bi-hourglass"></i> Заявка на рассмотрении
-                                        </button>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <button class="btn btn-secondary" disabled>
+                                                <i class="bi bi-hourglass"></i> Заявка на рассмотрении
+                                            </button>
+                                            <a href="{% url 'communities:cancel_join_request' community.slug %}"
+                                               class="btn btn-outline-danger btn-sm"
+                                               onclick="return confirm('Вы уверены, что хотите отменить заявку?')">
+                                                <i class="bi bi-x-lg"></i> Отменить заявку
+                                            </a>
+                                        </div>
                                     {% else %}
-                                        <a href="{% url 'communities:community_join' community.slug %}" 
-                                           class="btn btn-potochny">
-                                            <i class="bi bi-person-plus"></i> Вступить
-                                        </a>
+                                        {% if community.privacy == 'public' %}
+                                            <a href="{% url 'communities:community_join' community.slug %}"
+                                               class="btn btn-success">
+                                                <i class="bi bi-person-plus"></i> Вступить
+                                            </a>
+                                        {% else %}
+                                            <a href="{% url 'communities:community_join' community.slug %}"
+                                               class="btn btn-warning">
+                                                <i class="bi bi-envelope"></i> Подать заявку
+                                            </a>
+                                        {% endif %}
                                     {% endif %}
                                 {% endif %}
                             </div>
                         </div>
-                        
+
                         {% if community.description %}
                             <div class="mt-3 p-3 bg-light rounded">
                                 {{ community.description|linebreaks }}
@@ -84,7 +102,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Навигация по вкладкам -->
             <div class="card-footer bg-transparent">
                 <ul class="nav nav-tabs card-header-tabs">
@@ -113,12 +131,12 @@
             <div class="tab-pane active" id="posts">
                 {% if user_membership or community.privacy == 'public' %}
                     <div class="mb-4">
-                        <a href="{% url 'communities:community_post_create' community.slug %}" 
+                        <a href="{% url 'communities:community_post_create' community.slug %}"
                            class="btn btn-primary">
                             <i class="bi bi-plus-circle"></i> Создать пост в сообществе
                         </a>
                     </div>
-                    
+
                     {% for community_post in page_obj %}
                         <div class="card post-card">
                             <div class="card-body">
@@ -132,26 +150,26 @@
                                         <i class="bi bi-megaphone"></i> Объявление
                                     </span>
                                 {% endif %}
-                                
+
                                 <h5 class="card-title">
-                                    <a href="{% url 'posts:post_detail' community_post.post.pk %}" 
+                                    <a href="{% url 'posts:post_detail' community_post.post.pk %}"
                                        class="text-decoration-none text-dark">
                                         {{ community_post.post.title }}
                                     </a>
                                 </h5>
-                                
+
                                 <div class="d-flex align-items-center mb-3">
                                     <a href="{% url 'accounts:profile_by_username' community_post.post.author.username %}">
                                         {% if community_post.post.author.avatar %}
-                                            <img src="{{ community_post.post.author.avatar.url }}" 
+                                            <img src="{{ community_post.post.author.avatar.url }}"
                                                  class="comment-avatar" alt="avatar">
                                         {% else %}
-                                            <img src="/static/images/default-avatar.png" 
+                                            <img src="/static/images/default-avatar.png"
                                                  class="comment-avatar" alt="avatar">
                                         {% endif %}
                                     </a>
                                     <div class="ms-2">
-                                        <a href="{% url 'accounts:profile_by_username' community_post.post.author.username %}" 
+                                        <a href="{% url 'accounts:profile_by_username' community_post.post.author.username %}"
                                            class="text-decoration-none fw-bold">
                                             {{ community_post.post.author.get_full_name }}
                                         </a>
@@ -161,9 +179,9 @@
                                         </small>
                                     </div>
                                 </div>
-                                
+
                                 <p class="card-text">{{ community_post.post.content|truncatewords:50 }}</p>
-                                
+
                                 <div class="post-stats">
                                     <span class="me-3"><i class="bi bi-eye"></i> {{ community_post.post.views_count }}</span>
                                     <span class="me-3"><i class="bi bi-heart"></i> {{ community_post.post.likes_count }}</span>
@@ -181,7 +199,7 @@
                             {% endif %}
                         </div>
                     {% endfor %}
-                    
+
                     <!-- Пагинация постов -->
                     {% if page_obj.has_other_pages %}
                         <nav aria-label="Page navigation" class="mt-4">
@@ -193,13 +211,13 @@
                                         </a>
                                     </li>
                                 {% endif %}
-                                
+
                                 {% for num in page_obj.paginator.page_range %}
                                     {% if page_obj.number == num %}
                                         <li class="page-item active"><span class="page-link">{{ num }}</span></li>
                                     {% endif %}
                                 {% endfor %}
-                                
+
                                 {% if page_obj.has_next %}
                                     <li class="page-item">
                                         <a class="page-link" href="?page={{ page_obj.next_page_number }}#posts">
@@ -216,7 +234,7 @@
                     </div>
                 {% endif %}
             </div>
-            
+
             <!-- Вкладка с участниками -->
             <div class="tab-pane fade" id="members">
                 <div class="card">
@@ -228,15 +246,15 @@
                                     <div class="d-flex align-items-center">
                                         <a href="{% url 'accounts:profile_by_username' membership.user.username %}">
                                             {% if membership.user.avatar %}
-                                                <img src="{{ membership.user.avatar.url }}" 
+                                                <img src="{{ membership.user.avatar.url }}"
                                                      class="avatar-medium me-3" alt="avatar">
                                             {% else %}
-                                                <img src="/static/images/default-avatar.png" 
+                                                <img src="/static/images/default-avatar.png"
                                                      class="avatar-medium me-3" alt="avatar">
                                             {% endif %}
                                         </a>
                                         <div>
-                                            <a href="{% url 'accounts:profile_by_username' membership.user.username %}" 
+                                            <a href="{% url 'accounts:profile_by_username' membership.user.username %}"
                                                class="text-decoration-none fw-bold">
                                                 {{ membership.user.get_full_name|default:membership.user.username }}
                                             </a>
@@ -249,16 +267,16 @@
                                 </div>
                             {% endfor %}
                         </div>
-                        
+
                         <h5 class="mb-3">Все участники</h5>
-                        <a href="{% url 'communities:community_members' community.slug %}" 
+                        <a href="{% url 'communities:community_members' community.slug %}"
                            class="btn btn-outline-primary">
                             Показать всех участников
                         </a>
                     </div>
                 </div>
             </div>
-            
+
             <!-- Вкладка "О сообществе" -->
             <div class="tab-pane fade" id="about">
                 <div class="card">
@@ -267,17 +285,17 @@
                         <dl class="row">
                             <dt class="col-sm-3">Название</dt>
                             <dd class="col-sm-9">{{ community.name }}</dd>
-                            
+
                             <dt class="col-sm-3">Создатель</dt>
                             <dd class="col-sm-9">
                                 <a href="{% url 'accounts:profile_by_username' community.creator.username %}">
                                     {{ community.creator.get_full_name|default:community.creator.username }}
                                 </a>
                             </dd>
-                            
+
                             <dt class="col-sm-3">Дата создания</dt>
                             <dd class="col-sm-9">{{ community.created_at|date:"d.m.Y H:i" }}</dd>
-                            
+
                             <dt class="col-sm-3">Приватность</dt>
                             <dd class="col-sm-9">
                                 {% if community.privacy == 'public' %}

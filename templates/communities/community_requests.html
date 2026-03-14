@@ -1,61 +1,112 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ title }} - Поток{% endblock %}
+{% block title %}Заявки на вступление - {{ community.name }}{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-8">
         <div class="card">
-            <div class="card-header">
-                <h4>{{ title }}</h4>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">
+                    <i class="bi bi-envelope"></i>
+                    Заявки на вступление в "{{ community.name }}"
+                </h4>
+                <a href="{% url 'communities:community_detail' community.slug %}"
+                   class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-left"></i> Назад
+                </a>
             </div>
             <div class="card-body">
-                <form method="post" enctype="multipart/form-data">
-                    {% csrf_token %}
+                {% if pending_requests %}
+                    <div class="list-group">
+                        {% for request in pending_requests %}
+                            <div class="list-group-item">
+                                <div class="d-flex align-items-start">
+                                    <!-- Аватар пользователя -->
+                                    <a href="{% url 'accounts:profile_by_username' request.user.username %}">
+                                        {% if request.user.avatar %}
+                                            <img src="{{ request.user.avatar.url }}"
+                                                 class="avatar-medium me-3 rounded-circle"
+                                                 style="width: 50px; height: 50px; object-fit: cover;">
+                                        {% else %}
+                                            <div class="avatar-medium bg-secondary text-white d-flex align-items-center justify-content-center me-3 rounded-circle"
+                                                 style="width: 50px; height: 50px;">
+                                                {{ request.user.username|first|upper }}
+                                            </div>
+                                        {% endif %}
+                                    </a>
 
-                    {% for field in form %}
-                        <div class="mb-3">
-                            <label for="{{ field.id_for_label }}" class="form-label">
-                                {{ field.label }}
-                                {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
-                            </label>
-                            {{ field }}
-                            {% if field.help_text %}
-                                <small class="form-text text-muted">{{ field.help_text }}</small>
-                            {% endif %}
-                            {% if field.errors %}
-                                <div class="text-danger">
-                                    {{ field.errors }}
+                                    <div class="flex-grow-1">
+                                        <!-- Информация о пользователе -->
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <h5 class="mb-1">
+                                                    <a href="{% url 'accounts:profile_by_username' request.user.username %}"
+                                                       class="text-decoration-none">
+                                                        {{ request.user.get_full_name|default:request.user.username }}
+                                                    </a>
+                                                </h5>
+                                                <small class="text-muted">
+                                                    @{{ request.user.username }} •
+                                                    Заявка от {{ request.created_at|date:"d.m.Y H:i" }}
+                                                </small>
+                                            </div>
+
+                                            <!-- Кнопки действий -->
+                                            <div class="btn-group">
+                                                <form method="post" class="d-inline">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="request_id" value="{{ request.id }}">
+                                                    <button type="submit" name="action" value="approve"
+                                                            class="btn btn-success btn-sm"
+                                                            onclick="return confirm('Принять пользователя {{ request.user.username }} в сообщество?')">
+                                                        <i class="bi bi-check-lg"></i> Принять
+                                                    </button>
+                                                </form>
+                                                <form method="post" class="d-inline">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="request_id" value="{{ request.id }}">
+                                                    <button type="submit" name="action" value="reject"
+                                                            class="btn btn-danger btn-sm"
+                                                            onclick="return confirm('Отклонить заявку {{ request.user.username }}?')">
+                                                        <i class="bi bi-x-lg"></i> Отклонить
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+
+                                        <!-- Сообщение пользователя (если есть) -->
+                                        {% if request.message %}
+                                            <div class="mt-3 p-3 bg-light rounded">
+                                                <strong class="d-block mb-2">
+                                                    <i class="bi bi-chat-quote"></i> Сообщение пользователя:
+                                                </strong>
+                                                <p class="mb-0">{{ request.message|linebreaks }}</p>
+                                            </div>
+                                        {% else %}
+                                            <div class="mt-3 p-3 bg-light rounded text-muted">
+                                                <i class="bi bi-info-circle"></i> Пользователь не оставил сообщения
+                                            </div>
+                                        {% endif %}
+                                    </div>
                                 </div>
-                            {% endif %}
-                        </div>
-                    {% endfor %}
-
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check-lg"></i> Сохранить
-                    </button>
-                    <a href="{% if post %}{% url 'posts:post_detail' post.pk %}{% else %}{% url 'posts:post_list' %}{% endif %}"
-                       class="btn btn-secondary">
-                        <i class="bi bi-x-lg"></i> Отмена
-                    </a>
-                </form>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-envelope-open" style="font-size: 3rem; color: #ccc;"></i>
+                        <h5 class="mt-3">Нет ожидающих заявок</h5>
+                        <p class="text-muted">Все заявки обработаны</p>
+                        <a href="{% url 'communities:community_detail' community.slug %}"
+                           class="btn btn-outline-primary mt-3">
+                            <i class="bi bi-arrow-left"></i> Вернуться к сообществу
+                        </a>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<!-- Подключаем SimpleMDE для красивого редактирования текста -->
-<script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css">
-<script>
-    var simplemde = new SimpleMDE({
-        element: document.getElementById("id_content"),
-        spellChecker: false,
-        status: false,
-        toolbar: ["bold", "italic", "heading", "|", "quote", "code", "|", "unordered-list", "ordered-list", "|", "link", "image", "|", "preview", "guide"]
-    });
-</script>
 {% endblock %}

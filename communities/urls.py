@@ -28,4 +28,6 @@ urlpatterns = [
 
     # Управление заявками (для закрытых сообществ)
     path('<slug:slug>/requests/', views.community_manage_requests, name='community_manage_requests'),
+
+    path('<slug:slug>/cancel-request/', views.cancel_join_request, name='cancel_join_request'),
 ]

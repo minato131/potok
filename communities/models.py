@@ -19,8 +19,8 @@ class Community(models.Model):
 
     PRIVACY_CHOICES = [
         ('public', 'Публичное'),
-        ('private', 'Закрытое'),
-        ('hidden', 'Скрытое'),
+        ('private', 'Закрытое (требуется одобрение)'),
+        ('hidden', 'Скрытое (не отображается в списках)'),
     ]
 
     name = models.CharField(
@@ -143,13 +143,22 @@ class Community(models.Model):
 
     def update_stats(self):
         """Обновление статистики сообщества"""
-        self.members_count = self.membership_set.filter(
+        from .models import CommunityMembership, CommunityPost
+
+        # Подсчет участников (активных)
+        self.members_count = CommunityMembership.objects.filter(
+            community=self,
             status='active'
         ).count()
-        self.posts_count = self.posts.filter(
-            status='published'
+
+        # Подсчет постов в сообществе
+        self.posts_count = CommunityPost.objects.filter(
+            community=self
         ).count()
+
+        # Сохраняем изменения
         self.save(update_fields=['members_count', 'posts_count'])
+        print(f"Stats updated: members={self.members_count}, posts={self.posts_count}")  # для отладки
 
 
 class CommunityMembership(models.Model):

@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Заявка на вступление - {{ community.name }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-envelope"></i> 
+                    Заявка на вступление
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    {% if community.avatar %}
+                        <img src="{{ community.avatar.url }}" class="avatar-large mb-3">
+                    {% else %}
+                        <div class="avatar-large bg-gradient text-white d-flex align-items-center justify-content-center mx-auto mb-3">
+                            {{ community.name|first|upper }}
+                        </div>
+                    {% endif %}
+                    <h5>{{ community.name }}</h5>
+                    <p class="text-muted">
+                        {% if community.privacy == 'private' %}
+                            <span class="badge bg-warning">Закрытое сообщество</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Скрытое сообщество</span>
+                        {% endif %}
+                    </p>
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    Это сообщество требует одобрения заявок. 
+                    Расскажите немного о себе и почему хотите вступить.
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="message" class="form-label">
+                            Сообщение для модераторов
+                        </label>
+                        <textarea name="message" 
+                                  class="form-control" 
+                                  rows="5"
+                                  placeholder="Например: Хочу участвовать в обсуждениях, у меня есть опыт в этой теме..."></textarea>
+                        <small class="form-text text-muted">
+                            Это сообщение увидят администраторы сообщества при рассмотрении заявки
+                        </small>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send"></i> Отправить заявку
+                        </button>
+                        <a href="{% url 'communities:community_detail' community.slug %}" 
+                           class="btn btn-secondary">
+                            <i class="bi bi-x-lg"></i> Отмена
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

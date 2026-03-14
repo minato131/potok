@@ -251,42 +251,28 @@
             <!-- Вкладка с сообществами -->
             <div class="tab-pane fade" id="communities" role="tabpanel" aria-labelledby="communities-tab">
                 <div class="row">
-                    {% for membership in user_communities %}
-                        <div class="col-md-6 mb-3">
-                            <div class="card">
-                                <div class="card-body d-flex align-items-center">
-                                    {% if membership.community.avatar %}
-                                        <img src="{{ membership.community.avatar.url }}" class="avatar-medium me-3">
-                                    {% else %}
-                                        <div class="avatar-medium bg-secondary text-white d-flex align-items-center justify-content-center me-3">
-                                            {{ membership.community.name|first|upper }}
-                                        </div>
-                                    {% endif %}
-                                    <div>
-                                        <h6 class="mb-1">
-                                            <a href="{% url 'communities:community_detail' membership.community.slug %}">
-                                                {{ membership.community.name }}
-                                            </a>
-                                        </h6>
-                                        <small class="text-muted">
-                                            Роль: {{ membership.get_role_display }} • 
-                                            С {{ membership.joined_at|date:"d.m.Y" }}
-                                        </small>
+                        {% for membership in user_communities %}
+                            <div class="d-flex align-items-center mb-3">
+                                {% if membership.community.avatar %}
+                                    <img src="{{ membership.community.avatar.url }}" class="avatar me-2">
+                                {% else %}
+                                    <div class="avatar bg-gradient text-white d-flex align-items-center justify-content-center me-2">
+                                        {{ membership.community.name|first|upper }}
                                     </div>
+                                {% endif %}
+                                <div class="flex-grow-1">
+                                    {% if membership.community.slug %}
+                                        <a href="{% url 'communities:community_detail' membership.community.slug %}" class="text-decoration-none fw-bold">
+                                            {{ membership.community.name }}
+                                        </a>
+                                    {% else %}
+                                        <span class="fw-bold">{{ membership.community.name }}</span>
+                                    {% endif %}
+                                    <br>
+                                    <small class="text-muted">{{ membership.community.members_count }} участников</small>
                                 </div>
                             </div>
-                        </div>
-                    {% empty %}
-                        <div class="col-12">
-                            <div class="alert alert-info">
-                                {% if user == profile_user %}
-                                    Вы не состоите в сообществах. <a href="{% url 'communities:community_list' %}">Найти сообщества?</a>
-                                {% else %}
-                                    Пользователь не состоит в сообществах.
-                                {% endif %}
-                            </div>
-                        </div>
-                    {% endfor %}
+                        {% endfor %}
                 </div>
             </div>
             

@@ -62,10 +62,14 @@
                         {% endif %}
                         <div class="card-body">
                             <h5 class="card-title">
-                                <a href="{% url 'communities:community_detail' community.slug %}" 
-                                   class="text-decoration-none text-dark">
-                                    {{ community.name }}
-                                </a>
+                                {% if community.slug %}
+                                    <a href="{% url 'communities:community_detail' community.slug %}"
+                                       class="text-decoration-none text-dark">
+                                        {{ community.name }}
+                                    </a>
+                                {% else %}
+                                    <span class="text-dark">{{ community.name }}</span>
+                                {% endif %}
                             </h5>
                             <p class="card-text text-muted small">
                                 {{ community.description|truncatewords:20 }}
@@ -83,10 +87,14 @@
                         </div>
                         <div class="card-footer bg-transparent">
                             <small class="text-muted">
-                                Создал: 
-                                <a href="{% url 'accounts:profile_by_username' community.creator.username %}">
-                                    {{ community.creator.username }}
-                                </a>
+                                Создал:
+                                {% if community.creator %}
+                                    <a href="{% url 'accounts:profile_by_username' community.creator.username %}">
+                                        {{ community.creator.username }}
+                                    </a>
+                                {% else %}
+                                    Неизвестно
+                                {% endif %}
                             </small>
                         </div>
                     </div>
