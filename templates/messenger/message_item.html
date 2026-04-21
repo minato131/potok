@@ -1,0 +1,438 @@
+<!-- templates/messenger/message_item.html -->
+{% load static %}
+
+<div class="message {% if message.sender == user %}message--own{% endif %} {% if message.is_system %}message--system{% endif %}"
+     data-message-id="{{ message.id }}"
+     {% if message.reply_to %}data-reply-to="{{ message.reply_to.id }}"{% endif %}>
+
+    {% if not message.is_system %}
+    <div class="message-avatar">
+        {% if message.sender == user %}
+            {% if user.profile.avatar %}
+            <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}">
+            {% else %}
+            <div class="avatar-placeholder">{{ user.username|make_list|first|upper }}</div>
+            {% endif %}
+        {% else %}
+            {% if message.sender and message.sender.username %}
+            <a href="{% url 'accounts:profile_by_username' username=message.sender.username %}">
+                {% if message.sender.profile.avatar %}
+                <img src="{{ message.sender.profile.avatar.url }}" alt="{{ message.sender.username }}">
+                {% else %}
+                <div class="avatar-placeholder">{{ message.sender.username|make_list|first|upper }}</div>
+                {% endif %}
+            </a>
+            {% else %}
+            <div class="avatar-placeholder">?</div>
+            {% endif %}
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="message-content-wrapper">
+        {% if not message.is_system and message.sender != user %}
+        <div class="message-header">
+            {% if message.sender and message.sender.username %}
+            <a href="{% url 'accounts:profile_by_username' username=message.sender.username %}" class="message-sender">
+                {{ message.sender.get_full_name|default:message.sender.username }}
+            </a>
+            {% else %}
+            <span class="message-sender">Неизвестный пользователь</span>
+            {% endif %}
+            <span class="message-time" title="{{ message.created_at|date:'d.m.Y H:i' }}">
+                {{ message.created_at|time:"H:i" }}
+            </span>
+        </div>
+        {% endif %}
+
+        {% if message.reply_to %}
+        <div class="message-reply">
+            <i data-feather="corner-up-left"></i>
+            <div class="reply-content">
+                <span class="reply-author">{{ message.reply_to.sender.username|default:"Пользователь" }}</span>
+                <span class="reply-text">
+                    {% if message.reply_to.message_type == 'text' %}
+                        {{ message.reply_to.content|truncatechars:50 }}
+                    {% elif message.reply_to.message_type == 'image' %}
+                        <i data-feather="image"></i> Изображение
+                    {% elif message.reply_to.message_type == 'file' %}
+                        <i data-feather="file"></i> Файл
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="message-bubble {% if message.is_system %}message-bubble--system{% endif %}">
+            {% if message.message_type == 'text' %}
+                {{ message.content|linebreaksbr }}
+            {% elif message.message_type == 'image' %}
+                <div class="message-image">
+                    <img src="{{ message.file.url }}" alt="Изображение" loading="lazy">
+                </div>
+                {% if message.content %}
+                <p class="image-caption">{{ message.content }}</p>
+                {% endif %}
+            {% elif message.message_type == 'file' %}
+                <div class="message-file">
+                    <i data-feather="file"></i>
+                    <div class="file-info">
+                        <a href="{{ message.file.url }}" download class="file-name">
+                            {{ message.file.name|slice:"-30:" }}
+                        </a>
+                        <span class="file-size">{{ message.file.size|filesizeformat }}</span>
+                    </div>
+                    <a href="{{ message.file.url }}" download class="download-btn">
+                        <i data-feather="download"></i>
+                    </a>
+                </div>
+                {% if message.content %}
+                <p class="file-caption">{{ message.content }}</p>
+                {% endif %}
+            {% elif message.message_type == 'system' %}
+                <i data-feather="info"></i>
+                {{ message.content }}
+            {% endif %}
+        </div>
+
+        {% if message.sender == user and not message.is_system %}
+        <div class="message-footer">
+            <div class="message-status">
+                {% if message.is_read %}
+                    <i data-feather="check-circle" title="Прочитано"></i>
+                {% elif message.is_delivered %}
+                    <i data-feather="check" title="Доставлено"></i>
+                {% else %}
+                    <i data-feather="clock" title="Отправляется"></i>
+                {% endif %}
+            </div>
+
+            <div class="message-actions">
+                <button class="message-action-btn reply-btn" data-message-id="{{ message.id }}"
+                        data-message-content="{{ message.content|default:''|escapejs }}"
+                        data-sender="{{ message.sender.username|default:'Пользователь' }}"
+                        title="Ответить"
+                        onclick="replyToMessage({{ message.id }}, '{{ message.content|default:''|truncatewords:10|escapejs }}', '{{ message.sender.username|default:'Пользователь' }}')">
+                    <i data-feather="corner-up-left"></i>
+                </button>
+                {% if message.message_type == 'text' %}
+                <button class="message-action-btn edit-btn" data-message-id="{{ message.id }}"
+                        data-message-content="{{ message.content|default:''|escapejs }}"
+                        title="Редактировать"
+                        onclick="editMessage({{ message.id }}, '{{ message.content|default:''|escapejs }}')">
+                    <i data-feather="edit"></i>
+                </button>
+                {% endif %}
+                <button class="message-action-btn delete-btn" data-message-id="{{ message.id }}" title="Удалить"
+                        onclick="deleteMessage({{ message.id }})">
+                    <i data-feather="trash-2"></i>
+                </button>
+            </div>
+        </div>
+        {% elif message.sender != user and not message.is_system and message.sender %}
+        <div class="message-footer">
+            <button class="message-action-btn reply-btn" data-message-id="{{ message.id }}"
+                    data-message-content="{{ message.content|default:''|escapejs }}"
+                    data-sender="{{ message.sender.username|default:'Пользователь' }}"
+                    title="Ответить"
+                    onclick="replyToMessage({{ message.id }}, '{{ message.content|default:''|truncatewords:10|escapejs }}', '{{ message.sender.username|default:'Пользователь' }}')">
+                <i data-feather="corner-up-left"></i>
+            </button>
+        </div>
+        {% endif %}
+
+        {% if message.is_edited %}
+        <span class="edited-indicator" title="Отредактировано {{ message.edited_at|date:'d.m.Y H:i' }}">
+            (ред.)
+        </span>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .message {
+        display: flex;
+        gap: 0.75rem;
+        padding: 0.5rem 1rem;
+        transition: background var(--transition-base);
+    }
+
+    .message:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .message--system {
+        justify-content: center;
+    }
+
+    .message-avatar {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .message-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+        font-weight: 600;
+    }
+
+    .message-content-wrapper {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .message-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .message-sender {
+        font-weight: 600;
+        color: var(--color-text-primary);
+        text-decoration: none;
+    }
+
+    a.message-sender:hover {
+        color: var(--color-primary);
+        text-decoration: underline;
+    }
+
+    .message-time {
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .message-reply {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.375rem 0.75rem;
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-md);
+        margin-bottom: 0.5rem;
+        font-size: 0.8125rem;
+        border-left: 2px solid var(--color-primary);
+    }
+
+    .message-reply i {
+        width: 1rem;
+        height: 1rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .reply-content {
+        flex: 1;
+        overflow: hidden;
+    }
+
+    .reply-author {
+        font-weight: 600;
+        color: var(--color-primary);
+        margin-right: 0.5rem;
+    }
+
+    .reply-text {
+        color: var(--color-text-secondary);
+    }
+
+    .message-bubble {
+        display: inline-block;
+        max-width: 85%;
+        padding: 0.75rem 1rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
+        word-wrap: break-word;
+    }
+
+    .message--own .message-bubble {
+        background: var(--color-primary);
+        color: white;
+    }
+
+    .message-bubble--system {
+        background: var(--color-bg-elevated);
+        color: var(--color-text-secondary);
+        font-size: 0.875rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .message-image {
+        max-width: 300px;
+        border-radius: var(--radius-md);
+        overflow: hidden;
+    }
+
+    .message-image img {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+
+    .image-caption,
+    .file-caption {
+        margin-top: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .message-file {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .file-info {
+        flex: 1;
+    }
+
+    .file-name {
+        display: block;
+        font-weight: 500;
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .file-name:hover {
+        text-decoration: underline;
+    }
+
+    .file-size {
+        font-size: 0.75rem;
+        opacity: 0.7;
+    }
+
+    .download-btn {
+        padding: 0.5rem;
+        border-radius: var(--radius-md);
+        color: inherit;
+        transition: background var(--transition-base);
+    }
+
+    .download-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .message-footer {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        margin-top: 0.25rem;
+    }
+
+    .message-status {
+        display: flex;
+        align-items: center;
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .message--own .message-status {
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .message-actions {
+        display: flex;
+        gap: 0.125rem;
+        opacity: 0;
+        transition: opacity var(--transition-base);
+    }
+
+    .message:hover .message-actions {
+        opacity: 1;
+    }
+
+    .message-action-btn {
+        padding: 0.25rem;
+        border-radius: var(--radius-sm);
+        color: var(--color-text-tertiary);
+    }
+
+    .message-action-btn:hover {
+        background: var(--color-bg-elevated);
+        color: var(--color-text-primary);
+    }
+
+    .message--own .message-action-btn {
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .message--own .message-action-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+    }
+
+    .edited-indicator {
+        font-size: 0.6875rem;
+        color: var(--color-text-tertiary);
+        margin-left: 0.5rem;
+    }
+
+    .message--own .edited-indicator {
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    @media (max-width: 768px) {
+        .message-actions {
+            opacity: 1;
+        }
+
+        .message-bubble {
+            max-width: 90%;
+        }
+
+        .message-image {
+            max-width: 250px;
+        }
+    }
+</style>
+
+<script>
+    function deleteMessage(messageId) {
+        if (confirm('Удалить сообщение?')) {
+            fetch(`/messenger/message/${messageId}/delete/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            }).then(response => {
+                if (response.ok) {
+                    document.querySelector(`.message[data-message-id="${messageId}"]`)?.remove();
+                }
+            });
+        }
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>

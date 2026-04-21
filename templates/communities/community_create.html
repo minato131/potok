@@ -1,33 +1,14 @@
-<!-- templates/communities/community_form.html -->
+<!-- templates/communities/community_create.html -->
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}
-    {% if form.instance.pk %}
-        Редактирование {{ form.instance.name }} · Поток
-    {% else %}
-        Создание сообщества · Поток
-    {% endif %}
-{% endblock %}
-
-{% block page_title %}
-    {% if form.instance.pk %}
-        Редактирование сообщества
-    {% else %}
-        Создание нового сообщества
-    {% endif %}
-{% endblock %}
+{% block title %}Создание сообщества · Поток{% endblock %}
+{% block page_title %}Создание сообщества{% endblock %}
 
 {% block content %}
-<div class="community-form-container">
-    <form method="post" enctype="multipart/form-data" class="community-form" novalidate id="communityForm">
+<div class="community-create-container">
+    <form method="post" enctype="multipart/form-data" class="community-form" novalidate>
         {% csrf_token %}
-
-        {% if form.non_field_errors %}
-        <div class="alert alert--error">
-            {{ form.non_field_errors }}
-        </div>
-        {% endif %}
 
         <!-- Основная информация -->
         <div class="form-section">
@@ -87,16 +68,6 @@
                 <div class="form-error">{{ form.description.errors.0 }}</div>
                 {% endif %}
             </div>
-
-            <div class="form-group">
-                <label for="{{ form.category.id_for_label }}" class="form-label">
-                    Категория
-                </label>
-                {{ form.category }}
-                {% if form.category.errors %}
-                <div class="form-error">{{ form.category.errors.0 }}</div>
-                {% endif %}
-            </div>
         </div>
 
         <!-- Изображения -->
@@ -106,65 +77,29 @@
                 <h2>Изображения</h2>
             </div>
 
-            <div class="image-upload-grid">
+            <div class="image-upload-row">
                 <div class="avatar-upload-group">
                     <label class="form-label">Аватар сообщества</label>
                     <div class="image-preview avatar-preview" id="avatarPreview">
-                        {% if form.instance.avatar %}
-                        <img src="{{ form.instance.avatar.url }}" alt="Текущий аватар">
-                        {% else %}
                         <div class="preview-placeholder">
                             <i data-feather="camera"></i>
                             <span>Загрузить аватар</span>
                         </div>
-                        {% endif %}
-                        <div class="image-overlay">
-                            <i data-feather="edit-2"></i>
-                            <span>Изменить</span>
-                        </div>
                         {{ form.avatar }}
                     </div>
                     <div class="field-hint">Рекомендуемый размер: 400x400</div>
-                    {% if form.avatar.errors %}
-                    <div class="form-error">{{ form.avatar.errors.0 }}</div>
-                    {% endif %}
-
-                    {% if form.instance.avatar %}
-                    <label class="checkbox-label" style="margin-top: 0.5rem;">
-                        <input type="checkbox" name="avatar-clear" id="avatar-clear">
-                        <span>Удалить текущий аватар</span>
-                    </label>
-                    {% endif %}
                 </div>
 
                 <div class="cover-upload-group">
                     <label class="form-label">Обложка сообщества</label>
                     <div class="image-preview cover-preview" id="coverPreview">
-                        {% if form.instance.cover_image %}
-                        <img src="{{ form.instance.cover_image.url }}" alt="Текущая обложка">
-                        {% else %}
                         <div class="preview-placeholder">
                             <i data-feather="image"></i>
                             <span>Загрузить обложку</span>
                         </div>
-                        {% endif %}
-                        <div class="image-overlay">
-                            <i data-feather="edit-2"></i>
-                            <span>Изменить</span>
-                        </div>
                         {{ form.cover_image }}
                     </div>
                     <div class="field-hint">Рекомендуемый размер: 1200x400</div>
-                    {% if form.cover_image.errors %}
-                    <div class="form-error">{{ form.cover_image.errors.0 }}</div>
-                    {% endif %}
-
-                    {% if form.instance.cover_image %}
-                    <label class="checkbox-label" style="margin-top: 0.5rem;">
-                        <input type="checkbox" name="cover-clear" id="cover-clear">
-                        <span>Удалить текущую обложку</span>
-                    </label>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -173,10 +108,10 @@
         <div class="form-section">
             <div class="section-header">
                 <i data-feather="settings"></i>
-                <h2>Настройки сообщества</h2>
+                <h2>Настройки</h2>
             </div>
 
-            <div class="settings-grid">
+            <div class="settings-group">
                 <div class="setting-item">
                     <div class="setting-info">
                         <span class="setting-label">Тип сообщества</span>
@@ -195,28 +130,6 @@
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
-
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <span class="setting-label">Закрытое сообщество</span>
-                        <span class="setting-description">Требуется одобрение заявки на вступление</span>
-                    </div>
-                    <label class="toggle-switch">
-                        {{ form.is_private }}
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <span class="setting-label">Скрытое сообщество</span>
-                        <span class="setting-description">Не отображается в поиске и каталоге</span>
-                    </div>
-                    <label class="toggle-switch">
-                        {{ form.is_hidden }}
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
             </div>
         </div>
 
@@ -229,119 +142,63 @@
 
             <div class="form-group">
                 {{ form.rules }}
-                <div class="field-hint">
-                    Установите правила поведения в сообществе. Поддерживается Markdown.
-                </div>
-                {% if form.rules.errors %}
-                <div class="form-error">{{ form.rules.errors.0 }}</div>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Контакты -->
-        <div class="form-section">
-            <div class="section-header">
-                <i data-feather="link"></i>
-                <h2>Контакты и ссылки</h2>
-            </div>
-
-            <div class="form-group">
-                <label for="{{ form.website.id_for_label }}" class="form-label">
-                    <i data-feather="globe"></i>
-                    Веб-сайт
-                </label>
-                {{ form.website }}
-                {% if form.website.errors %}
-                <div class="form-error">{{ form.website.errors.0 }}</div>
-                {% endif %}
-            </div>
-
-            <div class="form-group">
-                <label for="{{ form.discord.id_for_label }}" class="form-label">
-                    <i data-feather="message-circle"></i>
-                    Discord сервер
-                </label>
-                {{ form.discord }}
-                {% if form.discord.errors %}
-                <div class="form-error">{{ form.discord.errors.0 }}</div>
-                {% endif %}
-            </div>
-
-            <div class="form-group">
-                <label for="{{ form.telegram.id_for_label }}" class="form-label">
-                    <i data-feather="send"></i>
-                    Telegram канал/чат
-                </label>
-                {{ form.telegram }}
-                {% if form.telegram.errors %}
-                <div class="form-error">{{ form.telegram.errors.0 }}</div>
-                {% endif %}
+                <div class="field-hint">Установите правила поведения в сообществе (опционально)</div>
             </div>
         </div>
 
         <!-- Действия -->
         <div class="form-actions">
-            <a href="{% if form.instance.pk %}{% url 'communities:community_detail' slug=form.instance.slug %}{% else %}{% url 'communities:community_list' %}{% endif %}" class="btn btn--outline">
-                <i data-feather="arrow-left"></i>
+            <a href="{% url 'communities:community_list' %}" class="btn btn--outline">
+                <i data-feather="x"></i>
                 Отмена
             </a>
-
-            <div class="form-actions-right">
-                <button type="submit" name="action" value="save" class="btn btn--primary">
-                    <i data-feather="save"></i>
-                    {% if form.instance.pk %}Сохранить{% else %}Создать{% endif %}
-                </button>
-            </div>
+            <button type="submit" class="btn btn--primary">
+                <i data-feather="check"></i>
+                Создать сообщество
+            </button>
         </div>
     </form>
 
-    <!-- Предпросмотр -->
-    <div class="preview-sidebar">
-        <div class="preview-card">
-            <h3>Предпросмотр</h3>
-            <div class="preview-content">
-                <div class="preview-community">
-                    <div class="preview-cover" id="previewCover">
-                        {% if form.instance.cover_image %}
-                        <img src="{{ form.instance.cover_image.url }}" alt="Preview">
-                        {% endif %}
-                    </div>
-                    <div class="preview-info">
-                        <div class="preview-avatar" id="previewAvatar">
-                            {% if form.instance.avatar %}
-                            <img src="{{ form.instance.avatar.url }}" alt="Preview">
-                            {% else %}
-                            <span id="previewAvatarText">?</span>
-                            {% endif %}
-                        </div>
-                        <h4 id="previewName">
-                            {% if form.instance.name %}
-                            c/{{ form.instance.name }}
-                            {% else %}
-                            c/название
-                            {% endif %}
-                        </h4>
-                        <p id="previewDescription">
-                            {% if form.instance.description %}
-                            {{ form.instance.description|truncatewords:20 }}
-                            {% else %}
-                            Описание сообщества...
-                            {% endif %}
-                        </p>
-                    </div>
-                </div>
-            </div>
+    <!-- Советы -->
+    <div class="tips-sidebar">
+        <div class="tip-card">
+            <h3>Советы по созданию</h3>
+            <ul class="tips-list">
+                <li>
+                    <i data-feather="check-circle"></i>
+                    <span>Выберите запоминающееся название</span>
+                </li>
+                <li>
+                    <i data-feather="check-circle"></i>
+                    <span>Добавьте качественный аватар</span>
+                </li>
+                <li>
+                    <i data-feather="check-circle"></i>
+                    <span>Напишите понятное описание</span>
+                </li>
+                <li>
+                    <i data-feather="check-circle"></i>
+                    <span>Установите четкие правила</span>
+                </li>
+                <li>
+                    <i data-feather="check-circle"></i>
+                    <span>Будьте активным модератором</span>
+                </li>
+            </ul>
         </div>
 
-        <div class="tips-card">
-            <h3>Советы</h3>
-            <ul class="tips-list">
-                <li>✓ Выберите запоминающееся название</li>
-                <li>✓ Добавьте качественные изображения</li>
-                <li>✓ Напишите понятное описание</li>
-                <li>✓ Установите четкие правила</li>
-                <li>✓ Будьте активным создателем</li>
-            </ul>
+        <div class="tip-card">
+            <h3>Примеры хороших сообществ</h3>
+            <div class="example-communities">
+                <div class="example-item">
+                    <strong>c/programming</strong>
+                    <p>Обсуждение языков программирования, алгоритмов и лучших практик</p>
+                </div>
+                <div class="example-item">
+                    <strong>c/design</strong>
+                    <p>UI/UX дизайн, графический дизайн, типографика и вдохновение</p>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -349,11 +206,11 @@
 
 {% block extra_css %}
 <style>
-    .community-form-container {
+    .community-create-container {
         display: grid;
         grid-template-columns: 1fr 320px;
         gap: 2rem;
-        max-width: 1200px;
+        max-width: 1100px;
         margin: 0 auto;
     }
 
@@ -404,13 +261,7 @@
         display: block;
         margin-bottom: 0.5rem;
         font-weight: 500;
-    }
-
-    .form-label i {
-        width: 1rem;
-        height: 1rem;
-        margin-right: 0.25rem;
-        vertical-align: middle;
+        color: var(--color-text-primary);
     }
 
     .required {
@@ -448,6 +299,7 @@
         border: 1px solid var(--color-border);
         border-radius: var(--radius-lg);
         overflow: hidden;
+        transition: all var(--transition-base);
     }
 
     .slug-input-wrapper:focus-within {
@@ -485,6 +337,10 @@
         font-family: monospace;
     }
 
+    .slug-status {
+        font-weight: 500;
+    }
+
     .slug-status.available {
         color: var(--color-success);
     }
@@ -493,7 +349,7 @@
         color: var(--color-danger);
     }
 
-    .image-upload-grid {
+    .image-upload-row {
         display: grid;
         grid-template-columns: 1fr 2fr;
         gap: 1.5rem;
@@ -540,27 +396,6 @@
         object-fit: cover;
     }
 
-    .image-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        color: white;
-        opacity: 0;
-        transition: opacity var(--transition-base);
-    }
-
-    .image-preview:hover .image-overlay {
-        opacity: 1;
-    }
-
     .image-preview input[type="file"] {
         position: absolute;
         top: 0;
@@ -571,16 +406,7 @@
         cursor: pointer;
     }
 
-    .checkbox-label {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        cursor: pointer;
-        font-size: 0.875rem;
-        color: var(--color-text-secondary);
-    }
-
-    .settings-grid {
+    .settings-group {
         display: flex;
         flex-direction: column;
         gap: 1.5rem;
@@ -644,7 +470,7 @@
         border-radius: 50%;
     }
 
-    input:checked + .toggle-slider {
+        input:checked + .toggle-slider {
         background-color: var(--color-primary);
     }
 
@@ -654,26 +480,20 @@
 
     .form-actions {
         display: flex;
-        align-items: center;
-        justify-content: space-between;
+        gap: 1rem;
+        justify-content: flex-end;
         margin-top: 2rem;
         padding-top: 1.5rem;
         border-top: 1px solid var(--color-border-light);
     }
 
-    .form-actions-right {
-        display: flex;
-        gap: 1rem;
-    }
-
-    .preview-sidebar {
+    .tips-sidebar {
         position: sticky;
         top: 80px;
         height: fit-content;
     }
 
-    .preview-card,
-    .tips-card {
+    .tip-card {
         background: var(--color-bg-surface);
         border-radius: var(--radius-lg);
         padding: 1.5rem;
@@ -681,64 +501,10 @@
         margin-bottom: 1.5rem;
     }
 
-    .preview-card h3,
-    .tips-card h3 {
+    .tip-card h3 {
         font-size: 1rem;
         margin-bottom: 1rem;
-    }
-
-    .preview-community {
-        border-radius: var(--radius-md);
-        overflow: hidden;
-        border: 1px solid var(--color-border);
-    }
-
-    .preview-cover {
-        height: 60px;
-        background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
-    }
-
-    .preview-cover img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .preview-info {
-        padding: 0.75rem;
-        position: relative;
-    }
-
-    .preview-avatar {
-        width: 3rem;
-        height: 3rem;
-        border-radius: var(--radius-md);
-        border: 2px solid white;
-        overflow: hidden;
-        margin-top: -1.5rem;
-        margin-bottom: 0.5rem;
-        background: var(--color-primary-light);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 700;
-        color: var(--color-primary);
-    }
-
-    .preview-avatar img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .preview-info h4 {
-        font-size: 0.9375rem;
-        margin-bottom: 0.25rem;
-    }
-
-    .preview-info p {
-        font-size: 0.8125rem;
-        color: var(--color-text-secondary);
+        color: var(--color-text-primary);
     }
 
     .tips-list {
@@ -746,34 +512,44 @@
     }
 
     .tips-list li {
-        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
         font-size: 0.875rem;
         color: var(--color-text-secondary);
     }
 
-    .form-error {
-        color: var(--color-danger);
-        font-size: 0.875rem;
-        margin-top: 0.25rem;
+    .tips-list i {
+        width: 1rem;
+        height: 1rem;
+        color: var(--color-success);
+        flex-shrink: 0;
+        margin-top: 0.125rem;
     }
 
-    .alert {
-        padding: 1rem;
-        border-radius: var(--radius-md);
-        margin-bottom: 1.5rem;
+    .example-item {
+        margin-bottom: 1rem;
     }
 
-    .alert--error {
-        background: #fee2e2;
-        color: #991b1b;
+    .example-item strong {
+        display: block;
+        margin-bottom: 0.25rem;
+        color: var(--color-primary);
+    }
+
+    .example-item p {
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+        line-height: 1.5;
     }
 
     @media (max-width: 1024px) {
-        .community-form-container {
+        .community-create-container {
             grid-template-columns: 1fr;
         }
 
-        .preview-sidebar {
+        .tips-sidebar {
             display: none;
         }
     }
@@ -783,17 +559,12 @@
             padding: 1.5rem;
         }
 
-        .image-upload-grid {
+        .image-upload-row {
             grid-template-columns: 1fr;
         }
 
         .form-actions {
             flex-direction: column;
-            gap: 1rem;
-        }
-
-        .form-actions-right {
-            width: 100%;
         }
 
         .setting-item {
@@ -808,11 +579,11 @@
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Автогенерация slug
+        // Автогенерация slug из названия
         const nameInput = document.querySelector('input[name="name"]');
         const slugInput = document.querySelector('input[name="slug"]');
 
-        if (nameInput && slugInput && !slugInput.value) {
+        if (nameInput && slugInput) {
             nameInput.addEventListener('input', function() {
                 if (!slugInput.dataset.manuallyChanged) {
                     const slug = this.value
@@ -821,58 +592,57 @@
                         .replace(/\s+/g, '-')
                         .replace(/-+/g, '-');
                     slugInput.value = slug;
-                    updatePreview();
+                    checkSlugAvailability(slug);
                 }
             });
 
             slugInput.addEventListener('input', function() {
                 this.dataset.manuallyChanged = 'true';
+                checkSlugAvailability(this.value);
             });
         }
 
-        // Предпросмотр
-        function updatePreview() {
-            const name = nameInput?.value || '';
-            const description = document.querySelector('textarea[name="description"]')?.value || '';
+        // Проверка доступности slug
+        let slugTimeout;
+        async function checkSlugAvailability(slug) {
+            clearTimeout(slugTimeout);
 
-            document.getElementById('previewName').textContent = name ? `c/${name}` : 'c/название';
-            document.getElementById('previewDescription').textContent = description || 'Описание сообщества...';
+            const statusEl = document.getElementById('slugStatus');
+            if (!slug) {
+                statusEl.textContent = '';
+                return;
+            }
 
-            const firstChar = name.charAt(0).toUpperCase() || '?';
-            const avatarText = document.getElementById('previewAvatarText');
-            if (avatarText) avatarText.textContent = firstChar;
+            slugTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(`/communities/check-slug/?slug=${slug}`);
+                    const data = await response.json();
+
+                    if (data.available) {
+                        statusEl.textContent = '✓ Доступно';
+                        statusEl.className = 'slug-status available';
+                    } else {
+                        statusEl.textContent = '✗ Занято';
+                        statusEl.className = 'slug-status unavailable';
+                    }
+                } catch (error) {
+                    console.error('Error checking slug:', error);
+                }
+            }, 500);
         }
-
-        if (nameInput) {
-            nameInput.addEventListener('input', updatePreview);
-        }
-        document.querySelector('textarea[name="description"]')?.addEventListener('input', updatePreview);
 
         // Предпросмотр аватара
         const avatarInput = document.querySelector('input[name="avatar"]');
         const avatarPreview = document.getElementById('avatarPreview');
-        const previewAvatar = document.getElementById('previewAvatar');
 
-        if (avatarInput) {
+        if (avatarInput && avatarPreview) {
             avatarInput.addEventListener('change', function(e) {
                 const file = e.target.files[0];
                 if (file) {
                     const reader = new FileReader();
                     reader.onload = function(e) {
-                        avatarPreview.innerHTML = `
-                            <img src="${e.target.result}" alt="Preview">
-                            <div class="image-overlay">
-                                <i data-feather="edit-2"></i>
-                                <span>Изменить</span>
-                            </div>
-                        `;
+                        avatarPreview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
                         avatarPreview.appendChild(avatarInput);
-
-                        if (previewAvatar) {
-                            previewAvatar.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
-                        }
-
-                        feather.replace();
                     };
                     reader.readAsDataURL(file);
                 }
@@ -882,28 +652,15 @@
         // Предпросмотр обложки
         const coverInput = document.querySelector('input[name="cover_image"]');
         const coverPreview = document.getElementById('coverPreview');
-        const previewCover = document.getElementById('previewCover');
 
-        if (coverInput) {
+        if (coverInput && coverPreview) {
             coverInput.addEventListener('change', function(e) {
                 const file = e.target.files[0];
                 if (file) {
                     const reader = new FileReader();
                     reader.onload = function(e) {
-                        coverPreview.innerHTML = `
-                            <img src="${e.target.result}" alt="Preview">
-                            <div class="image-overlay">
-                                <i data-feather="edit-2"></i>
-                                <span>Изменить</span>
-                            </div>
-                        `;
+                        coverPreview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
                         coverPreview.appendChild(coverInput);
-
-                        if (previewCover) {
-                            previewCover.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
-                        }
-
-                        feather.replace();
                     };
                     reader.readAsDataURL(file);
                 }
@@ -928,9 +685,6 @@
             });
             descCounter.textContent = descInput.value.length;
         }
-
-        // Инициализация предпросмотра
-        updatePreview();
     });
 </script>
 {% endblock %}

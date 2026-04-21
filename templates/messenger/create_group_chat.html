@@ -1,60 +1,812 @@
+<!-- templates/moderation/moderation_panel.html -->
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Создать групповой чат - Поток{% endblock %}
+{% block title %}Панель модератора · Поток{% endblock %}
+{% block page_title %}Панель модератора{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header">
-                <h4><i class="bi bi-people"></i> Создать групповой чат</h4>
+<div class="moderation-container">
+    <!-- Статистика -->
+    <div class="stats-grid">
+        <div class="stat-card stat-card--warning">
+            <div class="stat-icon">
+                <i data-feather="flag"></i>
             </div>
-            <div class="card-body">
-                <form method="post">
-                    {% csrf_token %}
-                    
-                    <div class="mb-3">
-                        <label for="{{ form.name.id_for_label }}" class="form-label">
-                            {{ form.name.label }}
-                        </label>
-                        {{ form.name }}
-                        {% if form.name.errors %}
-                            <div class="text-danger">{{ form.name.errors }}</div>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="{{ form.participants.id_for_label }}" class="form-label">
-                            {{ form.participants.label }}
-                        </label>
-                        <small class="text-muted d-block mb-2">
-                            Удерживайте Ctrl (Cmd на Mac) для выбора нескольких
-                        </small>
-                        {{ form.participants }}
-                        {% if form.participants.errors %}
-                            <div class="text-danger">{{ form.participants.errors }}</div>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="{{ form.initial_message.id_for_label }}" class="form-label">
-                            {{ form.initial_message.label }}
-                        </label>
-                        {{ form.initial_message }}
-                        <small class="form-text text-muted">
-                            Необязательно, можно написать позже
-                        </small>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check-lg"></i> Создать чат
-                    </button>
-                    <a href="{% url 'messenger:chat_list' %}" class="btn btn-secondary">
-                        Отмена
-                    </a>
-                </form>
+            <div class="stat-content">
+                <span class="stat-value">{{ pending_reports_count }}</span>
+                <span class="stat-label">Жалоб на рассмотрении</span>
+            </div>
+            <a href="{% url 'moderation:report_list' %}?status=pending" class="stat-link">
+                Просмотреть →
+            </a>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-feather="check-circle"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value">{{ resolved_today }}</span>
+                <span class="stat-label">Решено сегодня</span>
+            </div>
+        </div>
+
+        <div class="stat-card stat-card--danger">
+            <div class="stat-icon">
+                <i data-feather="user-x"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value">{{ active_bans_count }}</span>
+                <span class="stat-label">Активных банов</span>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i data-feather="eye-off"></i>
+            </div>
+            <div class="stat-content">
+                <span class="stat-value">{{ hidden_content_count }}</span>
+                <span class="stat-label">Скрытого контента</span>
             </div>
         </div>
     </div>
+
+    <!-- Быстрые действия -->
+    <div class="quick-actions">
+        <h3>Быстрые действия</h3>
+        <div class="actions-grid">
+            <a href="{% url 'moderation:report_list' %}?status=pending" class="action-card">
+                <i data-feather="flag"></i>
+                <span>Новые жалобы</span>
+                {% if pending_reports_count > 0 %}
+                <span class="badge badge--warning">{{ pending_reports_count }}</span>
+                {% endif %}
+            </a>
+            <a href="{% url 'moderation:report_list' %}" class="action-card">
+                <i data-feather="list"></i>
+                <span>Все жалобы</span>
+            </a>
+            <div class="action-card" onclick="openUserSearch()">
+                <i data-feather="search"></i>
+                <span>Найти пользователя</span>
+            </div>
+            <a href="{% url 'moderation:report_list' %}?type=post" class="action-card">
+                <i data-feather="file-text"></i>
+                <span>Жалобы на посты</span>
+            </a>
+            <a href="{% url 'moderation:report_list' %}?type=comment" class="action-card">
+                <i data-feather="message-circle"></i>
+                <span>Жалобы на комментарии</span>
+            </a>
+            <a href="{% url 'moderation:report_list' %}?type=user" class="action-card">
+                <i data-feather="user"></i>
+                <span>Жалобы на пользователей</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Последние жалобы -->
+    <div class="recent-section">
+        <div class="section-header">
+            <h3>
+                <i data-feather="clock"></i>
+                Последние жалобы
+            </h3>
+            <a href="{% url 'moderation:report_list' %}" class="view-all">Все жалобы →</a>
+        </div>
+
+        <div class="reports-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Тип</th>
+                        <th>Контент</th>
+                        <th>Автор</th>
+                        <th>Жалоб</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for report in recent_reports %}
+                    <tr>
+                        <td>
+                            <span class="type-badge type-badge--{{ report.content_type }}">
+                                {% if report.content_type == 'post' %}
+                                <i data-feather="file-text"></i> Пост
+                                {% elif report.content_type == 'comment' %}
+                                <i data-feather="message-circle"></i> Комментарий
+                                {% else %}
+                                <i data-feather="user"></i> Пользователь
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{{ report.content_url }}" target="_blank" class="content-link">
+                                {{ report.content_preview|truncatechars:40 }}
+                            </a>
+                        </td>
+                        <td>
+                            <a href="{% url 'moderation:user_detail' user_id=report.content_author.id %}" class="author-link">
+                                @{{ report.content_author.username }}
+                            </a>
+                        </td>
+                        <td>
+                            <span class="report-count">{{ report.total_reports }}</span>
+                        </td>
+                        <td>
+                            <span class="status-badge status-badge--{{ report.status }}">
+                                {% if report.status == 'pending' %}
+                                На рассмотрении
+                                {% elif report.status == 'resolved' %}
+                                Решено
+                                {% else %}
+                                Отклонено
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="row-actions">
+                                <a href="{% url 'moderation:report_detail' report_id=report.id %}" class="action-btn" title="Просмотреть">
+                                    <i data-feather="eye"></i>
+                                </a>
+                                <button class="action-btn quick-resolve" data-report-id="{{ report.id }}" title="Быстрое решение">
+                                    <i data-feather="check"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="empty-row">
+                            <i data-feather="check-circle"></i>
+                            Нет активных жалоб
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Активные баны -->
+    <div class="recent-section">
+        <div class="section-header">
+            <h3>
+                <i data-feather="shield"></i>
+                Активные баны
+            </h3>
+        </div>
+
+        <div class="bans-list">
+            {% for ban in active_bans %}
+            <div class="ban-item">
+                <div class="ban-user">
+                    <a href="{% url 'moderation:user_detail' user_id=ban.user.id %}">
+                        <strong>{{ ban.user.get_full_name|default:ban.user.username }}</strong>
+                        <span class="ban-username">@{{ ban.user.username }}</span>
+                    </a>
+                </div>
+                <div class="ban-info">
+                    <span class="ban-reason">{{ ban.reason|truncatechars:30 }}</span>
+                    <span class="ban-expires">
+                        {% if ban.is_permanent %}
+                        Навсегда
+                        {% else %}
+                        Истекает {{ ban.expires_at|timesince }}
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="ban-actions">
+                    <button class="btn btn--outline btn--sm lift-ban-btn" data-ban-id="{{ ban.id }}">
+                        <i data-feather="unlock"></i>
+                        Снять
+                    </button>
+                </div>
+            </div>
+            {% empty %}
+            <p class="empty-text">Нет активных банов</p>
+            {% endfor %}
+        </div>
+    </div>
 </div>
+
+<!-- Модальное окно поиска пользователя -->
+<div class="modal-overlay" id="userSearchModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Поиск пользователя</h3>
+            <button class="modal-close" onclick="closeUserSearch()">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="search-wrapper">
+                <i data-feather="search"></i>
+                <input type="text" id="userSearchInput" placeholder="Введите имя или @username..." class="search-input">
+            </div>
+            <div class="search-results" id="userSearchResults"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .moderation-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 1.5rem;
+        border: 1px solid var(--color-border-light);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stat-card--warning {
+        border-left: 4px solid var(--color-warning);
+    }
+
+    .stat-card--danger {
+        border-left: 4px solid var(--color-danger);
+    }
+
+    .stat-icon {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        color: var(--color-text-tertiary);
+        opacity: 0.3;
+    }
+
+    .stat-icon i {
+        width: 3rem;
+        height: 3rem;
+    }
+
+    .stat-content {
+        margin-bottom: 1rem;
+    }
+
+    .stat-value {
+        display: block;
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--color-text-primary);
+        line-height: 1.2;
+    }
+
+    .stat-label {
+        font-size: 0.875rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .stat-link {
+        color: var(--color-primary);
+        text-decoration: none;
+        font-size: 0.875rem;
+    }
+
+    .stat-link:hover {
+        text-decoration: underline;
+    }
+
+    .quick-actions {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 1.5rem;
+        border: 1px solid var(--color-border-light);
+        margin-bottom: 2rem;
+    }
+
+    .quick-actions h3 {
+        font-size: 1.125rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .actions-grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 1rem;
+    }
+
+    .action-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 1rem;
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-lg);
+        text-decoration: none;
+        color: var(--color-text-primary);
+        transition: all var(--transition-base);
+        cursor: pointer;
+        position: relative;
+    }
+
+    .action-card:hover {
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+        transform: translateY(-2px);
+    }
+
+    .action-card i {
+        width: 1.5rem;
+        height: 1.5rem;
+    }
+
+    .action-card span {
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        padding: 0.125rem 0.375rem;
+        border-radius: var(--radius-full);
+        font-size: 0.6875rem;
+        font-weight: 600;
+    }
+
+    .badge--warning {
+        background: var(--color-warning);
+        color: white;
+    }
+
+    .recent-section {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 1.5rem;
+        border: 1px solid var(--color-border-light);
+        margin-bottom: 2rem;
+    }
+
+    .section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.25rem;
+    }
+
+    .section-header h3 {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1.125rem;
+    }
+
+    .view-all {
+        color: var(--color-primary);
+        text-decoration: none;
+        font-size: 0.875rem;
+    }
+
+    .view-all:hover {
+        text-decoration: underline;
+    }
+
+    .reports-table {
+        overflow-x: auto;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th {
+        text-align: left;
+        padding: 0.75rem 1rem;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: var(--color-text-tertiary);
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    td {
+        padding: 1rem;
+        border-bottom: 1px solid var(--color-border-light);
+    }
+
+    .type-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: var(--radius-md);
+        font-size: 0.8125rem;
+        background: var(--color-bg-elevated);
+    }
+
+    .type-badge i {
+        width: 0.875rem;
+        height: 0.875rem;
+    }
+
+    .content-link {
+        color: var(--color-text-primary);
+        text-decoration: none;
+    }
+
+    .content-link:hover {
+        color: var(--color-primary);
+        text-decoration: underline;
+    }
+
+    .author-link {
+        color: var(--color-text-secondary);
+        text-decoration: none;
+    }
+
+    .author-link:hover {
+        color: var(--color-primary);
+    }
+
+    .report-count {
+        font-weight: 600;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: var(--radius-md);
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .status-badge--pending {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .status-badge--resolved {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .status-badge--dismissed {
+        background: var(--color-bg-elevated);
+        color: var(--color-text-tertiary);
+    }
+
+    .row-actions {
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    .action-btn {
+        padding: 0.375rem;
+        border-radius: var(--radius-md);
+        color: var(--color-text-tertiary);
+    }
+
+    .action-btn:hover {
+        background: var(--color-bg-elevated);
+        color: var(--color-text-primary);
+    }
+
+    .empty-row {
+        text-align: center;
+        padding: 3rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .empty-row i {
+        width: 2rem;
+        height: 2rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .bans-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .ban-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-lg);
+    }
+
+    .ban-user {
+        flex: 1;
+    }
+
+    .ban-user a {
+        text-decoration: none;
+    }
+
+    .ban-user strong {
+        color: var(--color-text-primary);
+    }
+
+    .ban-username {
+        margin-left: 0.5rem;
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .ban-info {
+        flex: 2;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .ban-reason {
+        color: var(--color-text-secondary);
+        font-size: 0.875rem;
+    }
+
+    .ban-expires {
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .empty-text {
+        text-align: center;
+        padding: 2rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .modal {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 1.5rem;
+        max-width: 500px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+
+    .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+    }
+
+    .modal-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+
+    .modal-close {
+        padding: 0.25rem;
+        border-radius: var(--radius-md);
+        color: var(--color-text-tertiary);
+    }
+
+    .search-wrapper {
+        position: relative;
+        margin-bottom: 1rem;
+    }
+
+    .search-wrapper i {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--color-text-tertiary);
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 0.75rem 1rem 0.75rem 2.5rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        font-size: 0.9375rem;
+    }
+
+    .search-results {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    @media (max-width: 1024px) {
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .actions-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    @media (max-width: 768px) {
+        .stats-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .actions-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .ban-item {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .ban-info {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.25rem;
+        }
+
+        .reports-table {
+            font-size: 0.875rem;
+        }
+
+        th, td {
+            padding: 0.75rem 0.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Модальное окно поиска пользователя
+        const searchModal = document.getElementById('userSearchModal');
+        const searchInput = document.getElementById('userSearchInput');
+        const searchResults = document.getElementById('userSearchResults');
+        let searchTimeout;
+
+        window.openUserSearch = function() {
+            searchModal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            searchInput.focus();
+        };
+
+        window.closeUserSearch = function() {
+            searchModal.style.display = 'none';
+            document.body.style.overflow = '';
+            searchInput.value = '';
+            searchResults.innerHTML = '';
+        };
+
+        searchModal?.addEventListener('click', (e) => {
+            if (e.target === searchModal) closeUserSearch();
+        });
+
+        searchInput?.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const query = this.value.trim();
+
+            if (query.length < 2) {
+                searchResults.innerHTML = '';
+                return;
+            }
+
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(`/accounts/users/search/?q=${encodeURIComponent(query)}`);
+                    const users = await response.json();
+
+                    searchResults.innerHTML = users.map(user => `
+                        <div class="search-result-item" onclick="window.location.href='/moderation/user/${user.id}/'">
+                            <div class="result-avatar">
+                                ${user.avatar ?
+                                    `<img src="${user.avatar}" alt="${user.username}">` :
+                                    `<div class="avatar-placeholder">${user.username.charAt(0).toUpperCase()}</div>`
+                                }
+                            </div>
+                            <div class="result-info">
+                                <div class="result-name">${user.full_name || user.username}</div>
+                                <div class="result-username">@${user.username}</div>
+                            </div>
+                        </div>
+                    `).join('');
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            }, 300);
+        });
+
+        // Быстрое решение жалобы
+        document.querySelectorAll('.quick-resolve').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const reportId = this.dataset.reportId;
+                const row = this.closest('tr');
+
+                if (confirm('Отметить жалобу как решенную?')) {
+                    try {
+                        const response = await fetch(`/moderation/report/${reportId}/resolve/`, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': getCookie('csrftoken')
+                            }
+                        });
+
+                        if (response.ok) {
+                            row.style.transition = 'opacity 0.3s ease';
+                            row.style.opacity = '0';
+                            setTimeout(() => row.remove(), 300);
+
+                            showToast({
+                                type: 'success',
+                                message: 'Жалоба отмечена как решенная'
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                    }
+                }
+            });
+        });
+
+        // Снятие бана
+        document.querySelectorAll('.lift-ban-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const banId = this.dataset.banId;
+                const item = this.closest('.ban-item');
+
+                if (confirm('Снять бан с пользователя?')) {
+                    try {
+                        const response = await fetch(`/moderation/ban/${banId}/lift/`, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': getCookie('csrftoken')
+                            }
+                        });
+
+                        if (response.ok) {
+                            item.style.transition = 'opacity 0.3s ease';
+                            item.style.opacity = '0';
+                            setTimeout(() => item.remove(), 300);
+
+                            showToast({
+                                type: 'success',
+                                message: 'Бан снят'
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                    }
+                }
+            });
+        });
+
+        // Закрытие по Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && searchModal?.style.display === 'flex') {
+                closeUserSearch();
+            }
+        });
+    });
+</script>
 {% endblock %}

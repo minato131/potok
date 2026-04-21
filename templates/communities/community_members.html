@@ -1,181 +1,714 @@
+<!-- templates/communities/community_members.html -->
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Участники {{ community.name }} - Поток{% endblock %}
+{% block title %}Участники {{ community.name }} · Поток{% endblock %}
+{% block page_title %}Участники c/{{ community.name }}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'communities:community_detail' slug=community.slug %}" class="btn btn--outline">
+    <i data-feather="arrow-left"></i>
+    <span>К сообществу</span>
+</a>
+{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0">
-                        <i class="bi bi-people"></i> 
-                        Участники сообщества "{{ community.name }}"
-                    </h4>
-                    <a href="{% url 'communities:community_detail' community.slug %}" 
-                       class="btn btn-outline-secondary">
-                        <i class="bi bi-arrow-left"></i> Назад
-                    </a>
-                </div>
-            </div>
-            <div class="card-body">
-                <!-- Фильтр по ролям -->
-                <div class="mb-4">
-                    <div class="btn-group" role="group">
-                        <a href="?role=" class="btn {% if not current_role %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                            Все
-                        </a>
-                        <a href="?role=admin" class="btn {% if current_role == 'admin' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                            Администраторы
-                        </a>
-                        <a href="?role=moderator" class="btn {% if current_role == 'moderator' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                            Модераторы
-                        </a>
-                        <a href="?role=member" class="btn {% if current_role == 'member' %}btn-primary{% else %}btn-outline-primary{% endif %}">
-                            Участники
-                        </a>
-                    </div>
-                </div>
-                
-                <!-- Список участников -->
-                <div class="row">
-                    {% for membership in page_obj %}
-                        <div class="col-md-4 mb-3">
-                            <div class="card">
-                                <div class="card-body d-flex align-items-center">
-                                    <a href="{% url 'accounts:profile_by_username' membership.user.username %}">
-                                        {% if membership.user.avatar %}
-                                            <img src="{{ membership.user.avatar.url }}" 
-                                                 class="avatar-medium me-3" alt="avatar">
-                                        {% else %}
-                                            <img src="/static/images/default-avatar.png" 
-                                                 class="avatar-medium me-3" alt="avatar">
-                                        {% endif %}
-                                    </a>
-                                    <div class="flex-grow-1">
-                                        <h6 class="mb-1">
-                                            <a href="{% url 'accounts:profile_by_username' membership.user.username %}" 
-                                               class="text-decoration-none">
-                                                {{ membership.user.get_full_name|default:membership.user.username }}
-                                            </a>
-                                        </h6>
-                                        <small class="text-muted">@{{ membership.user.username }}</small>
-                                        <br>
-                                        <span class="badge bg-{% if membership.role == 'admin' %}danger{% elif membership.role == 'moderator' %}info{% else %}secondary{% endif %}">
-                                            {{ membership.get_role_display }}
-                                        </span>
-                                        {% if membership.joined_at %}
-                                            <small class="text-muted d-block">
-                                                С {{ membership.joined_at|date:"d.m.Y" }}
-                                            </small>
-                                        {% endif %}
-                                    </div>
-                                    
-                                    {% if user_membership and user_membership.role == 'admin' and membership.user != request.user %}
-                                        <div class="dropdown">
-                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
-                                                    type="button" data-bs-toggle="dropdown">
-                                                <i class="bi bi-gear"></i>
-                                            </button>
-                                            <ul class="dropdown-menu">
-                                                {% if membership.role != 'admin' %}
-                                                    <li>
-                                                        <form method="post" action="">
-                                                            {% csrf_token %}
-                                                            <input type="hidden" name="user_id" value="{{ membership.user.id }}">
-                                                            <input type="hidden" name="action" value="make_admin">
-                                                            <button type="submit" class="dropdown-item">
-                                                                Сделать администратором
-                                                            </button>
-                                                        </form>
-                                                    </li>
-                                                {% endif %}
-                                                {% if membership.role == 'moderator' %}
-                                                    <li>
-                                                        <form method="post" action="">
-                                                            {% csrf_token %}
-                                                            <input type="hidden" name="user_id" value="{{ membership.user.id }}">
-                                                            <input type="hidden" name="action" value="remove_moderator">
-                                                            <button type="submit" class="dropdown-item">
-                                                                Снять модератора
-                                                            </button>
-                                                        </form>
-                                                    </li>
-                                                {% endif %}
-                                                <li>
-                                                    <hr class="dropdown-divider">
-                                                </li>
-                                                <li>
-                                                    <form method="post" action="">
-                                                        {% csrf_token %}
-                                                        <input type="hidden" name="user_id" value="{{ membership.user.id }}">
-                                                        <input type="hidden" name="action" value="ban">
-                                                        <button type="submit" class="dropdown-item text-danger">
-                                                            Заблокировать
-                                                        </button>
-                                                    </form>
-                                                </li>
-                                            </ul>
-                                        </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                    {% empty %}
-                        <div class="col-12">
-                            <div class="alert alert-info">
-                                В сообществе пока нет участников
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
-                
-                <!-- Пагинация -->
-                {% if page_obj.has_other_pages %}
-                    <nav aria-label="Page navigation" class="mt-4">
-                        <ul class="pagination justify-content-center">
-                            {% if page_obj.has_previous %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page=1{% if current_role %}&role={{ current_role }}{% endif %}">
-                                        <i class="bi bi-chevron-double-left"></i>
-                                    </a>
-                                </li>
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_role %}&role={{ current_role }}{% endif %}">
-                                        <i class="bi bi-chevron-left"></i>
-                                    </a>
-                                </li>
-                            {% endif %}
-
-                            {% for num in page_obj.paginator.page_range %}
-                                {% if page_obj.number == num %}
-                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                                    <li class="page-item">
-                                        <a class="page-link" href="?page={{ num }}{% if current_role %}&role={{ current_role }}{% endif %}">
-                                            {{ num }}
-                                        </a>
-                                    </li>
-                                {% endif %}
-                            {% endfor %}
-
-                            {% if page_obj.has_next %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_role %}&role={{ current_role }}{% endif %}">
-                                        <i class="bi bi-chevron-right"></i>
-                                    </a>
-                                </li>
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if current_role %}&role={{ current_role }}{% endif %}">
-                                        <i class="bi bi-chevron-double-right"></i>
-                                    </a>
-                                </li>
-                            {% endif %}
-                        </ul>
-                    </nav>
+<div class="members-container">
+    <!-- Шапка -->
+    <div class="members-header">
+        <div class="community-info-mini">
+            <div class="community-avatar-small">
+                {% if community.avatar %}
+                <img src="{{ community.avatar.url }}" alt="{{ community.name }}">
+                {% else %}
+                <div class="avatar-placeholder">{{ community.name|make_list|first|upper }}</div>
                 {% endif %}
+            </div>
+            <div>
+                <h2>c/{{ community.name }}</h2>
+                <p>{{ community.members.count }} участников</p>
             </div>
         </div>
     </div>
+
+    <!-- Табы -->
+    <div class="members-tabs">
+        <button class="tab-btn active" data-tab="all">
+            <i data-feather="users"></i>
+            <span>Все участники</span>
+            <span class="badge">{{ members.count }}</span>
+        </button>
+        <button class="tab-btn" data-tab="moderators">
+            <i data-feather="shield"></i>
+            <span>Модераторы</span>
+            <span class="badge">{{ moderators.count|add:1 }}</span>
+        </button>
+        {% if user in community.moderators.all or user == community.creator %}
+        <button class="tab-btn" data-tab="requests">
+            <i data-feather="clock"></i>
+            <span>Заявки</span>
+            {% if pending_requests %}
+            <span class="badge badge--warning">{{ pending_requests.count }}</span>
+            {% endif %}
+        </button>
+        <button class="tab-btn" data-tab="banned">
+            <i data-feather="slash"></i>
+            <span>Заблокированные</span>
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Поиск -->
+    <div class="search-wrapper">
+        <i data-feather="search"></i>
+        <input type="text" id="memberSearch" placeholder="Поиск участников..." class="search-input">
+    </div>
+
+    <!-- Список участников -->
+    <div class="tab-content active" id="tab-all">
+        <div class="members-list">
+            <!-- Создатель -->
+            <div class="member-card creator">
+                <div class="member-avatar">
+                    <a href="{% url 'accounts:profile_by_username' username=community.creator.username %}">
+                        {% if community.creator.profile.avatar %}
+                        <img src="{{ community.creator.profile.avatar.url }}" alt="{{ community.creator.username }}">
+                        {% else %}
+                        <div class="avatar-placeholder">{{ community.creator.username|make_list|first|upper }}</div>
+                        {% endif %}
+                    </a>
+                </div>
+                <div class="member-info">
+                    <a href="{% url 'accounts:profile_by_username' username=community.creator.username %}" class="member-name">
+                        {{ community.creator.get_full_name|default:community.creator.username }}
+                    </a>
+                    <span class="member-username">@{{ community.creator.username }}</span>
+                    <span class="member-badge creator-badge">Создатель</span>
+                </div>
+                <div class="member-actions">
+                    <span class="member-joined">Создал {{ community.created_at|date:"d.m.Y" }}</span>
+                </div>
+            </div>
+
+            <!-- Модераторы -->
+            {% for moderator in moderators %}
+            <div class="member-card moderator">
+                <div class="member-avatar">
+                    <a href="{% url 'accounts:profile_by_username' username=moderator.username %}">
+                        {% if moderator.profile.avatar %}
+                        <img src="{{ moderator.profile.avatar.url }}" alt="{{ moderator.username }}">
+                        {% else %}
+                        <div class="avatar-placeholder">{{ moderator.username|make_list|first|upper }}</div>
+                        {% endif %}
+                    </a>
+                </div>
+                <div class="member-info">
+                    <a href="{% url 'accounts:profile_by_username' username=moderator.username %}" class="member-name">
+                        {{ moderator.get_full_name|default:moderator.username }}
+                    </a>
+                    <span class="member-username">@{{ moderator.username }}</span>
+                    <span class="member-badge moderator-badge">Модератор</span>
+                </div>
+                <div class="member-actions">
+                    {% if user == community.creator %}
+                    <button class="btn btn--outline btn--sm remove-moderator-btn" data-user-id="{{ moderator.id }}">
+                        <i data-feather="user-minus"></i>
+                        Снять
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+
+            <!-- Обычные участники -->
+            {% for member in members %}
+            {% if member != community.creator and member not in moderators %}
+            <div class="member-card" data-username="{{ member.username }}">
+                <div class="member-avatar">
+                    <a href="{% url 'accounts:profile_by_username' username=member.username %}">
+                        {% if member.profile.avatar %}
+                        <img src="{{ member.profile.avatar.url }}" alt="{{ member.username }}">
+                        {% else %}
+                        <div class="avatar-placeholder">{{ member.username|make_list|first|upper }}</div>
+                        {% endif %}
+                    </a>
+                </div>
+                <div class="member-info">
+                    <a href="{% url 'accounts:profile_by_username' username=member.username %}" class="member-name">
+                        {{ member.get_full_name|default:member.username }}
+                    </a>
+                    <span class="member-username">@{{ member.username }}</span>
+                </div>
+                <div class="member-actions">
+                    {% if user in community.moderators.all or user == community.creator %}
+                    <div class="member-menu">
+                        <button class="menu-toggle">
+                            <i data-feather="more-vertical"></i>
+                        </button>
+                        <div class="menu-dropdown">
+                            <button class="menu-item make-moderator-btn" data-user-id="{{ member.id }}">
+                                <i data-feather="shield"></i>
+                                Сделать модератором
+                            </button>
+                            <button class="menu-item menu-item--danger ban-member-btn" data-user-id="{{ member.id }}">
+                                <i data-feather="slash"></i>
+                                Заблокировать
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Таб модераторов -->
+    <div class="tab-content" id="tab-moderators">
+        <div class="members-list">
+            <!-- Создатель -->
+            <div class="member-card creator">
+                <!-- Аналогично табу "Все" -->
+            </div>
+
+            {% for moderator in moderators %}
+            <div class="member-card moderator">
+                <!-- Аналогично -->
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Таб заявок -->
+    {% if user in community.moderators.all or user == community.creator %}
+    <div class="tab-content" id="tab-requests">
+        <div class="members-list">
+            {% for request in pending_requests %}
+            <div class="member-card request">
+                <div class="member-avatar">
+                    <a href="{% url 'accounts:profile_by_username' username=request.user.username %}">
+                        {% if request.user.profile.avatar %}
+                        <img src="{{ request.user.profile.avatar.url }}" alt="{{ request.user.username }}">
+                        {% else %}
+                        <div class="avatar-placeholder">{{ request.user.username|make_list|first|upper }}</div>
+                        {% endif %}
+                    </a>
+                </div>
+                <div class="member-info">
+                    <a href="{% url 'accounts:profile_by_username' username=request.user.username %}" class="member-name">
+                        {{ request.user.get_full_name|default:request.user.username }}
+                    </a>
+                    <span class="member-username">@{{ request.user.username }}</span>
+                    <span class="request-date">Заявка {{ request.created_at|timesince }} назад</span>
+                </div>
+                <div class="member-actions">
+                    <button class="btn btn--success btn--sm approve-request" data-request-id="{{ request.id }}">
+                        <i data-feather="check"></i>
+                        Принять
+                    </button>
+                    <button class="btn btn--danger btn--sm reject-request" data-request-id="{{ request.id }}">
+                        <i data-feather="x"></i>
+                        Отклонить
+                    </button>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-state">
+                <i data-feather="inbox"></i>
+                <h3>Нет заявок</h3>
+                <p>Новых заявок на вступление нет</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .members-container {
+        max-width: 700px;
+        margin: 0 auto;
+    }
+
+    .members-header {
+        margin-bottom: 1.5rem;
+    }
+
+    .community-info-mini {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .community-avatar-small {
+        width: 3rem;
+        height: 3rem;
+        border-radius: var(--radius-md);
+        overflow: hidden;
+    }
+
+    .community-avatar-small img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .community-info-mini h2 {
+        font-size: 1.25rem;
+        margin-bottom: 0.125rem;
+    }
+
+    .community-info-mini p {
+        color: var(--color-text-tertiary);
+        font-size: 0.875rem;
+    }
+
+    .members-tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    .tab-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 0;
+        color: var(--color-text-secondary);
+        border-bottom: 2px solid transparent;
+        transition: all var(--transition-base);
+    }
+
+    .tab-btn:hover {
+        color: var(--color-text-primary);
+    }
+
+    .tab-btn.active {
+        color: var(--color-primary);
+        border-bottom-color: var(--color-primary);
+    }
+
+    .badge {
+        background: var(--color-bg-elevated);
+        padding: 0.125rem 0.5rem;
+        border-radius: var(--radius-full);
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .badge--warning {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .search-wrapper {
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+
+    .search-wrapper i {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--color-text-tertiary);
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 0.75rem 1rem 0.75rem 2.5rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        font-size: 0.9375rem;
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    .members-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .member-card {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--color-border-light);
+        transition: all var(--transition-base);
+    }
+
+    .member-card:hover {
+        box-shadow: var(--shadow-md);
+    }
+
+    .member-avatar {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 50%;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .member-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .member-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .member-name {
+        font-weight: 600;
+        color: var(--color-text-primary);
+        text-decoration: none;
+    }
+
+    .member-name:hover {
+        color: var(--color-primary);
+    }
+
+    .member-username {
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+        display: block;
+    }
+
+    .member-badge {
+        display: inline-block;
+        font-size: 0.6875rem;
+        padding: 0.125rem 0.5rem;
+        border-radius: var(--radius-full);
+        margin-top: 0.25rem;
+    }
+
+    .creator-badge {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .moderator-badge {
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+    }
+
+    .member-actions {
+        flex-shrink: 0;
+    }
+
+    .member-joined {
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .member-menu {
+        position: relative;
+    }
+
+    .menu-toggle {
+        padding: 0.25rem;
+        border-radius: var(--radius-md);
+        color: var(--color-text-tertiary);
+    }
+
+    .menu-toggle:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .menu-dropdown {
+        position: absolute;
+        right: 0;
+        top: 100%;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--color-border);
+        min-width: 180px;
+        z-index: 10;
+        display: none;
+    }
+
+    .member-menu:hover .menu-dropdown {
+        display: block;
+    }
+
+    .menu-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        color: var(--color-text-primary);
+        width: 100%;
+        transition: background var(--transition-base);
+    }
+
+    .menu-item:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .menu-item--danger {
+        color: var(--color-danger);
+    }
+
+    .menu-item--danger:hover {
+        background: var(--color-danger);
+        color: white;
+    }
+
+    .btn--success {
+        background: var(--color-success);
+        color: white;
+    }
+
+    .btn--success:hover {
+        background: #059669;
+    }
+
+    .request-date {
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+        margin-left: 0.5rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+    }
+
+    .empty-state i {
+        width: 3rem;
+        height: 3rem;
+        color: var(--color-text-tertiary);
+        margin-bottom: 1rem;
+    }
+
+    .empty-state h3 {
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-state p {
+        color: var(--color-text-secondary);
+    }
+
+    @media (max-width: 768px) {
+        .member-card {
+            flex-wrap: wrap;
+        }
+
+        .member-actions {
+            width: 100%;
+        }
+
+        .members-tabs {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .tab-btn {
+            white-space: nowrap;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Переключение табов
+        const tabBtns = document.querySelectorAll('.tab-btn[data-tab]');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const tabId = this.dataset.tab;
+
+                tabBtns.forEach(b => b.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+
+                this.classList.add('active');
+                document.getElementById(`tab-${tabId}`).classList.add('active');
+            });
+        });
+
+        // Поиск участников
+        const searchInput = document.getElementById('memberSearch');
+        const memberCards = document.querySelectorAll('.member-card[data-username]');
+
+        searchInput?.addEventListener('input', function() {
+            const query = this.value.toLowerCase();
+
+            memberCards.forEach(card => {
+                const username = card.dataset.username.toLowerCase();
+                const name = card.querySelector('.member-name')?.textContent.toLowerCase() || '';
+
+                if (username.includes(query) || name.includes(query)) {
+                    card.style.display = '';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+
+        // Назначение модератора
+        document.querySelectorAll('.make-moderator-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const userId = this.dataset.userId;
+
+                try {
+                    const response = await fetch(`/communities/{{ community.slug }}/add-moderator/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({ user_id: userId })
+                    });
+
+                    if (response.ok) {
+                        showToast({
+                            type: 'success',
+                            message: 'Модератор назначен'
+                        });
+                        setTimeout(() => location.reload(), 1000);
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            });
+        });
+
+        // Снятие модератора
+        document.querySelectorAll('.remove-moderator-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const userId = this.dataset.userId;
+
+                if (confirm('Снять модератора?')) {
+                    try {
+                        const response = await fetch(`/communities/{{ community.slug }}/remove-moderator/`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': getCookie('csrftoken')
+                            },
+                            body: JSON.stringify({ user_id: userId })
+                        });
+
+                        if (response.ok) {
+                            showToast({
+                                type: 'success',
+                                message: 'Модератор снят'
+                            });
+                            setTimeout(() => location.reload(), 1000);
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                    }
+                }
+            });
+        });
+
+        // Блокировка участника
+        document.querySelectorAll('.ban-member-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const userId = this.dataset.userId;
+
+                if (confirm('Заблокировать участника? Он не сможет видеть и публиковать посты в сообществе.')) {
+                    try {
+                        const response = await fetch(`/communities/{{ community.slug }}/ban/${userId}/`, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': getCookie('csrftoken')
+                            }
+                        });
+
+                        if (response.ok) {
+                            this.closest('.member-card').remove();
+                            showToast({
+                                type: 'success',
+                                message: 'Участник заблокирован'
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                    }
+                }
+            });
+        });
+
+        // Обработка заявок
+        document.querySelectorAll('.approve-request').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const requestId = this.dataset.requestId;
+
+                try {
+                    const response = await fetch(`/communities/requests/${requestId}/approve/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken')
+                        }
+                    });
+
+                    if (response.ok) {
+                        this.closest('.member-card').remove();
+                        showToast({
+                            type: 'success',
+                            message: 'Заявка одобрена'
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            });
+        });
+
+        document.querySelectorAll('.reject-request').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const requestId = this.dataset.requestId;
+
+                try {
+                    const response = await fetch(`/communities/requests/${requestId}/reject/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken')
+                        }
+                    });
+
+                    if (response.ok) {
+                        this.closest('.member-card').remove();
+                        showToast({
+                            type: 'info',
+                            message: 'Заявка отклонена'
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            });
+        });
+    });
+</script>
 {% endblock %}

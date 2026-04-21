@@ -1,50 +1,508 @@
+<!-- templates/posts/tag_confirm_delete.html -->
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Удаление тега - Поток{% endblock %}
+{% block title %}Удаление тега #{{ tag.name }} · Поток{% endblock %}
+{% block page_title %}Удаление тега{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card border-danger">
-            <div class="card-header bg-danger text-white">
-                <h4 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Подтверждение удаления</h4>
+<div class="delete-container">
+    <div class="delete-card">
+        <div class="delete-icon">
+            <i data-feather="alert-triangle"></i>
+        </div>
+
+        <h2>Удалить тег #{{ tag.name }}?</h2>
+
+        <p class="delete-warning">
+            Это действие необратимо. Тег будет удален из всех постов.
+        </p>
+
+        <!-- Информация о теге -->
+        <div class="tag-info-preview">
+            <div class="tag-header-preview">
+                <span class="tag-name-preview" style="color: {{ tag.color|default:'var(--color-primary)' }};">
+                    <i data-feather="tag"></i>
+                    #{{ tag.name }}
+                </span>
+                <span class="tag-posts-count">{{ tag.posts.count }} постов</span>
             </div>
-            <div class="card-body">
-                {% if not user.is_staff and not user.is_superuser %}
-                    <div class="alert alert-danger">
-                        <i class="bi bi-exclamation-triangle"></i>
-                        У вас нет прав для удаления тегов.
-                    </div>
-                {% else %}
-                    <p class="lead">Вы уверены, что хотите удалить тег <strong>"{{ tag.name }}"</strong>?</p>
 
-                    <div class="alert alert-warning">
-                        <i class="bi bi-info-circle"></i>
-                        <strong>Внимание:</strong> Тег будет удален из всех постов, где он используется.
-                        <hr>
-                        <div class="mb-2">
-                            <strong>Статистика:</strong>
-                            <ul class="mb-0">
-                                <li>Постов с этим тегом: <strong>{{ tag.posts.count }}</strong></li>
-                                <li>Дата создания: {{ tag.created_at|date:"d.m.Y H:i" }}</li>
-                            </ul>
-                        </div>
-                    </div>
+            {% if tag.description %}
+            <p class="tag-description-preview">{{ tag.description }}</p>
+            {% endif %}
 
-                    <form method="post">
-                        {% csrf_token %}
-                        <div class="d-flex justify-content-between">
-                            <button type="submit" class="btn btn-danger">
-                                <i class="bi bi-trash"></i> Да, удалить тег
-                            </button>
-                            <a href="{% url 'posts:tag_detail' tag.slug %}" class="btn btn-secondary">
-                                <i class="bi bi-x-lg"></i> Отмена
-                            </a>
-                        </div>
-                    </form>
+            <div class="tag-meta-preview">
+                <span><i data-feather="users"></i> {{ tag.followers.count }} подписчиков</span>
+                <span><i data-feather="calendar"></i> Создан {{ tag.created_at|date:"d.m.Y" }}</span>
+            </div>
+        </div>
+
+        <!-- Посты с этим тегом -->
+        {% if tag.posts.count > 0 %}
+        <div class="affected-posts">
+            <h4>Тег будет удален из следующих постов:</h4>
+            <div class="posts-preview-list">
+                {% for post in tag.posts.all|slice:":5" %}
+                <div class="post-preview-item">
+                    <a href="{% url 'posts:post_detail' pk=post.id %}" target="_blank">
+                        {{ post.title|truncatewords:8 }}
+                    </a>
+                    <span class="post-author-preview">от u/{{ post.author.username }}</span>
+                </div>
+                {% endfor %}
+                {% if tag.posts.count > 5 %}
+                <p class="more-posts">...и еще {{ tag.posts.count|add:"-5" }} постов</p>
                 {% endif %}
             </div>
         </div>
+        {% endif %}
+
+        <form method="post" class="delete-form">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="confirm" id="confirmCheckbox" required>
+                    <span>Я понимаю, что это действие необратимо</span>
+                </label>
+            </div>
+
+            {% if tag.posts.count > 0 %}
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="confirm_posts" id="confirmPostsCheckbox" required>
+                    <span>Я понимаю, что тег будет удален из {{ tag.posts.count }} постов</span>
+                </label>
+            </div>
+            {% endif %}
+
+            <div class="form-actions">
+                <a href="{% url 'posts:tag_list' %}" class="btn btn--outline">
+                    <i data-feather="arrow-left"></i>
+                    Отмена
+                </a>
+                <button type="submit" class="btn btn--danger" id="deleteBtn" disabled>
+                    <i data-feather="trash-2"></i>
+                    Удалить тег
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Альтернативные действия -->
+    <div class="alternate-actions">
+        <h3>Другие варианты</h3>
+        <div class="action-buttons">
+            <a href="{% url 'posts:tag_edit' slug=tag.slug %}" class="btn btn--outline btn--block">
+                <i data-feather="edit"></i>
+                Редактировать тег
+            </a>
+            <button class="btn btn--outline btn--block" id="mergeTagBtn">
+                <i data-feather="git-merge"></i>
+                Объединить с другим тегом
+            </button>
+        </div>
     </div>
 </div>
+
+<!-- Модальное окно объединения тегов -->
+<div class="modal-overlay" id="mergeModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Объединить теги</h3>
+            <button class="modal-close" onclick="closeMergeModal()">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p>Выберите тег, с которым объединить #{{ tag.name }}. Все посты с тегом #{{ tag.name }} получат выбранный тег, а текущий тег будет удален.</p>
+
+            <div class="form-group">
+                <label class="form-label">Выберите тег</label>
+                <select id="targetTag" class="form-select">
+                    <option value="">Выберите тег...</option>
+                    {% for t in all_tags %}
+                        {% if t.id != tag.id %}
+                        <option value="{{ t.slug }}">#{{ t.name }} ({{ t.posts.count }} постов)</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn--outline" onclick="closeMergeModal()">Отмена</button>
+            <button class="btn btn--primary" id="confirmMerge" disabled>Объединить</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .delete-container {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    .delete-card {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 2rem;
+        border: 1px solid var(--color-border-light);
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .delete-icon {
+        width: 5rem;
+        height: 5rem;
+        border-radius: 50%;
+        background: #fee2e2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.5rem;
+        color: var(--color-danger);
+    }
+
+    .delete-icon i {
+        width: 2.5rem;
+        height: 2.5rem;
+    }
+
+    .delete-card h2 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        color: var(--color-text-primary);
+    }
+
+    .delete-warning {
+        color: var(--color-danger);
+        font-weight: 500;
+        margin-bottom: 1.5rem;
+    }
+
+    .tag-info-preview {
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        text-align: left;
+    }
+
+    .tag-header-preview {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+    }
+
+    .tag-name-preview {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+
+    .tag-posts-count {
+        font-size: 0.875rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .tag-description-preview {
+        color: var(--color-text-secondary);
+        margin-bottom: 0.75rem;
+        line-height: 1.5;
+    }
+
+    .tag-meta-preview {
+        display: flex;
+        gap: 1.5rem;
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .tag-meta-preview span {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .affected-posts {
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        text-align: left;
+    }
+
+    .affected-posts h4 {
+        margin-bottom: 1rem;
+        font-size: 1rem;
+        color: var(--color-text-primary);
+    }
+
+    .posts-preview-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .post-preview-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--color-border-light);
+    }
+
+    .post-preview-item:last-child {
+        border-bottom: none;
+    }
+
+    .post-preview-item a {
+        color: var(--color-primary);
+        text-decoration: none;
+    }
+
+    .post-preview-item a:hover {
+        text-decoration: underline;
+    }
+
+    .post-author-preview {
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .more-posts {
+        color: var(--color-text-tertiary);
+        font-size: 0.875rem;
+        font-style: italic;
+        margin-top: 0.5rem;
+    }
+
+    .delete-form {
+        text-align: left;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        cursor: pointer;
+        font-size: 0.9375rem;
+    }
+
+    .checkbox-label input[type="checkbox"] {
+        width: 1.25rem;
+        height: 1.25rem;
+        cursor: pointer;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+    }
+
+    .btn--danger {
+        background: var(--color-danger);
+        color: white;
+    }
+
+    .btn--danger:hover:not(:disabled) {
+        background: var(--color-danger-hover);
+    }
+
+    .btn--danger:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .alternate-actions {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 1.5rem;
+        border: 1px solid var(--color-border-light);
+    }
+
+    .alternate-actions h3 {
+        font-size: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .action-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .btn--block {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .modal {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 1.5rem;
+        max-width: 500px;
+        width: 90%;
+    }
+
+    .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+    }
+
+    .modal-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+
+    .modal-close {
+        padding: 0.25rem;
+        border-radius: var(--radius-md);
+        color: var(--color-text-tertiary);
+    }
+
+    .modal-body {
+        margin-bottom: 1.5rem;
+    }
+
+    .modal-body p {
+        margin-bottom: 1rem;
+        color: var(--color-text-secondary);
+    }
+
+    .form-select {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        font-size: 0.9375rem;
+        background: var(--color-bg-surface);
+    }
+
+    .modal-footer {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: flex-end;
+    }
+
+    @media (max-width: 768px) {
+        .delete-card {
+            padding: 1.5rem;
+        }
+
+        .form-actions {
+            flex-direction: column;
+        }
+
+        .form-actions .btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const confirmCheckbox = document.getElementById('confirmCheckbox');
+        const confirmPostsCheckbox = document.getElementById('confirmPostsCheckbox');
+        const deleteBtn = document.getElementById('deleteBtn');
+
+        function updateDeleteButton() {
+            const isConfirmed = confirmCheckbox.checked;
+            const isPostsConfirmed = !confirmPostsCheckbox || confirmPostsCheckbox.checked;
+            deleteBtn.disabled = !(isConfirmed && isPostsConfirmed);
+        }
+
+        if (confirmCheckbox) {
+            confirmCheckbox.addEventListener('change', updateDeleteButton);
+        }
+        if (confirmPostsCheckbox) {
+            confirmPostsCheckbox.addEventListener('change', updateDeleteButton);
+        }
+
+        // Модальное окно объединения
+        const mergeBtn = document.getElementById('mergeTagBtn');
+        const mergeModal = document.getElementById('mergeModal');
+        const targetSelect = document.getElementById('targetTag');
+        const confirmMerge = document.getElementById('confirmMerge');
+
+        window.closeMergeModal = function() {
+            mergeModal.style.display = 'none';
+            document.body.style.overflow = '';
+        };
+
+        mergeBtn?.addEventListener('click', function() {
+            mergeModal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        });
+
+        mergeModal?.addEventListener('click', function(e) {
+            if (e.target === mergeModal) {
+                closeMergeModal();
+            }
+        });
+
+        targetSelect?.addEventListener('change', function() {
+            confirmMerge.disabled = !this.value;
+        });
+
+        confirmMerge?.addEventListener('click', function() {
+            const targetSlug = targetSelect.value;
+            if (targetSlug) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = `{% url 'posts:tag_merge' slug=tag.slug %}`;
+
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrfmiddlewaretoken';
+                csrfInput.value = getCookie('csrftoken');
+
+                const targetInput = document.createElement('input');
+                targetInput.type = 'hidden';
+                targetInput.name = 'target_slug';
+                targetInput.value = targetSlug;
+
+                form.appendChild(csrfInput);
+                form.appendChild(targetInput);
+                document.body.appendChild(form);
+                form.submit();
+            }
+        });
+
+        // Закрытие по Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && mergeModal?.style.display === 'flex') {
+                closeMergeModal();
+            }
+        });
+    });
+</script>
 {% endblock %}

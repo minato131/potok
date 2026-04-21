@@ -1,75 +1,305 @@
+<!-- templates/posts/category_form.html -->
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}{% if category %}Редактирование{% else %}Создание{% endif %} категории - Поток{% endblock %}
+{% block title %}
+    {% if form.instance.pk %}Редактирование категории{% else %}Создание категории{% endif %} · Поток
+{% endblock %}
+
+{% block page_title %}
+    {% if form.instance.pk %}Редактирование категории{% else %}Создание категории{% endif %}
+{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h4>
-                    {% if category %}
-                        <i class="bi bi-pencil"></i> Редактирование категории
-                    {% else %}
-                        <i class="bi bi-plus-circle"></i> Создание категории
-                    {% endif %}
-                </h4>
+<div class="category-form-container">
+    <form method="post" class="category-form" novalidate>
+        {% csrf_token %}
+
+        <div class="form-section">
+            <div class="form-group">
+                <label for="{{ form.name.id_for_label }}" class="form-label">
+                    Название категории
+                    <span class="required">*</span>
+                </label>
+                {{ form.name }}
+                <div class="field-hint">
+                    <span class="char-counter">
+                        <span id="nameCounter">0</span>/50
+                    </span>
+                </div>
+                {% if form.name.errors %}
+                <div class="form-error">{{ form.name.errors.0 }}</div>
+                {% endif %}
             </div>
-            <div class="card-body">
-                <form method="post">
-                    {% csrf_token %}
-                    
-                    <div class="mb-3">
-                        <label for="{{ form.name.id_for_label }}" class="form-label">
-                            {{ form.name.label }} <span class="text-danger">*</span>
-                        </label>
-                        {{ form.name }}
-                        {% if form.name.errors %}
-                            <div class="text-danger">{{ form.name.errors }}</div>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="{{ form.description.id_for_label }}" class="form-label">
-                            {{ form.description.label }}
-                        </label>
-                        {{ form.description }}
-                        {% if form.description.errors %}
-                            <div class="text-danger">{{ form.description.errors }}</div>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="{{ form.parent.id_for_label }}" class="form-label">
-                            {{ form.parent.label }}
-                        </label>
-                        {{ form.parent }}
-                        <small class="form-text text-muted">Оставьте пустым, если это корневая категория</small>
-                        {% if form.parent.errors %}
-                            <div class="text-danger">{{ form.parent.errors }}</div>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="{{ form.order.id_for_label }}" class="form-label">
-                            {{ form.order.label }}
-                        </label>
-                        {{ form.order }}
-                        <small class="form-text text-muted">Чем меньше число, тем выше в списке</small>
-                        {% if form.order.errors %}
-                            <div class="text-danger">{{ form.order.errors }}</div>
-                        {% endif %}
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-check-lg"></i> Сохранить
-                    </button>
-                    <a href="{% url 'posts:category_list' %}" class="btn btn-secondary">
-                        Отмена
-                    </a>
-                </form>
+
+            <div class="form-group">
+                <label for="{{ form.slug.id_for_label }}" class="form-label">
+                    URL категории
+                    <span class="required">*</span>
+                </label>
+                <div class="slug-input-wrapper">
+                    <span class="slug-prefix">/c/</span>
+                    {{ form.slug }}
+                </div>
+                {% if form.slug.errors %}
+                <div class="form-error">{{ form.slug.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.description.id_for_label }}" class="form-label">
+                    Описание
+                </label>
+                {{ form.description }}
+                <div class="field-hint">
+                    <span class="char-counter">
+                        <span id="descCounter">0</span>/200
+                    </span>
+                </div>
+                {% if form.description.errors %}
+                <div class="form-error">{{ form.description.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.parent.id_for_label }}" class="form-label">
+                    Родительская категория
+                </label>
+                {{ form.parent }}
+                {% if form.parent.errors %}
+                <div class="form-error">{{ form.parent.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.icon.id_for_label }}" class="form-label">
+                    Иконка
+                </label>
+                {{ form.icon }}
+                <div class="field-hint">
+                    Название иконки Feather Icons (например: folder, code, image)
+                </div>
+                {% if form.icon.errors %}
+                <div class="form-error">{{ form.icon.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.color.id_for_label }}" class="form-label">
+                    Цвет
+                </label>
+                {{ form.color }}
+                {% if form.color.errors %}
+                <div class="form-error">{{ form.color.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    {{ form.is_active }}
+                    <span>Категория активна</span>
+                </label>
             </div>
         </div>
-    </div>
+
+        <div class="form-actions">
+            <a href="{% url 'posts:category_list' %}" class="btn btn--outline">
+                <i data-feather="arrow-left"></i>
+                Отмена
+            </a>
+            <button type="submit" class="btn btn--primary">
+                <i data-feather="save"></i>
+                {% if form.instance.pk %}Сохранить{% else %}Создать{% endif %}
+            </button>
+        </div>
+    </form>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .category-form-container {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    .category-form {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 2rem;
+        border: 1px solid var(--color-border-light);
+    }
+
+    .form-section {
+        margin-bottom: 2rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group:last-child {
+        margin-bottom: 0;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+
+    .required {
+        color: var(--color-danger);
+    }
+
+    .form-input,
+    .form-textarea,
+    .form-select {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        font-size: 0.9375rem;
+        transition: all var(--transition-base);
+        background: var(--color-bg-surface);
+    }
+
+    .form-input:focus,
+    .form-textarea:focus,
+    .form-select:focus {
+        outline: none;
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+
+    .form-textarea {
+        resize: vertical;
+        min-height: 80px;
+    }
+
+    .slug-input-wrapper {
+        display: flex;
+        align-items: center;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+    }
+
+    .slug-input-wrapper:focus-within {
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+
+    .slug-prefix {
+        padding: 0.75rem 0.5rem 0.75rem 1rem;
+        background: var(--color-bg-elevated);
+        color: var(--color-text-tertiary);
+        font-size: 0.9375rem;
+    }
+
+    .slug-input-wrapper input {
+        flex: 1;
+        border: none;
+        padding: 0.75rem 1rem 0.75rem 0.5rem;
+    }
+
+    .slug-input-wrapper input:focus {
+        outline: none;
+        box-shadow: none;
+    }
+
+    .field-hint {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 0.375rem;
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .char-counter {
+        font-family: monospace;
+    }
+
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+    }
+
+    .form-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--color-border-light);
+    }
+
+    .form-error {
+        color: var(--color-danger);
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+
+    @media (max-width: 768px) {
+        .category-form {
+            padding: 1.5rem;
+        }
+
+        .form-actions {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .form-actions .btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const nameInput = document.querySelector('input[name="name"]');
+        const slugInput = document.querySelector('input[name="slug"]');
+        const nameCounter = document.getElementById('nameCounter');
+        const descInput = document.querySelector('textarea[name="description"]');
+        const descCounter = document.getElementById('descCounter');
+
+        // Счетчик названия
+        if (nameInput && nameCounter) {
+            nameInput.addEventListener('input', () => {
+                nameCounter.textContent = nameInput.value.length;
+            });
+            nameCounter.textContent = nameInput.value.length;
+        }
+
+        // Счетчик описания
+        if (descInput && descCounter) {
+            descInput.addEventListener('input', () => {
+                descCounter.textContent = descInput.value.length;
+            });
+            descCounter.textContent = descInput.value.length;
+        }
+
+        // Автогенерация slug
+        if (nameInput && slugInput && !slugInput.value) {
+            nameInput.addEventListener('input', function() {
+                if (!slugInput.dataset.manuallyChanged) {
+                    const slug = this.value
+                        .toLowerCase()
+                        .replace(/[^a-z0-9\s-]/g, '')
+                        .replace(/\s+/g, '-')
+                        .replace(/-+/g, '-');
+                    slugInput.value = slug;
+                }
+            });
+
+            slugInput.addEventListener('input', function() {
+                this.dataset.manuallyChanged = 'true';
+            });
+        }
+    });
+</script>
 {% endblock %}

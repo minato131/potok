@@ -1,0 +1,374 @@
+<!-- templates/messenger/create_private_chat.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Новый личный чат · Поток{% endblock %}
+{% block page_title %}Новый личный чат{% endblock %}
+
+{% block content %}
+<div class="create-chat-container">
+    <div class="create-chat-card">
+        <div class="card-header">
+            <div class="icon-wrapper">
+                <i data-feather="user-plus"></i>
+            </div>
+            <h2>Найти пользователя</h2>
+            <p>Начните вводить имя пользователя, чтобы начать чат</p>
+        </div>
+
+        <div class="search-section">
+            <div class="search-wrapper-large">
+                <i data-feather="search"></i>
+                <input type="text" id="userSearch" placeholder="Поиск по имени или @username..." class="search-input-large" autofocus>
+            </div>
+
+            <div class="search-results-container" id="searchResults">
+                <!-- Результаты поиска -->
+            </div>
+        </div>
+
+        <!-- Последние чаты -->
+        {% if recent_chats %}
+        <div class="recent-chats">
+            <h3>Недавние чаты</h3>
+            <div class="recent-list">
+                {% for chat in recent_chats %}
+                <a href="{% url 'messenger:chat_detail' chat_id=chat.id %}" class="recent-item">
+                    <div class="recent-avatar">
+                        {% with other_user=chat.participants.all|first %}
+                            {% if other_user == user %}{% with other_user=chat.participants.all|last %}{% endwith %}{% endif %}
+                            {% if other_user.profile.avatar %}
+                            <img src="{{ other_user.profile.avatar.url }}" alt="{{ other_user.username }}">
+                            {% else %}
+                            <div class="avatar-placeholder">{{ other_user.username|make_list|first|upper }}</div>
+                            {% endif %}
+                        {% endwith %}
+                    </div>
+                    <div class="recent-info">
+                        <span class="recent-name">
+                            {% with other_user=chat.participants.all|first %}
+                                {% if other_user == user %}{% with other_user=chat.participants.all|last %}{% endwith %}{% endif %}
+                                {{ other_user.get_full_name|default:other_user.username }}
+                            {% endwith %}
+                        </span>
+                        <span class="recent-username">
+                            {% with other_user=chat.participants.all|first %}
+                                {% if other_user == user %}{% with other_user=chat.participants.all|last %}{% endwith %}{% endif %}
+                                @{{ other_user.username }}
+                            {% endwith %}
+                        </span>
+                    </div>
+                    <i data-feather="chevron-right"></i>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .create-chat-container {
+        max-width: 500px;
+        margin: 0 auto;
+    }
+
+    .create-chat-card {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 2rem;
+        border: 1px solid var(--color-border-light);
+    }
+
+    .card-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .icon-wrapper {
+        width: 4rem;
+        height: 4rem;
+        border-radius: 50%;
+        background: var(--color-primary-light);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1rem;
+        color: var(--color-primary);
+    }
+
+    .icon-wrapper i {
+        width: 2rem;
+        height: 2rem;
+    }
+
+    .card-header h2 {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .card-header p {
+        color: var(--color-text-secondary);
+    }
+
+    .search-section {
+        margin-bottom: 2rem;
+    }
+
+    .search-wrapper-large {
+        position: relative;
+    }
+
+    .search-wrapper-large i {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--color-text-tertiary);
+    }
+
+    .search-input-large {
+        width: 100%;
+        padding: 1rem 1rem 1rem 3rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        font-size: 1rem;
+        background: var(--color-bg-surface);
+    }
+
+    .search-input-large:focus {
+        outline: none;
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+
+    .search-results-container {
+        margin-top: 0.5rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        max-height: 300px;
+        overflow-y: auto;
+        display: none;
+    }
+
+    .user-result-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        cursor: pointer;
+        transition: background var(--transition-base);
+    }
+
+    .user-result-item:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .result-avatar {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 50%;
+        overflow: hidden;
+    }
+
+    .result-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+        font-weight: 600;
+    }
+
+    .result-info {
+        flex: 1;
+    }
+
+    .result-name {
+        font-weight: 600;
+        color: var(--color-text-primary);
+    }
+
+    .result-username {
+        font-size: 0.875rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .empty-results {
+        padding: 2rem;
+        text-align: center;
+        color: var(--color-text-tertiary);
+    }
+
+    .recent-chats {
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--color-border-light);
+    }
+
+    .recent-chats h3 {
+        font-size: 1rem;
+        margin-bottom: 1rem;
+        color: var(--color-text-secondary);
+    }
+
+    .recent-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .recent-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.75rem;
+        border-radius: var(--radius-md);
+        text-decoration: none;
+        transition: background var(--transition-base);
+    }
+
+    .recent-item:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .recent-avatar {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        overflow: hidden;
+    }
+
+    .recent-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .recent-info {
+        flex: 1;
+    }
+
+    .recent-name {
+        font-weight: 500;
+        color: var(--color-text-primary);
+        display: block;
+    }
+
+    .recent-username {
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+    }
+
+    @media (max-width: 768px) {
+        .create-chat-card {
+            padding: 1.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('userSearch');
+        const searchResults = document.getElementById('searchResults');
+        let searchTimeout;
+
+        searchInput?.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const query = this.value.trim();
+
+            if (query.length < 2) {
+                searchResults.style.display = 'none';
+                return;
+            }
+
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(`/accounts/users/search/?q=${encodeURIComponent(query)}`);
+                    const users = await response.json();
+
+                    if (users.length === 0) {
+                        searchResults.innerHTML = '<div class="empty-results">Пользователи не найдены</div>';
+                    } else {
+                        searchResults.innerHTML = users.map(user => `
+                            <div class="user-result-item" data-user-id="${user.id}" data-username="${user.username}">
+                                <div class="result-avatar">
+                                    ${user.avatar ?
+                                        `<img src="${user.avatar}" alt="${user.username}">` :
+                                        `<div class="avatar-placeholder">${user.username.charAt(0).toUpperCase()}</div>`
+                                    }
+                                </div>
+                                <div class="result-info">
+                                    <div class="result-name">${user.full_name || user.username}</div>
+                                    <div class="result-username">@${user.username}</div>
+                                </div>
+                            </div>
+                        `).join('');
+
+                        document.querySelectorAll('.user-result-item').forEach(item => {
+                            item.addEventListener('click', function() {
+                                const userId = this.dataset.userId;
+                                createOrOpenChat(userId);
+                            });
+                        });
+                    }
+
+                    searchResults.style.display = 'block';
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            }, 300);
+        });
+
+        async function createOrOpenChat(userId) {
+            try {
+                const response = await fetch('/messenger/create/private/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({ user_id: userId })
+                });
+
+                const data = await response.json();
+
+                if (data.chat_id) {
+                    window.location.href = `/messenger/chat/${data.chat_id}/`;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast({
+                    type: 'error',
+                    message: 'Не удалось создать чат'
+                });
+            }
+        }
+
+        // Скрыть результаты при клике вне
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                searchResults.style.display = 'none';
+            }
+        });
+
+        // Показать результаты при фокусе
+        searchInput?.addEventListener('focus', function() {
+            if (this.value.length >= 2) {
+                searchResults.style.display = 'block';
+            }
+        });
+    });
+</script>
+{% endblock %}

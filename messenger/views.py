@@ -10,8 +10,7 @@ from accounts.utils import create_notification
 from .models import Chat, Message, ChatParticipant
 from .forms import MessageForm, ChatCreateForm, GroupChatCreateForm
 from django.contrib.auth import get_user_model
-
-User = get_user_model()
+from .models import User
 
 
 @login_required
@@ -197,7 +196,7 @@ def create_private_chat(request):
     else:
         form = ChatCreateForm(user=request.user)
 
-    return render(request, 'messenger/create_chat.html', {'form': form})
+    return render(request, 'messenger/create_private_chat.html', {'form': form})
 
 
 @login_required

@@ -1,33 +1,354 @@
+<!-- templates/posts/post_confirm_delete.html -->
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Удаление поста - Поток{% endblock %}
+{% block title %}Удаление поста · Поток{% endblock %}
+{% block page_title %}Удаление поста{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card border-danger">
-            <div class="card-header bg-danger text-white">
-                <h4 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Подтверждение удаления</h4>
+<div class="delete-container">
+    <div class="delete-card">
+        <div class="delete-icon">
+            <i data-feather="alert-triangle"></i>
+        </div>
+
+        <h2>Вы уверены, что хотите удалить этот пост?</h2>
+
+        <p class="delete-warning">
+            Это действие необратимо. Пост будет удален навсегда, включая все комментарии и метаданные.
+        </p>
+
+        <!-- Предпросмотр удаляемого поста -->
+        <div class="post-preview">
+            <div class="post-preview-header">
+                <span class="post-author">
+                    <i data-feather="user"></i>
+                    {{ post.author.username }}
+                </span>
+                <span class="post-date">{{ post.created_at|date:"d.m.Y H:i" }}</span>
             </div>
-            <div class="card-body">
-                <p class="lead">Вы уверены, что хотите удалить пост "{{ post.title }}"?</p>
-                <p class="text-danger">
-                    <i class="bi bi-info-circle"></i> Это действие нельзя отменить.
-                </p>
-                
-                <form method="post">
-                    {% csrf_token %}
-                    <div class="d-flex justify-content-between">
-                        <button type="submit" class="btn btn-danger">
-                            <i class="bi bi-trash"></i> Да, удалить
-                        </button>
-                        <a href="{% url 'posts:post_detail' post.pk %}" class="btn btn-secondary">
-                            <i class="bi bi-arrow-left"></i> Отмена
-                        </a>
-                    </div>
-                </form>
+
+            <h3 class="post-preview-title">{{ post.title }}</h3>
+
+            <div class="post-preview-content">
+                {{ post.content|truncatewords:50|linebreaks }}
             </div>
+
+            <div class="post-preview-stats">
+                <span><i data-feather="message-circle"></i> {{ post.comments.count }} комментариев</span>
+                <span><i data-feather="heart"></i> {{ post.likes.count }} лайков</span>
+                <span><i data-feather="eye"></i> {{ post.views_count }} просмотров</span>
+            </div>
+        </div>
+
+        <form method="post" class="delete-form">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="confirm" id="confirmCheckbox" required>
+                    <span>Я понимаю, что это действие необратимо</span>
+                </label>
+            </div>
+
+            <div class="form-actions">
+                <a href="{% url 'posts:post_detail' pk=post.pk %}" class="btn btn--outline">
+                    <i data-feather="arrow-left"></i>
+                    Отмена
+                </a>
+                <button type="submit" class="btn btn--danger" id="deleteBtn" disabled>
+                    <i data-feather="trash-2"></i>
+                    Удалить пост
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Дополнительная информация -->
+    <div class="delete-info">
+        <h3>Что будет удалено:</h3>
+        <ul class="delete-info-list">
+            <li>
+                <i data-feather="file-text"></i>
+                <span>Содержимое поста</span>
+            </li>
+            <li>
+                <i data-feather="message-circle"></i>
+                <span>Все комментарии ({{ post.comments.count }})</span>
+            </li>
+            <li>
+                <i data-feather="heart"></i>
+                <span>Все лайки ({{ post.likes.count }})</span>
+            </li>
+            <li>
+                <i data-feather="bookmark"></i>
+                <span>Закладки пользователей</span>
+            </li>
+            <li>
+                <i data-feather="bar-chart"></i>
+                <span>Статистика просмотров</span>
+            </li>
+        </ul>
+
+        <div class="info-note">
+            <i data-feather="info"></i>
+            <p>Если вы хотите скрыть пост временно, используйте функцию "Скрыть пост" вместо удаления.</p>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .delete-container {
+        display: grid;
+        grid-template-columns: 1fr 300px;
+        gap: 2rem;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    .delete-card {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 2rem;
+        border: 1px solid var(--color-border-light);
+        text-align: center;
+    }
+
+    .delete-icon {
+        width: 5rem;
+        height: 5rem;
+        border-radius: 50%;
+        background: #fee2e2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.5rem;
+        color: var(--color-danger);
+    }
+
+    .delete-icon i {
+        width: 2.5rem;
+        height: 2.5rem;
+    }
+
+    .delete-card h2 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        color: var(--color-text-primary);
+    }
+
+    .delete-warning {
+        color: var(--color-danger);
+        font-weight: 500;
+        margin-bottom: 1.5rem;
+    }
+
+    .post-preview {
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        text-align: left;
+        border: 1px solid var(--color-border);
+    }
+
+    .post-preview-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+        font-size: 0.875rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .post-author {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+    }
+
+    .post-preview-title {
+        font-size: 1.125rem;
+        margin-bottom: 0.75rem;
+        color: var(--color-text-primary);
+    }
+
+    .post-preview-content {
+        color: var(--color-text-secondary);
+        line-height: 1.6;
+        margin-bottom: 1rem;
+        max-height: 150px;
+        overflow-y: auto;
+        padding-right: 0.5rem;
+    }
+
+    .post-preview-stats {
+        display: flex;
+        gap: 1.5rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--color-border);
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .post-preview-stats span {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .post-preview-stats i {
+        width: 0.875rem;
+        height: 0.875rem;
+    }
+
+    .delete-form {
+        text-align: left;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        cursor: pointer;
+        font-size: 0.9375rem;
+    }
+
+    .checkbox-label input[type="checkbox"] {
+        width: 1.25rem;
+        height: 1.25rem;
+        cursor: pointer;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+    }
+
+    .btn--danger {
+        background: var(--color-danger);
+        color: white;
+    }
+
+    .btn--danger:hover:not(:disabled) {
+        background: var(--color-danger-hover);
+    }
+
+    .btn--danger:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .delete-info {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        border: 1px solid var(--color-border-light);
+        height: fit-content;
+        position: sticky;
+        top: 80px;
+    }
+
+    .delete-info h3 {
+        font-size: 1rem;
+        margin-bottom: 1rem;
+        color: var(--color-text-primary);
+    }
+
+    .delete-info-list {
+        list-style: none;
+        margin-bottom: 1.5rem;
+    }
+
+    .delete-info-list li {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem 0;
+        color: var(--color-text-secondary);
+        font-size: 0.875rem;
+        border-bottom: 1px solid var(--color-border-light);
+    }
+
+    .delete-info-list li:last-child {
+        border-bottom: none;
+    }
+
+    .delete-info-list i {
+        width: 1rem;
+        height: 1rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .info-note {
+        display: flex;
+        gap: 0.75rem;
+        padding: 1rem;
+        background: var(--color-primary-light);
+        border-radius: var(--radius-md);
+    }
+
+    .info-note i {
+        color: var(--color-primary);
+        flex-shrink: 0;
+    }
+
+    .info-note p {
+        font-size: 0.8125rem;
+        color: var(--color-text-secondary);
+        margin: 0;
+    }
+
+    @media (max-width: 768px) {
+        .delete-container {
+            grid-template-columns: 1fr;
+        }
+
+        .delete-card {
+            padding: 1.5rem;
+        }
+
+        .form-actions {
+            flex-direction: column;
+        }
+
+        .form-actions .btn {
+            width: 100%;
+        }
+
+        .delete-info {
+            position: static;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const confirmCheckbox = document.getElementById('confirmCheckbox');
+        const deleteBtn = document.getElementById('deleteBtn');
+
+        if (confirmCheckbox && deleteBtn) {
+            confirmCheckbox.addEventListener('change', function() {
+                deleteBtn.disabled = !this.checked;
+            });
+        }
+
+        // Подтверждение перед отправкой
+        const deleteForm = document.querySelector('.delete-form');
+        deleteForm?.addEventListener('submit', function(e) {
+            if (!confirm('Вы действительно хотите удалить этот пост? Это действие нельзя отменить.')) {
+                e.preventDefault();
+            }
+        });
+    });
+</script>
 {% endblock %}

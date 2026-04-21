@@ -27,6 +27,12 @@ import random
 import string
 import logging
 
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth import authenticate
+from django.shortcuts import redirect, render
+from django.contrib import messages
+from .forms import ProfileEditForm
+
 logger = logging.getLogger(__name__)
 
 
@@ -165,29 +171,19 @@ def profile_view(request, username=None):
 
 @login_required
 def profile_edit_view(request):
+    profile = request.user.profile
+
     if request.method == 'POST':
-        # Для AJAX запроса с аватаром
-        if request.FILES.get('avatar'):
-            user = request.user
-            user.avatar = request.FILES['avatar']
-            user.save()
-
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return JsonResponse({
-                    'status': 'success',
-                    'avatar_url': user.avatar.url
-                })
-
-        # Обычная форма
-        form = CustomUserChangeForm(request.POST, request.FILES, instance=request.user)
+        form = ProfileEditForm(request.POST, request.FILES,
+                               instance=profile, user=request.user)
         if form.is_valid():
-            user = form.save()
+            form.save()
             messages.success(request, 'Профиль успешно обновлен!')
             return redirect('accounts:profile')
         else:
-            messages.error(request, 'Пожалуйста, исправьте ошибки')
+            messages.error(request, 'Пожалуйста, исправьте ошибки в форме.')
     else:
-        form = CustomUserChangeForm(instance=request.user)
+        form = ProfileEditForm(instance=profile, user=request.user)
 
     return render(request, 'accounts/profile_edit.html', {'form': form})
 
@@ -574,3 +570,21 @@ def confirm_email(request):
             }, status=400)
 
     return JsonResponse({'status': 'error', 'message': 'Метод не поддерживается'}, status=405)
+
+
+@login_required
+def delete_account(request):
+    if request.method == 'POST':
+        password = request.POST.get('password')
+        user = authenticate(username=request.user.username, password=password)
+
+        if user is not None:
+            # Удаляем пользователя
+            user.delete()
+            messages.success(request, 'Ваш аккаунт успешно удален.')
+            return redirect('posts:post_list')
+        else:
+            messages.error(request, 'Неверный пароль.')
+            return redirect('accounts:profile_edit')
+
+    return redirect('accounts:profile_edit')

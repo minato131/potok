@@ -2,86 +2,1278 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Главная · Поток{% endblock %}
-{% block page_title %}Лента{% endblock %}
+{% block title %}
+    {% if category %}Категория: {{ category.name }}{% elif tag %}Тег: #{{ tag.name }}{% else %}Главная{% endif %} · Поток
+{% endblock %}
+
+{% block page_title %}
+    {% if category %}
+        Категория: {{ category.name }}
+    {% elif tag %}
+        <span class="tag-title">
+            <i data-feather="tag"></i>
+            #{{ tag.name }}
+        </span>
+    {% else %}
+        Лента
+    {% endif %}
+{% endblock %}
 
 {% block header_actions %}
-{% if user.is_authenticated %}
-<a href="{% url 'posts:post_create' %}" class="btn btn--primary">
-    <i data-feather="plus"></i>
-    <span>Создать пост</span>
-</a>
-{% endif %}
+<div class="header-actions-wrapper">
+    <div class="feed-tabs">
+        <a href="{% url 'posts:post_list' %}" class="feed-tab {% if not request.GET.feed or request.GET.feed == 'all' %}active{% endif %}">
+            <i data-feather="globe"></i>
+            <span>Все</span>
+        </a>
+        {% if user.is_authenticated %}
+        <a href="?feed=following" class="feed-tab {% if request.GET.feed == 'following' %}active{% endif %}">
+            <i data-feather="users"></i>
+            <span>Подписки</span>
+        </a>
+        <a href="?feed=popular" class="feed-tab {% if request.GET.feed == 'popular' %}active{% endif %}">
+            <i data-feather="trending-up"></i>
+            <span>Популярное</span>
+        </a>
+        {% endif %}
+    </div>
+
+    {% if user.is_authenticated %}
+    <a href="{% url 'posts:post_create' %}" class="btn btn--primary create-post-btn">
+        <i data-feather="plus"></i>
+        <span>Создать пост</span>
+    </a>
+    {% endif %}
+</div>
 {% endblock %}
 
 {% block content %}
-<div class="posts-feed">
-    {% if posts %}
-        {% for post in posts %}
-        <article class="post-card">
-            <div class="post-header">
-                <div class="user-card__avatar" style="width: 3rem; height: 3rem;">
-                    {% if post.author.profile.avatar %}
-                        <img src="{{ post.author.profile.avatar.url }}" alt="{{ post.author.username }}">
-                    {% else %}
-                        <div class="avatar-placeholder">{{ post.author.username|make_list|first|upper }}</div>
-                    {% endif %}
-                </div>
-                <div class="user-card__info">
-                    <a href="{% url 'accounts:profile_by_username' username=post.author.username %}" class="user-card__name">
-                        {{ post.author.get_full_name|default:post.author.username }}
-                    </a>
-                    <span class="user-card__username">@{{ post.author.username }} · {{ post.created_at|timesince }} назад</span>
-                </div>
-            </div>
+<div class="posts-container">
+    <!-- Фильтры и сортировка -->
+    <div class="posts-toolbar">
+        <div class="sort-wrapper">
+            <select class="sort-select" id="sortSelect">
+                <option value="new" {% if request.GET.sort == 'new' or not request.GET.sort %}selected{% endif %}>
+                    Новые
+                </option>
+                <option value="top" {% if request.GET.sort == 'top' %}selected{% endif %}>
+                    Лучшие за день
+                </option>
+                <option value="hot" {% if request.GET.sort == 'hot' %}selected{% endif %}>
+                    Обсуждаемые
+                </option>
+            </select>
+        </div>
 
-            <div class="post-content">
-                <p>{{ post.content|linebreaksbr }}</p>
-                {% if post.image %}
-                <div class="post-media" style="margin-top: 1rem;">
-                    <img src="{{ post.image.url }}" alt="Изображение поста" style="max-width: 100%; border-radius: var(--radius-lg);">
-                </div>
+        <div class="view-toggle">
+            <button class="view-btn active" data-view="list">
+                <i data-feather="list"></i>
+            </button>
+            <button class="view-btn" data-view="compact">
+                <i data-feather="grid"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Контекстная информация -->
+    {% if category %}
+    <div class="context-card">
+        <div class="context-info">
+            <h2>{{ category.name }}</h2>
+            {% if category.description %}
+            <p>{{ category.description }}</p>
+            {% endif %}
+            <div class="context-stats">
+                <span><i data-feather="file-text"></i> {{ posts_count }} постов</span>
+                {% if category.parent %}
+                <span><i data-feather="folder"></i> Подкатегория: {{ category.parent.name }}</span>
                 {% endif %}
             </div>
-
-            <div class="post-footer">
-                <button class="post-action like-button" data-post-id="{{ post.id }}">
-                    <i data-feather="heart"></i>
-                    <span>{{ post.likes.count }}</span>
-                </button>
-                <a href="{% url 'posts:post_detail' pk=post.id %}" class="post-action">
-                    <i data-feather="message-square"></i>
-                    <span>{{ post.comments.count }}</span>
-                </a>
-                <button class="post-action bookmark-button" data-post-id="{{ post.id }}">
-                    <i data-feather="bookmark"></i>
-                </button>
-            </div>
-        </article>
-        {% endfor %}
-
-        {% if is_paginated %}
-        <div class="pagination" style="display: flex; justify-content: center; gap: 1rem; margin-top: 2rem;">
-            {% if page_obj.has_previous %}
-                <a href="?page={{ page_obj.previous_page_number }}" class="btn btn--outline">← Назад</a>
-            {% endif %}
-            <span class="btn" style="background: var(--color-bg-surface);">Стр. {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span>
-            {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}" class="btn btn--outline">Вперед →</a>
-            {% endif %}
+        </div>
+        {% if user.is_staff %}
+        <div class="context-actions">
+            <a href="{% url 'posts:category_edit' slug=category.slug %}" class="btn btn--outline btn--sm">
+                <i data-feather="edit"></i>
+            </a>
         </div>
         {% endif %}
-    {% else %}
-        <div class="info-card" style="text-align: center; padding: 3rem;">
-            <i data-feather="inbox" style="width: 3rem; height: 3rem; color: var(--color-text-tertiary); margin-bottom: 1rem;"></i>
-            <h3 style="margin-bottom: 0.5rem;">Лента пуста</h3>
-            <p style="color: var(--color-text-secondary);">Подпишитесь на сообщества или создайте первый пост!</p>
+    </div>
+    {% endif %}
+
+    {% if tag %}
+    <div class="context-card">
+        <div class="context-info">
+            <h2>
+                <i data-feather="tag"></i>
+                #{{ tag.name }}
+            </h2>
+            {% if tag.description %}
+            <p>{{ tag.description }}</p>
+            {% endif %}
+            <div class="context-stats">
+                <span><i data-feather="file-text"></i> {{ posts_count }} постов</span>
+            </div>
+        </div>
+        <div class="context-actions">
             {% if user.is_authenticated %}
-            <a href="{% url 'posts:post_create' %}" class="btn btn--primary" style="margin-top: 1.5rem;">Создать пост</a>
-            {% else %}
-            <a href="{% url 'accounts:login' %}" class="btn btn--primary" style="margin-top: 1.5rem;">Войти и создать пост</a>
+            <button class="btn btn--outline btn--sm follow-tag-btn" data-tag-slug="{{ tag.slug }}">
+                <i data-feather="{% if is_following_tag %}bell-off{% else %}bell{% endif %}"></i>
+                <span>{% if is_following_tag %}Отписаться{% else %}Подписаться{% endif %}</span>
+            </button>
+            {% endif %}
+            {% if user.is_staff %}
+            <a href="{% url 'posts:tag_edit' slug=tag.slug %}" class="btn btn--outline btn--sm">
+                <i data-feather="edit"></i>
+            </a>
             {% endif %}
         </div>
+    </div>
+    {% endif %}
+
+    <!-- Список постов -->
+    <div class="posts-feed {% if request.GET.view == 'compact' %}posts-feed--compact{% endif %}" id="postsFeed">
+        {% for post in posts %}
+        <article class="post-card" data-post-id="{{ post.id }}" data-view="list">
+            <!-- Голосование -->
+            <div class="post-voting">
+                <button class="vote-btn upvote {% if user in post.upvotes.all %}active{% endif %}"
+                        data-post-id="{{ post.id }}" data-vote="up">
+                    <i data-feather="arrow-up"></i>
+                </button>
+                <span class="vote-score">{{ post.score }}</span>
+                <button class="vote-btn downvote {% if user in post.downvotes.all %}active{% endif %}"
+                        data-post-id="{{ post.id }}" data-vote="down">
+                    <i data-feather="arrow-down"></i>
+                </button>
+            </div>
+
+            <!-- Основной контент -->
+            <div class="post-main">
+                <div class="post-header">
+                    <div class="post-meta">
+                        {% if post.community %}
+                        <a href="{% url 'communities:community_detail' slug=post.community.slug %}" class="post-community">
+                            {% if post.community.avatar %}
+                            <img src="{{ post.community.avatar.url }}" alt="{{ post.community.name }}" class="community-icon">
+                            {% endif %}
+                            <span>c/{{ post.community.name }}</span>
+                        </a>
+                        <span class="meta-separator">·</span>
+                        {% endif %}
+
+                        <span class="post-author">
+                            Опубликовал
+                            <a href="{% url 'accounts:profile_by_username' username=post.author.username %}">
+                                u/{{ post.author.username }}
+                            </a>
+                        </span>
+                        <span class="meta-separator">·</span>
+                        <span class="post-time" title="{{ post.created_at|date:'d.m.Y H:i' }}">
+                            {{ post.created_at|timesince }} назад
+                        </span>
+
+                        {% if post.is_nsfw %}
+                        <span class="nsfw-badge">NSFW</span>
+                        {% endif %}
+
+                        {% if post.is_spoiler %}
+                        <span class="spoiler-badge">Спойлер</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="post-menu-wrapper">
+                        <button class="post-menu-toggle">
+                            <i data-feather="more-horizontal"></i>
+                        </button>
+                        <div class="post-menu-dropdown">
+                            <button class="menu-item save-post-btn" data-post-id="{{ post.id }}">
+                                <i data-feather="bookmark"></i>
+                                <span>{% if post in user.bookmarks.all %}Убрать из закладок{% else %}В закладки{% endif %}</span>
+                            </button>
+                            <button class="menu-item hide-post-btn" data-post-id="{{ post.id }}">
+                                <i data-feather="eye-off"></i>
+                                <span>Скрыть</span>
+                            </button>
+                            <button class="menu-item report-post-btn" data-post-id="{{ post.id }}">
+                                <i data-feather="flag"></i>
+                                <span>Пожаловаться</span>
+                            </button>
+                            {% if user == post.author or user.is_staff %}
+                            <div class="dropdown-divider"></div>
+                            <a href="{% url 'posts:post_edit' pk=post.id %}" class="menu-item">
+                                <i data-feather="edit"></i>
+                                <span>Редактировать</span>
+                            </a>
+                            <a href="{% url 'posts:post_delete' pk=post.id %}" class="menu-item menu-item--danger">
+                                <i data-feather="trash-2"></i>
+                                <span>Удалить</span>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="post-content">
+                    <h3 class="post-title">
+                        <a href="{% url 'posts:post_detail' pk=post.id %}">{{ post.title }}</a>
+                    </h3>
+
+                    {% if post.is_spoiler %}
+                    <div class="spoiler-content" data-spoiler-id="{{ post.id }}">
+                        <button class="spoiler-toggle" data-spoiler-id="{{ post.id }}">
+                            <i data-feather="alert-triangle"></i>
+                            <span>Нажмите, чтобы показать содержимое (спойлер)</span>
+                        </button>
+                        <div class="spoiler-hidden" style="display: none;">
+                            {{ post.content|truncatewords:100|linebreaks }}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="post-text">
+                        {{ post.content|truncatewords:100|linebreaks }}
+                        {% if post.content|wordcount > 100 %}
+                        <a href="{% url 'posts:post_detail' pk=post.id %}" class="read-more">Читать дальше →</a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if post.image and not post.is_spoiler %}
+                    <div class="post-image-wrapper">
+                        <img src="{{ post.image.url }}" alt="Изображение поста" class="post-image" loading="lazy">
+                    </div>
+                    {% endif %}
+
+                    {% if post.link %}
+                    <div class="post-link-preview">
+                        <a href="{{ post.link }}" target="_blank" rel="noopener noreferrer" class="link-card">
+                            <div class="link-info">
+                                <span class="link-domain">{{ post.link|truncatechars:30 }}</span>
+                                <span class="link-title">{{ post.link_title|default:post.link }}</span>
+                            </div>
+                            <i data-feather="external-link"></i>
+                        </a>
+                    </div>
+                    {% endif %}
+
+                    {% if post.tags.all %}
+                    <div class="post-tags">
+                        {% for tag in post.tags.all %}
+                        <a href="{% url 'posts:tag_detail' slug=tag.slug %}" class="post-tag">
+                            #{{ tag.name }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="post-footer">
+                    <div class="post-actions">
+                        <a href="{% url 'posts:post_detail' pk=post.id %}" class="action-btn comments-btn">
+                            <i data-feather="message-circle"></i>
+                            <span>{{ post.comments.count }} комментариев</span>
+                        </a>
+                        <button class="action-btn share-btn" data-post-id="{{ post.id }}" data-post-url="{% url 'posts:post_detail' pk=post.id %}">
+                            <i data-feather="share-2"></i>
+                            <span>Поделиться</span>
+                        </button>
+                    </div>
+
+                    <div class="post-stats">
+                        <span class="stat-item" title="Просмотры">
+                            <i data-feather="eye"></i>
+                            {{ post.views_count }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </article>
+        {% empty %}
+        <div class="empty-state">
+            <i data-feather="inbox"></i>
+            <h3>Нет постов</h3>
+            <p>
+                {% if request.GET.feed == 'following' %}
+                Подпишитесь на пользователей или сообщества, чтобы видеть их посты здесь
+                {% else %}
+                Здесь пока нет постов. Будьте первым!
+                {% endif %}
+            </p>
+            {% if user.is_authenticated %}
+            <a href="{% url 'posts:post_create' %}" class="btn btn--primary">Создать пост</a>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Пагинация -->
+    {% if is_paginated %}
+    <div class="pagination-wrapper">
+        <div class="pagination">
+            {% if page_obj.has_previous %}
+            <a href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}"
+               class="pagination-btn" title="Первая">
+                <i data-feather="chevrons-left"></i>
+            </a>
+            <a href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}"
+               class="pagination-btn">
+                <i data-feather="chevron-left"></i>
+            </a>
+            {% endif %}
+
+            <div class="pagination-pages">
+                {% for num in page_obj.paginator.page_range %}
+                    {% if num == page_obj.number %}
+                    <span class="pagination-btn active">{{ num }}</span>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}"
+                       class="pagination-btn">{{ num }}</a>
+                    {% elif num == 1 or num == page_obj.paginator.num_pages %}
+                    <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}"
+                       class="pagination-btn">{{ num }}</a>
+                    {% elif num == page_obj.number|add:'-3' or num == page_obj.number|add:'3' %}
+                    <span class="pagination-ellipsis">...</span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}"
+               class="pagination-btn">
+                <i data-feather="chevron-right"></i>
+            </a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}"
+               class="pagination-btn" title="Последняя">
+                <i data-feather="chevrons-right"></i>
+            </a>
+            {% endif %}
+        </div>
+
+        <div class="pagination-info">
+            {{ page_obj.start_index }}–{{ page_obj.end_index }} из {{ page_obj.paginator.count }}
+        </div>
+    </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block right_sidebar %}
+<div class="sidebar-widget">
+    <h3 class="widget-title">Популярные сообщества</h3>
+    <div class="community-list">
+        {% for community in popular_communities %}
+        <a href="{% url 'communities:community_detail' slug=community.slug %}" class="community-item">
+            <div class="community-icon-small">
+                {% if community.avatar %}
+                <img src="{{ community.avatar.url }}" alt="{{ community.name }}">
+                {% else %}
+                <span>{{ community.name|make_list|first|upper }}</span>
+                {% endif %}
+            </div>
+            <div class="community-info-small">
+                <span class="community-name">c/{{ community.name }}</span>
+                <span class="community-members">
+                    {{ community.count_members|default:community.members.count }} уч.
+                </span>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    <a href="{% url 'communities:community_list' %}" class="widget-link">Все сообщества →</a>
+</div>
+
+<div class="sidebar-widget">
+    <h3 class="widget-title">Популярные теги</h3>
+    <div class="tags-cloud">
+        {% for tag in popular_tags %}
+        <a href="{% url 'posts:tag_detail' slug=tag.slug %}" class="tag-cloud-item">
+            #{{ tag.name }}
+            <span class="tag-count">{{ tag.count_posts|default:tag.posts.count }}</span>
+        </a>
+        {% endfor %}
+    </div>
+    <a href="{% url 'posts:tag_list' %}" class="widget-link">Все теги →</a>
+</div>
+
+{% if user.is_authenticated %}
+<div class="sidebar-widget">
+    <h3 class="widget-title">Ваши закладки</h3>
+    <a href="{% url 'posts:bookmarks' %}" class="bookmark-link">
+        <i data-feather="bookmark"></i>
+        <span>Просмотреть закладки</span>
+        <span class="bookmark-count">{{ user.bookmarks.count }}</span>
+    </a>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .header-actions-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .feed-tabs {
+        display: flex;
+        gap: 0.25rem;
+        background: var(--color-bg-surface);
+        padding: 0.25rem;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--color-border-light);
+    }
+
+    .feed-tab {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius-md);
+        color: var(--color-text-secondary);
+        text-decoration: none;
+        transition: all var(--transition-base);
+    }
+
+    .feed-tab:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .feed-tab.active {
+        background: var(--color-primary);
+        color: white;
+    }
+
+    .create-post-btn {
+        white-space: nowrap;
+    }
+
+    .posts-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .posts-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+        padding: 0.5rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--color-border-light);
+    }
+
+    .sort-select {
+        padding: 0.5rem 2rem 0.5rem 1rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        background: var(--color-bg-surface);
+        font-size: 0.875rem;
+        cursor: pointer;
+    }
+
+    .view-toggle {
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    .view-btn {
+        padding: 0.5rem;
+        border-radius: var(--radius-md);
+        color: var(--color-text-tertiary);
+    }
+
+    .view-btn:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .view-btn.active {
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+    }
+
+    .context-card {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        padding: 1.25rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--color-border-light);
+        margin-bottom: 1rem;
+    }
+
+    .context-info h2 {
+        font-size: 1.25rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .tag-title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .context-info p {
+        color: var(--color-text-secondary);
+        margin-bottom: 0.5rem;
+    }
+
+    .context-stats {
+        display: flex;
+        gap: 1.5rem;
+        font-size: 0.875rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .context-stats span {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .posts-feed {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .posts-feed--compact .post-card {
+        padding: 0.75rem;
+    }
+
+    .posts-feed--compact .post-text {
+        font-size: 0.875rem;
+    }
+
+    .post-card {
+        display: flex;
+        gap: 1rem;
+        padding: 1.25rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--color-border-light);
+        transition: all var(--transition-base);
+    }
+
+    .post-card:hover {
+        box-shadow: var(--shadow-md);
+        border-color: transparent;
+    }
+
+    .post-voting {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+        min-width: 2.5rem;
+    }
+
+    .vote-btn {
+        padding: 0.25rem;
+        border-radius: var(--radius-sm);
+        color: var(--color-text-tertiary);
+        transition: all var(--transition-base);
+    }
+
+    .vote-btn:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .vote-btn.upvote.active {
+        color: var(--color-success);
+    }
+
+    .vote-btn.downvote.active {
+        color: var(--color-danger);
+    }
+
+    .vote-score {
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+
+    .post-main {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .post-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+    }
+
+    .post-meta {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.25rem 0.5rem;
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .post-community {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        font-weight: 500;
+        color: var(--color-text-primary);
+        text-decoration: none;
+    }
+
+    .post-community:hover {
+        color: var(--color-primary);
+    }
+
+    .community-icon {
+        width: 1.25rem;
+        height: 1.25rem;
+        border-radius: 50%;
+    }
+
+    .post-author a {
+        color: var(--color-text-secondary);
+        text-decoration: none;
+    }
+
+    .post-author a:hover {
+        color: var(--color-primary);
+        text-decoration: underline;
+    }
+
+    .meta-separator {
+        color: var(--color-border);
+    }
+
+    .nsfw-badge,
+    .spoiler-badge {
+        padding: 0.125rem 0.375rem;
+        border-radius: var(--radius-sm);
+        font-size: 0.6875rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .nsfw-badge {
+        background: var(--color-danger);
+        color: white;
+    }
+
+    .spoiler-badge {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .post-menu-wrapper {
+        position: relative;
+    }
+
+    .post-menu-toggle {
+        padding: 0.25rem;
+        border-radius: var(--radius-md);
+        color: var(--color-text-tertiary);
+    }
+
+    .post-menu-toggle:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .post-menu-dropdown {
+        position: absolute;
+        right: 0;
+        top: 100%;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--color-border);
+        min-width: 180px;
+        z-index: 10;
+        display: none;
+    }
+
+    .post-menu-wrapper:hover .post-menu-dropdown {
+        display: block;
+    }
+
+    .menu-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        color: var(--color-text-primary);
+        text-decoration: none;
+        width: 100%;
+        transition: background var(--transition-base);
+    }
+
+    .menu-item:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .menu-item--danger {
+        color: var(--color-danger);
+    }
+
+    .menu-item--danger:hover {
+        background: var(--color-danger);
+        color: white;
+    }
+
+    .dropdown-divider {
+        height: 1px;
+        background: var(--color-border-light);
+        margin: 0.25rem 0;
+    }
+
+    .post-content {
+        margin-bottom: 1rem;
+    }
+
+    .post-title {
+        font-size: 1.25rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .post-title a {
+        color: var(--color-text-primary);
+        text-decoration: none;
+    }
+
+    .post-title a:hover {
+        color: var(--color-primary);
+    }
+
+    .post-text {
+        color: var(--color-text-secondary);
+        line-height: 1.6;
+    }
+
+    .read-more {
+        color: var(--color-primary);
+        text-decoration: none;
+        font-size: 0.875rem;
+    }
+
+    .read-more:hover {
+        text-decoration: underline;
+    }
+
+    .spoiler-content {
+        margin: 1rem 0;
+    }
+
+    .spoiler-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1rem;
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-md);
+        width: 100%;
+        color: var(--color-warning);
+    }
+
+    .post-image-wrapper {
+        margin: 1rem 0;
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+    }
+
+    .post-image {
+        width: 100%;
+        max-height: 500px;
+        object-fit: cover;
+    }
+
+    .post-link-preview {
+        margin: 1rem 0;
+    }
+
+    .link-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1rem;
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-md);
+        text-decoration: none;
+        transition: background var(--transition-base);
+    }
+
+    .link-card:hover {
+        background: var(--color-border-light);
+    }
+
+    .link-domain {
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .link-title {
+        color: var(--color-primary);
+    }
+
+    .post-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+    }
+
+    .post-tag {
+        color: var(--color-primary);
+        text-decoration: none;
+        font-size: 0.8125rem;
+    }
+
+    .post-tag:hover {
+        text-decoration: underline;
+    }
+
+    .post-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--color-border-light);
+    }
+
+    .post-actions {
+        display: flex;
+        gap: 1.5rem;
+    }
+
+    .action-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        color: var(--color-text-tertiary);
+        text-decoration: none;
+        transition: color var(--transition-base);
+    }
+
+    .action-btn:hover {
+        color: var(--color-primary);
+    }
+
+    .post-stats {
+        display: flex;
+        gap: 1rem;
+    }
+
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .pagination-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 2rem;
+    }
+
+    .pagination {
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    .pagination-btn {
+        min-width: 2.25rem;
+        height: 2.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-md);
+        background: var(--color-bg-surface);
+        border: 1px solid var(--color-border);
+        color: var(--color-text-primary);
+        text-decoration: none;
+        font-size: 0.875rem;
+        transition: all var(--transition-base);
+    }
+
+    .pagination-btn:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .pagination-btn.active {
+        background: var(--color-primary);
+        color: white;
+        border-color: var(--color-primary);
+    }
+
+    .pagination-ellipsis {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.25rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .pagination-info {
+        font-size: 0.875rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .sidebar-widget {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+        padding: 1.25rem;
+        border: 1px solid var(--color-border-light);
+        margin-bottom: 1rem;
+    }
+
+    .widget-title {
+        font-size: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .community-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .community-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        text-decoration: none;
+    }
+
+    .community-icon-small {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        overflow: hidden;
+        background: var(--color-primary-light);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--color-primary);
+        font-weight: 600;
+    }
+
+    .community-icon-small img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .community-info-small {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .community-name {
+        font-weight: 500;
+        color: var(--color-text-primary);
+    }
+
+    .community-members {
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .widget-link {
+        color: var(--color-primary);
+        text-decoration: none;
+        font-size: 0.875rem;
+    }
+
+    .widget-link:hover {
+        text-decoration: underline;
+    }
+
+    .tags-cloud {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .tag-cloud-item {
+        color: var(--color-primary);
+        text-decoration: none;
+    }
+
+    .tag-cloud-item:hover {
+        text-decoration: underline;
+    }
+
+    .bookmark-link {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        text-decoration: none;
+        color: var(--color-text-primary);
+        padding: 0.5rem;
+        border-radius: var(--radius-md);
+        transition: background var(--transition-base);
+    }
+
+    .bookmark-link:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .bookmark-count {
+        margin-left: auto;
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+        padding: 0.125rem 0.5rem;
+        border-radius: var(--radius-full);
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    @media (max-width: 768px) {
+        .header-actions-wrapper {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.75rem;
+        }
+
+        .feed-tabs {
+            justify-content: space-around;
+        }
+
+        .feed-tab span {
+            display: none;
+        }
+
+        .post-card {
+            padding: 1rem;
+        }
+
+        .post-voting {
+            min-width: 2rem;
+        }
+
+        .post-title {
+            font-size: 1.125rem;
+        }
+
+        .post-actions {
+            gap: 1rem;
+        }
+
+        .action-btn span {
+            display: none;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Сортировка
+        const sortSelect = document.getElementById('sortSelect');
+        sortSelect?.addEventListener('change', function() {
+            const url = new URL(window.location);
+            url.searchParams.set('sort', this.value);
+            window.location = url;
+        });
+
+        // Переключение вида
+        const viewBtns = document.querySelectorAll('.view-btn');
+        viewBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                viewBtns.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+
+                const view = this.dataset.view;
+                const url = new URL(window.location);
+                url.searchParams.set('view', view);
+                window.location = url;
+            });
+        });
+
+        // Голосование
+        const voteBtns = document.querySelectorAll('.vote-btn');
+        voteBtns.forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const postId = this.dataset.postId;
+                const vote = this.dataset.vote;
+                const card = document.querySelector(`.post-card[data-post-id="${postId}"]`);
+                const upvoteBtn = card.querySelector('.upvote');
+                const downvoteBtn = card.querySelector('.downvote');
+                const scoreSpan = card.querySelector('.vote-score');
+
+                try {
+                    const response = await fetch('/like/toggle/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({
+                            post_id: postId,
+                            vote_type: vote
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        scoreSpan.textContent = data.score;
+
+                        upvoteBtn.classList.toggle('active', data.user_vote === 'up');
+                        downvoteBtn.classList.toggle('active', data.user_vote === 'down');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            });
+        });
+
+        // Спойлеры
+        const spoilerToggles = document.querySelectorAll('.spoiler-toggle');
+        spoilerToggles.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const spoilerId = this.dataset.spoilerId;
+                const spoilerContent = document.querySelector(`.spoiler-content[data-spoiler-id="${spoilerId}"]`);
+                const hidden = spoilerContent.querySelector('.spoiler-hidden');
+                const toggle = spoilerContent.querySelector('.spoiler-toggle');
+
+                if (hidden.style.display === 'none') {
+                    hidden.style.display = 'block';
+                    toggle.style.display = 'none';
+                }
+            });
+        });
+
+        // Сохранение в закладки
+        const saveBtns = document.querySelectorAll('.save-post-btn');
+        saveBtns.forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const postId = this.dataset.postId;
+
+                try {
+                    const response = await fetch(`/bookmark/${postId}/toggle/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken')
+                        }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        const span = this.querySelector('span');
+                        span.textContent = data.bookmarked ? 'Убрать из закладок' : 'В закладки';
+
+                        showToast({
+                            type: 'success',
+                            message: data.bookmarked ? 'Добавлено в закладки' : 'Убрано из закладок'
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            });
+        });
+
+        // Скрытие поста
+        const hideBtns = document.querySelectorAll('.hide-post-btn');
+        hideBtns.forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const postId = this.dataset.postId;
+                const card = document.querySelector(`.post-card[data-post-id="${postId}"]`);
+
+                try {
+                    const response = await fetch(`/post/${postId}/hide/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken')
+                        }
+                    });
+
+                    if (response.ok) {
+                        card.style.transition = 'opacity 0.3s ease';
+                        card.style.opacity = '0';
+                        setTimeout(() => card.remove(), 300);
+
+                        showToast({
+                            type: 'info',
+                            message: 'Пост скрыт'
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            });
+        });
+
+        // Шеринг
+        const shareBtns = document.querySelectorAll('.share-btn');
+        shareBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const url = this.dataset.postUrl;
+                const fullUrl = window.location.origin + url;
+
+                if (navigator.share) {
+                    navigator.share({
+                        title: 'Поделиться постом',
+                        url: fullUrl
+                    });
+                } else {
+                    navigator.clipboard?.writeText(fullUrl);
+                    showToast({
+                        type: 'success',
+                        message: 'Ссылка скопирована'
+                    });
+                }
+            });
+        });
+
+        // Подписка на тег
+        const followTagBtn = document.querySelector('.follow-tag-btn');
+        followTagBtn?.addEventListener('click', async function() {
+            const tagSlug = this.dataset.tagSlug;
+
+            try {
+                const response = await fetch(`/tag/${tagSlug}/follow/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const icon = this.querySelector('i');
+                    const span = this.querySelector('span');
+
+                    if (data.following) {
+                        icon.setAttribute('data-feather', 'bell-off');
+                        span.textContent = 'Отписаться';
+                    } else {
+                        icon.setAttribute('data-feather', 'bell');
+                        span.textContent = 'Подписаться';
+                    }
+                    feather.replace();
+
+                    showToast({
+                        type: 'success',
+                        message: data.following ? 'Вы подписались на тег' : 'Вы отписались от тега'
+                    });
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        });
+    });
+</script>
 {% endblock %}

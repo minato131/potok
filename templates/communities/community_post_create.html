@@ -1,0 +1,633 @@
+<!-- templates/communities/community_post_create.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Создать пост · {{ community.name }} · Поток{% endblock %}
+{% block page_title %}Создать пост в c/{{ community.name }}{% endblock %}
+
+{% block content %}
+<div class="post-create-container">
+    <div class="community-context">
+        <a href="{% url 'communities:community_detail' slug=community.slug %}" class="back-link">
+            <i data-feather="arrow-left"></i>
+            <span>Вернуться в сообщество</span>
+        </a>
+        <div class="community-badge">
+            <div class="community-avatar-tiny">
+                {% if community.avatar %}
+                <img src="{{ community.avatar.url }}" alt="{{ community.name }}">
+                {% else %}
+                <div class="avatar-placeholder">{{ community.name|make_list|first|upper }}</div>
+                {% endif %}
+            </div>
+            <span>c/{{ community.name }}</span>
+        </div>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="post-form" novalidate>
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="{{ form.title.id_for_label }}" class="form-label">
+                Заголовок
+                <span class="required">*</span>
+            </label>
+            {{ form.title }}
+            <div class="field-hint">
+                <span class="char-counter">
+                    <span id="titleCounter">0</span>/200
+                </span>
+            </div>
+            {% if form.title.errors %}
+            <div class="form-error">{{ form.title.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.content.id_for_label }}" class="form-label">
+                Текст поста
+            </label>
+            <div class="editor-toolbar">
+                <button type="button" class="toolbar-btn" data-format="bold" title="Жирный">
+                    <i data-feather="bold"></i>
+                </button>
+                <button type="button" class="toolbar-btn" data-format="italic" title="Курсив">
+                    <i data-feather="italic"></i>
+                </button>
+                <button type="button" class="toolbar-btn" data-format="link" title="Ссылка">
+                    <i data-feather="link"></i>
+                </button>
+                <button type="button" class="toolbar-btn" data-format="list" title="Список">
+                    <i data-feather="list"></i>
+                </button>
+                <button type="button" class="toolbar-btn" data-format="code" title="Код">
+                    <i data-feather="code"></i>
+                </button>
+            </div>
+            {{ form.content }}
+            {% if form.content.errors %}
+            <div class="form-error">{{ form.content.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Изображение</label>
+            <div class="image-upload-area" id="imageUploadArea">
+                <input type="file" name="image" id="imageInput" accept="image/*" style="display: none;">
+                <div class="upload-placeholder" id="uploadPlaceholder">
+                    <i data-feather="image"></i>
+                    <span>Нажмите или перетащите изображение</span>
+                    <span class="upload-hint">PNG, JPG, GIF до 5MB</span>
+                </div>
+                <div class="image-preview-container" id="imagePreviewContainer" style="display: none;">
+                    <img id="imagePreview" src="" alt="Preview">
+                    <button type="button" class="remove-image" id="removeImage">
+                        <i data-feather="x"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.tags.id_for_label }}" class="form-label">Теги</label>
+            {{ form.tags }}
+            <div class="field-hint">Разделяйте теги запятыми</div>
+        </div>
+
+        <div class="form-group">
+            <label class="checkbox-label">
+                {{ form.is_nsfw }}
+                <span>Контент 18+</span>
+            </label>
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'communities:community_detail' slug=community.slug %}" class="btn btn--outline">
+                <i data-feather="x"></i>
+                Отмена
+            </a>
+            <div class="form-actions-right">
+                <button type="submit" name="action" value="draft" class="btn btn--outline">
+                    <i data-feather="save"></i>
+                    Сохранить черновик
+                </button>
+                <button type="submit" name="action" value="publish" class="btn btn--primary">
+                    <i data-feather="send"></i>
+                    Опубликовать
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Правила сообщества -->
+    {% if community.rules %}
+    <div class="community-rules-reminder">
+        <h3>
+            <i data-feather="alert-circle"></i>
+            Правила сообщества
+        </h3>
+        <div class="rules-preview">
+            {{ community.rules|truncatewords:30|linebreaks }}
+        </div>
+        <button class="btn btn--link" id="showFullRules">Показать полностью</button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Модальное окно с полными правилами -->
+<div class="modal-overlay" id="rulesModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Правила c/{{ community.name }}</h3>
+            <button class="modal-close" id="closeRulesModal">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="rules-full">
+                {{ community.rules|linebreaks }}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .post-create-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .community-context {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+    }
+
+    .back-link {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--color-text-secondary);
+        text-decoration: none;
+        transition: color var(--transition-base);
+    }
+
+    .back-link:hover {
+        color: var(--color-primary);
+    }
+
+    .community-badge {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-full);
+        border: 1px solid var(--color-border-light);
+    }
+
+    .community-avatar-tiny {
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 50%;
+        overflow: hidden;
+    }
+
+    .community-avatar-tiny img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .post-form {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 2rem;
+        border: 1px solid var(--color-border-light);
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+
+    .required {
+        color: var(--color-danger);
+    }
+
+    .form-input,
+    .form-textarea {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        font-size: 0.9375rem;
+        transition: all var(--transition-base);
+    }
+
+    .form-input:focus,
+    .form-textarea:focus {
+        outline: none;
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+
+    .form-textarea {
+        resize: vertical;
+        min-height: 200px;
+        font-family: inherit;
+    }
+
+    .editor-toolbar {
+        display: flex;
+        gap: 0.25rem;
+        padding: 0.5rem;
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-md) var(--radius-md) 0 0;
+        border: 1px solid var(--color-border);
+        border-bottom: none;
+    }
+
+    .toolbar-btn {
+        padding: 0.5rem;
+        border-radius: var(--radius-sm);
+        color: var(--color-text-secondary);
+        transition: all var(--transition-base);
+    }
+
+    .toolbar-btn:hover {
+        background: var(--color-border-light);
+        color: var(--color-text-primary);
+    }
+
+    .field-hint {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 0.375rem;
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .char-counter {
+        font-family: monospace;
+    }
+
+    .image-upload-area {
+        border: 2px dashed var(--color-border);
+        border-radius: var(--radius-lg);
+        transition: all var(--transition-base);
+        cursor: pointer;
+    }
+
+    .image-upload-area:hover {
+        border-color: var(--color-primary);
+    }
+
+    .image-upload-area.dragover {
+        border-color: var(--color-primary);
+        background: var(--color-primary-light);
+    }
+
+    .upload-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .upload-placeholder i {
+        width: 3rem;
+        height: 3rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .upload-hint {
+        font-size: 0.8125rem;
+        margin-top: 0.25rem;
+    }
+
+    .image-preview-container {
+        position: relative;
+        padding: 1rem;
+    }
+
+    .image-preview-container img {
+        width: 100%;
+        max-height: 400px;
+        object-fit: contain;
+        border-radius: var(--radius-md);
+    }
+
+    .remove-image {
+        position: absolute;
+        top: 1.5rem;
+        right: 1.5rem;
+        padding: 0.5rem;
+        background: var(--color-danger);
+        color: white;
+        border-radius: 50%;
+        box-shadow: var(--shadow-md);
+    }
+
+    .remove-image:hover {
+        background: var(--color-danger-hover);
+    }
+
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+    }
+
+    .form-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--color-border-light);
+    }
+
+    .form-actions-right {
+        display: flex;
+        gap: 1rem;
+    }
+
+    .community-rules-reminder {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        border: 1px solid var(--color-border-light);
+    }
+
+    .community-rules-reminder h3 {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1rem;
+        margin-bottom: 1rem;
+        color: var(--color-warning);
+    }
+
+    .rules-preview {
+        font-size: 0.875rem;
+        color: var(--color-text-secondary);
+        line-height: 1.6;
+        margin-bottom: 0.5rem;
+    }
+
+    .btn--link {
+        background: none;
+        color: var(--color-primary);
+        padding: 0;
+    }
+
+    .btn--link:hover {
+        text-decoration: underline;
+    }
+
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: all var(--transition-base);
+    }
+
+    .modal-overlay.active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .modal {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 1.5rem;
+        max-width: 600px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+        transform: scale(0.9);
+        transition: transform var(--transition-base);
+    }
+
+    .modal-overlay.active .modal {
+        transform: scale(1);
+    }
+
+    .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+    }
+
+    .modal-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+
+    .modal-close {
+        padding: 0.25rem;
+        border-radius: var(--radius-md);
+        color: var(--color-text-tertiary);
+    }
+
+    .modal-close:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .rules-full {
+        line-height: 1.6;
+    }
+
+    @media (max-width: 768px) {
+        .post-form {
+            padding: 1.5rem;
+        }
+
+        .form-actions {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .form-actions-right {
+            width: 100%;
+            flex-direction: column;
+        }
+
+        .community-context {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Счетчик заголовка
+        const titleInput = document.querySelector('input[name="title"]');
+        const titleCounter = document.getElementById('titleCounter');
+
+        if (titleInput && titleCounter) {
+            titleInput.addEventListener('input', () => {
+                titleCounter.textContent = titleInput.value.length;
+            });
+            titleCounter.textContent = titleInput.value.length;
+        }
+
+        // Загрузка изображения
+        const imageUploadArea = document.getElementById('imageUploadArea');
+        const imageInput = document.getElementById('imageInput');
+        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+        const imagePreview = document.getElementById('imagePreview');
+        const removeImage = document.getElementById('removeImage');
+
+        if (imageUploadArea && imageInput) {
+            imageUploadArea.addEventListener('click', () => {
+                imageInput.click();
+            });
+
+            imageInput.addEventListener('change', handleImageSelect);
+
+            // Drag and drop
+            imageUploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                imageUploadArea.classList.add('dragover');
+            });
+
+            imageUploadArea.addEventListener('dragleave', () => {
+                imageUploadArea.classList.remove('dragover');
+            });
+
+            imageUploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                imageUploadArea.classList.remove('dragover');
+
+                const file = e.dataTransfer.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    handleImageFile(file);
+                }
+            });
+        }
+
+        function handleImageSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                handleImageFile(file);
+            }
+        }
+
+        function handleImageFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.src = e.target.result;
+                uploadPlaceholder.style.display = 'none';
+                imagePreviewContainer.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        if (removeImage) {
+            removeImage.addEventListener('click', (e) => {
+                e.stopPropagation();
+                imageInput.value = '';
+                uploadPlaceholder.style.display = 'flex';
+                imagePreviewContainer.style.display = 'none';
+                imagePreview.src = '';
+            });
+        }
+
+        // Панель инструментов редактора
+        const toolbarBtns = document.querySelectorAll('.toolbar-btn');
+        const contentTextarea = document.querySelector('textarea[name="content"]');
+
+        toolbarBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const format = btn.dataset.format;
+                const textarea = contentTextarea;
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                const selectedText = textarea.value.substring(start, end);
+
+                let formattedText = '';
+                let cursorOffset = 0;
+
+                switch(format) {
+                    case 'bold':
+                        formattedText = `**${selectedText || 'жирный текст'}**`;
+                        cursorOffset = selectedText ? 0 : 2;
+                        break;
+                    case 'italic':
+                        formattedText = `*${selectedText || 'курсив'}*`;
+                        cursorOffset = selectedText ? 0 : 1;
+                        break;
+                    case 'link':
+                        formattedText = `[${selectedText || 'текст ссылки'}](url)`;
+                        cursorOffset = selectedText ? -4 : -3;
+                        break;
+                    case 'list':
+                        formattedText = `\n- ${selectedText || 'элемент списка'}`;
+                        break;
+                    case 'code':
+                        formattedText = `\`${selectedText || 'код'}\``;
+                        cursorOffset = selectedText ? 0 : 1;
+                        break;
+                }
+
+                textarea.value = textarea.value.substring(0, start) + formattedText + textarea.value.substring(end);
+                textarea.focus();
+
+                const newPosition = start + formattedText.length + cursorOffset;
+                textarea.setSelectionRange(newPosition, newPosition);
+            });
+        });
+
+        // Модальное окно с правилами
+        const showRulesBtn = document.getElementById('showFullRules');
+        const rulesModal = document.getElementById('rulesModal');
+        const closeRulesModal = document.getElementById('closeRulesModal');
+
+        if (showRulesBtn && rulesModal) {
+            showRulesBtn.addEventListener('click', () => {
+                rulesModal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            });
+
+            const closeModal = () => {
+                rulesModal.classList.remove('active');
+                document.body.style.overflow = '';
+            };
+
+            closeRulesModal?.addEventListener('click', closeModal);
+            rulesModal.addEventListener('click', (e) => {
+                if (e.target === rulesModal) closeModal();
+            });
+        }
+    });
+</script>
+{% endblock %}

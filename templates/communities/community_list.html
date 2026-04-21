@@ -1,150 +1,1235 @@
+<!-- templates/communities/community_list.html -->
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Сообщества - Поток{% endblock %}
+{% block title %}Сообщества · Поток{% endblock %}
+{% block page_title %}Сообщества{% endblock %}
+
+{% block header_actions %}
+{% if user.is_authenticated %}
+<a href="{% url 'communities:community_create' %}" class="btn btn--primary">
+    <i data-feather="plus"></i>
+    <span>Создать сообщество</span>
+</a>
+{% endif %}
+{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2><i class="bi bi-people"></i> Сообщества</h2>
-            {% if user.is_authenticated %}
-                <a href="{% url 'communities:community_create' %}" class="btn btn-potochny">
-                    <i class="bi bi-plus-circle"></i> Создать сообщество
-                </a>
-            {% endif %}
+<div class="communities-container">
+    <!-- Шапка с информацией -->
+    <div class="communities-header">
+        <div class="header-content">
+            <h2 class="header-title">
+                <i data-feather="users"></i>
+                Откройте для себя сообщества
+            </h2>
+            <p class="header-description">
+                Присоединяйтесь к сообществам по интересам, общайтесь с единомышленниками и делитесь своими идеями
+            </p>
         </div>
 
-        <!-- Фильтры и поиск -->
-        <div class="card mb-4">
-            <div class="card-body">
-                <form method="get" class="row g-3">
-                    <div class="col-md-5">
-                        <input type="text" name="q" class="form-control" 
-                               placeholder="Поиск сообществ..." value="{{ query }}">
-                    </div>
-                    <div class="col-md-3">
-                        <select name="privacy" class="form-control">
-                            <option value="">Все сообщества</option>
-                            <option value="public" {% if privacy == 'public' %}selected{% endif %}>Публичные</option>
-                            <option value="private" {% if privacy == 'private' %}selected{% endif %}>Закрытые</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <select name="sort" class="form-control">
-                            <option value="-created_at" {% if sort == '-created_at' %}selected{% endif %}>Новые</option>
-                            <option value="name" {% if sort == 'name' %}selected{% endif %}>По названию</option>
-                            <option value="-members_count" {% if sort == '-members_count' %}selected{% endif %}>По популярности</option>
-                        </select>
-                    </div>
-                    <div class="col-md-1">
-                        <button type="submit" class="btn btn-primary w-100">
-                            <i class="bi bi-search"></i>
-                        </button>
-                    </div>
-                </form>
+        <!-- Статистика -->
+        <div class="header-stats">
+            <div class="stat-item">
+                <span class="stat-value">{{ total_count }}</span>
+                <span class="stat-label">сообществ</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value">{{ popular_count|default:"50" }}+</span>
+                <span class="stat-label">участников</span>
             </div>
         </div>
+    </div>
 
-        <!-- Сетка сообществ -->
-        <div class="row">
-            {% for community in page_obj %}
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100">
-                        {% if community.avatar %}
-                            <img src="{{ community.avatar.url }}" class="card-img-top" 
-                                 alt="{{ community.name }}" style="height: 160px; object-fit: cover;">
+    <!-- Поиск и фильтры -->
+    <div class="communities-filters">
+        <form method="get" class="search-form" id="filterForm">
+            <!-- Поиск -->
+            <div class="search-wrapper">
+                <i data-feather="search" class="search-icon"></i>
+                <input
+                    type="text"
+                    name="q"
+                    value="{{ search_query }}"
+                    placeholder="Поиск по названию или описанию..."
+                    class="search-input"
+                    id="searchInput"
+                    autocomplete="off"
+                >
+                {% if search_query %}
+                <button type="button" class="clear-search" id="clearSearch" aria-label="Очистить поиск">
+                    <i data-feather="x"></i>
+                </button>
+                {% endif %}
+            </div>
+
+            <!-- Скрытое поле для фильтра -->
+            <input type="hidden" name="filter" id="filterInput" value="{{ filter_type }}">
+
+            <!-- Табы фильтрации -->
+            <div class="filter-tabs">
+                <button type="button" class="filter-btn {% if filter_type == 'all' %}active{% endif %}" data-filter="all">
+                    <i data-feather="globe"></i>
+                    <span>Все сообщества</span>
+                </button>
+
+                {% if user.is_authenticated %}
+                <button type="button" class="filter-btn {% if filter_type == 'my' %}active{% endif %}" data-filter="my">
+                    <i data-feather="user-check"></i>
+                    <span>Мои сообщества</span>
+                </button>
+                {% endif %}
+
+                <button type="button" class="filter-btn {% if filter_type == 'popular' %}active{% endif %}" data-filter="popular">
+                    <i data-feather="trending-up"></i>
+                    <span>Популярные</span>
+                </button>
+
+                <button type="button" class="filter-btn {% if filter_type == 'new' %}active{% endif %}" data-filter="new">
+                    <i data-feather="zap"></i>
+                    <span>Новые</span>
+                </button>
+            </div>
+
+            <!-- Дополнительная сортировка -->
+            <div class="sort-wrapper">
+                <label for="sortSelect" class="sort-label">
+                    <i data-feather="arrow-up-down"></i>
+                    Сортировка:
+                </label>
+                <select name="sort" id="sortSelect" class="sort-select">
+                    <option value="name" {% if request.GET.sort == 'name' %}selected{% endif %}>По названию</option>
+                    <option value="-members_count" {% if request.GET.sort == '-members_count' %}selected{% endif %}>По популярности</option>
+                    <option value="-created_at" {% if request.GET.sort == '-created_at' %}selected{% endif %}>Сначала новые</option>
+                    <option value="created_at" {% if request.GET.sort == 'created_at' %}selected{% endif %}>Сначала старые</option>
+                </select>
+            </div>
+        </form>
+    </div>
+
+    <!-- Результаты поиска -->
+    {% if search_query %}
+    <div class="search-results-info">
+        <p>
+            <i data-feather="search"></i>
+            Результаты поиска по запросу <strong>"{{ search_query }}"</strong>:
+            <span class="results-count">{{ communities.paginator.count }}</span>
+            сообществ найдено
+        </p>
+        <a href="{% url 'communities:community_list' %}" class="clear-search-link">
+            <i data-feather="x"></i>
+            Сбросить поиск
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Сетка сообществ -->
+    <div class="communities-grid">
+        {% for community in communities %}
+        <article class="community-card" data-community-id="{{ community.id }}">
+            <!-- Обложка -->
+            <div class="community-card__cover">
+                {% if community.cover %}
+                <img src="{{ community.cover.url }}" alt="Обложка {{ community.name }}" loading="lazy">
+                {% else %}
+                <div class="cover-gradient"></div>
+                {% endif %}
+
+                <!-- Тип сообщества -->
+                {% if community.privacy != 'public' %}
+                <span class="privacy-badge privacy-badge--{{ community.privacy }}" title="{% if community.privacy == 'private' %}Закрытое сообщество{% else %}Скрытое сообщество{% endif %}">
+                    <i data-feather="{% if community.privacy == 'private' %}lock{% else %}eye-off{% endif %}"></i>
+                </span>
+                {% endif %}
+            </div>
+
+            <!-- Аватар -->
+            <div class="community-card__avatar">
+                <a href="{% url 'communities:community_detail' slug=community.slug %}">
+                    {% if community.avatar %}
+                    <img src="{{ community.avatar.url }}" alt="{{ community.name }}" loading="lazy">
+                    {% else %}
+                    <div class="avatar-placeholder" style="background: linear-gradient(135deg, {{ community.color|default:'#2563eb' }}, {{ community.color_hover|default:'#1d4ed8' }});">
+                        {{ community.name|first|upper }}
+                    </div>
+                    {% endif %}
+                </a>
+            </div>
+
+            <!-- Контент -->
+            <div class="community-card__content">
+                <!-- Название -->
+                <h3 class="community-name">
+                    <a href="{% url 'communities:community_detail' slug=community.slug %}">
+                        c/{{ community.name }}
+                    </a>
+                    {% if community.is_verified %}
+                    <span class="verified-badge" title="Подтвержденное сообщество">
+                        <i data-feather="check-circle"></i>
+                    </span>
+                    {% endif %}
+                </h3>
+
+                <!-- Описание -->
+                <p class="community-description">
+                    {% if community.description %}
+                        {{ community.description|truncatewords:20 }}
+                    {% else %}
+                        <span class="no-description">Нет описания</span>
+                    {% endif %}
+                </p>
+
+                <!-- Статистика -->
+                <div class="community-stats">
+                    <div class="stat">
+                        <i data-feather="users"></i>
+                        <span class="stat-value">{{ community.members_count }}</span>
+                        <span class="stat-label">участников</span>
+                    </div>
+                    <div class="stat">
+                        <i data-feather="file-text"></i>
+                        <span class="stat-value">{{ community.posts_count }}</span>
+                        <span class="stat-label">постов</span>
+                    </div>
+                    <div class="stat">
+                        <i data-feather="calendar"></i>
+                        <span class="stat-label">создано</span>
+                        <span class="stat-value">{{ community.created_at|date:"M Y" }}</span>
+                    </div>
+                </div>
+
+                <!-- Категории -->
+                {% if community.categories.exists %}
+                <div class="community-categories">
+                    {% for category in community.categories.all|slice:":3" %}
+                    <a href="{% url 'posts:category_detail' slug=category.slug %}" class="category-tag">
+                        {{ category.name }}
+                    </a>
+                    {% endfor %}
+                    {% if community.categories.count > 3 %}
+                    <span class="more-categories">+{{ community.categories.count|add:"-3" }}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Действия -->
+            <div class="community-card__footer">
+                {% if user.is_authenticated %}
+                    {% with membership=user.communitymembership_set.filter.first %}
+                        {% if membership %}
+                            {% if membership.status == 'active' %}
+                            <span class="member-badge">
+                                <i data-feather="check"></i>
+                                Вы участник
+                            </span>
+                            <a href="{% url 'communities:community_detail' slug=community.slug %}" class="btn btn--outline btn--sm">
+                                Перейти
+                            </a>
+                            {% elif membership.status == 'pending' %}
+                            <span class="pending-badge">
+                                <i data-feather="clock"></i>
+                                Заявка на рассмотрении
+                            </span>
+                            {% elif membership.status == 'banned' %}
+                            <span class="banned-badge">
+                                <i data-feather="slash"></i>
+                                Доступ ограничен
+                            </span>
+                            {% endif %}
                         {% else %}
-                            <div class="bg-secondary text-white d-flex align-items-center justify-content-center" 
-                                 style="height: 160px;">
-                                <i class="bi bi-people" style="font-size: 3rem;"></i>
-                            </div>
+                            <button class="btn btn--primary btn--sm join-btn" data-community-slug="{{ community.slug }}">
+                                <i data-feather="user-plus"></i>
+                                Вступить
+                            </button>
+                            <a href="{% url 'communities:community_detail' slug=community.slug %}" class="btn btn--outline btn--sm">
+                                Подробнее
+                            </a>
                         {% endif %}
-                        <div class="card-body">
-                            <h5 class="card-title">
-                                {% if community.slug %}
-                                    <a href="{% url 'communities:community_detail' community.slug %}"
-                                       class="text-decoration-none text-dark">
-                                        {{ community.name }}
-                                    </a>
-                                {% else %}
-                                    <span class="text-dark">{{ community.name }}</span>
-                                {% endif %}
-                            </h5>
-                            <p class="card-text text-muted small">
-                                {{ community.description|truncatewords:20 }}
-                            </p>
-                            <div class="d-flex justify-content-between align-items-center">
-                                <small class="text-muted">
-                                    <i class="bi bi-people"></i> {{ community.members_count }}
-                                </small>
-                                {% if community.privacy == 'private' %}
-                                    <span class="badge bg-warning">Закрытое</span>
-                                {% else %}
-                                    <span class="badge bg-success">Публичное</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div class="card-footer bg-transparent">
-                            <small class="text-muted">
-                                Создал:
-                                {% if community.creator %}
-                                    <a href="{% url 'accounts:profile_by_username' community.creator.username %}">
-                                        {{ community.creator.username }}
-                                    </a>
-                                {% else %}
-                                    Неизвестно
-                                {% endif %}
-                            </small>
-                        </div>
-                    </div>
-                </div>
-            {% empty %}
-                <div class="col-12">
-                    <div class="alert alert-info text-center">
-                        <i class="bi bi-info-circle"></i> Сообществ пока нет.
-                        {% if user.is_authenticated %}
-                            <a href="{% url 'communities:community_create' %}">Создать первое?</a>
-                        {% endif %}
-                    </div>
-                </div>
-            {% endfor %}
+                    {% endwith %}
+                {% else %}
+                    <a href="{% url 'accounts:login' %}?next={% url 'communities:community_detail' slug=community.slug %}" class="btn btn--outline btn--sm">
+                        Войти
+                    </a>
+                    <a href="{% url 'communities:community_detail' slug=community.slug %}" class="btn btn--outline btn--sm">
+                        Подробнее
+                    </a>
+                {% endif %}
+            </div>
+        </article>
+        {% empty %}
+        <div class="empty-state">
+            <div class="empty-icon">
+                <i data-feather="users"></i>
+            </div>
+            <h3>Сообщества не найдены</h3>
+            <p>
+                {% if search_query %}
+                По запросу "{{ search_query }}" ничего не найдено. Попробуйте изменить поисковый запрос.
+                {% else %}
+                Здесь пока нет сообществ. Будьте первым, кто создаст сообщество!
+                {% endif %}
+            </p>
+            {% if user.is_authenticated %}
+            <a href="{% url 'communities:community_create' %}" class="btn btn--primary">
+                <i data-feather="plus"></i>
+                Создать сообщество
+            </a>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Пагинация -->
+    {% if is_paginated %}
+    <div class="pagination-wrapper">
+        <div class="pagination-info">
+            Показано {{ page_obj.start_index }}–{{ page_obj.end_index }} из {{ page_obj.paginator.count }} сообществ
         </div>
 
-        <!-- Пагинация -->
-        {% if page_obj.has_other_pages %}
-            <nav aria-label="Page navigation" class="mt-4">
-                <ul class="pagination justify-content-center">
-                    {% if page_obj.has_previous %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}{% if privacy %}&privacy={{ privacy }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}">
-                                <i class="bi bi-chevron-double-left"></i>
-                            </a>
-                        </li>
-                    {% endif %}
+        <nav class="pagination" aria-label="Пагинация">
+            {% if page_obj.has_previous %}
+            <a href="?page=1{% if search_query %}&q={{ search_query }}{% endif %}&filter={{ filter_type }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}"
+               class="pagination-btn" aria-label="Первая страница">
+                <i data-feather="chevrons-left"></i>
+            </a>
+            <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}&filter={{ filter_type }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}"
+               class="pagination-btn" aria-label="Предыдущая страница">
+                <i data-feather="chevron-left"></i>
+            </a>
+            {% else %}
+            <span class="pagination-btn disabled" aria-disabled="true">
+                <i data-feather="chevrons-left"></i>
+            </span>
+            <span class="pagination-btn disabled" aria-disabled="true">
+                <i data-feather="chevron-left"></i>
+            </span>
+            {% endif %}
 
-                    {% for num in page_obj.paginator.page_range %}
-                        {% if page_obj.number == num %}
-                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                            <li class="page-item">
-                                <a class="page-link" href="?page={{ num }}{% if query %}&q={{ query }}{% endif %}{% if privacy %}&privacy={{ privacy }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}">
-                                    {{ num }}
-                                </a>
-                            </li>
-                        {% endif %}
-                    {% endfor %}
-
-                    {% if page_obj.has_next %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if query %}&q={{ query }}{% endif %}{% if privacy %}&privacy={{ privacy }}{% endif %}{% if sort %}&sort={{ sort }}{% endif %}">
-                                <i class="bi bi-chevron-double-right"></i>
-                            </a>
-                        </li>
+            <div class="pagination-pages">
+                {% for num in page_obj.paginator.page_range %}
+                    {% if num == page_obj.number %}
+                    <span class="pagination-btn active" aria-current="page">{{ num }}</span>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <a href="?page={{ num }}{% if search_query %}&q={{ search_query }}{% endif %}&filter={{ filter_type }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}"
+                       class="pagination-btn">{{ num }}</a>
+                    {% elif num == 1 or num == page_obj.paginator.num_pages %}
+                    <a href="?page={{ num }}{% if search_query %}&q={{ search_query }}{% endif %}&filter={{ filter_type }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}"
+                       class="pagination-btn">{{ num }}</a>
+                    {% elif num == page_obj.number|add:'-3' or num == page_obj.number|add:'3' %}
+                    <span class="pagination-ellipsis">…</span>
                     {% endif %}
-                </ul>
-            </nav>
-        {% endif %}
+                {% endfor %}
+            </div>
+
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}&filter={{ filter_type }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}"
+               class="pagination-btn" aria-label="Следующая страница">
+                <i data-feather="chevron-right"></i>
+            </a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&q={{ search_query }}{% endif %}&filter={{ filter_type }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}"
+               class="pagination-btn" aria-label="Последняя страница">
+                <i data-feather="chevrons-right"></i>
+            </a>
+            {% else %}
+            <span class="pagination-btn disabled" aria-disabled="true">
+                <i data-feather="chevron-right"></i>
+            </span>
+            <span class="pagination-btn disabled" aria-disabled="true">
+                <i data-feather="chevrons-right"></i>
+            </span>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Модальное окно заявки на вступление -->
+<div class="modal-overlay" id="joinRequestModal" style="display: none;">
+    <div class="modal modal--join">
+        <div class="modal-header">
+            <h3 class="modal-title" id="joinModalTitle">Вступить в сообщество</h3>
+            <button class="modal-close" onclick="closeJoinModal()">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="community-preview" id="communityPreview"></div>
+            <form id="joinRequestForm">
+                {% csrf_token %}
+                <input type="hidden" name="community_slug" id="communitySlug">
+                <div class="form-group">
+                    <label for="joinMessage" class="form-label">
+                        Сообщение модераторам (необязательно)
+                    </label>
+                    <textarea
+                        name="message"
+                        id="joinMessage"
+                        class="form-textarea"
+                        placeholder="Расскажите, почему хотите вступить..."
+                        rows="3"
+                        maxlength="500"
+                    ></textarea>
+                    <div class="field-hint">
+                        <span class="char-counter">
+                            <span id="messageCounter">0</span>/500
+                        </span>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn--outline" onclick="closeJoinModal()">Отмена</button>
+            <button class="btn btn--primary" onclick="submitJoinRequest()">
+                <i data-feather="send"></i>
+                Отправить заявку
+            </button>
+        </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Контейнер */
+    .communities-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+
+    /* Шапка */
+    .communities-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 2rem;
+        padding: 1.5rem;
+        background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
+        border-radius: var(--radius-xl);
+        color: white;
+    }
+
+    .header-content {
+        flex: 1;
+    }
+
+    .header-title {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .header-description {
+        opacity: 0.9;
+        font-size: 1rem;
+        max-width: 500px;
+    }
+
+    .header-stats {
+        display: flex;
+        gap: 2rem;
+        padding: 1rem 2rem;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: var(--radius-lg);
+        backdrop-filter: blur(10px);
+    }
+
+    .header-stats .stat-item {
+        text-align: center;
+    }
+
+    .header-stats .stat-value {
+        display: block;
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+
+    .header-stats .stat-label {
+        font-size: 0.875rem;
+        opacity: 0.8;
+    }
+
+    /* Фильтры */
+    .communities-filters {
+        margin-bottom: 1.5rem;
+    }
+
+    .search-form {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 1.5rem;
+        border: 1px solid var(--color-border-light);
+    }
+
+    .search-wrapper {
+        position: relative;
+        margin-bottom: 1.25rem;
+    }
+
+    .search-icon {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--color-text-tertiary);
+        pointer-events: none;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 0.875rem 1rem 0.875rem 2.75rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        font-size: 1rem;
+        background: var(--color-bg-surface);
+        transition: all var(--transition-base);
+    }
+
+    .search-input:focus {
+        outline: none;
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+
+    .clear-search {
+        position: absolute;
+        right: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        padding: 0.375rem;
+        border-radius: var(--radius-md);
+        color: var(--color-text-tertiary);
+        transition: all var(--transition-base);
+    }
+
+    .clear-search:hover {
+        background: var(--color-bg-elevated);
+        color: var(--color-text-primary);
+    }
+
+    .filter-tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .filter-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1.25rem;
+        border-radius: var(--radius-full);
+        font-size: 0.9375rem;
+        font-weight: 500;
+        color: var(--color-text-secondary);
+        background: var(--color-bg-elevated);
+        border: 1px solid transparent;
+        transition: all var(--transition-base);
+    }
+
+    .filter-btn:hover {
+        background: var(--color-border-light);
+        color: var(--color-text-primary);
+    }
+
+    .filter-btn.active {
+        background: var(--color-primary);
+        color: white;
+    }
+
+    .sort-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .sort-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--color-text-secondary);
+        font-size: 0.875rem;
+    }
+
+    .sort-select {
+        padding: 0.5rem 2rem 0.5rem 1rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        background: var(--color-bg-surface);
+        font-size: 0.875rem;
+        cursor: pointer;
+    }
+
+    /* Результаты поиска */
+    .search-results-info {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1rem;
+        margin-bottom: 1.5rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--color-border-light);
+    }
+
+    .search-results-info p {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--color-text-secondary);
+    }
+
+    .results-count {
+        font-weight: 600;
+        color: var(--color-primary);
+    }
+
+    .clear-search-link {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        color: var(--color-text-tertiary);
+        text-decoration: none;
+        font-size: 0.875rem;
+        transition: color var(--transition-base);
+    }
+
+    .clear-search-link:hover {
+        color: var(--color-primary);
+    }
+
+    /* Сетка сообществ */
+    .communities-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .community-card {
+        position: relative;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        overflow: hidden;
+        border: 1px solid var(--color-border-light);
+        transition: all var(--transition-base);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .community-card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-xl);
+        border-color: transparent;
+    }
+
+    .community-card__cover {
+        position: relative;
+        height: 100px;
+        background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
+    }
+
+    .community-card__cover img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .cover-gradient {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .privacy-badge {
+        position: absolute;
+        top: 0.75rem;
+        right: 0.75rem;
+        padding: 0.375rem;
+        background: rgba(0, 0, 0, 0.5);
+        border-radius: var(--radius-md);
+        color: white;
+        backdrop-filter: blur(4px);
+    }
+
+    .community-card__avatar {
+        position: relative;
+        width: 5rem;
+        height: 5rem;
+        margin: -2.5rem auto 0;
+        border-radius: var(--radius-lg);
+        border: 3px solid var(--color-bg-surface);
+        overflow: hidden;
+        background: var(--color-bg-surface);
+        z-index: 1;
+    }
+
+    .community-card__avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 2rem;
+        font-weight: 700;
+    }
+
+    .community-card__content {
+        padding: 1.25rem 1.25rem 1rem;
+        flex: 1;
+        text-align: center;
+    }
+
+    .community-name {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+    }
+
+    .community-name a {
+        color: var(--color-text-primary);
+        text-decoration: none;
+    }
+
+    .community-name a:hover {
+        color: var(--color-primary);
+    }
+
+    .verified-badge {
+        color: var(--color-primary);
+    }
+
+    .community-description {
+        color: var(--color-text-secondary);
+        font-size: 0.875rem;
+        line-height: 1.6;
+        margin-bottom: 1rem;
+        min-height: 2.5rem;
+    }
+
+    .no-description {
+        color: var(--color-text-tertiary);
+        font-style: italic;
+    }
+
+    .community-stats {
+        display: flex;
+        justify-content: space-around;
+        padding: 0.75rem 0;
+        margin-bottom: 0.75rem;
+        border-top: 1px solid var(--color-border-light);
+        border-bottom: 1px solid var(--color-border-light);
+    }
+
+    .community-stats .stat {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .community-stats .stat i {
+        width: 1rem;
+        height: 1rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .community-stats .stat-value {
+        font-weight: 600;
+        color: var(--color-text-primary);
+    }
+
+    .community-stats .stat-label {
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .community-categories {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.375rem;
+        margin-bottom: 1rem;
+    }
+
+    .category-tag {
+        padding: 0.25rem 0.625rem;
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-full);
+        font-size: 0.75rem;
+        color: var(--color-text-secondary);
+        text-decoration: none;
+        transition: all var(--transition-base);
+    }
+
+    .category-tag:hover {
+        background: var(--color-primary);
+        color: white;
+    }
+
+    .more-categories {
+        padding: 0.25rem 0.625rem;
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-full);
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .community-card__footer {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        padding: 1rem 1.25rem 1.25rem;
+        border-top: 1px solid var(--color-border-light);
+    }
+
+    .member-badge,
+    .pending-badge,
+    .banned-badge {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        border-radius: var(--radius-full);
+        font-size: 0.8125rem;
+        font-weight: 500;
+    }
+
+    .member-badge {
+        background: var(--color-success);
+        color: white;
+    }
+
+    .pending-badge {
+        background: var(--color-warning);
+        color: white;
+    }
+
+    .banned-badge {
+        background: var(--color-danger);
+        color: white;
+    }
+
+    /* Пустое состояние */
+    .empty-state {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 4rem 2rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        border: 1px solid var(--color-border-light);
+    }
+
+    .empty-icon {
+        width: 5rem;
+        height: 5rem;
+        border-radius: 50%;
+        background: var(--color-bg-elevated);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.5rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .empty-icon i {
+        width: 2.5rem;
+        height: 2.5rem;
+    }
+
+    .empty-state h3 {
+        font-size: 1.5rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .empty-state p {
+        color: var(--color-text-secondary);
+        margin-bottom: 1.5rem;
+    }
+
+    /* Пагинация */
+    .pagination-wrapper {
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--color-border-light);
+    }
+
+    .pagination-info {
+        text-align: center;
+        margin-bottom: 1rem;
+        color: var(--color-text-secondary);
+        font-size: 0.875rem;
+    }
+
+    .pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.25rem;
+    }
+
+    .pagination-pages {
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    .pagination-btn {
+        min-width: 2.5rem;
+        height: 2.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-md);
+        background: var(--color-bg-surface);
+        border: 1px solid var(--color-border);
+        color: var(--color-text-primary);
+        text-decoration: none;
+        font-size: 0.875rem;
+        transition: all var(--transition-base);
+    }
+
+    .pagination-btn:hover:not(.disabled) {
+        background: var(--color-bg-elevated);
+        border-color: var(--color-primary);
+    }
+
+    .pagination-btn.active {
+        background: var(--color-primary);
+        color: white;
+        border-color: var(--color-primary);
+    }
+
+    .pagination-btn.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .pagination-ellipsis {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.5rem;
+        color: var(--color-text-tertiary);
+    }
+
+    /* Модальное окно */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        backdrop-filter: blur(4px);
+    }
+
+    .modal {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        width: 90%;
+        max-width: 450px;
+        max-height: 90vh;
+        overflow: hidden;
+        box-shadow: var(--shadow-xl);
+        animation: modalSlideIn 0.3s ease;
+    }
+
+    @keyframes modalSlideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px) scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--color-border-light);
+    }
+
+    .modal-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+    }
+
+    .modal-close {
+        padding: 0.375rem;
+        border-radius: var(--radius-md);
+        color: var(--color-text-tertiary);
+        transition: all var(--transition-base);
+    }
+
+    .modal-close:hover {
+        background: var(--color-bg-elevated);
+        color: var(--color-text-primary);
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+    }
+
+    .community-preview {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-md);
+        margin-bottom: 1.25rem;
+    }
+
+    .form-textarea {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        resize: vertical;
+        font-family: inherit;
+        font-size: 0.875rem;
+    }
+
+    .form-textarea:focus {
+        outline: none;
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+
+    .field-hint {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 0.375rem;
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .char-counter {
+        font-family: monospace;
+    }
+
+    .modal-footer {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: flex-end;
+        padding: 1rem 1.5rem 1.5rem;
+        border-top: 1px solid var(--color-border-light);
+    }
+
+    /* Адаптивность */
+    @media (max-width: 768px) {
+        .communities-header {
+            flex-direction: column;
+            text-align: center;
+            gap: 1.5rem;
+        }
+
+        .header-title {
+            justify-content: center;
+        }
+
+        .header-stats {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .communities-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .filter-tabs {
+            justify-content: center;
+        }
+
+        .sort-wrapper {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .search-results-info {
+            flex-direction: column;
+            gap: 0.75rem;
+            text-align: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Фильтрация
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        const filterInput = document.getElementById('filterInput');
+        const filterForm = document.getElementById('filterForm');
+
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const filter = this.dataset.filter;
+                filterInput.value = filter;
+                filterForm.submit();
+            });
+        });
+
+        // Сортировка
+        const sortSelect = document.getElementById('sortSelect');
+        sortSelect?.addEventListener('change', function() {
+            filterForm.submit();
+        });
+
+        // Поиск с задержкой
+        const searchInput = document.getElementById('searchInput');
+        let searchTimeout;
+
+        searchInput?.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                filterForm.submit();
+            }, 500);
+        });
+
+        // Очистка поиска
+        const clearSearch = document.getElementById('clearSearch');
+        clearSearch?.addEventListener('click', function() {
+            searchInput.value = '';
+            filterForm.submit();
+        });
+
+        // Счетчик символов в модалке
+        const joinMessage = document.getElementById('joinMessage');
+        const messageCounter = document.getElementById('messageCounter');
+
+        joinMessage?.addEventListener('input', function() {
+            messageCounter.textContent = this.value.length;
+        });
+
+        // Модальное окно вступления
+        const joinModal = document.getElementById('joinRequestModal');
+        const joinBtns = document.querySelectorAll('.join-btn');
+
+        window.closeJoinModal = function() {
+            joinModal.style.display = 'none';
+            document.body.style.overflow = '';
+        };
+
+        joinBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const slug = this.dataset.communitySlug;
+                const card = this.closest('.community-card');
+                const name = card.querySelector('.community-name a').textContent;
+                const description = card.querySelector('.community-description')?.textContent || '';
+
+                document.getElementById('communitySlug').value = slug;
+                document.getElementById('joinModalTitle').textContent = `Вступить в ${name}`;
+
+                const preview = document.getElementById('communityPreview');
+                preview.innerHTML = `
+                    <div class="community-card__avatar" style="width: 40px; height: 40px; margin: 0;">
+                        ${card.querySelector('.community-card__avatar').innerHTML}
+                    </div>
+                    <div>
+                        <strong>${name}</strong>
+                        <p style="font-size: 0.75rem; color: var(--color-text-tertiary);">${description.substring(0, 50)}...</p>
+                    </div>
+                `;
+
+                joinModal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            });
+        });
+
+        window.submitJoinRequest = async function() {
+            const form = document.getElementById('joinRequestForm');
+            const formData = new FormData(form);
+            const slug = document.getElementById('communitySlug').value;
+
+            try {
+                const response = await fetch(`/communities/${slug}/join/`, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+
+                if (response.ok) {
+                    closeJoinModal();
+                    showToast({
+                        type: 'success',
+                        message: 'Заявка отправлена на рассмотрение'
+                    });
+
+                    // Обновляем кнопку
+                    const btn = document.querySelector(`.join-btn[data-community-slug="${slug}"]`);
+                    if (btn) {
+                        btn.outerHTML = '<span class="pending-badge"><i data-feather="clock"></i>Заявка на рассмотрении</span>';
+                        feather.replace();
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast({
+                    type: 'error',
+                    message: 'Произошла ошибка'
+                });
+            }
+        };
+
+        // Закрытие модалки по Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && joinModal.style.display === 'flex') {
+                closeJoinModal();
+            }
+        });
+
+        // Закрытие по клику вне
+        joinModal?.addEventListener('click', function(e) {
+            if (e.target === joinModal) {
+                closeJoinModal();
+            }
+        });
+
+        // CSRF токен
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    });
+</script>
 {% endblock %}

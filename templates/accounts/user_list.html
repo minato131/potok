@@ -1,97 +1,442 @@
+<!-- templates/accounts/user_list.html -->
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Пользователи - Поток{% endblock %}
+{% block title %}Пользователи · Поток{% endblock %}
+{% block page_title %}Пользователи{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2><i class="bi bi-people"></i> Пользователи</h2>
-            <form class="d-flex" method="get">
-                <input type="text" name="q" class="form-control me-2" placeholder="Поиск..." value="{{ query }}">
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-search"></i>
-                </button>
-            </form>
+<div class="user-list-container">
+    <!-- Фильтры и поиск -->
+    <div class="filters-section">
+        <div class="search-wrapper-large">
+            <i data-feather="search"></i>
+            <input type="text" id="userSearch" placeholder="Поиск пользователей..." class="search-input">
         </div>
 
-        <div class="row">
-            {% for profile_user in page_obj %}
-                <div class="col-md-4 mb-3">
-                    <div class="card">
-                        <div class="card-body d-flex align-items-center">
-                            <a href="{% url 'accounts:profile_by_username' profile_user.username %}">
-                                {% if profile_user.avatar %}
-                                    <img src="{{ profile_user.avatar.url }}" class="avatar-medium me-3" alt="avatar">
-                                {% else %}
-                                    <div class="avatar-medium bg-secondary text-white d-flex align-items-center justify-content-center me-3">
-                                        {{ profile_user.username|first|upper }}
-                                    </div>
-                                {% endif %}
-                            </a>
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1">
-                                    <a href="{% url 'accounts:profile_by_username' profile_user.username %}" 
-                                       class="text-decoration-none">
-                                        {{ profile_user.get_full_name|default:profile_user.username }}
-                                    </a>
-                                </h6>
-                                <small class="text-muted">@{{ profile_user.username }}</small>
-                                <br>
-                                <small class="text-muted">
-                                    <i class="bi bi-pencil"></i> {{ profile_user.posts.count }} постов
-                                </small>
-                            </div>
-                            {% if user.is_authenticated and user != profile_user %}
-                                <a href="{% url 'accounts:follow' profile_user.id %}" 
-                                   class="btn btn-sm {% if profile_user in user.following.all %}btn-outline-secondary{% else %}btn-primary{% endif %}">
-                                    {% if profile_user in user.following.all %}
-                                        ✓ Подписан
-                                    {% else %}
-                                        Подписаться
-                                    {% endif %}
-                                </a>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            {% empty %}
-                <div class="col-12">
-                    <div class="alert alert-info">
-                        Пользователи не найдены
-                    </div>
-                </div>
-            {% endfor %}
+        <div class="filter-tabs">
+            <button class="filter-btn active" data-filter="all">Все</button>
+            <button class="filter-btn" data-filter="popular">Популярные</button>
+            <button class="filter-btn" data-filter="new">Новые</button>
+            {% if user.is_authenticated %}
+            <button class="filter-btn" data-filter="suggested">Рекомендации</button>
+            {% endif %}
         </div>
-
-        <!-- Пагинация -->
-        {% if page_obj.has_other_pages %}
-            <nav aria-label="Page navigation" class="mt-4">
-                <ul class="pagination justify-content-center">
-                    {% if page_obj.has_previous %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page=1{% if query %}&q={{ query }}{% endif %}">
-                                <i class="bi bi-chevron-double-left"></i>
-                            </a>
-                        </li>
-                    {% endif %}
-
-                    {% for num in page_obj.paginator.page_range %}
-                        {% if page_obj.number == num %}
-                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                        {% endif %}
-                    {% endfor %}
-
-                    {% if page_obj.has_next %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}">
-                                <i class="bi bi-chevron-right"></i>
-                            </a>
-                        </li>
-                    {% endif %}
-                </ul>
-            </nav>
-        {% endif %}
     </div>
+
+    <!-- Сетка пользователей -->
+    <div class="users-grid">
+        {% for user_item in users %}
+        <div class="user-card-detailed" data-username="{{ user_item.username }}">
+            <div class="user-card-cover">
+                {% if user_item.profile.cover_image %}
+                <img src="{{ user_item.profile.cover_image.url }}" alt="Обложка">
+                {% else %}
+                <div class="cover-gradient"></div>
+                {% endif %}
+            </div>
+
+            <div class="user-card-content">
+                <div class="user-card-avatar-large">
+                    <a href="{% url 'accounts:profile_by_username' username=user_item.username %}">
+                        {% if user_item.profile.avatar %}
+                        <img src="{{ user_item.profile.avatar.url }}" alt="{{ user_item.username }}">
+                        {% else %}
+                        <div class="avatar-placeholder">{{ user_item.username|make_list|first|upper }}</div>
+                        {% endif %}
+                    </a>
+                </div>
+
+                <div class="user-card-info">
+                    <a href="{% url 'accounts:profile_by_username' username=user_item.username %}" class="user-card-name">
+                        {{ user_item.get_full_name|default:user_item.username }}
+                    </a>
+                    <span class="user-card-username">@{{ user_item.username }}</span>
+
+                    {% if user_item.profile.bio %}
+                    <p class="user-card-bio">{{ user_item.profile.bio|truncatewords:20 }}</p>
+                    {% endif %}
+
+                    <div class="user-card-stats">
+                        <span class="stat">
+                            <strong>{{ user_item.profile.followers.count }}</strong> подписчиков
+                        </span>
+                        <span class="stat">
+                            <strong>{{ user_item.posts.count }}</strong> постов
+                        </span>
+                    </div>
+                </div>
+
+                {% if user.is_authenticated and user != user_item %}
+                <div class="user-card-actions">
+                    {% if user_item in user.profile.following.all %}
+                    <button class="btn btn--outline btn--block follow-btn" data-user-id="{{ user_item.id }}" data-action="unfollow">
+                        <i data-feather="user-check"></i>
+                        <span>Отписаться</span>
+                    </button>
+                    {% else %}
+                    <button class="btn btn--primary btn--block follow-btn" data-user-id="{{ user_item.id }}" data-action="follow">
+                        <i data-feather="user-plus"></i>
+                        <span>Подписаться</span>
+                    </button>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-state">
+            <i data-feather="users"></i>
+            <h3>Пользователи не найдены</h3>
+            <p>Попробуйте изменить параметры поиска</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Пагинация -->
+    {% if is_paginated %}
+    <div class="pagination-container">
+        <div class="pagination">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" class="pagination-btn">
+                <i data-feather="chevron-left"></i>
+            </a>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+            {% if num == page_obj.number %}
+            <span class="pagination-btn active">{{ num }}</span>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <a href="?page={{ num }}" class="pagination-btn">{{ num }}</a>
+            {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="pagination-btn">
+                <i data-feather="chevron-right"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .user-list-container {
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+
+    .filters-section {
+        margin-bottom: 2rem;
+    }
+
+    .search-wrapper-large {
+        position: relative;
+        margin-bottom: 1rem;
+    }
+
+    .search-wrapper-large i {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--color-text-tertiary);
+    }
+
+    .filter-tabs {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .filter-btn {
+        padding: 0.5rem 1.25rem;
+        border-radius: var(--radius-full);
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--color-text-secondary);
+        background: var(--color-bg-surface);
+        border: 1px solid var(--color-border);
+        transition: all var(--transition-base);
+    }
+
+    .filter-btn:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .filter-btn.active {
+        background: var(--color-primary);
+        color: white;
+        border-color: var(--color-primary);
+    }
+
+    .users-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .user-card-detailed {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        overflow: hidden;
+        border: 1px solid var(--color-border-light);
+        transition: all var(--transition-base);
+    }
+
+    .user-card-detailed:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .user-card-cover {
+        height: 80px;
+        background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
+    }
+
+    .user-card-cover img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .cover-gradient {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .user-card-content {
+        padding: 0 1.25rem 1.25rem;
+        position: relative;
+    }
+
+    .user-card-avatar-large {
+        width: 5rem;
+        height: 5rem;
+        border-radius: 50%;
+        border: 3px solid var(--color-bg-surface);
+        overflow: hidden;
+        margin-top: -2.5rem;
+        margin-bottom: 0.75rem;
+        background: var(--color-bg-surface);
+    }
+
+    .user-card-avatar-large img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .user-card-avatar-large .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+        font-size: 2rem;
+        font-weight: 600;
+    }
+
+    .user-card-info {
+        margin-bottom: 1rem;
+    }
+
+    .user-card-name {
+        font-weight: 600;
+        font-size: 1.125rem;
+        color: var(--color-text-primary);
+        text-decoration: none;
+        display: block;
+    }
+
+    .user-card-name:hover {
+        color: var(--color-primary);
+    }
+
+    .user-card-username {
+        font-size: 0.875rem;
+        color: var(--color-text-tertiary);
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+
+    .user-card-bio {
+        font-size: 0.875rem;
+        color: var(--color-text-secondary);
+        line-height: 1.5;
+        margin-bottom: 0.75rem;
+    }
+
+    .user-card-stats {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .user-card-stats strong {
+        color: var(--color-text-primary);
+    }
+
+    .user-card-actions {
+        margin-top: 0.75rem;
+    }
+
+    .pagination-container {
+        display: flex;
+        justify-content: center;
+        margin-top: 2rem;
+    }
+
+    .pagination {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .pagination-btn {
+        min-width: 2.5rem;
+        height: 2.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-md);
+        background: var(--color-bg-surface);
+        border: 1px solid var(--color-border);
+        color: var(--color-text-primary);
+        text-decoration: none;
+        transition: all var(--transition-base);
+    }
+
+    .pagination-btn:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .pagination-btn.active {
+        background: var(--color-primary);
+        color: white;
+        border-color: var(--color-primary);
+    }
+
+    .empty-state {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 3rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+    }
+
+    .empty-state i {
+        width: 3rem;
+        height: 3rem;
+        color: var(--color-text-tertiary);
+        margin-bottom: 1rem;
+    }
+
+    .empty-state h3 {
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-state p {
+        color: var(--color-text-secondary);
+    }
+
+    @media (max-width: 768px) {
+        .users-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Поиск пользователей
+        const searchInput = document.getElementById('userSearch');
+        const userCards = document.querySelectorAll('.user-card-detailed');
+
+        searchInput?.addEventListener('input', debounce(function() {
+            const query = this.value.toLowerCase();
+
+            userCards.forEach(card => {
+                const username = card.dataset.username.toLowerCase();
+                const name = card.querySelector('.user-card-name')?.textContent.toLowerCase() || '';
+                const bio = card.querySelector('.user-card-bio')?.textContent.toLowerCase() || '';
+
+                if (username.includes(query) || name.includes(query) || bio.includes(query)) {
+                    card.style.display = '';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }, 300));
+
+        // Фильтры
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                filterBtns.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+
+                const filter = this.dataset.filter;
+                // Здесь можно добавить AJAX-загрузку отфильтрованных пользователей
+                // Пока просто для демонстрации
+                console.log('Filter:', filter);
+            });
+        });
+
+        // Подписка/отписка
+        const followBtns = document.querySelectorAll('.follow-btn');
+        followBtns.forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const userId = this.dataset.userId;
+                const action = this.dataset.action;
+
+                try {
+                    const response = await fetch(`/accounts/follow/${userId}/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken')
+                        }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+
+                        if (data.status === 'followed') {
+                            this.classList.remove('btn--primary');
+                            this.classList.add('btn--outline');
+                            this.dataset.action = 'unfollow';
+                            this.innerHTML = '<i data-feather="user-check"></i><span>Отписаться</span>';
+                        } else {
+                            this.classList.remove('btn--outline');
+                            this.classList.add('btn--primary');
+                            this.dataset.action = 'follow';
+                            this.innerHTML = '<i data-feather="user-plus"></i><span>Подписаться</span>';
+                        }
+                        feather.replace();
+
+                        showToast({
+                            type: 'success',
+                            message: data.status === 'followed' ? 'Вы подписались' : 'Вы отписались'
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showToast({
+                        type: 'error',
+                        message: 'Произошла ошибка'
+                    });
+                }
+            });
+        });
+    });
+</script>
 {% endblock %}

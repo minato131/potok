@@ -5,127 +5,88 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Count, Q, F, OuterRef, Subquery
+from django.test import tag
 from django.utils import timezone
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib.auth import get_user_model
+from unicodedata import category
+
 from accounts.models import Notification
 from communities.models import Community
 from .models import Post, Comment, Like, Category, Tag, Bookmark, PostView
 from .forms import PostForm, CommentForm, PostSearchForm, TagForm, CategoryForm
 from accounts.utils import create_notification
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
+
 
 User = get_user_model()
 
 
+# posts/views.py
 def post_list(request):
-    """
-    Список постов (главная лента)
-    """
     # Базовый queryset
-    posts = Post.objects.filter(status='published').select_related(
-        'author', 'category'
-    ).prefetch_related('tags')
+    posts = Post.objects.select_related(
+        'author', 'author__profile', 'community_post'
+    ).prefetch_related(
+        'tags', 'comments'
+    ).filter(status='published')
 
-    # Поиск и фильтрация
-    search_form = PostSearchForm(request.GET or None)
+    # Фильтрация по ленте
+    feed = request.GET.get('feed', 'all')
+    if feed == 'following' and request.user.is_authenticated:
+        following_users = request.user.profile.following.all()
+        following_communities = Community.objects.filter(members=request.user)
+        posts = posts.filter(
+            Q(author__in=following_users) |
+            Q(community__in=following_communities)
+        )
+    elif feed == 'popular':
+        posts = posts.annotate(
+            popularity_score=Count('likes') + Count('comments') * 2
+        ).order_by('-popularity_score', '-created_at')
 
-    if search_form.is_valid():
-        query = search_form.cleaned_data.get('query')
-        category = search_form.cleaned_data.get('category')
-        tag = search_form.cleaned_data.get('tag')
-        author = search_form.cleaned_data.get('author')
-        date_from = search_form.cleaned_data.get('date_from')
-        date_to = search_form.cleaned_data.get('date_to')
-        ordering = search_form.cleaned_data.get('ordering')
-
-        if query:
-            posts = posts.filter(
-                Q(title__icontains=query) |
-                Q(content__icontains=query)
-            )
-        if category:
-            posts = posts.filter(category=category)
-        if tag:
-            posts = posts.filter(tags=tag)
-        if author:
-            posts = posts.filter(author__username__icontains=author)
-        if date_from:
-            posts = posts.filter(created_at__date__gte=date_from)
-        if date_to:
-            posts = posts.filter(created_at__date__lte=date_to)
-
-        # Сортировка
-        if ordering:
-            posts = posts.order_by(ordering)
-        else:
-            posts = posts.order_by('-created_at')
+    # Сортировка
+    sort = request.GET.get('sort', 'new')
+    if sort == 'top':
+        from django.utils import timezone
+        from datetime import timedelta
+        day_ago = timezone.now() - timedelta(days=1)
+        posts = posts.filter(created_at__gte=day_ago).order_by('-likes_count', '-created_at')
+    elif sort == 'hot':
+        posts = posts.order_by('-comments_count', '-created_at')
     else:
-        # Если форма не валидна, сортируем по умолчанию
         posts = posts.order_by('-created_at')
 
     # Пагинация
-    paginator = Paginator(posts, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    paginator = Paginator(posts, 20)
+    page = request.GET.get('page', 1)
 
-    # Получаем популярные теги для сайдбара
+    try:
+        posts_page = paginator.page(page)
+    except PageNotAnInteger:
+        posts_page = paginator.page(1)
+    except EmptyPage:
+        posts_page = paginator.page(paginator.num_pages)
+
+    # Популярные сообщества - используем count_members чтобы избежать конфликта
+    popular_communities = Community.objects.annotate(
+        count_members=Count('members')
+    ).order_by('-count_members')[:10]
+
+    # Популярные теги
     popular_tags = Tag.objects.annotate(
-        posts_count=Count('posts')
-    ).filter(posts_count__gt=0).order_by('-posts_count')[:15]
+        count_posts=Count('posts')
+    ).order_by('-count_posts')[:10]
 
-    # Категории для навигации
-    categories = Category.objects.filter(parent=None)[:5]
-
-    # Общее количество пользователей
-    total_users = User.objects.count()
-
-    # Онлайн пользователи (активные за последние 5 минут)
-    online_users = User.objects.filter(
-        last_activity__gte=timezone.now() - timedelta(minutes=5)
-    )[:10]
-
-    # Рекомендуемые сообщества
-    recommended_communities = Community.objects.filter(
-        status='active'
-    ).order_by('-members_count')[:5]
-
-    # Топ постов недели
-    week_ago = timezone.now() - timedelta(days=7)
-    top_posts = Post.objects.filter(
-        status='published',
-        created_at__gte=week_ago
-    ).order_by('-views_count', '-comments_count')[:5]
-
-    # Проверяем лайки для каждого поста (если пользователь авторизован)
-    if request.user.is_authenticated:
-        liked_posts = Like.objects.filter(
-            user=request.user,
-            content_type='post'
-        ).values_list('object_id', flat=True)
-
-        bookmarked_posts = Bookmark.objects.filter(
-            user=request.user
-        ).values_list('post_id', flat=True)
-    else:
-        liked_posts = []
-        bookmarked_posts = []
-
-    # Добавляем информацию о лайках и закладках к каждому посту
-    for post in page_obj:
-        post.user_like = post.pk in liked_posts
-        post.is_bookmarked = post.pk in bookmarked_posts
-
-    # Добавляем в контекст
     context = {
-        'page_obj': page_obj,
-        'search_form': search_form,
+        'posts': posts_page,
+        'is_paginated': posts_page.has_other_pages(),
+        'page_obj': posts_page,
+        'category': category if 'category' in locals() else None,
+        'tag': tag if 'tag' in locals() else None,
+        'popular_communities': popular_communities,
         'popular_tags': popular_tags,
-        'categories': categories,
-        'total_users': total_users,
-        'online_users': online_users,
-        'recommended_communities': recommended_communities,
-        'top_posts': top_posts,
     }
 
     return render(request, 'posts/post_list.html', context)
@@ -484,49 +445,61 @@ def category_detail(request, slug):
 
 
 def search(request):
-    """
-    Глобальный поиск
-    """
     query = request.GET.get('q', '')
-    search_type = request.GET.get('type', 'all')
-
-    posts = []
-    comments = []
-    users = []
-    total_results = 0
-
-    if query:
-        if search_type in ['all', 'posts']:
-            posts = Post.objects.filter(
-                Q(title__icontains=query) | Q(content__icontains=query),
-                status='published'
-            ).select_related('author').order_by('-created_at')
-            total_results += posts.count()
-
-        if search_type in ['all', 'comments']:
-            comments = Comment.objects.filter(
-                content__icontains=query,
-                is_deleted=False
-            ).select_related('author', 'post').order_by('-created_at')
-            total_results += comments.count()
-
-        if search_type in ['all', 'users']:
-            users = User.objects.filter(
-                Q(username__icontains=query) |
-                Q(first_name__icontains=query) |
-                Q(last_name__icontains=query)
-            )
-            total_results += users.count()
+    search_type = request.GET.get('type', 'posts')
 
     context = {
         'query': query,
-        'search_type': search_type,
-        'posts': posts[:10] if posts else [],
-        'comments': comments[:10] if comments else [],
-        'users': users[:10] if users else [],
-        'total_results': total_results,
+        'type': search_type,
     }
-    return render(request, 'posts/search_results.html', context)
+
+    if query:
+        if search_type == 'posts':
+            # Поиск по постам
+            results = Post.objects.filter(
+                Q(title__icontains=query) |
+                Q(content__icontains=query)
+            ).select_related('author', 'community').prefetch_related('tags', 'likes')
+
+            context['posts_count'] = results.count()
+            context['results'] = results[:50]
+
+        elif search_type == 'communities':
+            # Поиск по сообществам
+            results = Community.objects.filter(
+                Q(name__icontains=query) |
+                Q(description__icontains=query)
+            ).annotate(members_count=Count('members'))
+
+            context['communities_count'] = results.count()
+            context['results'] = results[:30]
+
+        elif search_type == 'users':
+            # Поиск по пользователям
+            results = User.objects.filter(
+                Q(username__icontains=query) |
+                Q(first_name__icontains=query) |
+                Q(last_name__icontains=query)
+            ).select_related('profile')
+
+            context['users_count'] = results.count()
+            context['results'] = results[:30]
+
+        elif search_type == 'tags':
+            # Поиск по тегам
+            results = Tag.objects.filter(
+                Q(name__icontains=query) |
+                Q(description__icontains=query)
+            ).annotate(posts_count=Count('posts'))
+
+            context['tags_count'] = results.count()
+            context['results'] = results[:50]
+
+    # Пагинация
+    page = request.GET.get('page', 1)
+    # Добавь пагинацию здесь
+
+    return render(request, 'posts/search.html', context)
 
 
 @login_required
@@ -708,3 +681,47 @@ def tag_delete(request, slug):
         return redirect('posts:tag_list')
 
     return render(request, 'posts/tag_confirm_delete.html', {'tag': tag})
+
+
+def search_ajax(request):
+    """AJAX поиск для мгновенных результатов"""
+    query = request.GET.get('q', '')
+    search_type = request.GET.get('type', 'posts')
+
+    if len(query) < 2:
+        return JsonResponse({'results': []})
+
+    results = []
+
+    if search_type == 'users':
+        users = User.objects.filter(
+            Q(username__icontains=query) |
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query)
+        )[:10]
+
+        for user in users:
+            results.append({
+                'id': user.id,
+                'username': user.username,
+                'full_name': user.get_full_name() or user.username,
+                'avatar': user.profile.avatar.url if user.profile.avatar else None,
+                'url': f'/accounts/profile/{user.username}/'
+            })
+
+    elif search_type == 'communities':
+        communities = Community.objects.filter(
+            Q(name__icontains=query) |
+            Q(description__icontains=query)
+        )[:10]
+
+        for community in communities:
+            results.append({
+                'id': community.id,
+                'name': community.name,
+                'description': community.description[:100],
+                'avatar': community.avatar.url if community.avatar else None,
+                'url': f'/communities/{community.slug}/'
+            })
+
+    return JsonResponse({'results': results})

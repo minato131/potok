@@ -1,71 +1,515 @@
-{% extends 'base.html' %}
+<!-- templates/communities/join_request_modal.html -->
 {% load static %}
 
-{% block title %}Заявка на вступление - {{ community.name }}{% endblock %}
-
-{% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h4 class="mb-0">
-                    <i class="bi bi-envelope"></i> 
-                    Заявка на вступление
-                </h4>
-            </div>
-            <div class="card-body">
-                <div class="text-center mb-4">
-                    {% if community.avatar %}
-                        <img src="{{ community.avatar.url }}" class="avatar-large mb-3">
-                    {% else %}
-                        <div class="avatar-large bg-gradient text-white d-flex align-items-center justify-content-center mx-auto mb-3">
-                            {{ community.name|first|upper }}
-                        </div>
-                    {% endif %}
-                    <h5>{{ community.name }}</h5>
-                    <p class="text-muted">
-                        {% if community.privacy == 'private' %}
-                            <span class="badge bg-warning">Закрытое сообщество</span>
+<div class="modal-overlay" id="joinRequestModal">
+    <div class="modal modal--join">
+        <div class="modal-header">
+            <div class="modal-header-content">
+                <div class="community-info-modal">
+                    <div class="community-avatar-modal">
+                        {% if community.avatar %}
+                        <img src="{{ community.avatar.url }}" alt="{{ community.name }}">
                         {% else %}
-                            <span class="badge bg-secondary">Скрытое сообщество</span>
+                        <div class="avatar-placeholder">{{ community.name|make_list|first|upper }}</div>
                         {% endif %}
-                    </p>
-                </div>
-
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i>
-                    Это сообщество требует одобрения заявок. 
-                    Расскажите немного о себе и почему хотите вступить.
-                </div>
-
-                <form method="post">
-                    {% csrf_token %}
-                    
-                    <div class="mb-3">
-                        <label for="message" class="form-label">
-                            Сообщение для модераторов
-                        </label>
-                        <textarea name="message" 
-                                  class="form-control" 
-                                  rows="5"
-                                  placeholder="Например: Хочу участвовать в обсуждениях, у меня есть опыт в этой теме..."></textarea>
-                        <small class="form-text text-muted">
-                            Это сообщение увидят администраторы сообщества при рассмотрении заявки
-                        </small>
                     </div>
-
-                    <div class="d-flex justify-content-between">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-send"></i> Отправить заявку
-                        </button>
-                        <a href="{% url 'communities:community_detail' community.slug %}" 
-                           class="btn btn-secondary">
-                            <i class="bi bi-x-lg"></i> Отмена
-                        </a>
+                    <div>
+                        <h3 class="modal-title">Вступить в c/{{ community.name }}</h3>
+                        <p class="community-meta-modal">
+                            <span><i data-feather="users"></i> {{ community.members.count }} участников</span>
+                            <span><i data-feather="calendar"></i> Создано {{ community.created_at|date:"M Y" }}</span>
+                        </p>
                     </div>
-                </form>
+                </div>
             </div>
+            <button class="modal-close" onclick="closeJoinModal()">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+        
+        <div class="modal-body">
+            <!-- Описание сообщества -->
+            <div class="community-description-modal">
+                <p>{{ community.description }}</p>
+            </div>
+            
+            <!-- Правила (если есть) -->
+            {% if community.rules %}
+            <div class="community-rules-modal">
+                <h4>
+                    <i data-feather="book"></i>
+                    Правила сообщества
+                </h4>
+                <div class="rules-content">
+                    {{ community.rules|linebreaks|truncatewords:50 }}
+                </div>
+                {% if community.rules|length > 200 %}
+                <button class="btn btn--link" onclick="showFullRules()">
+                    Показать полностью
+                </button>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <!-- Форма заявки -->
+            <form id="joinRequestForm" onsubmit="submitJoinRequest(event)">
+                {% csrf_token %}
+                
+                <div class="form-group">
+                    <label for="joinMessage" class="form-label">
+                        Сообщение модераторам (опционально)
+                    </label>
+                    <textarea 
+                        id="joinMessage" 
+                        name="message" 
+                        class="form-textarea" 
+                        placeholder="Расскажите, почему хотите присоединиться к сообществу..."
+                        rows="4"
+                        maxlength="500"
+                    ></textarea>
+                    <div class="field-hint">
+                        <span class="char-counter">
+                            <span id="messageCounter">0</span>/500
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="agree_rules" required>
+                        <span>Я прочитал(а) и согласен(на) с правилами сообщества</span>
+                    </label>
+                </div>
+            </form>
+            
+            <!-- Информация о типе сообщества -->
+            <div class="info-box">
+                <i data-feather="info"></i>
+                <div>
+                    <strong>Это закрытое сообщество</strong>
+                    <p>Ваша заявка будет рассмотрена модераторами. Вы получите уведомление о решении.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="modal-footer">
+            <button class="btn btn--outline" onclick="closeJoinModal()">
+                Отмена
+            </button>
+            <button class="btn btn--primary" onclick="submitJoinRequest(event)">
+                <i data-feather="send"></i>
+                Отправить заявку
+            </button>
         </div>
     </div>
 </div>
-{% endblock %}
+
+<!-- Модальное окно с полными правилами -->
+<div class="modal-overlay" id="fullRulesModal" style="display: none;">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Правила c/{{ community.name }}</h3>
+            <button class="modal-close" onclick="closeFullRulesModal()">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="rules-full-content">
+                {{ community.rules|linebreaks }}
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn--primary" onclick="closeFullRulesModal()">
+                Понятно
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        backdrop-filter: blur(4px);
+    }
+    
+    .modal {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        width: 90%;
+        max-width: 550px;
+        max-height: 90vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow: var(--shadow-xl);
+        animation: modalSlideIn 0.3s ease;
+    }
+    
+    @keyframes modalSlideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px) scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+    
+    .modal-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        padding: 1.5rem 1.5rem 1rem;
+        border-bottom: 1px solid var(--color-border-light);
+    }
+    
+    .modal-header-content {
+        flex: 1;
+    }
+    
+    .community-info-modal {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .community-avatar-modal {
+        width: 3.5rem;
+        height: 3.5rem;
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+    
+    .community-avatar-modal img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+        font-weight: 600;
+        font-size: 1.5rem;
+    }
+    
+    .modal-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+    
+    .community-meta-modal {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+    }
+    
+    .community-meta-modal span {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .community-meta-modal i {
+        width: 0.875rem;
+        height: 0.875rem;
+    }
+    
+    .modal-close {
+        padding: 0.25rem;
+        border-radius: var(--radius-md);
+        color: var(--color-text-tertiary);
+        flex-shrink: 0;
+    }
+    
+    .modal-close:hover {
+        background: var(--color-bg-elevated);
+    }
+    
+    .modal-body {
+        padding: 1.5rem;
+        overflow-y: auto;
+    }
+    
+    .community-description-modal {
+        margin-bottom: 1.5rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid var(--color-border-light);
+    }
+    
+    .community-description-modal p {
+        color: var(--color-text-secondary);
+        line-height: 1.6;
+    }
+    
+    .community-rules-modal {
+        margin-bottom: 1.5rem;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid var(--color-border-light);
+    }
+    
+    .community-rules-modal h4 {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1rem;
+        margin-bottom: 0.75rem;
+        color: var(--color-text-primary);
+    }
+    
+    .rules-content {
+        font-size: 0.875rem;
+        color: var(--color-text-secondary);
+        line-height: 1.6;
+        max-height: 150px;
+        overflow-y: auto;
+        padding-right: 0.5rem;
+    }
+    
+    .btn--link {
+        background: none;
+        color: var(--color-primary);
+        padding: 0.25rem 0;
+        margin-top: 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .btn--link:hover {
+        text-decoration: underline;
+    }
+    
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+    
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+    
+    .form-textarea {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        resize: vertical;
+        font-family: inherit;
+        font-size: 0.9375rem;
+        transition: border-color var(--transition-base);
+    }
+    
+    .form-textarea:focus {
+        outline: none;
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+    
+    .field-hint {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 0.25rem;
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+    }
+    
+    .char-counter {
+        font-family: monospace;
+    }
+    
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        font-size: 0.875rem;
+    }
+    
+    .info-box {
+        display: flex;
+        gap: 0.75rem;
+        padding: 1rem;
+        background: var(--color-primary-light);
+        border-radius: var(--radius-md);
+        margin-top: 0.5rem;
+    }
+    
+    .info-box i {
+        color: var(--color-primary);
+        flex-shrink: 0;
+    }
+    
+    .info-box strong {
+        display: block;
+        margin-bottom: 0.25rem;
+        color: var(--color-primary);
+    }
+    
+    .info-box p {
+        font-size: 0.8125rem;
+        color: var(--color-text-secondary);
+    }
+    
+    .modal-footer {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: flex-end;
+        padding: 1rem 1.5rem 1.5rem;
+        border-top: 1px solid var(--color-border-light);
+    }
+    
+    .rules-full-content {
+        line-height: 1.6;
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+    
+    .btn--primary i {
+        margin-right: 0.25rem;
+    }
+</style>
+
+<script>
+    // Счетчик символов
+    const messageInput = document.getElementById('joinMessage');
+    const messageCounter = document.getElementById('messageCounter');
+    
+    if (messageInput && messageCounter) {
+        messageInput.addEventListener('input', function() {
+            messageCounter.textContent = this.value.length;
+        });
+    }
+    
+    // Функции для модальных окон
+    function closeJoinModal() {
+        document.getElementById('joinRequestModal').style.display = 'none';
+        document.body.style.overflow = '';
+    }
+    
+    function showFullRules() {
+        document.getElementById('fullRulesModal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+    
+    function closeFullRulesModal() {
+        document.getElementById('fullRulesModal').style.display = 'none';
+        document.body.style.overflow = '';
+    }
+    
+    async function submitJoinRequest(event) {
+        event.preventDefault();
+        
+        const form = document.getElementById('joinRequestForm');
+        const agreeRules = form.querySelector('input[name="agree_rules"]');
+        
+        if (!agreeRules.checked) {
+            showToast({
+                type: 'error',
+                message: 'Необходимо согласиться с правилами сообщества'
+            });
+            return;
+        }
+        
+        const formData = new FormData(form);
+        const submitBtn = event.target.closest('.modal-footer')?.querySelector('.btn--primary');
+        
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i data-feather="loader"></i> Отправка...';
+            feather.replace();
+        }
+        
+        try {
+            const response = await fetch('{% url "communities:community_join" slug=community.slug %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok) {
+                closeJoinModal();
+                
+                showToast({
+                    type: 'success',
+                    message: data.message || 'Заявка отправлена на рассмотрение'
+                });
+                
+                // Обновить кнопку на странице
+                const joinBtn = document.querySelector('.join-community-btn');
+                if (joinBtn) {
+                    joinBtn.innerHTML = '<i data-feather="clock"></i><span>Заявка отправлена</span>';
+                    joinBtn.disabled = true;
+                    joinBtn.classList.remove('btn--primary');
+                    joinBtn.classList.add('btn--outline');
+                    feather.replace();
+                }
+            } else {
+                showToast({
+                    type: 'error',
+                    message: data.error || 'Произошла ошибка'
+                });
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showToast({
+                type: 'error',
+                message: 'Произошла ошибка при отправке заявки'
+            });
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i data-feather="send"></i> Отправить заявку';
+                feather.replace();
+            }
+        }
+    }
+    
+    // Закрытие по Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const joinModal = document.getElementById('joinRequestModal');
+            const fullRulesModal = document.getElementById('fullRulesModal');
+            
+            if (fullRulesModal && fullRulesModal.style.display === 'flex') {
+                closeFullRulesModal();
+            } else if (joinModal && joinModal.style.display === 'flex') {
+                closeJoinModal();
+            }
+        }
+    });
+    
+    // Закрытие по клику вне модалки
+    document.addEventListener('click', function(e) {
+        const joinModal = document.getElementById('joinRequestModal');
+        const fullRulesModal = document.getElementById('fullRulesModal');
+        
+        if (e.target === joinModal) {
+            closeJoinModal();
+        }
+        if (e.target === fullRulesModal) {
+            closeFullRulesModal();
+        }
+    });
+</script>

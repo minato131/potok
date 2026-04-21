@@ -1,63 +1,156 @@
-<div class="comment {% if comment.parent %}comment-reply{% endif %}" id="comment-{{ comment.id }}">
-    <div class="d-flex">
-        <a href="{% url 'accounts:profile_by_username' comment.author.username %}">
-            {% if comment.author.avatar %}
-                <img src="{{ comment.author.avatar.url }}" class="comment-avatar" alt="{{ comment.author.username }}">
-            {% else %}
-                <div class="comment-avatar bg-secondary text-white d-flex align-items-center justify-content-center">
-                    {{ comment.author.username|first|upper }}
-                </div>
-            {% endif %}
-        </a>
-        <div class="flex-grow-1">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <a href="{% url 'accounts:profile_by_username' comment.author.username %}" class="text-decoration-none fw-bold">
+<!-- templates/posts/comment_item.html -->
+{% load static %}
+
+<div class="comment" id="comment-{{ comment.id }}" data-comment-id="{{ comment.id }}">
+    <div class="comment-voting">
+        <button class="vote-btn upvote {% if user in comment.upvotes.all %}active{% endif %}"
+                data-comment-id="{{ comment.id }}" data-vote="up">
+            <i data-feather="arrow-up"></i>
+        </button>
+        <span class="vote-score">{{ comment.score }}</span>
+        <button class="vote-btn downvote {% if user in comment.downvotes.all %}active{% endif %}"
+                data-comment-id="{{ comment.id }}" data-vote="down">
+            <i data-feather="arrow-down"></i>
+        </button>
+    </div>
+
+    <div class="comment-main">
+        <div class="comment-header">
+            <div class="comment-author">
+                <a href="{% url 'accounts:profile_by_username' username=comment.author.username %}" class="author-avatar-small">
+                    {% if comment.author.profile.avatar %}
+                    <img src="{{ comment.author.profile.avatar.url }}" alt="{{ comment.author.username }}">
+                    {% else %}
+                    <div class="avatar-placeholder">{{ comment.author.username|make_list|first|upper }}</div>
+                    {% endif %}
+                </a>
+                <div class="author-info">
+                    <a href="{% url 'accounts:profile_by_username' username=comment.author.username %}" class="author-name">
                         {{ comment.author.get_full_name|default:comment.author.username }}
                     </a>
-                    <small class="text-muted ms-2">{{ comment.created_at|date:"d.m.Y H:i" }}</small>
+                    <span class="comment-meta">
+                        <span class="author-username">@{{ comment.author.username }}</span>
+                        <span class="meta-separator">·</span>
+                        <span class="comment-time" title="{{ comment.created_at|date:'d.m.Y H:i' }}">
+                            {{ comment.created_at|timesince }} назад
+                        </span>
+                        {% if comment.is_edited %}
+                        <span class="edited-badge" title="Отредактировано {{ comment.updated_at|date:'d.m.Y H:i' }}">
+                            (ред.)
+                        </span>
+                        {% endif %}
+                    </span>
                 </div>
-                <button class="btn btn-sm btn-link like-btn {% if user_like and user_like.object_id == comment.id and user_like.content_type == 'comment' %}liked{% endif %}"
-                        data-type="comment"
-                        data-id="{{ comment.id }}">
-                    <i class="bi {% if user_like and user_like.object_id == comment.id and user_like.content_type == 'comment' %}bi-heart-fill{% else %}bi-heart{% endif %}"></i>
-                    <span class="likes-count">{{ comment.likes_count }}</span>
+            </div>
+
+            <div class="comment-menu-wrapper">
+                <button class="comment-menu-toggle">
+                    <i data-feather="more-horizontal"></i>
                 </button>
-            </div>
-
-            <div class="comment-content mt-2">
-                {{ comment.content|linebreaks }}
-            </div>
-
-            {% if user.is_authenticated %}
-                <div class="mt-2">
-                    <button class="btn btn-sm btn-link" onclick="showReplyForm({{ comment.id }})">
-                        <i class="bi bi-reply"></i> Ответить
+                <div class="comment-menu-dropdown">
+                    <button class="menu-item reply-btn" data-comment-id="{{ comment.id }}">
+                        <i data-feather="corner-up-left"></i>
+                        <span>Ответить</span>
+                    </button>
+                    <button class="menu-item copy-link-btn" data-comment-id="{{ comment.id }}">
+                        <i data-feather="link"></i>
+                        <span>Копировать ссылку</span>
+                    </button>
+                    {% if user == comment.author %}
+                    <button class="menu-item edit-comment-btn" data-comment-id="{{ comment.id }}">
+                        <i data-feather="edit"></i>
+                        <span>Редактировать</span>
+                    </button>
+                    <button class="menu-item menu-item--danger delete-comment-btn" data-comment-id="{{ comment.id }}">
+                        <i data-feather="trash-2"></i>
+                        <span>Удалить</span>
+                    </button>
+                    {% elif user.is_staff %}
+                    <button class="menu-item menu-item--danger delete-comment-btn" data-comment-id="{{ comment.id }}">
+                        <i data-feather="shield"></i>
+                        <span>Удалить (модератор)</span>
+                    </button>
+                    {% endif %}
+                    <div class="dropdown-divider"></div>
+                    <button class="menu-item report-btn" data-comment-id="{{ comment.id }}">
+                        <i data-feather="flag"></i>
+                        <span>Пожаловаться</span>
                     </button>
                 </div>
-
-                <!-- Форма ответа -->
-                <div class="reply-form" id="reply-form-{{ comment.id }}">
-                    <form method="post" action="{% url 'posts:comment_create' comment.post.pk %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="parent_id" value="{{ comment.id }}">
-                        <div class="mb-2">
-                            <textarea name="content" class="form-control" rows="2" placeholder="Ваш ответ..."></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-sm btn-primary">
-                            <i class="bi bi-send"></i> Ответить
-                        </button>
-                        <button type="button" class="btn btn-sm btn-secondary" onclick="showReplyForm({{ comment.id }})">
-                            Отмена
-                        </button>
-                    </form>
-                </div>
-            {% endif %}
-
-            <!-- Рекурсивно отображаем ответы -->
-            {% for reply in comment.replies.all %}
-                {% include 'posts/comment_item.html' with comment=reply %}
-            {% endfor %}
+            </div>
         </div>
+
+        <div class="comment-body">
+            <div class="comment-content" id="comment-content-{{ comment.id }}">
+                {% if comment.is_deleted %}
+                <p class="deleted-comment">
+                    <i data-feather="trash-2"></i>
+                    Комментарий удален
+                </p>
+                {% else %}
+                {{ comment.content|linebreaks }}
+                {% endif %}
+            </div>
+
+            {% if not comment.is_deleted %}
+            <div class="comment-edit-form" id="comment-edit-{{ comment.id }}" style="display: none;">
+                <textarea class="comment-edit-textarea" rows="3">{{ comment.content }}</textarea>
+                <div class="edit-actions">
+                    <button class="btn btn--sm btn--outline cancel-edit-btn">Отмена</button>
+                    <button class="btn btn--sm btn--primary save-edit-btn" data-comment-id="{{ comment.id }}">Сохранить</button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if not comment.is_deleted %}
+        <div class="comment-footer">
+            <div class="comment-actions">
+                <button class="action-btn comment-reply-btn" data-comment-id="{{ comment.id }}">
+                    <i data-feather="corner-up-left"></i>
+                    <span>Ответить</span>
+                </button>
+
+                {% if comment.replies.count > 0 %}
+                <button class="action-btn toggle-replies-btn" data-comment-id="{{ comment.id }}">
+                    <i data-feather="chevron-down" class="toggle-icon"></i>
+                    <span>{{ comment.replies.count }} ответов</span>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Форма ответа -->
+        <div class="reply-form-container" id="reply-form-{{ comment.id }}" style="display: none;">
+            <form class="reply-form" data-comment-id="{{ comment.id }}">
+                {% csrf_token %}
+                <div class="reply-input-wrapper">
+                    <div class="reply-avatar">
+                        {% if user.profile.avatar %}
+                        <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}">
+                        {% else %}
+                        <div class="avatar-placeholder">{{ user.username|make_list|first|upper }}</div>
+                        {% endif %}
+                    </div>
+                    <textarea name="content" class="reply-textarea" placeholder="Написать ответ..." rows="2"></textarea>
+                </div>
+                <div class="reply-actions">
+                    <button type="button" class="btn btn--sm btn--outline cancel-reply-btn">Отмена</button>
+                    <button type="submit" class="btn btn--sm btn--primary">Отправить</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Ответы -->
+        {% if comment.replies.count > 0 %}
+        <div class="replies-container" id="replies-{{ comment.id }}" style="display: none;">
+            <div class="replies-list">
+                {% for reply in comment.replies.all %}
+                {% include 'posts/comment_item.html' with comment=reply %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
     </div>
 </div>

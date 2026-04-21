@@ -53,46 +53,53 @@ class CommunityPostForm(forms.ModelForm):
     title = forms.CharField(
         max_length=200,
         widget=forms.TextInput(attrs={
-            'class': 'form-control',
+            'class': 'form-input',
             'placeholder': 'Заголовок поста'
         })
     )
     content = forms.CharField(
         widget=forms.Textarea(attrs={
-            'class': 'form-control',
+            'class': 'form-textarea',
             'rows': 10,
-            'placeholder': 'Содержание поста...',
-            'required': 'required'
-    })
+            'placeholder': 'Содержание поста...'
+        })
     )
     image = forms.ImageField(
         required=False,
         widget=forms.FileInput(attrs={
-            'class': 'form-control'
+            'class': 'form-input',
+            'accept': 'image/*'
         })
     )
     video = forms.FileField(
         required=False,
         widget=forms.FileInput(attrs={
-            'class': 'form-control'
+            'class': 'form-input',
+            'accept': 'video/*'
         })
     )
     is_pinned = forms.BooleanField(
         required=False,
         widget=forms.CheckboxInput(attrs={
-            'class': 'form-check-input'
+            'class': 'checkbox-input'
         })
     )
     is_announcement = forms.BooleanField(
         required=False,
         widget=forms.CheckboxInput(attrs={
-            'class': 'form-check-input'
+            'class': 'checkbox-input'
         })
     )
 
     class Meta:
         model = Post
         fields = ['title', 'content', 'image', 'video']
+
+    def clean_content(self):
+        content = self.cleaned_data.get('content')
+        if not content or len(content.strip()) < 10:
+            raise ValidationError('Содержание поста должно быть не менее 10 символов')
+        return content
 
     def save(self, community, author, commit=True):
         post = super().save(commit=False)
@@ -105,8 +112,8 @@ class CommunityPostForm(forms.ModelForm):
             CommunityPost.objects.create(
                 post=post,
                 community=community,
-                is_pinned=self.cleaned_data['is_pinned'],
-                is_announcement=self.cleaned_data['is_announcement']
+                is_pinned=self.cleaned_data.get('is_pinned', False),
+                is_announcement=self.cleaned_data.get('is_announcement', False)
             )
         return post
 

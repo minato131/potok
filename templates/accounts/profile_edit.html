@@ -1,357 +1,651 @@
+<!-- templates/accounts/profile_edit.html -->
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Редактирование профиля - Поток{% endblock %}
+{% block title %}Редактирование профиля · Поток{% endblock %}
+{% block page_title %}Редактирование профиля{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header">
-                <h4 class="mb-0"><i class="bi bi-gear"></i> Редактирование профиля</h4>
-            </div>
-            <div class="card-body">
-                <form method="post" enctype="multipart/form-data" id="profile-edit-form">
-                    {% csrf_token %}
-                    
-                    {% if form.non_field_errors %}
-                        <div class="alert alert-danger">
-                            {{ form.non_field_errors }}
-                        </div>
-                    {% endif %}
-                    
-                    <!-- Аватар -->
-                    <div class="text-center mb-4">
-                        <div class="position-relative d-inline-block">
-                            {% if user.avatar %}
-                                <img src="{{ user.avatar.url }}" class="avatar-large mb-2" id="avatar-preview">
-                            {% else %}
-                                <div class="avatar-large bg-secondary text-white d-flex align-items-center justify-content-center mx-auto mb-2" 
-                                     style="width: 150px; height: 150px; font-size: 3rem;" id="avatar-preview">
-                                    {{ user.username|first|upper }}
-                                </div>
-                            {% endif %}
-                            
-                            <label for="id_avatar" class="btn btn-sm btn-primary position-absolute bottom-0 end-0">
-                                <i class="bi bi-camera"></i>
-                            </label>
-                        </div>
-                        <small class="text-muted d-block">Нажмите на иконку, чтобы изменить аватар</small>
-                    </div>
-                    
-                    <!-- Основная информация -->
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.first_name.id_for_label }}" class="form-label">
-                                {{ form.first_name.label }}
-                            </label>
-                            {{ form.first_name }}
-                            {% if form.first_name.errors %}
-                                <div class="text-danger">{{ form.first_name.errors }}</div>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.last_name.id_for_label }}" class="form-label">
-                                {{ form.last_name.label }}
-                            </label>
-                            {{ form.last_name }}
-                            {% if form.last_name.errors %}
-                                <div class="text-danger">{{ form.last_name.errors }}</div>
-                            {% endif %}
-                        </div>
-                    </div>
-                    
-                    <!-- Email -->
-                    <div class="mb-3">
-                        <label for="{{ form.email.id_for_label }}" class="form-label">
-                            {{ form.email.label }} <span class="text-danger">*</span>
-                        </label>
-                        <div class="input-group">
-                            {{ form.email }}
-                            <button class="btn btn-outline-secondary" type="button" id="verify-email" {% if user.email_verified %}disabled{% endif %}>
-                                {% if user.email_verified %}
-                                    <i class="bi bi-check-lg text-success"></i> Подтвержден
-                                {% else %}
-                                    Подтвердить
-                                {% endif %}
-                            </button>
-                        </div>
-                        {% if form.email.errors %}
-                            <div class="text-danger">{{ form.email.errors }}</div>
-                        {% endif %}
-                        <small class="form-text text-muted">{{ form.email.help_text }}</small>
-                    </div>
+<div class="profile-edit-container">
+    <form method="post" enctype="multipart/form-data" class="profile-edit-form" novalidate>
+        {% csrf_token %}
 
-                    <!-- Модальное окно для подтверждения email -->
-                    <div class="modal fade" id="verifyEmailModal" tabindex="-1">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Подтверждение email</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <p>На ваш email <span id="email-display"></span> отправлен код подтверждения.</p>
-                                    <div class="mb-3">
-                                        <label class="form-label">Введите код:</label>
-                                        <input type="text" class="form-control" id="verification-code" maxlength="6">
-                                    </div>
-                                    <div id="verification-message" class="alert" style="display: none;"></div>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                                    <button type="button" class="btn btn-primary" id="confirm-code">Подтвердить</button>
-                                </div>
-                            </div>
-                        </div>
+        <!-- Аватар и обложка -->
+        <div class="edit-section">
+            <h2 class="section-title">
+                <i data-feather="image"></i>
+                Изображения
+            </h2>
+
+            <div class="avatar-upload">
+                <label class="upload-label">Аватар</label>
+                <div class="image-preview avatar-preview" id="avatarPreview">
+                    {% if user.profile.avatar %}
+                    <img src="{{ user.profile.avatar.url }}" alt="Текущий аватар" id="avatarImg">
+                    {% else %}
+                    <div class="preview-placeholder" id="avatarImg">
+                        <i data-feather="camera"></i>
+                        <span>Загрузить аватар</span>
                     </div>
-                    
-                    <!-- Дата рождения -->
-                    <div class="mb-3">
-                        <label for="{{ form.birth_date.id_for_label }}" class="form-label">
-                            {{ form.birth_date.label }}
-                        </label>
-                        {{ form.birth_date }}
-                        {% if form.birth_date.errors %}
-                            <div class="text-danger">{{ form.birth_date.errors }}</div>
-                        {% endif %}
+                    {% endif %}
+                    <div class="image-overlay">
+                        <i data-feather="camera"></i>
+                        <span>Изменить</span>
                     </div>
-                    
-                    <!-- О себе -->
-                    <div class="mb-3">
-                        <label for="{{ form.bio.id_for_label }}" class="form-label">
-                            {{ form.bio.label }}
-                        </label>
-                        {{ form.bio }}
-                        <small class="form-text text-muted">
-                            Расскажите о себе. Максимум 500 символов.
-                        </small>
-                        <div class="text-end">
-                            <small id="bio-counter" class="text-muted">0/500</small>
-                        </div>
-                        {% if form.bio.errors %}
-                            <div class="text-danger">{{ form.bio.errors }}</div>
-                        {% endif %}
-                    </div>
-                    
-                    <!-- Настройки приватности -->
-                    <div class="card mb-3">
-                        <div class="card-header">
-                            <h5 class="mb-0">Настройки приватности</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="private_profile" 
-                                           name="private_profile" {% if user.private_profile %}checked{% endif %}>
-                                    <label class="form-check-label" for="private_profile">
-                                        Закрытый профиль
-                                    </label>
-                                    <small class="form-text text-muted d-block">
-                                        Только подписчики смогут видеть ваши посты
-                                    </small>
-                                </div>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="hide_email" 
-                                           name="hide_email" {% if user.hide_email %}checked{% endif %}>
-                                    <label class="form-check-label" for="hide_email">
-                                        Скрыть email
-                                    </label>
-                                </div>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label class="form-label">Кто может писать вам сообщения:</label>
-                                <select name="message_privacy" class="form-control">
-                                    <option value="everyone" {% if user.message_privacy == 'everyone' %}selected{% endif %}>Все</option>
-                                    <option value="followers" {% if user.message_privacy == 'followers' %}selected{% endif %}>Только подписчики</option>
-                                    <option value="none" {% if user.message_privacy == 'none' %}selected{% endif %}>Никто</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Настройки уведомлений -->
-                    <div class="card mb-3">
-                        <div class="card-header">
-                            <h5 class="mb-0">Уведомления</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="email_likes" 
-                                           name="email_likes" {% if user.email_likes %}checked{% endif %}>
-                                    <label class="form-check-label" for="email_likes">
-                                        Email при лайках
-                                    </label>
-                                </div>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="email_comments" 
-                                           name="email_comments" {% if user.email_comments %}checked{% endif %}>
-                                    <label class="form-check-label" for="email_comments">
-                                        Email при комментариях
-                                    </label>
-                                </div>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="email_follows" 
-                                           name="email_follows" {% if user.email_follows %}checked{% endif %}>
-                                    <label class="form-check-label" for="email_follows">
-                                        Email при новых подписчиках
-                                    </label>
-                                </div>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="email_messages" 
-                                           name="email_messages" {% if user.email_messages %}checked{% endif %}>
-                                    <label class="form-check-label" for="email_messages">
-                                        Email при новых сообщениях
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Социальные сети -->
-                    <div class="card mb-3">
-                        <div class="card-header">
-                            <h5 class="mb-0">Социальные сети</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="mb-3">
-                                <label class="form-label">
-                                    <i class="bi bi-telegram"></i> Telegram
-                                </label>
-                                <input type="text" name="telegram" class="form-control" 
-                                       value="{{ user.telegram|default:'' }}" placeholder="@username">
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label class="form-label">
-                                    <i class="bi bi-vk"></i> VK
-                                </label>
-                                <input type="text" name="vk" class="form-control" 
-                                       value="{{ user.vk|default:'' }}" placeholder="id или ссылка">
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label class="form-label">
-                                    <i class="bi bi-github"></i> GitHub
-                                </label>
-                                <input type="text" name="github" class="form-control" 
-                                       value="{{ user.github|default:'' }}" placeholder="username">
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Кнопки -->
-                    <div class="d-flex justify-content-between">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check-lg"></i> Сохранить изменения
-                        </button>
-                        <a href="{% url 'accounts:profile' %}" class="btn btn-secondary">
-                            <i class="bi bi-x-lg"></i> Отмена
-                        </a>
-                    </div>
-                </form>
+                    {{ form.avatar }}
+                </div>
+                {% if form.avatar.errors %}
+                <div class="form-error">{{ form.avatar.errors.0 }}</div>
+                {% endif %}
             </div>
+
+                <div class="cover-upload">
+                    <label class="upload-label">Обложка</label>
+                    <div class="image-preview cover-preview">
+                        {% if user.profile.cover_image %}
+                        <img src="{{ user.profile.cover_image.url }}" alt="Текущая обложка" id="coverPreview">
+                        {% else %}
+                        <div class="cover-placeholder" id="coverPreview">
+                            <i data-feather="image"></i>
+                            <span>Добавить обложку</span>
+                        </div>
+                        {% endif %}
+                        <div class="image-overlay">
+                            <i data-feather="camera"></i>
+                            <span>Изменить</span>
+                        </div>
+                        {{ form.cover_image }}
+                    </div>
+                    {% if form.cover_image.errors %}
+                    <div class="form-error">{{ form.cover_image.errors.0 }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Основная информация -->
+        <div class="edit-section">
+            <h2 class="section-title">
+                <i data-feather="user"></i>
+                Основная информация
+            </h2>
+
+            <div class="form-row-2">
+                <div class="form-group">
+                    <label for="{{ form.first_name.id_for_label }}" class="form-label">Имя</label>
+                    {{ form.first_name }}
+                    {% if form.first_name.errors %}
+                    <div class="form-error">{{ form.first_name.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label for="{{ form.last_name.id_for_label }}" class="form-label">Фамилия</label>
+                    {{ form.last_name }}
+                    {% if form.last_name.errors %}
+                    <div class="form-error">{{ form.last_name.errors.0 }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.bio.id_for_label }}" class="form-label">О себе</label>
+                {{ form.bio }}
+                <div class="char-counter">
+                    <span id="bioCounter">0</span>/500
+                </div>
+                {% if form.bio.errors %}
+                <div class="form-error">{{ form.bio.errors.0 }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Контактная информация -->
+        <div class="edit-section">
+            <h2 class="section-title">
+                <i data-feather="link"></i>
+                Контакты и ссылки
+            </h2>
+
+            <div class="form-group">
+                <label for="{{ form.location.id_for_label }}" class="form-label">
+                    <i data-feather="map-pin"></i>
+                    Местоположение
+                </label>
+                {{ form.location }}
+                {% if form.location.errors %}
+                <div class="form-error">{{ form.location.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.website.id_for_label }}" class="form-label">
+                    <i data-feather="globe"></i>
+                    Веб-сайт
+                </label>
+                {{ form.website }}
+                {% if form.website.errors %}
+                <div class="form-error">{{ form.website.errors.0 }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Настройки приватности -->
+        <div class="edit-section">
+            <h2 class="section-title">
+                <i data-feather="lock"></i>
+                Приватность
+            </h2>
+
+            <div class="settings-group">
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <span class="setting-label">Приватный профиль</span>
+                        <span class="setting-description">Только подписчики смогут видеть ваши посты</span>
+                    </div>
+                    <label class="toggle-switch">
+                        {{ form.is_private }}
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <span class="setting-label">Показывать email</span>
+                        <span class="setting-description">Отображать email в профиле</span>
+                    </div>
+                    <label class="toggle-switch">
+                        {{ form.show_email }}
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Кнопки действий -->
+        <div class="form-actions">
+            <a href="{% url 'accounts:profile' %}" class="btn btn--outline">Отмена</a>
+            <button type="submit" class="btn btn--primary">Сохранить изменения</button>
+        </div>
+    </form>
+
+    <!-- Опасная зона -->
+    <div class="danger-zone">
+        <h3 class="danger-zone__title">Опасная зона</h3>
+        <div class="danger-actions">
+            <a href="{% url 'accounts:password_change' %}" class="btn btn--outline">
+                <i data-feather="key"></i>
+                Изменить пароль
+            </a>
+            <button class="btn btn--danger" id="deleteAccountBtn">
+                <i data-feather="trash-2"></i>
+                Удалить аккаунт
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно подтверждения удаления -->
+<div class="modal-overlay" id="deleteModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Удаление аккаунта</h3>
+            <button class="modal-close" id="closeModal">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="warning-message">
+                <i data-feather="alert-triangle"></i>
+                <p>Вы уверены, что хотите удалить аккаунт? Это действие необратимо!</p>
+            </div>
+            <p>Все ваши данные, включая посты, комментарии и подписки будут безвозвратно удалены.</p>
+
+            <form method="post" action="{% url 'accounts:delete_account' %}" id="deleteForm">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="passwordConfirm" class="form-label">Введите пароль для подтверждения</label>
+                    <input type="password" name="password" id="passwordConfirm" class="form-input" required>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn--outline" id="cancelDelete">Отмена</button>
+            <button class="btn btn--danger" id="confirmDelete">Удалить навсегда</button>
         </div>
     </div>
 </div>
 {% endblock %}
 
+{% block extra_css %}
+<style>
+    .profile-edit-container {
+        max-width: 700px;
+        margin: 0 auto;
+    }
+
+    .profile-edit-form {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 2rem;
+        border: 1px solid var(--color-border-light);
+        margin-bottom: 2rem;
+    }
+
+    .edit-section {
+        margin-bottom: 2rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid var(--color-border-light);
+    }
+
+    .edit-section:last-of-type {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+
+    .section-title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1.125rem;
+        margin-bottom: 1.5rem;
+        color: var(--color-text-primary);
+    }
+
+    .section-title i {
+        color: var(--color-primary);
+    }
+
+    .image-upload-group {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 1.5rem;
+    }
+
+    .avatar-upload,
+    .cover-upload {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .upload-label {
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+        color: var(--color-text-secondary);
+    }
+
+    .image-preview {
+        position: relative;
+        cursor: pointer;
+        overflow: hidden;
+        border-radius: var(--radius-lg);
+        border: 2px dashed var(--color-border);
+        transition: border-color var(--transition-base);
+    }
+
+    .image-preview:hover {
+        border-color: var(--color-primary);
+    }
+
+    .avatar-preview {
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+    }
+
+    .cover-preview {
+        width: 100%;
+        height: 120px;
+    }
+
+    .image-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .avatar-placeholder,
+    .cover-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--color-bg-elevated);
+        color: var(--color-text-tertiary);
+    }
+
+    .avatar-placeholder {
+        font-size: 3rem;
+        font-weight: 600;
+    }
+
+    .cover-placeholder {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .image-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        opacity: 0;
+        transition: opacity var(--transition-base);
+    }
+
+    .image-preview:hover .image-overlay {
+        opacity: 1;
+    }
+
+    .image-preview input[type="file"] {
+        position: absolute;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+    }
+
+    .form-row-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.25rem;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: var(--color-text-primary);
+    }
+
+    .form-input,
+    .form-textarea {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        font-size: 0.9375rem;
+        transition: border-color var(--transition-base), box-shadow var(--transition-base);
+    }
+
+    .form-textarea {
+        resize: vertical;
+        min-height: 100px;
+    }
+
+    .form-input:focus,
+    .form-textarea:focus {
+        outline: none;
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+
+    .char-counter {
+        text-align: right;
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+        margin-top: 0.25rem;
+    }
+
+    .settings-group {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .setting-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .setting-info {
+        flex: 1;
+    }
+
+    .setting-label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+    }
+
+    .setting-description {
+        font-size: 0.875rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 48px;
+        height: 24px;
+    }
+
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: var(--color-border);
+        transition: .3s;
+        border-radius: 24px;
+    }
+
+    .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 20px;
+        width: 20px;
+        left: 2px;
+        bottom: 2px;
+        background-color: white;
+        transition: .3s;
+        border-radius: 50%;
+    }
+
+    input:checked + .toggle-slider {
+        background-color: var(--color-primary);
+    }
+
+    input:checked + .toggle-slider:before {
+        transform: translateX(24px);
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--color-border-light);
+    }
+
+    .danger-zone {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 1.5rem;
+        border: 1px solid var(--color-danger);
+    }
+
+    .danger-zone__title {
+        color: var(--color-danger);
+        font-size: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .danger-actions {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .warning-message {
+        display: flex;
+        gap: 1rem;
+        padding: 1rem;
+        background: #fef3c7;
+        border-radius: var(--radius-lg);
+        margin-bottom: 1rem;
+    }
+
+    .warning-message i {
+        color: #d97706;
+        flex-shrink: 0;
+    }
+
+    .warning-message p {
+        color: #92400e;
+        font-weight: 500;
+    }
+
+    .modal-footer {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: flex-end;
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--color-border-light);
+    }
+
+    @media (max-width: 768px) {
+        .profile-edit-form {
+            padding: 1.5rem;
+        }
+
+        .image-upload-group {
+            grid-template-columns: 1fr;
+        }
+
+        .form-row-2 {
+            grid-template-columns: 1fr;
+        }
+
+        .form-actions {
+            flex-direction: column;
+        }
+
+        .danger-actions {
+            flex-direction: column;
+        }
+
+        .setting-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block extra_js %}
 <script>
-    // Предпросмотр аватара
-    $('#id_avatar').change(function() {
-        var file = this.files[0];
-        if (file) {
-            var reader = new FileReader();
-            reader.onload = function(e) {
-                $('#avatar-preview').attr('src', e.target.result).removeClass('bg-secondary');
-            }
-            reader.readAsDataURL(file);
-        }
-    });
-    
-    // Счетчик символов для био
-    $('#id_bio').on('input', function() {
-        var length = $(this).val().length;
-        $('#bio-counter').text(length + '/500');
-        if (length > 500) {
-            $('#bio-counter').addClass('text-danger');
-        } else {
-            $('#bio-counter').removeClass('text-danger');
-        }
-    });
-    
-    // Подтверждение email
-    $('#verify-email').click(function() {
-        var btn = $(this);
-        var email = $('#id_email').val();
-        
-        if (!email) {
-            alert('Введите email');
-            return;
-        }
+document.addEventListener('DOMContentLoaded', function() {
+    // Загрузка аватара
+    const avatarInput = document.querySelector('input[name="avatar"]');
+    const avatarPreview = document.getElementById('avatarPreview');
+    const avatarContainer = document.querySelector('.avatar-preview');
 
-        $('#email-display').text(email);
-        $('#verifyEmailModal').modal('show');
+    if (avatarInput && avatarContainer) {
+        // Клик по контейнеру открывает выбор файла
+        avatarContainer.addEventListener('click', function() {
+            avatarInput.click();
+        });
 
-        $.ajax({
-            url: '{% url "accounts:verify_email" %}',
-            method: 'POST',
-            data: {
-                'email': email,
-                'csrfmiddlewaretoken': '{{ csrf_token }}'
-            },
-            success: function(data) {
-                $('#verification-message').removeClass('alert-danger').addClass('alert-success')
-                    .text('Код отправлен! Проверьте почту.').show();
-            },
-            error: function(xhr) {
-                $('#verification-message').removeClass('alert-success').addClass('alert-danger')
-                    .text('Ошибка при отправке кода').show();
+        avatarInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    // Заменяем содержимое превью
+                    if (avatarPreview) {
+                        if (avatarPreview.tagName === 'IMG') {
+                            avatarPreview.src = e.target.result;
+                        } else {
+                            const img = document.createElement('img');
+                            img.src = e.target.result;
+                            img.alt = 'Аватар';
+                            img.id = 'avatarPreview';
+                            avatarPreview.parentNode.replaceChild(img, avatarPreview);
+                        }
+                    }
+                };
+                reader.readAsDataURL(file);
             }
         });
-    });
+    }
 
-    // Подтверждение кода
-    $('#confirm-code').click(function() {
-        var code = $('#verification-code').val();
+    // Загрузка обложки
+    const coverInput = document.querySelector('input[name="cover_image"]');
+    const coverPreview = document.getElementById('coverPreview');
+    const coverContainer = document.querySelector('.cover-preview');
 
-        if (!code || code.length !== 6) {
-            alert('Введите 6-значный код');
-            return;
-        }
+    if (coverInput && coverContainer) {
+        coverContainer.addEventListener('click', function() {
+            coverInput.click();
+        });
 
-        $.ajax({
-            url: '{% url "accounts:confirm_email" %}',
-            method: 'POST',
-            data: {
-                'code': code,
-                'csrfmiddlewaretoken': '{{ csrf_token }}'
-            },
-            success: function(data) {
-                $('#verifyEmailModal').modal('hide');
-                $('#verify-email').html('<i class="bi bi-check-lg text-success"></i> Подтвержден').prop('disabled', true);
-                location.reload(); // Перезагружаем для обновления статуса
-            },
-            error: function(xhr) {
-                alert('Неверный код подтверждения');
+        coverInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    if (coverPreview) {
+                        if (coverPreview.tagName === 'IMG') {
+                            coverPreview.src = e.target.result;
+                        } else {
+                            const img = document.createElement('img');
+                            img.src = e.target.result;
+                            img.alt = 'Обложка';
+                            img.id = 'coverPreview';
+                            coverPreview.parentNode.replaceChild(img, coverPreview);
+                        }
+                    }
+                };
+                reader.readAsDataURL(file);
             }
         });
+    }
+
+    // Счетчик символов для bio
+    const bioInput = document.querySelector('textarea[name="bio"]');
+    const bioCounter = document.getElementById('bioCounter');
+
+    if (bioInput && bioCounter) {
+        const updateCounter = () => {
+            bioCounter.textContent = bioInput.value.length;
+        };
+        bioInput.addEventListener('input', updateCounter);
+        updateCounter();
+    }
+
+    // Переключатели (toggle switches)
+    const toggles = document.querySelectorAll('.toggle-switch input');
+    toggles.forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            // Ничего не делаем, просто для визуального эффекта
+        });
     });
+});
 </script>
 {% endblock %}

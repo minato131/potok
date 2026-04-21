@@ -1,0 +1,594 @@
+<!-- templates/communities/community_manage_requests.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Управление заявками · {{ community.name }} · Поток{% endblock %}
+{% block page_title %}Управление заявками{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'communities:community_members' slug=community.slug %}" class="btn btn--outline">
+    <i data-feather="users"></i>
+    <span>К участникам</span>
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="requests-container">
+    <!-- Информация о сообществе -->
+    <div class="community-header">
+        <a href="{% url 'communities:community_detail' slug=community.slug %}" class="community-link">
+            <div class="community-avatar-small">
+                {% if community.avatar %}
+                <img src="{{ community.avatar.url }}" alt="{{ community.name }}">
+                {% else %}
+                <div class="avatar-placeholder">{{ community.name|make_list|first|upper }}</div>
+                {% endif %}
+            </div>
+            <span>c/{{ community.name }}</span>
+        </a>
+    </div>
+
+    <!-- Статистика -->
+    <div class="requests-stats">
+        <div class="stat-card">
+            <span class="stat-value">{{ pending_requests.count }}</span>
+            <span class="stat-label">Ожидают рассмотрения</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-value">{{ approved_today }}</span>
+            <span class="stat-label">Одобрено сегодня</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-value">{{ rejected_today }}</span>
+            <span class="stat-label">Отклонено сегодня</span>
+        </div>
+    </div>
+
+    <!-- Список заявок -->
+    <div class="requests-list">
+        {% for request in pending_requests %}
+        <div class="request-card" id="request-{{ request.id }}">
+            <div class="request-header">
+                <div class="requester-info">
+                    <div class="requester-avatar">
+                        <a href="{% url 'accounts:profile_by_username' username=request.user.username %}">
+                            {% if request.user.profile.avatar %}
+                            <img src="{{ request.user.profile.avatar.url }}" alt="{{ request.user.username }}">
+                            {% else %}
+                            <div class="avatar-placeholder">{{ request.user.username|make_list|first|upper }}</div>
+                            {% endif %}
+                        </a>
+                    </div>
+                    <div class="requester-details">
+                        <a href="{% url 'accounts:profile_by_username' username=request.user.username %}" class="requester-name">
+                            {{ request.user.get_full_name|default:request.user.username }}
+                        </a>
+                        <span class="requester-username">@{{ request.user.username }}</span>
+                    </div>
+                </div>
+                <span class="request-time">{{ request.created_at|timesince }} назад</span>
+            </div>
+
+            {% if request.message %}
+            <div class="request-message">
+                <p>{{ request.message }}</p>
+            </div>
+            {% endif %}
+
+            <div class="requester-stats">
+                <div class="stat">
+                    <i data-feather="users"></i>
+                    <span>{{ request.user.profile.followers.count }} подписчиков</span>
+                </div>
+                <div class="stat">
+                    <i data-feather="calendar"></i>
+                    <span>На сайте с {{ request.user.date_joined|date:"M Y" }}</span>
+                </div>
+            </div>
+
+            <div class="request-actions">
+                <button class="btn btn--success approve-btn" data-request-id="{{ request.id }}">
+                    <i data-feather="check"></i>
+                    Одобрить
+                </button>
+                <button class="btn btn--danger reject-btn" data-request-id="{{ request.id }}">
+                    <i data-feather="x"></i>
+                    Отклонить
+                </button>
+                <button class="btn btn--outline view-profile-btn" onclick="location.href='{% url 'accounts:profile_by_username' username=request.user.username %}'">
+                    <i data-feather="user"></i>
+                    Профиль
+                </button>
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-state">
+            <i data-feather="inbox"></i>
+            <h3>Нет активных заявок</h3>
+            <p>Все заявки обработаны</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- История заявок -->
+    <div class="requests-history">
+        <h3>
+            <i data-feather="clock"></i>
+            История заявок
+        </h3>
+
+        <div class="history-list">
+            {% for request in processed_requests %}
+            <div class="history-item">
+                <div class="history-info">
+                    <span class="history-user">@{{ request.user.username }}</span>
+                    <span class="history-action {{ request.status }}">
+                        {% if request.status == 'approved' %}
+                        ✓ Одобрено
+                        {% else %}
+                        ✗ Отклонено
+                        {% endif %}
+                    </span>
+                    <span class="history-time">{{ request.processed_at|timesince }} назад</span>
+                </div>
+                {% if request.processed_by %}
+                <span class="history-moderator">
+                    Модератор: @{{ request.processed_by.username }}
+                </span>
+                {% endif %}
+            </div>
+            {% empty %}
+            <p class="no-history">История заявок пуста</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно отклонения заявки -->
+<div class="modal-overlay" id="rejectModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Отклонить заявку</h3>
+            <button class="modal-close" id="closeRejectModal">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p>Укажите причину отклонения (опционально)</p>
+            <textarea id="rejectReason" class="form-textarea" placeholder="Причина отклонения..." rows="3"></textarea>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn--outline" id="cancelReject">Отмена</button>
+            <button class="btn btn--danger" id="confirmReject">Отклонить</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .requests-container {
+        max-width: 700px;
+        margin: 0 auto;
+    }
+
+    .community-header {
+        margin-bottom: 1.5rem;
+    }
+
+    .community-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+        text-decoration: none;
+        color: var(--color-text-primary);
+        font-weight: 500;
+    }
+
+    .community-avatar-small {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        overflow: hidden;
+    }
+
+    .community-avatar-small img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .requests-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+        padding: 1.25rem;
+        text-align: center;
+        border: 1px solid var(--color-border-light);
+    }
+
+    .stat-value {
+        display: block;
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--color-primary);
+        margin-bottom: 0.25rem;
+    }
+
+    .stat-label {
+        font-size: 0.875rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .requests-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .request-card {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        border: 1px solid var(--color-border-light);
+    }
+
+    .request-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+    }
+
+    .requester-info {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .requester-avatar {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 50%;
+        overflow: hidden;
+    }
+
+    .requester-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .requester-details {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .requester-name {
+        font-weight: 600;
+        color: var(--color-text-primary);
+        text-decoration: none;
+    }
+
+    .requester-name:hover {
+        color: var(--color-primary);
+    }
+
+    .requester-username {
+        font-size: 0.875rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .request-time {
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .request-message {
+        padding: 1rem;
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-md);
+        margin-bottom: 1rem;
+        font-style: italic;
+    }
+
+    .requester-stats {
+        display: flex;
+        gap: 1.5rem;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--color-border-light);
+    }
+
+    .stat {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .stat i {
+        width: 1rem;
+        height: 1rem;
+    }
+
+    .request-actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .btn--success {
+        background: var(--color-success);
+        color: white;
+    }
+
+    .btn--success:hover {
+        background: #059669;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+    }
+
+    .empty-state i {
+        width: 3rem;
+        height: 3rem;
+        color: var(--color-text-tertiary);
+        margin-bottom: 1rem;
+    }
+
+    .requests-history {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        border: 1px solid var(--color-border-light);
+    }
+
+    .requests-history h3 {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        font-size: 1rem;
+    }
+
+    .history-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .history-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem;
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-md);
+    }
+
+    .history-info {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .history-user {
+        font-weight: 500;
+    }
+
+    .history-action {
+        font-size: 0.8125rem;
+    }
+
+    .history-action.approved {
+        color: var(--color-success);
+    }
+
+    .history-action.rejected {
+        color: var(--color-danger);
+    }
+
+    .history-time {
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .history-moderator {
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .no-history {
+        text-align: center;
+        color: var(--color-text-tertiary);
+        padding: 1rem;
+    }
+
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: all var(--transition-base);
+    }
+
+    .modal-overlay.active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .modal {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 1.5rem;
+        max-width: 500px;
+        width: 90%;
+        transform: scale(0.9);
+        transition: transform var(--transition-base);
+    }
+
+    .modal-overlay.active .modal {
+        transform: scale(1);
+    }
+
+    .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+    }
+
+    .modal-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+
+    .modal-close {
+        padding: 0.25rem;
+        border-radius: var(--radius-md);
+        color: var(--color-text-tertiary);
+    }
+
+    .modal-footer {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: flex-end;
+        margin-top: 1.5rem;
+    }
+
+    @media (max-width: 768px) {
+        .requests-stats {
+            grid-template-columns: 1fr;
+        }
+
+        .request-actions {
+            flex-wrap: wrap;
+        }
+
+        .request-actions .btn {
+            flex: 1;
+        }
+
+        .history-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.25rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        let currentRequestId = null;
+        const rejectModal = document.getElementById('rejectModal');
+        const closeRejectModal = document.getElementById('closeRejectModal');
+        const cancelReject = document.getElementById('cancelReject');
+        const confirmReject = document.getElementById('confirmReject');
+        const rejectReason = document.getElementById('rejectReason');
+
+        // Одобрение заявки
+        document.querySelectorAll('.approve-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const requestId = this.dataset.requestId;
+
+                try {
+                    const response = await fetch(`/communities/requests/${requestId}/approve/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken')
+                        }
+                    });
+
+                    if (response.ok) {
+                        const card = document.getElementById(`request-${requestId}`);
+                        card.style.transition = 'opacity 0.3s ease';
+                        card.style.opacity = '0';
+                        setTimeout(() => card.remove(), 300);
+
+                        showToast({
+                            type: 'success',
+                            message: 'Заявка одобрена'
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            });
+        });
+
+        // Отклонение заявки
+        document.querySelectorAll('.reject-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                currentRequestId = this.dataset.requestId;
+                rejectModal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            });
+        });
+
+        const closeModal = () => {
+            rejectModal.classList.remove('active');
+            document.body.style.overflow = '';
+            currentRequestId = null;
+            rejectReason.value = '';
+        };
+
+        closeRejectModal?.addEventListener('click', closeModal);
+        cancelReject?.addEventListener('click', closeModal);
+        rejectModal.addEventListener('click', (e) => {
+            if (e.target === rejectModal) closeModal();
+        });
+
+        confirmReject?.addEventListener('click', async () => {
+            if (!currentRequestId) return;
+
+            try {
+                const response = await fetch(`/communities/requests/${currentRequestId}/reject/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({ reason: rejectReason.value })
+                });
+
+                if (response.ok) {
+                    const card = document.getElementById(`request-${currentRequestId}`);
+                    card.style.transition = 'opacity 0.3s ease';
+                    card.style.opacity = '0';
+                    setTimeout(() => card.remove(), 300);
+
+                    closeModal();
+
+                    showToast({
+                        type: 'info',
+                        message: 'Заявка отклонена'
+                    });
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        });
+    });
+</script>
+{% endblock %}

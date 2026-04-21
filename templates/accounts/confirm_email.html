@@ -1,0 +1,131 @@
+<!-- templates/accounts/confirm_email.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Email подтвержден · Поток{% endblock %}
+
+{% block content %}
+<div class="confirm-email-container">
+    <div class="success-card">
+        <div class="success-icon">
+            <i data-feather="check-circle"></i>
+        </div>
+
+        <h2>Email подтвержден!</h2>
+
+        <p class="success-message">
+            Спасибо за подтверждение email адреса. Теперь вы можете использовать все возможности Потока.
+        </p>
+
+        <div class="success-actions">
+            <a href="{% url 'posts:post_list' %}" class="btn btn--primary">
+                Перейти на главную
+            </a>
+            <a href="{% url 'accounts:profile' %}" class="btn btn--outline">
+                Перейти в профиль
+            </a>
+        </div>
+
+        <div class="next-steps">
+            <h3>Что дальше?</h3>
+            <ul>
+                <li>Заполните свой профиль</li>
+                <li>Найдите интересные сообщества</li>
+                <li>Создайте первый пост</li>
+                <li>Подпишитесь на интересных людей</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .confirm-email-container {
+        max-width: 500px;
+        margin: 2rem auto;
+    }
+
+    .success-card {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 2.5rem;
+        border: 1px solid var(--color-border-light);
+        text-align: center;
+    }
+
+    .success-icon {
+        width: 5rem;
+        height: 5rem;
+        border-radius: 50%;
+        background: #d1fae5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.5rem;
+        color: #059669;
+    }
+
+    .success-icon i {
+        width: 3rem;
+        height: 3rem;
+    }
+
+    .success-card h2 {
+        font-size: 1.75rem;
+        margin-bottom: 1rem;
+        color: #059669;
+    }
+
+    .success-message {
+        color: var(--color-text-secondary);
+        margin-bottom: 2rem;
+        line-height: 1.6;
+    }
+
+    .success-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        margin-bottom: 2rem;
+    }
+
+    .next-steps {
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--color-border-light);
+        text-align: left;
+    }
+
+    .next-steps h3 {
+        margin-bottom: 1rem;
+    }
+
+    .next-steps ul {
+        list-style: none;
+    }
+
+    .next-steps li {
+        padding-left: 1.75rem;
+        position: relative;
+        margin-bottom: 0.5rem;
+        color: var(--color-text-secondary);
+    }
+
+    .next-steps li::before {
+        content: '→';
+        position: absolute;
+        left: 0;
+        color: var(--color-primary);
+    }
+
+    @media (max-width: 768px) {
+        .success-card {
+            padding: 1.5rem;
+        }
+
+        .success-actions {
+            flex-direction: column;
+        }
+    }
+</style>
+{% endblock %}

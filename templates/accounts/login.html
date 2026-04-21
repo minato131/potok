@@ -1,35 +1,356 @@
+<!-- templates/accounts/login.html -->
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Вход - Поток{% endblock %}
+{% block title %}Вход · Поток{% endblock %}
+{% block page_title %}Вход в аккаунт{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h3 class="text-center">Вход в систему</h3>
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-card__header">
+            <div class="auth-logo">
+                <span class="auth-logo__icon">🌊</span>
+                <span class="auth-logo__text">Поток</span>
             </div>
-            <div class="card-body">
-                <form method="post">
-                    {% csrf_token %}
-                    
-                    <div class="mb-3">
-                        <label for="id_username" class="form-label">Имя пользователя:</label>
-                        <input type="text" name="username" class="form-control" id="id_username" required>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="id_password" class="form-label">Пароль:</label>
-                        <input type="password" name="password" class="form-control" id="id_password" required>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary w-100">Войти</button>
-                </form>
-                <div class="text-center mt-3">
-                    <p>Нет аккаунта? <a href="{% url 'accounts:register' %}">Зарегистрироваться</a></p>
+            <p class="auth-card__subtitle">Войдите, чтобы присоединиться к обсуждениям</p>
+        </div>
+
+        <form method="post" class="auth-form" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="alert alert--error">
+                {% for error in form.non_field_errors %}
+                    {{ error }}
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label for="{{ form.username.id_for_label }}" class="form-label">
+                    <i data-feather="user" class="form-label__icon"></i>
+                    Имя пользователя или Email
+                </label>
+                {{ form.username }}
+                {% if form.username.errors %}
+                <div class="form-error">{{ form.username.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.password.id_for_label }}" class="form-label">
+                    <i data-feather="lock" class="form-label__icon"></i>
+                    Пароль
+                </label>
+                <div class="password-input-wrapper">
+                    {{ form.password }}
+                    <button type="button" class="password-toggle" data-target="{{ form.password.id_for_label }}">
+                        <i data-feather="eye"></i>
+                    </button>
                 </div>
+                {% if form.password.errors %}
+                <div class="form-error">{{ form.password.errors.0 }}</div>
+                {% endif %}
             </div>
+
+            <div class="form-group form-group--checkbox">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="remember_me">
+                    <span class="checkbox-custom"></span>
+                    <span class="checkbox-text">Запомнить меня</span>
+                </label>
+                <a href="#" class="forgot-password">Забыли пароль?</a>
+            </div>
+
+            <button type="submit" class="btn btn--primary btn--block btn--lg">
+                <span>Войти</span>
+                <i data-feather="arrow-right"></i>
+            </button>
+        </form>
+
+        <div class="auth-card__footer">
+            <p>Нет аккаунта? <a href="{% url 'accounts:register' %}" class="auth-link">Зарегистрироваться</a></p>
+        </div>
+    </div>
+
+    <div class="auth-features">
+        <div class="feature-item">
+            <i data-feather="users"></i>
+            <h3>Сообщества</h3>
+            <p>Присоединяйтесь к сообществам по интересам</p>
+        </div>
+        <div class="feature-item">
+            <i data-feather="message-circle"></i>
+            <h3>Общение</h3>
+            <p>Общайтесь в реальном времени</p>
+        </div>
+        <div class="feature-item">
+            <i data-feather="share-2"></i>
+            <h3>Делитесь</h3>
+            <p>Публикуйте свои мысли и идеи</p>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .auth-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 3rem;
+        max-width: 1100px;
+        margin: 0 auto;
+        align-items: center;
+        min-height: calc(100vh - 200px);
+    }
+
+    .auth-card {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 2.5rem;
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--color-border-light);
+    }
+
+    .auth-card__header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .auth-logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .auth-logo__icon {
+        font-size: 2.5rem;
+    }
+
+    .auth-logo__text {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--color-primary);
+    }
+
+    .auth-card__subtitle {
+        color: var(--color-text-secondary);
+        font-size: 0.9375rem;
+    }
+
+    .auth-form {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: var(--color-text-primary);
+    }
+
+    .form-label__icon {
+        width: 1rem;
+        height: 1rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .password-input-wrapper {
+        position: relative;
+    }
+
+    .password-toggle {
+        position: absolute;
+        right: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        padding: 0.25rem;
+        color: var(--color-text-tertiary);
+        transition: color var(--transition-base);
+    }
+
+    .password-toggle:hover {
+        color: var(--color-text-primary);
+    }
+
+    .form-group--checkbox {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+    }
+
+    .checkbox-label input[type="checkbox"] {
+        display: none;
+    }
+
+    .checkbox-custom {
+        width: 1.25rem;
+        height: 1.25rem;
+        border: 2px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        transition: all var(--transition-base);
+    }
+
+    .checkbox-label input[type="checkbox"]:checked + .checkbox-custom {
+        background-color: var(--color-primary);
+        border-color: var(--color-primary);
+        position: relative;
+    }
+
+    .checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after {
+        content: '';
+        position: absolute;
+        left: 5px;
+        top: 2px;
+        width: 4px;
+        height: 8px;
+        border: solid white;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+    }
+
+    .checkbox-text {
+        font-size: 0.9375rem;
+        color: var(--color-text-secondary);
+    }
+
+    .forgot-password {
+        font-size: 0.875rem;
+        color: var(--color-primary);
+        text-decoration: none;
+    }
+
+    .forgot-password:hover {
+        text-decoration: underline;
+    }
+
+    .btn--lg {
+        padding: 0.875rem 1.5rem;
+        font-size: 1rem;
+    }
+
+    .auth-card__footer {
+        text-align: center;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--color-border-light);
+        color: var(--color-text-secondary);
+    }
+
+    .auth-link {
+        color: var(--color-primary);
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    .auth-link:hover {
+        text-decoration: underline;
+    }
+
+    .auth-features {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
+    }
+
+    .feature-item {
+        text-align: center;
+        padding: 1.5rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
+        transition: transform var(--transition-base), box-shadow var(--transition-base);
+    }
+
+    .feature-item:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .feature-item i {
+        width: 2.5rem;
+        height: 2.5rem;
+        color: var(--color-primary);
+        margin-bottom: 1rem;
+    }
+
+    .feature-item h3 {
+        font-size: 1.125rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .feature-item p {
+        color: var(--color-text-secondary);
+        font-size: 0.875rem;
+    }
+
+    .form-error {
+        color: var(--color-danger);
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+
+    @media (max-width: 768px) {
+        .auth-container {
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
+        .auth-card {
+            padding: 1.5rem;
+        }
+
+        .auth-features {
+            display: none;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Показать/скрыть пароль
+        const passwordToggles = document.querySelectorAll('.password-toggle');
+        passwordToggles.forEach(toggle => {
+            toggle.addEventListener('click', function() {
+                const targetId = this.dataset.target;
+                const passwordInput = document.getElementById(targetId);
+                const icon = this.querySelector('i');
+
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    icon.setAttribute('data-feather', 'eye-off');
+                } else {
+                    passwordInput.type = 'password';
+                    icon.setAttribute('data-feather', 'eye');
+                }
+                feather.replace();
+            });
+        });
+
+        // Анимация появления формы
+        const authCard = document.querySelector('.auth-card');
+        authCard.style.opacity = '0';
+        authCard.style.transform = 'translateY(20px)';
+
+        setTimeout(() => {
+            authCard.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+            authCard.style.opacity = '1';
+            authCard.style.transform = 'translateY(0)';
+        }, 100);
+    });
+</script>
 {% endblock %}

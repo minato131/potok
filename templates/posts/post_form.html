@@ -1,145 +1,1006 @@
+<!-- templates/posts/post_form.html -->
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ title }} - Поток{% endblock %}
+{% block title %}
+    {% if form.instance.pk %}Редактирование поста{% else %}Создание поста{% endif %} · Поток
+{% endblock %}
+
+{% block page_title %}
+    {% if form.instance.pk %}Редактирование поста{% else %}Создание нового поста{% endif %}
+{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header">
-                <h4>{{ title }}</h4>
+<div class="post-form-container">
+    <form method="post" enctype="multipart/form-data" class="post-form" id="postForm" novalidate>
+        {% csrf_token %}
+
+        <!-- Выбор сообщества -->
+        <div class="form-section">
+            <div class="form-group">
+                <label for="{{ form.community.id_for_label }}" class="form-label">
+                    <i data-feather="users"></i>
+                    Опубликовать в сообществе
+                </label>
+                {{ form.community }}
+                <div class="field-hint">
+                    Выберите сообщество или оставьте пустым для публикации в профиле
+                </div>
+                {% if form.community.errors %}
+                <div class="form-error">{{ form.community.errors.0 }}</div>
+                {% endif %}
             </div>
-            <div class="card-body">
-                {% if messages %}
-                    {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }}">
-                            {{ message }}
-                        </div>
-                    {% endfor %}
+        </div>
+
+        <!-- Заголовок -->
+        <div class="form-section">
+            <div class="form-group">
+                <label for="{{ form.title.id_for_label }}" class="form-label">
+                    Заголовок
+                    <span class="required">*</span>
+                </label>
+                {{ form.title }}
+                <div class="field-hint">
+                    <span class="char-counter">
+                        <span id="titleCounter">0</span>/200
+                    </span>
+                </div>
+                {% if form.title.errors %}
+                <div class="form-error">{{ form.title.errors.0 }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Контент -->
+        <div class="form-section">
+            <div class="form-group">
+                <label for="{{ form.content.id_for_label }}" class="form-label">
+                    Текст поста
+                </label>
+
+                <!-- Панель инструментов -->
+                <div class="editor-toolbar">
+                    <div class="toolbar-group">
+                        <button type="button" class="toolbar-btn" data-format="bold" title="Жирный (Ctrl+B)">
+                            <i data-feather="bold"></i>
+                        </button>
+                        <button type="button" class="toolbar-btn" data-format="italic" title="Курсив (Ctrl+I)">
+                            <i data-feather="italic"></i>
+                        </button>
+                        <button type="button" class="toolbar-btn" data-format="strikethrough" title="Зачеркнутый">
+                            <i data-feather="minus"></i>
+                        </button>
+                    </div>
+
+                    <div class="toolbar-group">
+                        <button type="button" class="toolbar-btn" data-format="h2" title="Заголовок 2">
+                            H2
+                        </button>
+                        <button type="button" class="toolbar-btn" data-format="h3" title="Заголовок 3">
+                            H3
+                        </button>
+                    </div>
+
+                    <div class="toolbar-group">
+                        <button type="button" class="toolbar-btn" data-format="link" title="Ссылка (Ctrl+K)">
+                            <i data-feather="link"></i>
+                        </button>
+                        <button type="button" class="toolbar-btn" data-format="image" title="Изображение">
+                            <i data-feather="image"></i>
+                        </button>
+                    </div>
+
+                    <div class="toolbar-group">
+                        <button type="button" class="toolbar-btn" data-format="list-ul" title="Маркированный список">
+                            <i data-feather="list"></i>
+                        </button>
+                        <button type="button" class="toolbar-btn" data-format="list-ol" title="Нумерованный список">
+                            <i data-feather="list-ordered"></i>
+                        </button>
+                    </div>
+
+                    <div class="toolbar-group">
+                        <button type="button" class="toolbar-btn" data-format="quote" title="Цитата">
+                            <i data-feather="message-square"></i>
+                        </button>
+                        <button type="button" class="toolbar-btn" data-format="code" title="Код">
+                            <i data-feather="code"></i>
+                        </button>
+                        <button type="button" class="toolbar-btn" data-format="spoiler" title="Спойлер">
+                            <i data-feather="alert-triangle"></i>
+                        </button>
+                    </div>
+
+                    <div class="toolbar-group">
+                        <button type="button" class="toolbar-btn" id="previewBtn" title="Предпросмотр">
+                            <i data-feather="eye"></i>
+                        </button>
+                        <button type="button" class="toolbar-btn" id="helpBtn" title="Справка по Markdown">
+                            <i data-feather="help-circle"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="editor-wrapper">
+                    {{ form.content }}
+                    <div class="editor-preview" id="contentPreview" style="display: none;"></div>
+                </div>
+
+                {% if form.content.errors %}
+                <div class="form-error">{{ form.content.errors.0 }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Изображение -->
+        <div class="form-section">
+            <div class="form-group">
+                <label class="form-label">
+                    <i data-feather="image"></i>
+                    Изображение
+                </label>
+
+                <div class="image-upload-area" id="imageUploadArea">
+                    {{ form.image }}
+                    <div class="upload-placeholder" id="uploadPlaceholder">
+                        <i data-feather="upload-cloud"></i>
+                        <span>Нажмите или перетащите изображение</span>
+                        <span class="upload-hint">PNG, JPG, GIF до 5MB</span>
+                    </div>
+                    <div class="image-preview-container" id="imagePreviewContainer" style="display: none;">
+                        <img id="imagePreview" src="" alt="Preview">
+                        <button type="button" class="remove-image" id="removeImage">
+                            <i data-feather="x"></i>
+                        </button>
+                    </div>
+                </div>
+
+                {% if form.instance.image %}
+                <div class="current-image">
+                    <span>Текущее изображение:</span>
+                    <img src="{{ form.instance.image.url }}" alt="Current" class="current-image-preview">
+                    <label class="checkbox-label">
+                        {{ form.clear_image }}
+                        <span>Удалить изображение</span>
+                    </label>
+                </div>
                 {% endif %}
 
-                <form method="post" enctype="multipart/form-data" id="post-form">
-                    {% csrf_token %}
-
-                    {% if form.non_field_errors %}
-                        <div class="alert alert-danger">
-                            {% for error in form.non_field_errors %}
-                                {{ error }}
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-
-                    {% for field in form %}
-                        <div class="mb-3">
-                            <label for="{{ field.id_for_label }}" class="form-label">
-                                {{ field.label }}
-                                {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
-                            </label>
-
-                            {{ field }}
-
-                            {% if field.help_text %}
-                                <small class="form-text text-muted">{{ field.help_text }}</small>
-                            {% endif %}
-
-                            {% if field.errors %}
-                                <div class="text-danger mt-1">
-                                    {% for error in field.errors %}
-                                        {{ error }}
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                    {% endfor %}
-
-                    <div class="d-flex justify-content-between">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check-lg"></i> Сохранить
-                        </button>
-                        <a href="{% if post %}{% url 'posts:post_detail' post.pk %}{% else %}{% url 'posts:post_list' %}{% endif %}"
-                           class="btn btn-secondary">
-                            <i class="bi bi-x-lg"></i> Отмена
-                        </a>
-                    </div>
-                </form>
+                {% if form.image.errors %}
+                <div class="form-error">{{ form.image.errors.0 }}</div>
+                {% endif %}
             </div>
+        </div>
+
+        <!-- Ссылка -->
+        <div class="form-section">
+            <div class="form-group">
+                <label for="{{ form.link.id_for_label }}" class="form-label">
+                    <i data-feather="link"></i>
+                    Ссылка
+                </label>
+                {{ form.link }}
+                <div class="field-hint">Добавьте ссылку на внешний ресурс</div>
+                {% if form.link.errors %}
+                <div class="form-error">{{ form.link.errors.0 }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Теги -->
+        <div class="form-section">
+            <div class="form-group">
+                <label for="{{ form.tags.id_for_label }}" class="form-label">
+                    <i data-feather="tag"></i>
+                    Теги
+                </label>
+                {{ form.tags }}
+                <div class="field-hint">Разделяйте теги запятыми. Максимум 5 тегов.</div>
+                {% if form.tags.errors %}
+                <div class="form-error">{{ form.tags.errors.0 }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Категория -->
+        <div class="form-section">
+            <div class="form-group">
+                <label for="{{ form.category.id_for_label }}" class="form-label">
+                    <i data-feather="folder"></i>
+                    Категория
+                </label>
+                {{ form.category }}
+                {% if form.category.errors %}
+                <div class="form-error">{{ form.category.errors.0 }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Дополнительные настройки -->
+        <div class="form-section">
+            <h3 class="section-title">Дополнительные настройки</h3>
+
+            <div class="settings-group">
+                <div class="setting-item">
+                    <label class="checkbox-label">
+                        {{ form.is_nsfw }}
+                        <span>Контент 18+ (NSFW)</span>
+                    </label>
+                </div>
+
+                <div class="setting-item">
+                    <label class="checkbox-label">
+                        {{ form.is_spoiler }}
+                        <span>Содержит спойлеры</span>
+                    </label>
+                </div>
+
+                <div class="setting-item">
+                    <label class="checkbox-label">
+                        {{ form.disable_comments }}
+                        <span>Отключить комментарии</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Действия -->
+        <div class="form-actions">
+            <a href="{% if form.instance.pk %}{% url 'posts:post_detail' pk=form.instance.pk %}{% else %}{% url 'posts:post_list' %}{% endif %}"
+               class="btn btn--outline">
+                <i data-feather="arrow-left"></i>
+                Отмена
+            </a>
+
+            <div class="form-actions-right">
+                <button type="submit" name="action" value="draft" class="btn btn--outline">
+                    <i data-feather="save"></i>
+                    Сохранить черновик
+                </button>
+                <button type="submit" name="action" value="publish" class="btn btn--primary">
+                    <i data-feather="send"></i>
+                    {% if form.instance.pk %}Сохранить{% else %}Опубликовать{% endif %}
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Справка по Markdown -->
+    <div class="markdown-help">
+        <h3>Поддерживается Markdown</h3>
+        <div class="help-grid">
+            <div class="help-item">
+                <code>**жирный**</code>
+                <span>→</span>
+                <strong>жирный</strong>
+            </div>
+            <div class="help-item">
+                <code>*курсив*</code>
+                <span>→</span>
+                <em>курсив</em>
+            </div>
+            <div class="help-item">
+                <code>~~зачеркнутый~~</code>
+                <span>→</span>
+                <del>зачеркнутый</del>
+            </div>
+            <div class="help-item">
+                <code>[ссылка](url)</code>
+                <span>→</span>
+                <a href="#">ссылка</a>
+            </div>
+            <div class="help-item">
+                <code>`код`</code>
+                <span>→</span>
+                <code>код</code>
+            </div>
+            <div class="help-item">
+                <code>> цитата</code>
+                <span>→</span>
+                <span style="border-left: 3px solid var(--color-primary); padding-left: 0.5rem;">цитата</span>
+            </div>
+            <div class="help-item">
+                <code>||спойлер||</code>
+                <span>→</span>
+                <span style="background: var(--color-bg-elevated); padding: 0.125rem 0.25rem;">спойлер</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно вставки ссылки -->
+<div class="modal-overlay" id="linkModal">
+    <div class="modal modal--small">
+        <div class="modal-header">
+            <h3 class="modal-title">Вставить ссылку</h3>
+            <button class="modal-close" onclick="closeLinkModal()">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Текст ссылки</label>
+                <input type="text" id="linkText" class="form-input" placeholder="Текст ссылки">
+            </div>
+            <div class="form-group">
+                <label class="form-label">URL</label>
+                <input type="url" id="linkUrl" class="form-input" placeholder="https://...">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn--outline" onclick="closeLinkModal()">Отмена</button>
+            <button class="btn btn--primary" onclick="insertLink()">Вставить</button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно вставки изображения -->
+<div class="modal-overlay" id="imageModal">
+    <div class="modal modal--small">
+        <div class="modal-header">
+            <h3 class="modal-title">Вставить изображение</h3>
+            <button class="modal-close" onclick="closeImageModal()">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label class="form-label">Описание (alt)</label>
+                <input type="text" id="imageAlt" class="form-input" placeholder="Описание изображения">
+            </div>
+            <div class="form-group">
+                <label class="form-label">URL изображения</label>
+                <input type="url" id="imageUrl" class="form-input" placeholder="https://...">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn--outline" onclick="closeImageModal()">Отмена</button>
+            <button class="btn btn--primary" onclick="insertImage()">Вставить</button>
         </div>
     </div>
 </div>
 {% endblock %}
 
+{% block extra_css %}
+<style>
+    .post-form-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    .post-form {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 2rem;
+        border: 1px solid var(--color-border-light);
+        margin-bottom: 1.5rem;
+    }
+
+    .form-section {
+        margin-bottom: 2rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid var(--color-border-light);
+    }
+
+    .form-section:last-of-type {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+
+    .section-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group:last-child {
+        margin-bottom: 0;
+    }
+
+    .form-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+
+    .form-label i {
+        width: 1rem;
+        height: 1rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .required {
+        color: var(--color-danger);
+    }
+
+    .form-input,
+    .form-textarea,
+    .form-select {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        font-size: 0.9375rem;
+        transition: all var(--transition-base);
+        background: var(--color-bg-surface);
+    }
+
+    .form-input:focus,
+    .form-textarea:focus,
+    .form-select:focus {
+        outline: none;
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+
+    .form-textarea {
+        resize: vertical;
+        min-height: 300px;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.875rem;
+        line-height: 1.6;
+    }
+
+    .field-hint {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 0.375rem;
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .char-counter {
+        font-family: monospace;
+    }
+
+    .editor-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-md) var(--radius-md) 0 0;
+        border: 1px solid var(--color-border);
+        border-bottom: none;
+    }
+
+    .toolbar-group {
+        display: flex;
+        gap: 0.125rem;
+        padding: 0 0.5rem;
+        border-right: 1px solid var(--color-border);
+    }
+
+    .toolbar-group:last-child {
+        border-right: none;
+    }
+
+    .toolbar-btn {
+        padding: 0.5rem;
+        border-radius: var(--radius-sm);
+        color: var(--color-text-secondary);
+        font-size: 0.875rem;
+        transition: all var(--transition-base);
+    }
+
+    .toolbar-btn:hover {
+        background: var(--color-border-light);
+        color: var(--color-text-primary);
+    }
+
+    .editor-wrapper {
+        position: relative;
+    }
+
+    .editor-preview {
+        min-height: 300px;
+        padding: 1rem;
+        border: 1px solid var(--color-border);
+        border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+        background: var(--color-bg-surface);
+        overflow-y: auto;
+        line-height: 1.6;
+    }
+
+    .image-upload-area {
+        position: relative;
+        border: 2px dashed var(--color-border);
+        border-radius: var(--radius-lg);
+        transition: all var(--transition-base);
+        cursor: pointer;
+        min-height: 150px;
+    }
+
+    .image-upload-area:hover {
+        border-color: var(--color-primary);
+    }
+
+    .image-upload-area.dragover {
+        border-color: var(--color-primary);
+        background: var(--color-primary-light);
+    }
+
+    .image-upload-area input[type="file"] {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+    }
+
+    .upload-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .upload-placeholder i {
+        width: 2.5rem;
+        height: 2.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .upload-hint {
+        font-size: 0.8125rem;
+        margin-top: 0.25rem;
+    }
+
+    .image-preview-container {
+        position: relative;
+        padding: 1rem;
+    }
+
+    .image-preview-container img {
+        width: 100%;
+        max-height: 400px;
+        object-fit: contain;
+        border-radius: var(--radius-md);
+    }
+
+    .remove-image {
+        position: absolute;
+        top: 1.5rem;
+        right: 1.5rem;
+        padding: 0.5rem;
+        background: var(--color-danger);
+        color: white;
+        border-radius: 50%;
+        box-shadow: var(--shadow-md);
+    }
+
+    .current-image {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-md);
+    }
+
+    .current-image-preview {
+        max-width: 200px;
+        max-height: 150px;
+        margin: 0.5rem 0;
+        border-radius: var(--radius-sm);
+    }
+
+    .settings-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .setting-item {
+        display: flex;
+        align-items: center;
+    }
+
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+    }
+
+    .form-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--color-border-light);
+    }
+
+    .form-actions-right {
+        display: flex;
+        gap: 1rem;
+    }
+
+    .form-error {
+        color: var(--color-danger);
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+
+    .markdown-help {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 1.5rem;
+        border: 1px solid var(--color-border-light);
+    }
+
+    .markdown-help h3 {
+        font-size: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .help-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 0.75rem;
+    }
+
+    .help-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .help-item code {
+        background: var(--color-bg-elevated);
+        padding: 0.125rem 0.375rem;
+        border-radius: var(--radius-sm);
+        font-family: monospace;
+    }
+
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .modal {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 1.5rem;
+        width: 90%;
+        max-width: 500px;
+    }
+
+    .modal--small {
+        max-width: 400px;
+    }
+
+    .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+    }
+
+    .modal-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+
+    .modal-close {
+        padding: 0.25rem;
+        border-radius: var(--radius-md);
+        color: var(--color-text-tertiary);
+    }
+
+    .modal-footer {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: flex-end;
+        margin-top: 1.5rem;
+    }
+
+    @media (max-width: 768px) {
+        .post-form {
+            padding: 1.5rem;
+        }
+
+        .editor-toolbar {
+            overflow-x: auto;
+            flex-wrap: nowrap;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .toolbar-group {
+            flex-shrink: 0;
+        }
+
+        .form-actions {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .form-actions-right {
+            width: 100%;
+            flex-direction: column;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block extra_js %}
-<!-- Подключаем SimpleMDE для красивого редактирования текста -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.css">
-<script src="https://cdn.jsdelivr.net/simplemde/latest/simplemde.min.js"></script>
-
-<!-- Подключаем Select2 для тегов -->
-<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-
 <script>
-    $(document).ready(function() {
-        // Инициализация SimpleMDE
-        var simplemde = new SimpleMDE({
-            element: document.getElementById("id_content"),
-            spellChecker: false,
-            status: false,
-            toolbar: ["bold", "italic", "heading", "|", "quote", "code", "|", "unordered-list", "ordered-list", "|", "link", "image", "|", "preview", "guide"],
-            placeholder: "Введите содержание поста...",
-            forceSync: true  // Важно: синхронизирует с оригинальным полем
+    document.addEventListener('DOMContentLoaded', function() {
+        const contentTextarea = document.querySelector('textarea[name="content"]');
+        const titleInput = document.querySelector('input[name="title"]');
+        const titleCounter = document.getElementById('titleCounter');
+        const previewDiv = document.getElementById('contentPreview');
+        const previewBtn = document.getElementById('previewBtn');
+        let isPreviewMode = false;
+
+        // Счетчик заголовка
+        if (titleInput && titleCounter) {
+            titleInput.addEventListener('input', () => {
+                titleCounter.textContent = titleInput.value.length;
+            });
+            titleCounter.textContent = titleInput.value.length;
+        }
+
+        // Предпросмотр
+        previewBtn?.addEventListener('click', async function() {
+            isPreviewMode = !isPreviewMode;
+
+            if (isPreviewMode) {
+                const content = contentTextarea.value;
+
+                try {
+                    const response = await fetch('/posts/preview/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({ content: content })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        previewDiv.innerHTML = data.html;
+                        previewDiv.style.display = 'block';
+                        contentTextarea.style.display = 'none';
+                        this.innerHTML = '<i data-feather="edit"></i>';
+                        feather.replace();
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            } else {
+                previewDiv.style.display = 'none';
+                contentTextarea.style.display = 'block';
+                this.innerHTML = '<i data-feather="eye"></i>';
+                feather.replace();
+            }
         });
 
-        // Инициализация Select2 для тегов
-        $('#id_tags').select2({
-            placeholder: 'Выберите теги',
-            allowClear: true,
-            width: '100%'
+        // Инструменты форматирования
+        const toolbarBtns = document.querySelectorAll('.toolbar-btn[data-format]');
+        toolbarBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const format = this.dataset.format;
+
+                if (format === 'link') {
+                    openLinkModal();
+                } else if (format === 'image') {
+                    openImageModal();
+                } else {
+                    applyFormat(format);
+                }
+            });
         });
 
-        // Инициализация Select2 для категории
-        $('#id_category').select2({
-            placeholder: 'Выберите категорию',
-            allowClear: true,
-            width: '100%'
+        function applyFormat(format) {
+            const textarea = contentTextarea;
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const selectedText = textarea.value.substring(start, end);
+
+            const formats = {
+                'bold': { prefix: '**', suffix: '**', placeholder: 'жирный текст' },
+                'italic': { prefix: '*', suffix: '*', placeholder: 'курсив' },
+                'strikethrough': { prefix: '~~', suffix: '~~', placeholder: 'зачеркнутый' },
+                'h2': { prefix: '## ', suffix: '', placeholder: 'Заголовок' },
+                'h3': { prefix: '### ', suffix: '', placeholder: 'Заголовок' },
+                'list-ul': { prefix: '- ', suffix: '', placeholder: 'элемент списка' },
+                'list-ol': { prefix: '1. ', suffix: '', placeholder: 'элемент списка' },
+                'quote': { prefix: '> ', suffix: '', placeholder: 'цитата' },
+                'code': { prefix: '`', suffix: '`', placeholder: 'код' },
+                'spoiler': { prefix: '||', suffix: '||', placeholder: 'спойлер' }
+            };
+
+            const f = formats[format];
+            if (!f) return;
+
+            const text = selectedText || f.placeholder;
+            const formatted = f.prefix + text + f.suffix;
+
+            textarea.value = textarea.value.substring(0, start) + formatted + textarea.value.substring(end);
+            textarea.focus();
+
+            const newCursorPos = start + formatted.length;
+            textarea.setSelectionRange(newCursorPos, newCursorPos);
+        }
+
+        // Модальное окно ссылки
+        const linkModal = document.getElementById('linkModal');
+        const linkText = document.getElementById('linkText');
+        const linkUrl = document.getElementById('linkUrl');
+
+        window.openLinkModal = function() {
+            const selectedText = contentTextarea.value.substring(
+                contentTextarea.selectionStart,
+                contentTextarea.selectionEnd
+            );
+            linkText.value = selectedText || '';
+            linkUrl.value = '';
+            linkModal.style.display = 'flex';
+        };
+
+        window.closeLinkModal = function() {
+            linkModal.style.display = 'none';
+        };
+
+        window.insertLink = function() {
+            const text = linkText.value || 'ссылка';
+            const url = linkUrl.value || '#';
+            const formatted = `[${text}](${url})`;
+
+            insertAtCursor(contentTextarea, formatted);
+            closeLinkModal();
+        };
+
+        // Модальное окно изображения
+        const imageModal = document.getElementById('imageModal');
+        const imageAlt = document.getElementById('imageAlt');
+        const imageUrl = document.getElementById('imageUrl');
+
+        window.openImageModal = function() {
+            imageAlt.value = '';
+            imageUrl.value = '';
+            imageModal.style.display = 'flex';
+        };
+
+        window.closeImageModal = function() {
+            imageModal.style.display = 'none';
+        };
+
+        window.insertImage = function() {
+            const alt = imageAlt.value || 'изображение';
+            const url = imageUrl.value || '#';
+            const formatted = `![${alt}](${url})`;
+
+            insertAtCursor(contentTextarea, formatted);
+            closeImageModal();
+        };
+
+        function insertAtCursor(textarea, text) {
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            textarea.value = textarea.value.substring(0, start) + text + textarea.value.substring(end);
+            textarea.focus();
+            textarea.setSelectionRange(start + text.length, start + text.length);
+        }
+
+        // Загрузка изображения
+        const imageUploadArea = document.getElementById('imageUploadArea');
+        const imageInput = document.querySelector('input[name="image"]');
+        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+        const imagePreview = document.getElementById('imagePreview');
+        const removeImage = document.getElementById('removeImage');
+
+        if (imageInput) {
+            imageInput.addEventListener('change', handleImageSelect);
+
+            imageUploadArea?.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                imageUploadArea.classList.add('dragover');
+            });
+
+            imageUploadArea?.addEventListener('dragleave', () => {
+                imageUploadArea.classList.remove('dragover');
+            });
+
+            imageUploadArea?.addEventListener('drop', (e) => {
+                e.preventDefault();
+                imageUploadArea.classList.remove('dragover');
+
+                const file = e.dataTransfer.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    imageInput.files = e.dataTransfer.files;
+                    handleImageFile(file);
+                }
+            });
+        }
+
+        function handleImageSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                handleImageFile(file);
+            }
+        }
+
+        function handleImageFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.src = e.target.result;
+                uploadPlaceholder.style.display = 'none';
+                imagePreviewContainer.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        removeImage?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            imageInput.value = '';
+            uploadPlaceholder.style.display = 'flex';
+            imagePreviewContainer.style.display = 'none';
+            imagePreview.src = '';
         });
 
-        // Отключаем HTML5 валидацию для всей формы
-        $('#post-form').attr('novalidate', true);
-
-        // Добавляем свою валидацию
-        $('#post-form').submit(function(e) {
-            var title = $('#id_title').val().trim();
-            var content = simplemde.value().trim();
-
-            console.log('Проверка формы:', {title: title, content: content});
-
-            if (!title) {
-                alert('Заголовок обязателен');
-                e.preventDefault();
-                return false;
+        // Сочетания клавиш
+        contentTextarea?.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case 'b':
+                        e.preventDefault();
+                        applyFormat('bold');
+                        break;
+                    case 'i':
+                        e.preventDefault();
+                        applyFormat('italic');
+                        break;
+                    case 'k':
+                        e.preventDefault();
+                        openLinkModal();
+                        break;
+                }
             }
+        });
 
-            if (title.length < 5) {
-                alert('Заголовок должен содержать минимум 5 символов');
-                e.preventDefault();
-                return false;
+        // Справка
+        document.getElementById('helpBtn')?.addEventListener('click', function() {
+            document.querySelector('.markdown-help').scrollIntoView({ behavior: 'smooth' });
+        });
+
+        // Закрытие модалок по Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeLinkModal();
+                closeImageModal();
             }
+        });
 
-            if (!content) {
-                alert('Содержание обязательно');
-                e.preventDefault();
-                return false;
-            }
-
-            if (content.length < 10) {
-                alert('Содержание должно содержать минимум 10 символов');
-                e.preventDefault();
-                return false;
-            }
-
-            console.log('Форма валидна, отправляем...');
-            return true;
+        // Закрытие по клику вне модалки
+        [linkModal, imageModal].forEach(modal => {
+            modal?.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
         });
     });
 </script>

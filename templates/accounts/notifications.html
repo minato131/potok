@@ -1,109 +1,473 @@
+<!-- templates/accounts/notifications.html -->
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Уведомления - Поток{% endblock %}
+{% block title %}Уведомления · Поток{% endblock %}
+{% block page_title %}Уведомления{% endblock %}
+
+{% block header_actions %}
+<button class="btn btn--outline" id="markAllRead">
+    <i data-feather="check-circle"></i>
+    <span>Прочитать все</span>
+</button>
+{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-8 mx-auto">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h4 class="mb-0"><i class="bi bi-bell"></i> Уведомления</h4>
-                <div>
-                    <form method="post" action="{% url 'accounts:notification_mark_all_read' %}" class="d-inline">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-outline-primary">
-                            <i class="bi bi-check-all"></i> Все прочитано
-                        </button>
-                    </form>
-                </div>
-            </div>
-            
-            <!-- Фильтры -->
-            <div class="card-body pb-0">
-                <ul class="nav nav-pills nav-fill">
-                    <li class="nav-item">
-                        <a class="nav-link {% if not filter_type %}active{% endif %}" 
-                           href="{% url 'accounts:notifications' %}">
-                            Все
-                        </a>
-                    </li>
-                    {% for type_code, type_name in notification_types %}
-                        <li class="nav-item">
-                            <a class="nav-link {% if filter_type == type_code %}active{% endif %}" 
-                               href="?type={{ type_code }}">
-                                {{ type_name }}
-                            </a>
-                        </li>
-                    {% endfor %}
-                </ul>
-            </div>
-            
-            <!-- Список уведомлений -->
-            <div class="card-body">
-                {% if page_obj %}
-                    <div class="list-group">
-                        {% for notification in page_obj %}
-                            <div class="list-group-item list-group-item-action {% if not notification.is_read %}list-group-item-primary{% endif %}">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h6 class="mb-1">{{ notification.title }}</h6>
-                                    <small class="text-muted">{{ notification.created_at|timesince }} назад</small>
-                                </div>
-                                <p class="mb-1">{{ notification.message }}</p>
-                                <div class="d-flex justify-content-between align-items-center mt-2">
-                                    <small class="text-muted">
-                                        <span class="badge bg-secondary">{{ notification.get_notification_type_display }}</span>
-                                    </small>
-                                    {% if notification.link %}
-                                        <a href="{{ notification.link }}" class="btn btn-sm btn-outline-primary">
-                                            Перейти
-                                        </a>
-                                    {% endif %}
-                                    {% if not notification.is_read %}
-                                        <form method="post" action="{% url 'accounts:notification_mark_read' notification.id %}" class="d-inline">
-                                            {% csrf_token %}
-                                            <button type="submit" class="btn btn-sm btn-outline-success">
-                                                <i class="bi bi-check"></i>
-                                            </button>
-                                        </form>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        {% endfor %}
-                    </div>
-                    
-                    <!-- Пагинация -->
-                    {% if page_obj.has_other_pages %}
-                        <nav aria-label="Page navigation" class="mt-4">
-                            <ul class="pagination justify-content-center">
-                                {% if page_obj.has_previous %}
-                                    <li class="page-item">
-                                        <a class="page-link" href="?page=1{% if filter_type %}&type={{ filter_type }}{% endif %}">
-                                            <i class="bi bi-chevron-double-left"></i>
-                                        </a>
-                                    </li>
-                                {% endif %}
-                                
-                                {% for num in page_obj.paginator.page_range %}
-                                    {% if page_obj.number == num %}
-                                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                                    {% endif %}
-                                {% endfor %}
-                                
-                                {% if page_obj.has_next %}
-                                    <li class="page-item">
-                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filter_type %}&type={{ filter_type }}{% endif %}">
-                                            <i class="bi bi-chevron-right"></i>
-                                        </a>
-                                    </li>
-                                {% endif %}
-                            </ul>
-                        </nav>
-                    {% endif %}
+<div class="notifications-container">
+    <!-- Табы -->
+    <div class="notifications-tabs">
+        <button class="tab-btn active" data-tab="all">
+            <i data-feather="bell"></i>
+            <span>Все</span>
+            <span class="badge">{{ notifications.count }}</span>
+        </button>
+        <button class="tab-btn" data-tab="unread">
+            <i data-feather="circle"></i>
+            <span>Непрочитанные</span>
+            <span class="badge">{{ unread_count }}</span>
+        </button>
+    </div>
+
+    <!-- Список уведомлений -->
+    <div class="notifications-list" id="notificationsList">
+        {% for notification in notifications %}
+        <div class="notification-item {% if not notification.is_read %}unread{% endif %}"
+             data-notification-id="{{ notification.id }}"
+             data-type="{{ notification.type }}">
+            <div class="notification-icon">
+                {% if notification.type == 'like' %}
+                <i data-feather="heart"></i>
+                {% elif notification.type == 'comment' %}
+                <i data-feather="message-circle"></i>
+                {% elif notification.type == 'follow' %}
+                <i data-feather="user-plus"></i>
+                {% elif notification.type == 'mention' %}
+                <i data-feather="at-sign"></i>
                 {% else %}
-                    <p class="text-muted text-center">У вас пока нет уведомлений</p>
+                <i data-feather="bell"></i>
                 {% endif %}
             </div>
+
+            <div class="notification-content">
+                <div class="notification-header">
+                    <a href="{{ notification.actor_url }}" class="notification-actor">
+                        {{ notification.actor_name }}
+                    </a>
+                    <span class="notification-action">{{ notification.get_action_display }}</span>
+                    <span class="notification-time">{{ notification.created_at|timesince }} назад</span>
+                </div>
+
+                {% if notification.preview %}
+                <p class="notification-preview">{{ notification.preview }}</p>
+                {% endif %}
+
+                {% if notification.target_url %}
+                <a href="{{ notification.target_url }}" class="notification-link">
+                    Посмотреть →
+                </a>
+                {% endif %}
+            </div>
+
+            <div class="notification-actions">
+                {% if not notification.is_read %}
+                <button class="mark-read-btn" data-notification-id="{{ notification.id }}" title="Отметить прочитанным">
+                    <i data-feather="check"></i>
+                </button>
+                {% endif %}
+                <button class="delete-notification-btn" data-notification-id="{{ notification.id }}" title="Удалить">
+                    <i data-feather="x"></i>
+                </button>
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-state">
+            <i data-feather="bell-off"></i>
+            <h3>Нет уведомлений</h3>
+            <p>Здесь будут появляться уведомления о активности</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Пагинация -->
+    {% if is_paginated %}
+    <div class="pagination-container">
+        <div class="pagination">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" class="pagination-btn">
+                <i data-feather="chevron-left"></i>
+            </a>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+            {% if num == page_obj.number %}
+            <span class="pagination-btn active">{{ num }}</span>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <a href="?page={{ num }}" class="pagination-btn">{{ num }}</a>
+            {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="pagination-btn">
+                <i data-feather="chevron-right"></i>
+            </a>
+            {% endif %}
         </div>
     </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .notifications-container {
+        max-width: 650px;
+        margin: 0 auto;
+    }
+
+    .notifications-tabs {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        border-bottom: 1px solid var(--color-border);
+    }
+
+    .tab-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 0;
+        color: var(--color-text-secondary);
+        border-bottom: 2px solid transparent;
+        transition: all var(--transition-base);
+    }
+
+    .tab-btn:hover {
+        color: var(--color-text-primary);
+    }
+
+    .tab-btn.active {
+        color: var(--color-primary);
+        border-bottom-color: var(--color-primary);
+    }
+
+    .tab-btn .badge {
+        background: var(--color-bg-elevated);
+        padding: 0.125rem 0.5rem;
+        border-radius: var(--radius-full);
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .tab-btn.active .badge {
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+    }
+
+    .notifications-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .notification-item {
+        display: flex;
+        gap: 1rem;
+        padding: 1.25rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--color-border-light);
+        transition: all var(--transition-base);
+        position: relative;
+    }
+
+    .notification-item:hover {
+        box-shadow: var(--shadow-md);
+    }
+
+    .notification-item.unread {
+        background: var(--color-primary-light);
+        border-left: 3px solid var(--color-primary);
+    }
+
+    .notification-icon {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        background: var(--color-bg-elevated);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--color-primary);
+        flex-shrink: 0;
+    }
+
+    .notification-content {
+        flex: 1;
+    }
+
+    .notification-header {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.25rem 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .notification-actor {
+        font-weight: 600;
+        color: var(--color-text-primary);
+        text-decoration: none;
+    }
+
+    .notification-actor:hover {
+        color: var(--color-primary);
+    }
+
+    .notification-action {
+        color: var(--color-text-secondary);
+    }
+
+    .notification-time {
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+        margin-left: auto;
+    }
+
+    .notification-preview {
+        color: var(--color-text-secondary);
+        font-size: 0.875rem;
+        line-height: 1.5;
+        margin-bottom: 0.5rem;
+    }
+
+    .notification-link {
+        color: var(--color-primary);
+        text-decoration: none;
+        font-size: 0.875rem;
+    }
+
+    .notification-link:hover {
+        text-decoration: underline;
+    }
+
+    .notification-actions {
+        display: flex;
+        gap: 0.25rem;
+        opacity: 0;
+        transition: opacity var(--transition-base);
+    }
+
+    .notification-item:hover .notification-actions {
+        opacity: 1;
+    }
+
+    .mark-read-btn,
+    .delete-notification-btn {
+        padding: 0.25rem;
+        border-radius: var(--radius-md);
+        color: var(--color-text-tertiary);
+        transition: all var(--transition-base);
+    }
+
+    .mark-read-btn:hover {
+        background: var(--color-success);
+        color: white;
+    }
+
+    .delete-notification-btn:hover {
+        background: var(--color-danger);
+        color: white;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+    }
+
+    .empty-state i {
+        width: 3rem;
+        height: 3rem;
+        color: var(--color-text-tertiary);
+        margin-bottom: 1rem;
+    }
+
+    .empty-state h3 {
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-state p {
+        color: var(--color-text-secondary);
+    }
+
+    .pagination-container {
+        display: flex;
+        justify-content: center;
+        margin-top: 2rem;
+    }
+
+    .pagination {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .pagination-btn {
+        min-width: 2.5rem;
+        height: 2.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-md);
+        background: var(--color-bg-surface);
+        border: 1px solid var(--color-border);
+        color: var(--color-text-primary);
+        text-decoration: none;
+        transition: all var(--transition-base);
+    }
+
+    .pagination-btn:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .pagination-btn.active {
+        background: var(--color-primary);
+        color: white;
+        border-color: var(--color-primary);
+    }
+
+    @media (max-width: 768px) {
+        .notification-item {
+            padding: 1rem;
+        }
+
+        .notification-actions {
+            opacity: 1;
+        }
+
+        .notification-time {
+            margin-left: 0;
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Отметить как прочитанное
+        const markReadBtns = document.querySelectorAll('.mark-read-btn');
+        markReadBtns.forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const notificationId = this.dataset.notificationId;
+                const notificationItem = document.querySelector(`[data-notification-id="${notificationId}"]`);
+
+                try {
+                    const response = await fetch(`/accounts/notifications/${notificationId}/read/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken')
+                        }
+                    });
+
+                    if (response.ok) {
+                        notificationItem.classList.remove('unread');
+                        this.remove();
+
+                        updateUnreadCount();
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            });
+        });
+
+        // Отметить все прочитанными
+        const markAllRead = document.getElementById('markAllRead');
+        markAllRead?.addEventListener('click', async function() {
+            try {
+                const response = await fetch('/accounts/notifications/read-all/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+
+                if (response.ok) {
+                    document.querySelectorAll('.notification-item.unread').forEach(item => {
+                        item.classList.remove('unread');
+                    });
+
+                    document.querySelectorAll('.mark-read-btn').forEach(btn => btn.remove());
+                    updateUnreadCount();
+
+                    showToast({
+                        type: 'success',
+                        message: 'Все уведомления отмечены прочитанными'
+                    });
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        });
+
+        // Удалить уведомление
+        const deleteBtns = document.querySelectorAll('.delete-notification-btn');
+        deleteBtns.forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const notificationId = this.dataset.notificationId;
+                const notificationItem = document.querySelector(`[data-notification-id="${notificationId}"]`);
+
+                if (confirm('Удалить уведомление?')) {
+                    try {
+                        // Здесь должен быть URL для удаления
+                        notificationItem.style.transition = 'opacity 0.3s ease';
+                        notificationItem.style.opacity = '0';
+                        setTimeout(() => notificationItem.remove(), 300);
+
+                        showToast({
+                            type: 'success',
+                            message: 'Уведомление удалено'
+                        });
+                    } catch (error) {
+                        console.error('Error:', error);
+                    }
+                }
+            });
+        });
+
+        // Табы
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                tabBtns.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+
+                const tab = this.dataset.tab;
+                filterNotifications(tab);
+            });
+        });
+
+        function filterNotifications(type) {
+            const items = document.querySelectorAll('.notification-item');
+
+            items.forEach(item => {
+                if (type === 'all') {
+                    item.style.display = '';
+                } else if (type === 'unread') {
+                    item.style.display = item.classList.contains('unread') ? '' : 'none';
+                }
+            });
+        }
+
+        function updateUnreadCount() {
+            const unreadItems = document.querySelectorAll('.notification-item.unread');
+            const badge = document.querySelector('[data-tab="unread"] .badge');
+            if (badge) {
+                badge.textContent = unreadItems.length;
+            }
+        }
+    });
+</script>
 {% endblock %}

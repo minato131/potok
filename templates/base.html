@@ -12,6 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    <script src="{% static 'js/image-upload.js' %}"></script>
 
     <!-- Основные стили -->
     <link rel="stylesheet" href="{% static 'css/reset.css' %}">
@@ -220,7 +221,151 @@
                 }, 5000);
             });
         });
+     // В base.html или в отдельный файл
+function initInstantSearch() {
+    const searchInputs = document.querySelectorAll('.search-input, .search-input-large');
+
+    searchInputs.forEach(input => {
+        let searchTimeout;
+        let resultsContainer;
+
+        // Создаем контейнер для результатов
+        const container = document.createElement('div');
+        container.className = 'instant-search-results';
+        container.style.cssText = `
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--color-bg-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            margin-top: 4px;
+            box-shadow: var(--shadow-lg);
+        `;
+        input.parentNode.style.position = 'relative';
+        input.parentNode.appendChild(container);
+        resultsContainer = container;
+
+        input.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const query = this.value.trim();
+
+            if (query.length < 2) {
+                resultsContainer.style.display = 'none';
+                return;
+            }
+
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(`/search/ajax/?q=${encodeURIComponent(query)}&type=all`);
+                    const data = await response.json();
+
+                    if (data.results && data.results.length > 0) {
+                        resultsContainer.innerHTML = data.results.map(result => `
+                            <a href="${result.url}" class="instant-search-item">
+                                <div class="search-item-avatar">
+                                    ${result.avatar ?
+                                        `<img src="${result.avatar}" alt="${result.name || result.username}">` :
+                                        `<div class="avatar-placeholder">${(result.name || result.username).charAt(0).toUpperCase()}</div>`
+                                    }
+                                </div>
+                                <div class="search-item-info">
+                                    <div class="search-item-name">${result.name || result.full_name}</div>
+                                    <div class="search-item-meta">${result.type}</div>
+                                </div>
+                            </a>
+                        `).join('');
+                        resultsContainer.style.display = 'block';
+                    } else {
+                        resultsContainer.innerHTML = '<div class="no-results">Ничего не найдено</div>';
+                        resultsContainer.style.display = 'block';
+                    }
+                } catch (error) {
+                    console.error('Search error:', error);
+                }
+            }, 300);
+        });
+
+        // Скрываем результаты при клике вне
+        document.addEventListener('click', (e) => {
+            if (!input.contains(e.target) && !resultsContainer.contains(e.target)) {
+                resultsContainer.style.display = 'none';
+            }
+        });
+
+        // Показываем при фокусе если есть текст
+        input.addEventListener('focus', function() {
+            if (this.value.trim().length >= 2) {
+                resultsContainer.style.display = 'block';
+            }
+        });
+    });
+}
+
+// Стили для мгновенного поиска
+const style = document.createElement('style');
+style.textContent = `
+    .instant-search-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        text-decoration: none;
+        color: inherit;
+        transition: background 0.2s;
+    }
+    .instant-search-item:hover {
+        background: var(--color-bg-elevated);
+    }
+    .search-item-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+    .search-item-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .search-item-avatar .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+        font-weight: 600;
+    }
+    .search-item-info {
+        flex: 1;
+    }
+    .search-item-name {
+        font-weight: 500;
+    }
+    .search-item-meta {
+        font-size: 12px;
+        color: var(--color-text-tertiary);
+    }
+    .no-results {
+        padding: 16px;
+        text-align: center;
+        color: var(--color-text-tertiary);
+    }
+`;
+document.head.appendChild(style);
+
+// Инициализация при загрузке
+document.addEventListener('DOMContentLoaded', initInstantSearch);
     </script>
     {% block extra_js %}{% endblock %}
+
 </body>
 </html>

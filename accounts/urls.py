@@ -36,4 +36,6 @@ urlpatterns = [
     # URL-ы для подтверждения email
     path('verify-email/', views.verify_email, name='verify_email'),
     path('resend-code/', views.resend_code, name='resend_code'),
+
+    path('profile/delete/', views.delete_account, name='delete_account'),
 ]

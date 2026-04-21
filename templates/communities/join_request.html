@@ -1,48 +1,790 @@
+<!-- templates/communities/join_requests.html -->
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Заявка на вступление - {{ community.name }}{% endblock %}
+{% block title %}Заявки на вступление · {{ community.name }} · Поток{% endblock %}
+{% block page_title %}Заявки на вступление{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'communities:community_detail' slug=community.slug %}" class="btn btn--outline">
+    <i data-feather="arrow-left"></i>
+    <span>К сообществу</span>
+</a>
+{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h4>
-                    <i class="bi bi-envelope"></i> 
-                    Заявка на вступление в "{{ community.name }}"
-                </h4>
+<div class="join-requests-container">
+    <!-- Информация о сообществе -->
+    <div class="community-header">
+        <div class="community-info">
+            <div class="community-avatar">
+                {% if community.avatar %}
+                <img src="{{ community.avatar.url }}" alt="{{ community.name }}">
+                {% else %}
+                <div class="avatar-placeholder">{{ community.name|make_list|first|upper }}</div>
+                {% endif %}
             </div>
-            <div class="card-body">
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle"></i> 
-                    Это закрытое сообщество. Отправьте заявку, и модераторы рассмотрят её.
-                </div>
-                
-                <form method="post">
-                    {% csrf_token %}
-                    
-                    <div class="mb-3">
-                        <label for="{{ form.message.id_for_label }}" class="form-label">
-                            {{ form.message.label }}
-                        </label>
-                        {{ form.message }}
-                        {% if form.message.help_text %}
-                            <small class="form-text text-muted">{{ form.message.help_text }}</small>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="d-flex justify-content-between">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-send"></i> Отправить заявку
-                        </button>
-                        <a href="{% url 'communities:community_detail' community.slug %}" 
-                           class="btn btn-secondary">
-                            <i class="bi bi-x-lg"></i> Отмена
-                        </a>
-                    </div>
-                </form>
+            <div>
+                <h2>c/{{ community.name }}</h2>
+                <p>{{ pending_requests.count }} заявок ожидают рассмотрения</p>
             </div>
         </div>
     </div>
+
+    <!-- Фильтры -->
+    <div class="filters-bar">
+        <div class="search-wrapper">
+            <i data-feather="search"></i>
+            <input type="text" id="requestSearch" placeholder="Поиск по имени..." class="search-input">
+        </div>
+
+        <div class="filter-tabs">
+            <button class="filter-btn active" data-filter="all">Все</button>
+            <button class="filter-btn" data-filter="new">Новые</button>
+            <button class="filter-btn" data-filter="old">Старые</button>
+        </div>
+    </div>
+
+    <!-- Список заявок -->
+    <div class="requests-list" id="requestsList">
+        {% for request in pending_requests %}
+        <div class="request-card"
+             data-request-id="{{ request.id }}"
+             data-username="{{ request.user.username }}"
+             data-date="{{ request.created_at|date:'Y-m-d' }}">
+
+            <div class="request-main">
+                <div class="requester-avatar">
+                    <a href="{% url 'accounts:profile_by_username' username=request.user.username %}" target="_blank">
+                        {% if request.user.profile.avatar %}
+                        <img src="{{ request.user.profile.avatar.url }}" alt="{{ request.user.username }}">
+                        {% else %}
+                        <div class="avatar-placeholder">{{ request.user.username|make_list|first|upper }}</div>
+                        {% endif %}
+                    </a>
+                </div>
+
+                <div class="requester-info">
+                    <div class="requester-header">
+                        <a href="{% url 'accounts:profile_by_username' username=request.user.username %}" class="requester-name" target="_blank">
+                            {{ request.user.get_full_name|default:request.user.username }}
+                            <i data-feather="external-link" class="external-icon"></i>
+                        </a>
+                        <span class="requester-username">@{{ request.user.username }}</span>
+                    </div>
+
+                    {% if request.user.profile.bio %}
+                    <p class="requester-bio">{{ request.user.profile.bio|truncatewords:15 }}</p>
+                    {% endif %}
+
+                    <div class="requester-meta">
+                        <span class="meta-item">
+                            <i data-feather="calendar"></i>
+                            На сайте с {{ request.user.date_joined|date:"M Y" }}
+                        </span>
+                        <span class="meta-item">
+                            <i data-feather="users"></i>
+                            {{ request.user.profile.followers.count }} подписчиков
+                        </span>
+                        <span class="meta-item">
+                            <i data-feather="file-text"></i>
+                            {{ request.user.posts.count }} постов
+                        </span>
+                    </div>
+
+                    {% if request.message %}
+                    <div class="request-message">
+                        <i data-feather="message-square"></i>
+                        <p>{{ request.message }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="request-footer">
+                <span class="request-date">
+                    <i data-feather="clock"></i>
+                    Заявка отправлена {{ request.created_at|timesince }} назад
+                </span>
+
+                <div class="request-actions">
+                    <button class="btn btn--outline btn--sm view-profile-btn"
+                            onclick="window.open('{% url 'accounts:profile_by_username' username=request.user.username %}', '_blank')">
+                        <i data-feather="user"></i>
+                        Профиль
+                    </button>
+                    <button class="btn btn--danger btn--sm reject-btn" data-request-id="{{ request.id }}">
+                        <i data-feather="x"></i>
+                        Отклонить
+                    </button>
+                    <button class="btn btn--success btn--sm approve-btn" data-request-id="{{ request.id }}">
+                        <i data-feather="check"></i>
+                        Одобрить
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-state">
+            <i data-feather="inbox"></i>
+            <h3>Нет заявок на вступление</h3>
+            <p>Когда кто-то захочет вступить в сообщество, заявки появятся здесь</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Пагинация -->
+    {% if is_paginated %}
+    <div class="pagination-container">
+        <div class="pagination">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" class="pagination-btn">
+                <i data-feather="chevron-left"></i>
+            </a>
+            {% endif %}
+
+            <span class="pagination-info">
+                {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}
+            </span>
+
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="pagination-btn">
+                <i data-feather="chevron-right"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 </div>
+
+<!-- Модальное окно отклонения -->
+<div class="modal-overlay" id="rejectModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Отклонить заявку</h3>
+            <button class="modal-close" id="closeRejectModal">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p>Укажите причину отклонения (пользователь увидит это сообщение)</p>
+            <textarea id="rejectReason" class="form-textarea"
+                      placeholder="Например: &quot;К сожалению, ваша заявка не соответствует требованиям сообщества&quot;"
+                      rows="4"></textarea>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn--outline" id="cancelReject">Отмена</button>
+            <button class="btn btn--danger" id="confirmReject">Отклонить заявку</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .join-requests-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .community-header {
+        margin-bottom: 1.5rem;
+    }
+
+    .community-info {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .community-avatar {
+        width: 3.5rem;
+        height: 3.5rem;
+        border-radius: var(--radius-md);
+        overflow: hidden;
+    }
+
+    .community-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+        font-weight: 600;
+        font-size: 1.5rem;
+    }
+
+    .community-info h2 {
+        font-size: 1.25rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .community-info p {
+        color: var(--color-text-tertiary);
+        font-size: 0.875rem;
+    }
+
+    .filters-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .search-wrapper {
+        position: relative;
+        flex: 1;
+        max-width: 300px;
+    }
+
+    .search-wrapper i {
+        position: absolute;
+        left: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--color-text-tertiary);
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 0.625rem 0.75rem 0.625rem 2.25rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        font-size: 0.875rem;
+    }
+
+    .filter-tabs {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .filter-btn {
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius-full);
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--color-text-secondary);
+        background: var(--color-bg-surface);
+        border: 1px solid var(--color-border);
+        transition: all var(--transition-base);
+    }
+
+    .filter-btn:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .filter-btn.active {
+        background: var(--color-primary);
+        color: white;
+        border-color: var(--color-primary);
+    }
+
+    .requests-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .request-card {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem;
+        border: 1px solid var(--color-border-light);
+        transition: all var(--transition-base);
+    }
+
+    .request-card:hover {
+        box-shadow: var(--shadow-md);
+    }
+
+    .request-main {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .requester-avatar {
+        width: 3.5rem;
+        height: 3.5rem;
+        border-radius: 50%;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .requester-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .requester-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .requester-header {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .requester-name {
+        font-weight: 600;
+        color: var(--color-text-primary);
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .requester-name:hover {
+        color: var(--color-primary);
+    }
+
+    .external-icon {
+        width: 0.875rem;
+        height: 0.875rem;
+        opacity: 0.5;
+    }
+
+    .requester-username {
+        font-size: 0.875rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .requester-bio {
+        font-size: 0.875rem;
+        color: var(--color-text-secondary);
+        margin-bottom: 0.5rem;
+        line-height: 1.5;
+    }
+
+    .requester-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .meta-item i {
+        width: 0.875rem;
+        height: 0.875rem;
+    }
+
+    .request-message {
+        display: flex;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-md);
+        margin-top: 0.5rem;
+    }
+
+    .request-message i {
+        color: var(--color-primary);
+        flex-shrink: 0;
+    }
+
+    .request-message p {
+        font-size: 0.875rem;
+        color: var(--color-text-secondary);
+        font-style: italic;
+        margin: 0;
+    }
+
+    .request-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-top: 1rem;
+        border-top: 1px solid var(--color-border-light);
+    }
+
+    .request-date {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .request-date i {
+        width: 0.875rem;
+        height: 0.875rem;
+    }
+
+    .request-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .btn--sm {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.8125rem;
+    }
+
+    .btn--success {
+        background: var(--color-success);
+        color: white;
+    }
+
+    .btn--success:hover {
+        background: #059669;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+    }
+
+    .empty-state i {
+        width: 3rem;
+        height: 3rem;
+        color: var(--color-text-tertiary);
+        margin-bottom: 1rem;
+    }
+
+    .empty-state h3 {
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-state p {
+        color: var(--color-text-secondary);
+    }
+
+    .pagination-container {
+        display: flex;
+        justify-content: center;
+        margin-top: 2rem;
+    }
+
+    .pagination {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .pagination-btn {
+        padding: 0.5rem;
+        border-radius: var(--radius-md);
+        background: var(--color-bg-surface);
+        border: 1px solid var(--color-border);
+        color: var(--color-text-primary);
+        text-decoration: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .pagination-btn:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .pagination-info {
+        font-size: 0.875rem;
+        color: var(--color-text-secondary);
+    }
+
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: all var(--transition-base);
+    }
+
+    .modal-overlay.active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .modal {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 1.5rem;
+        max-width: 500px;
+        width: 90%;
+        transform: scale(0.9);
+        transition: transform var(--transition-base);
+    }
+
+    .modal-overlay.active .modal {
+        transform: scale(1);
+    }
+
+    .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+    }
+
+    .modal-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+
+    .modal-close {
+        padding: 0.25rem;
+        border-radius: var(--radius-md);
+        color: var(--color-text-tertiary);
+    }
+
+    .form-textarea {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        resize: vertical;
+        font-family: inherit;
+    }
+
+    .modal-footer {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: flex-end;
+        margin-top: 1.5rem;
+    }
+
+    @media (max-width: 768px) {
+        .filters-bar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .search-wrapper {
+            max-width: none;
+        }
+
+        .filter-tabs {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .request-footer {
+            flex-direction: column;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .request-actions {
+            width: 100%;
+        }
+
+        .request-actions .btn {
+            flex: 1;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Поиск заявок
+        const searchInput = document.getElementById('requestSearch');
+        const requestCards = document.querySelectorAll('.request-card');
+
+        searchInput?.addEventListener('input', function() {
+            const query = this.value.toLowerCase();
+
+            requestCards.forEach(card => {
+                const username = card.dataset.username.toLowerCase();
+                const name = card.querySelector('.requester-name')?.textContent.toLowerCase() || '';
+                const bio = card.querySelector('.requester-bio')?.textContent.toLowerCase() || '';
+                const message = card.querySelector('.request-message p')?.textContent.toLowerCase() || '';
+
+                if (username.includes(query) || name.includes(query) ||
+                    bio.includes(query) || message.includes(query)) {
+                    card.style.display = '';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+
+        // Фильтры
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                filterBtns.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+
+                const filter = this.dataset.filter;
+                const now = new Date();
+
+                requestCards.forEach(card => {
+                    const dateStr = card.dataset.date;
+                    if (!dateStr) return;
+
+                    const cardDate = new Date(dateStr);
+                    const daysDiff = (now - cardDate) / (1000 * 60 * 60 * 24);
+
+                    if (filter === 'all') {
+                        card.style.display = '';
+                    } else if (filter === 'new') {
+                        card.style.display = daysDiff <= 7 ? '' : 'none';
+                    } else if (filter === 'old') {
+                        card.style.display = daysDiff > 7 ? '' : 'none';
+                    }
+                });
+            });
+        });
+
+        // Одобрение заявки
+        document.querySelectorAll('.approve-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const requestId = this.dataset.requestId;
+                const card = document.querySelector(`.request-card[data-request-id="${requestId}"]`);
+
+                try {
+                    const response = await fetch(`/communities/requests/${requestId}/approve/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken')
+                        }
+                    });
+
+                    if (response.ok) {
+                        card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                        card.style.opacity = '0';
+                        card.style.transform = 'translateX(20px)';
+
+                        setTimeout(() => {
+                            card.remove();
+
+                            // Проверяем, остались ли заявки
+                            const remainingCards = document.querySelectorAll('.request-card');
+                            if (remainingCards.length === 0) {
+                                location.reload();
+                            }
+                        }, 300);
+
+                        showToast({
+                            type: 'success',
+                            message: 'Заявка одобрена'
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showToast({
+                        type: 'error',
+                        message: 'Произошла ошибка'
+                    });
+                }
+            });
+        });
+
+        // Отклонение заявки
+        let currentRequestId = null;
+        const rejectModal = document.getElementById('rejectModal');
+        const closeRejectModal = document.getElementById('closeRejectModal');
+        const cancelReject = document.getElementById('cancelReject');
+        const confirmReject = document.getElementById('confirmReject');
+        const rejectReason = document.getElementById('rejectReason');
+
+        document.querySelectorAll('.reject-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                currentRequestId = this.dataset.requestId;
+                rejectModal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            });
+        });
+
+        const closeModal = () => {
+            rejectModal.classList.remove('active');
+            document.body.style.overflow = '';
+            currentRequestId = null;
+            rejectReason.value = '';
+        };
+
+        closeRejectModal?.addEventListener('click', closeModal);
+        cancelReject?.addEventListener('click', closeModal);
+        rejectModal.addEventListener('click', (e) => {
+            if (e.target === rejectModal) closeModal();
+        });
+
+        confirmReject?.addEventListener('click', async () => {
+            if (!currentRequestId) return;
+
+            const card = document.querySelector(`.request-card[data-request-id="${currentRequestId}"]`);
+
+            try {
+                const response = await fetch(`/communities/requests/${currentRequestId}/reject/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({ reason: rejectReason.value })
+                });
+
+                if (response.ok) {
+                    closeModal();
+
+                    card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                    card.style.opacity = '0';
+                    card.style.transform = 'translateX(-20px)';
+
+                    setTimeout(() => {
+                        card.remove();
+
+                        const remainingCards = document.querySelectorAll('.request-card');
+                        if (remainingCards.length === 0) {
+                            location.reload();
+                        }
+                    }, 300);
+
+                    showToast({
+                        type: 'info',
+                        message: 'Заявка отклонена'
+                    });
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast({
+                    type: 'error',
+                    message: 'Произошла ошибка'
+                });
+            }
+        });
+
+        // Закрытие по Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && rejectModal?.classList.contains('active')) {
+                closeModal();
+            }
+        });
+    });
+</script>
 {% endblock %}

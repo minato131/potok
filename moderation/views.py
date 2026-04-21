@@ -114,7 +114,7 @@ def moderation_panel(request):
         'active_bans': active_bans,
         'recent_actions': recent_actions,
     }
-    return render(request, 'moderation/panel.html', context)
+    return render(request, 'moderation/moderation_panel.html', context)
 
 
 @login_required
@@ -256,7 +256,7 @@ def ban_user(request, user_id):
     else:
         form = BanForm()
 
-    return render(request, 'moderation/ban_form.html', {
+    return render(request, 'moderation/ban_user.html', {
         'form': form,
         'user_to_ban': user_to_ban
     })

@@ -1,164 +1,611 @@
+<!-- templates/moderation/report_list.html -->
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Управление жалобами - Поток{% endblock %}
+{% block title %}Жалобы · Модерация · Поток{% endblock %}
+{% block page_title %}Жалобы{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2><i class="bi bi-flag"></i> Управление жалобами</h2>
-            <a href="{% url 'moderation:panel' %}" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left"></i> Назад
+<div class="reports-container">
+    <!-- Фильтры -->
+    <div class="filters-panel">
+        <div class="filter-tabs">
+            <a href="?status=all" class="filter-tab {% if current_status == 'all' %}active{% endif %}">
+                <i data-feather="list"></i>
+                <span>Все</span>
+                <span class="count">{{ total_count }}</span>
+            </a>
+            <a href="?status=pending" class="filter-tab {% if current_status == 'pending' %}active{% endif %}">
+                <i data-feather="clock"></i>
+                <span>На рассмотрении</span>
+                <span class="count">{{ pending_count }}</span>
+            </a>
+            <a href="?status=resolved" class="filter-tab {% if current_status == 'resolved' %}active{% endif %}">
+                <i data-feather="check-circle"></i>
+                <span>Решенные</span>
+                <span class="count">{{ resolved_count }}</span>
+            </a>
+            <a href="?status=dismissed" class="filter-tab {% if current_status == 'dismissed' %}active{% endif %}">
+                <i data-feather="x-circle"></i>
+                <span>Отклоненные</span>
+                <span class="count">{{ dismissed_count }}</span>
             </a>
         </div>
 
-        <!-- Фильтры -->
-        <div class="card mb-4">
-            <div class="card-body">
-                <form method="get" class="row g-3">
-                    <div class="col-md-3">
-                        <label class="form-label">Статус</label>
-                        <select name="status" class="form-control">
-                            <option value="">Все</option>
-                            <option value="pending" {% if status == 'pending' %}selected{% endif %}>Ожидает</option>
-                            <option value="approved" {% if status == 'approved' %}selected{% endif %}>Одобрено</option>
-                            <option value="rejected" {% if status == 'rejected' %}selected{% endif %}>Отклонено</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Тип жалобы</label>
-                        <select name="type" class="form-control">
-                            <option value="">Все</option>
-                            <option value="spam" {% if report_type == 'spam' %}selected{% endif %}>Спам</option>
-                            <option value="abuse" {% if report_type == 'abuse' %}selected{% endif %}>Оскорбления</option>
-                            <option value="illegal" {% if report_type == 'illegal' %}selected{% endif %}>Незаконное</option>
-                            <option value="adult" {% if report_type == 'adult' %}selected{% endif %}>18+</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Поиск</label>
-                        <input type="text" name="q" class="form-control" value="{{ query }}" placeholder="Поиск...">
-                    </div>
-                    <div class="col-md-2 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary w-100">
-                            <i class="bi bi-funnel"></i> Применить
-                        </button>
-                    </div>
-                </form>
-            </div>
+        <div class="filter-options">
+            <select class="filter-select" id="typeFilter">
+                <option value="all">Все типы</option>
+                <option value="post" {% if current_type == 'post' %}selected{% endif %}>Посты</option>
+                <option value="comment" {% if current_type == 'comment' %}selected{% endif %}>Комментарии</option>
+                <option value="user" {% if current_type == 'user' %}selected{% endif %}>Пользователи</option>
+            </select>
+
+            <select class="filter-select" id="sortFilter">
+                <option value="newest" {% if current_sort == 'newest' %}selected{% endif %}>Сначала новые</option>
+                <option value="oldest" {% if current_sort == 'oldest' %}selected{% endif %}>Сначала старые</option>
+                <option value="most_reported" {% if current_sort == 'most_reported' %}selected{% endif %}>Больше всего жалоб</option>
+            </select>
         </div>
+    </div>
 
-        <!-- Список жалоб -->
-        <div class="card">
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Тип</th>
-                                <th>Объект</th>
-                                <th>Жалобщик</th>
-                                <th>Статус</th>
-                                <th>Дата</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for report in page_obj %}
-                                <tr>
-                                    <td>#{{ report.id }}</td>
-                                    <td>
-                                        <span class="badge bg-secondary">{{ report.get_report_type_display }}</span>
-                                    </td>
-                                    <td>
-                                        {% if report.content_object %}
-                                            {% if report.content_type.model == 'post' %}
-                                                <a href="{% url 'posts:post_detail' report.object_id %}">
-                                                    Пост #{{ report.object_id }}
-                                                </a>
-                                            {% elif report.content_type.model == 'comment' %}
-                                                <a href="{% url 'posts:post_detail' report.content_object.post.id %}#comment-{{ report.object_id }}">
-                                                    Комментарий
-                                                </a>
-                                            {% elif report.content_type.model == 'user' %}
-                                                <a href="{% url 'accounts:profile_by_username' report.content_object.username %}">
-                                                    {{ report.content_object.username }}
-                                                </a>
-                                            {% else %}
-                                                {{ report.content_object }}
-                                            {% endif %}
-                                        {% else %}
-                                            <span class="text-danger">Удален</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <a href="{% url 'accounts:profile_by_username' report.reporter.username %}">
-                                            {{ report.reporter.username }}
-                                        </a>
-                                    </td>
-                                    <td>
-                                        {% if report.status == 'pending' %}
-                                            <span class="badge bg-warning">Ожидает</span>
-                                        {% elif report.status == 'approved' %}
-                                            <span class="badge bg-success">Одобрено</span>
-                                        {% else %}
-                                            <span class="badge bg-secondary">Отклонено</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ report.created_at|date:"d.m.Y H:i" }}</td>
-                                    <td>
-                                        <a href="{% url 'moderation:report_detail' report.id %}" 
-                                           class="btn btn-sm btn-outline-primary">
-                                            <i class="bi bi-eye"></i>
-                                        </a>
-                                    </td>
-                                </tr>
-                            {% empty %}
-                                <tr>
-                                    <td colspan="7" class="text-center">Нет жалоб</td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+    <!-- Список жалоб -->
+    <div class="reports-list">
+        {% for report in reports %}
+        <div class="report-card" data-report-id="{{ report.id }}">
+            <div class="report-header">
+                <div class="report-type">
+                    <span class="type-icon type-icon--{{ report.content_type }}">
+                        {% if report.content_type == 'post' %}
+                        <i data-feather="file-text"></i>
+                        {% elif report.content_type == 'comment' %}
+                        <i data-feather="message-circle"></i>
+                        {% else %}
+                        <i data-feather="user"></i>
+                        {% endif %}
+                    </span>
+                    <span class="type-label">
+                        {% if report.content_type == 'post' %}
+                        Жалоба на пост
+                        {% elif report.content_type == 'comment' %}
+                        Жалоба на комментарий
+                        {% else %}
+                        Жалоба на пользователя
+                        {% endif %}
+                    </span>
                 </div>
+                <div class="report-meta">
+                    <span class="report-status status--{{ report.status }}">
+                        {% if report.status == 'pending' %}
+                        На рассмотрении
+                        {% elif report.status == 'resolved' %}
+                        Решено
+                        {% else %}
+                        Отклонено
+                        {% endif %}
+                    </span>
+                    <span class="report-count">
+                        <i data-feather="flag"></i>
+                        {{ report.total_reports }} жалоб
+                    </span>
+                </div>
+            </div>
 
-                <!-- Пагинация -->
-                {% if page_obj.has_other_pages %}
-                    <nav aria-label="Page navigation" class="mt-4">
-                        <ul class="pagination justify-content-center">
-                            {% if page_obj.has_previous %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page=1{% if status %}&status={{ status }}{% endif %}{% if report_type %}&type={{ report_type }}{% endif %}{% if query %}&q={{ query }}{% endif %}">
-                                        <i class="bi bi-chevron-double-left"></i>
-                                    </a>
-                                </li>
-                            {% endif %}
+            <div class="report-content">
+                <div class="content-preview">
+                    <a href="{{ report.content_url }}" target="_blank" class="content-link">
+                        {{ report.content_preview }}
+                    </a>
+                    <div class="content-meta">
+                        <span>Автор:
+                            <a href="{% url 'moderation:user_detail' user_id=report.content_author.id %}">
+                                @{{ report.content_author.username }}
+                            </a>
+                        </span>
+                        <span>{{ report.content_created_at|timesince }} назад</span>
+                    </div>
+                </div>
+            </div>
 
-                            {% for num in page_obj.paginator.page_range %}
-                                {% if page_obj.number == num %}
-                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                                    <li class="page-item">
-                                        <a class="page-link" href="?page={{ num }}{% if status %}&status={{ status }}{% endif %}{% if report_type %}&type={{ report_type }}{% endif %}{% if query %}&q={{ query }}{% endif %}">
-                                            {{ num }}
-                                        </a>
-                                    </li>
-                                {% endif %}
-                            {% endfor %}
+            <div class="report-reasons">
+                <h4>Причины жалоб:</h4>
+                <div class="reasons-list">
+                    {% for reason in report.reasons %}
+                    <div class="reason-item">
+                        <span class="reason-type">{{ reason.get_reason_type_display }}</span>
+                        {% if reason.description %}
+                        <p class="reason-description">{{ reason.description }}</p>
+                        {% endif %}
+                        <span class="reason-meta">
+                            от <a href="{% url 'moderation:user_detail' user_id=reason.reporter.id %}">@{{ reason.reporter.username }}</a>
+                            {{ reason.created_at|timesince }} назад
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
 
-                            {% if page_obj.has_next %}
-                                <li class="page-item">
-                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if status %}&status={{ status }}{% endif %}{% if report_type %}&type={{ report_type }}{% endif %}{% if query %}&q={{ query }}{% endif %}">
-                                        <i class="bi bi-chevron-double-right"></i>
-                                    </a>
-                                </li>
-                            {% endif %}
-                        </ul>
-                    </nav>
+            <div class="report-actions">
+                <a href="{% url 'moderation:report_detail' report_id=report.id %}" class="btn btn--outline">
+                    <i data-feather="eye"></i>
+                    Подробнее
+                </a>
+
+                {% if report.status == 'pending' %}
+                <button class="btn btn--success resolve-report" data-report-id="{{ report.id }}">
+                    <i data-feather="check"></i>
+                    Решить
+                </button>
+                <button class="btn btn--danger dismiss-report" data-report-id="{{ report.id }}">
+                    <i data-feather="x"></i>
+                    Отклонить
+                </button>
                 {% endif %}
             </div>
         </div>
+        {% empty %}
+        <div class="empty-state">
+            <i data-feather="check-circle"></i>
+            <h3>Нет жалоб</h3>
+            <p>Все жалобы обработаны</p>
+        </div>
+        {% endfor %}
     </div>
+
+    <!-- Пагинация -->
+    {% if is_paginated %}
+    <div class="pagination-wrapper">
+        <div class="pagination">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&status={{ current_status }}&type={{ current_type }}&sort={{ current_sort }}"
+               class="pagination-btn">
+                <i data-feather="chevron-left"></i>
+            </a>
+            {% endif %}
+
+            <div class="pagination-pages">
+                {% for num in page_obj.paginator.page_range %}
+                    {% if num == page_obj.number %}
+                    <span class="pagination-btn active">{{ num }}</span>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <a href="?page={{ num }}&status={{ current_status }}&type={{ current_type }}&sort={{ current_sort }}"
+                       class="pagination-btn">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&status={{ current_status }}&type={{ current_type }}&sort={{ current_sort }}"
+               class="pagination-btn">
+                <i data-feather="chevron-right"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .reports-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    .filters-panel {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 1.25rem;
+        border: 1px solid var(--color-border-light);
+        margin-bottom: 1.5rem;
+    }
+
+    .filter-tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .filter-tab {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius-md);
+        color: var(--color-text-secondary);
+        text-decoration: none;
+        transition: all var(--transition-base);
+    }
+
+    .filter-tab:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .filter-tab.active {
+        background: var(--color-primary);
+        color: white;
+    }
+
+    .filter-tab .count {
+        background: rgba(0, 0, 0, 0.1);
+        padding: 0.125rem 0.375rem;
+        border-radius: var(--radius-full);
+        font-size: 0.75rem;
+    }
+
+    .filter-tab.active .count {
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+    .filter-options {
+        display: flex;
+        gap: 1rem;
+    }
+
+    .filter-select {
+        padding: 0.5rem 1rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        background: var(--color-bg-surface);
+        font-size: 0.875rem;
+    }
+
+    .reports-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .report-card {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 1.5rem;
+        border: 1px solid var(--color-border-light);
+    }
+
+    .report-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.25rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .report-type {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .type-icon {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .type-icon--post {
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+    }
+
+    .type-icon--comment {
+        background: #d1fae5;
+        color: var(--color-success);
+    }
+
+    .type-icon--user {
+        background: #fef3c7;
+        color: var(--color-warning);
+    }
+
+    .type-label {
+        font-weight: 600;
+    }
+
+    .report-meta {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .report-status {
+        padding: 0.25rem 0.5rem;
+        border-radius: var(--radius-md);
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .status--pending {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .status--resolved {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .status--dismissed {
+        background: var(--color-bg-elevated);
+        color: var(--color-text-tertiary);
+    }
+
+    .report-count {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.875rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .report-content {
+        margin-bottom: 1.25rem;
+        padding-bottom: 1.25rem;
+        border-bottom: 1px solid var(--color-border-light);
+    }
+
+    .content-preview {
+        background: var(--color-bg-elevated);
+        padding: 1rem;
+        border-radius: var(--radius-md);
+    }
+
+    .content-link {
+        display: block;
+        color: var(--color-text-primary);
+        text-decoration: none;
+        margin-bottom: 0.5rem;
+    }
+
+    .content-link:hover {
+        color: var(--color-primary);
+    }
+
+    .content-meta {
+        display: flex;
+        gap: 1rem;
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .content-meta a {
+        color: var(--color-text-secondary);
+        text-decoration: none;
+    }
+
+    .content-meta a:hover {
+        color: var(--color-primary);
+    }
+
+    .report-reasons h4 {
+        font-size: 0.9375rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .reasons-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .reason-item {
+        padding: 0.75rem;
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-md);
+    }
+
+    .reason-type {
+        display: inline-block;
+        padding: 0.125rem 0.5rem;
+        background: var(--color-danger);
+        color: white;
+        border-radius: var(--radius-sm);
+        font-size: 0.75rem;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+    }
+
+    .reason-description {
+        color: var(--color-text-secondary);
+        font-size: 0.875rem;
+        margin-bottom: 0.5rem;
+        line-height: 1.5;
+    }
+
+    .reason-meta {
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .reason-meta a {
+        color: var(--color-text-secondary);
+        text-decoration: none;
+    }
+
+    .reason-meta a:hover {
+        color: var(--color-primary);
+    }
+
+    .report-actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1.25rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--color-border-light);
+    }
+
+    .btn--success {
+        background: var(--color-success);
+        color: white;
+    }
+
+    .btn--success:hover {
+        background: #059669;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+    }
+
+    .empty-state i {
+        width: 3rem;
+        height: 3rem;
+        color: var(--color-text-tertiary);
+        margin-bottom: 1rem;
+    }
+
+    .empty-state h3 {
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-state p {
+        color: var(--color-text-secondary);
+    }
+
+    .pagination-wrapper {
+        display: flex;
+        justify-content: center;
+        margin-top: 2rem;
+    }
+
+    .pagination {
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    .pagination-btn {
+        min-width: 2.25rem;
+        height: 2.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-md);
+        background: var(--color-bg-surface);
+        border: 1px solid var(--color-border);
+        color: var(--color-text-primary);
+        text-decoration: none;
+        font-size: 0.875rem;
+    }
+
+    .pagination-btn:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .pagination-btn.active {
+        background: var(--color-primary);
+        color: white;
+        border-color: var(--color-primary);
+    }
+
+    @media (max-width: 768px) {
+        .filter-options {
+            flex-direction: column;
+        }
+
+        .report-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .report-actions {
+            flex-wrap: wrap;
+        }
+
+        .report-actions .btn {
+            flex: 1;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Фильтры
+        const typeFilter = document.getElementById('typeFilter');
+        const sortFilter = document.getElementById('sortFilter');
+
+        function updateFilters() {
+            const url = new URL(window.location);
+            if (typeFilter) url.searchParams.set('type', typeFilter.value);
+            if (sortFilter) url.searchParams.set('sort', sortFilter.value);
+            window.location = url;
+        }
+
+        typeFilter?.addEventListener('change', updateFilters);
+        sortFilter?.addEventListener('change', updateFilters);
+
+        // Решение жалобы
+        document.querySelectorAll('.resolve-report').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const reportId = this.dataset.reportId;
+                const card = this.closest('.report-card');
+
+                if (confirm('Отметить жалобу как решенную?')) {
+                    try {
+                        const response = await fetch(`/moderation/report/${reportId}/resolve/`, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': getCookie('csrftoken')
+                            }
+                        });
+
+                        if (response.ok) {
+                            card.style.transition = 'opacity 0.3s ease';
+                            card.style.opacity = '0';
+                            setTimeout(() => card.remove(), 300);
+
+                            showToast({
+                                type: 'success',
+                                message: 'Жалоба решена'
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                    }
+                }
+            });
+        });
+
+        // Отклонение жалобы
+        document.querySelectorAll('.dismiss-report').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const reportId = this.dataset.reportId;
+                const card = this.closest('.report-card');
+
+                if (confirm('Отклонить жалобу?')) {
+                    try {
+                        const response = await fetch(`/moderation/report/${reportId}/dismiss/`, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': getCookie('csrftoken')
+                            }
+                        });
+
+                        if (response.ok) {
+                            card.style.transition = 'opacity 0.3s ease';
+                            card.style.opacity = '0';
+                            setTimeout(() => card.remove(), 300);
+
+                            showToast({
+                                type: 'info',
+                                message: 'Жалоба отклонена'
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                    }
+                }
+            });
+        });
+    });
+</script>
 {% endblock %}

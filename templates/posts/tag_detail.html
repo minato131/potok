@@ -1,132 +1,558 @@
+<!-- templates/posts/tag_detail.html -->
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}#{{ tag.name }} - Поток{% endblock %}
+{% block title %}#{{ tag.name }} · Теги · Поток{% endblock %}
+{% block page_title %}
+    <span class="tag-title-large" style="color: {{ tag.color|default:'var(--color-primary)' }};">
+        <i data-feather="tag"></i>
+        #{{ tag.name }}
+    </span>
+{% endblock %}
+
+{% block header_actions %}
+<div class="tag-header-actions">
+    {% if user.is_authenticated %}
+    <button class="btn btn--outline follow-tag-btn" data-tag-slug="{{ tag.slug }}">
+        <i data-feather="{% if is_following %}bell-off{% else %}bell{% endif %}"></i>
+        <span>{% if is_following %}Отписаться{% else %}Подписаться{% endif %}</span>
+    </button>
+    {% endif %}
+
+    {% if user.is_staff %}
+    <a href="{% url 'posts:tag_edit' slug=tag.slug %}" class="btn btn--outline">
+        <i data-feather="edit"></i>
+        <span>Редактировать</span>
+    </a>
+    {% endif %}
+
+    <a href="{% url 'posts:tag_list' %}" class="btn btn--outline">
+        <i data-feather="list"></i>
+        <span>Все теги</span>
+    </a>
+</div>
+{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="card mb-4">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h2>
-                            <i class="bi bi-tag"></i> #{{ tag.name }}
-                        </h2>
-
-                        <!-- Информация о создателе тега -->
-                        {% if tag.created_by %}
-                            <small class="text-muted d-block mt-2">
-                                Создатель:
-                                <a href="{% url 'accounts:profile_by_username' tag.created_by.username %}">
-                                    {{ tag.created_by.username }}
-                                </a>
-                            </small>
-                        {% endif %}
-
-                        <p class="text-muted mt-2">
-                            Тег создан {{ tag.created_at|date:"d.m.Y" }}
-                        </p>
-                    </div>
-
-                    <div>
-                        <span class="badge bg-primary fs-6">
-                            {{ posts_count }} постов
-                        </span>
-
-                        {% if user == tag.created_by or user.is_staff %}
-                            <div class="mt-2">
-                                <a href="{% url 'posts:tag_edit' tag.slug %}" class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-pencil"></i> Редактировать
-                                </a>
-                                <a href="{% url 'posts:tag_delete' tag.slug %}" class="btn btn-sm btn-outline-danger">
-                                    <i class="bi bi-trash"></i> Удалить
-                                </a>
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
+<div class="tag-detail-container">
+    <!-- Информация о теге -->
+    <div class="tag-info-card">
+        <div class="tag-icon-large" style="background: {{ tag.color|default:'var(--color-primary-light)' }}20;">
+            <i data-feather="tag" style="color: {{ tag.color|default:'var(--color-primary)' }};"></i>
+        </div>
+        <div class="tag-details">
+            <h2 style="color: {{ tag.color|default:'var(--color-primary)' }};">#{{ tag.name }}</h2>
+            {% if tag.description %}
+            <p class="tag-description-full">{{ tag.description }}</p>
+            {% endif %}
+            <div class="tag-meta">
+                <span class="meta-item">
+                    <i data-feather="file-text"></i>
+                    {{ posts_count }} постов
+                </span>
+                <span class="meta-item">
+                    <i data-feather="users"></i>
+                    {{ followers_count }} подписчиков
+                </span>
             </div>
         </div>
-
-        <!-- Посты с этим тегом -->
-        <div class="row">
-            {% for post in page_obj %}
-                <div class="col-md-6 mb-3">
-                    <div class="card post-card h-100">
-                        <div class="card-body">
-                            <h5 class="card-title">
-                                <a href="{% url 'posts:post_detail' post.pk %}" class="text-decoration-none">
-                                    {{ post.title }}
-                                </a>
-                            </h5>
-                            
-                            <div class="d-flex align-items-center mb-2">
-                                <a href="{% url 'accounts:profile_by_username' post.author.username %}">
-                                    {% if post.author.avatar %}
-                                        <img src="{{ post.author.avatar.url }}" class="comment-avatar" alt="avatar">
-                                    {% else %}
-                                        <div class="comment-avatar bg-secondary text-white d-flex align-items-center justify-content-center">
-                                            {{ post.author.username|first|upper }}
-                                        </div>
-                                    {% endif %}
-                                </a>
-                                <div class="ms-2">
-                                    <small class="text-muted">
-                                        {{ post.author.get_full_name|default:post.author.username }} • 
-                                        {{ post.created_at|date:"d.m.Y" }}
-                                    </small>
-                                </div>
-                            </div>
-                            
-                            <p class="card-text">{{ post.content|truncatewords:30 }}</p>
-                            
-                            <div class="post-stats">
-                                <span class="me-3"><i class="bi bi-eye"></i> {{ post.views_count }}</span>
-                                <span class="me-3"><i class="bi bi-heart"></i> {{ post.likes_count }}</span>
-                                <span><i class="bi bi-chat"></i> {{ post.comments_count }}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            {% empty %}
-                <div class="col-12">
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle"></i> 
-                        Пока нет постов с тегом #{{ tag.name }}
-                    </div>
-                </div>
-            {% endfor %}
-        </div>
-
-        <!-- Пагинация -->
-        {% if page_obj.has_other_pages %}
-            <nav aria-label="Page navigation" class="mt-4">
-                <ul class="pagination justify-content-center">
-                    {% if page_obj.has_previous %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page=1">
-                                <i class="bi bi-chevron-double-left"></i>
-                            </a>
-                        </li>
-                    {% endif %}
-
-                    {% for num in page_obj.paginator.page_range %}
-                        {% if page_obj.number == num %}
-                            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-                        {% endif %}
-                    {% endfor %}
-
-                    {% if page_obj.has_next %}
-                        <li class="page-item">
-                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">
-                                <i class="bi bi-chevron-right"></i>
-                            </a>
-                        </li>
-                    {% endif %}
-                </ul>
-            </nav>
-        {% endif %}
     </div>
+
+    <!-- Сортировка -->
+    <div class="posts-toolbar">
+        <div class="sort-wrapper">
+            <select class="sort-select" id="sortSelect">
+                <option value="new" {% if request.GET.sort == 'new' or not request.GET.sort %}selected{% endif %}>
+                    Новые
+                </option>
+                <option value="top" {% if request.GET.sort == 'top' %}selected{% endif %}>
+                    Лучшие
+                </option>
+                <option value="hot" {% if request.GET.sort == 'hot' %}selected{% endif %}>
+                    Обсуждаемые
+                </option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Посты с этим тегом -->
+    <div class="posts-feed">
+        {% for post in posts %}
+        <article class="post-card">
+            <div class="post-voting">
+                <button class="vote-btn upvote {% if user in post.upvotes.all %}active{% endif %}"
+                        data-post-id="{{ post.id }}" data-vote="up">
+                    <i data-feather="arrow-up"></i>
+                </button>
+                <span class="vote-score">{{ post.score }}</span>
+                <button class="vote-btn downvote {% if user in post.downvotes.all %}active{% endif %}"
+                        data-post-id="{{ post.id }}" data-vote="down">
+                    <i data-feather="arrow-down"></i>
+                </button>
+            </div>
+
+            <div class="post-main">
+                <div class="post-header">
+                    <div class="post-meta">
+                        {% if post.community %}
+                        <a href="{% url 'communities:community_detail' slug=post.community.slug %}" class="post-community">
+                            c/{{ post.community.name }}
+                        </a>
+                        <span class="meta-separator">·</span>
+                        {% endif %}
+                        <span class="post-author">
+                            <a href="{% url 'accounts:profile_by_username' username=post.author.username %}">
+                                u/{{ post.author.username }}
+                            </a>
+                        </span>
+                        <span class="meta-separator">·</span>
+                        <span class="post-time">{{ post.created_at|timesince }} назад</span>
+                    </div>
+                </div>
+
+                <h3 class="post-title">
+                    <a href="{% url 'posts:post_detail' pk=post.id %}">{{ post.title }}</a>
+                </h3>
+
+                {% if post.tags.all %}
+                <div class="post-tags">
+                    {% for t in post.tags.all %}
+                    <a href="{% url 'posts:tag_detail' slug=t.slug %}" class="post-tag"
+                       style="color: {{ t.color|default:'var(--color-primary)' }};">
+                        #{{ t.name }}
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="post-footer">
+                    <a href="{% url 'posts:post_detail' pk=post.id %}#comments" class="action-btn">
+                        <i data-feather="message-circle"></i>
+                        <span>{{ post.comments.count }} комментариев</span>
+                    </a>
+                </div>
+            </div>
+        </article>
+        {% empty %}
+        <div class="empty-state">
+            <i data-feather="tag"></i>
+            <h3>Нет постов с этим тегом</h3>
+            <p>Будьте первым, кто использует тег #{{ tag.name }}!</p>
+            <a href="{% url 'posts:post_create' %}?tag={{ tag.slug }}" class="btn btn--primary">
+                Создать пост
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Пагинация -->
+    {% if is_paginated %}
+    <div class="pagination-wrapper">
+        <div class="pagination">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}"
+               class="pagination-btn">
+                <i data-feather="chevron-left"></i>
+            </a>
+            {% endif %}
+
+            <div class="pagination-pages">
+                {% for num in page_obj.paginator.page_range %}
+                    {% if num == page_obj.number %}
+                    <span class="pagination-btn active">{{ num }}</span>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <a href="?page={{ num }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}"
+                       class="pagination-btn">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}"
+               class="pagination-btn">
+                <i data-feather="chevron-right"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tag-detail-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .tag-header-actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .tag-title-large {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .tag-info-card {
+        display: flex;
+        gap: 1.5rem;
+        padding: 1.5rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        border: 1px solid var(--color-border-light);
+        margin-bottom: 2rem;
+    }
+
+    .tag-icon-large {
+        width: 4rem;
+        height: 4rem;
+        border-radius: var(--radius-lg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .tag-icon-large i {
+        width: 2rem;
+        height: 2rem;
+    }
+
+    .tag-details {
+        flex: 1;
+    }
+
+    .tag-details h2 {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .tag-description-full {
+        color: var(--color-text-secondary);
+        line-height: 1.6;
+        margin-bottom: 0.75rem;
+    }
+
+    .tag-meta {
+        display: flex;
+        gap: 1.5rem;
+        font-size: 0.875rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+    }
+
+    .posts-toolbar {
+        margin-bottom: 1rem;
+    }
+
+    .sort-select {
+        padding: 0.5rem 2rem 0.5rem 1rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        background: var(--color-bg-surface);
+        font-size: 0.875rem;
+    }
+
+    .posts-feed {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .post-card {
+        display: flex;
+        gap: 1rem;
+        padding: 1.25rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--color-border-light);
+        transition: all var(--transition-base);
+    }
+
+    .post-card:hover {
+        box-shadow: var(--shadow-md);
+    }
+
+    .post-voting {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+        min-width: 2.5rem;
+    }
+
+    .vote-btn {
+        padding: 0.25rem;
+        border-radius: var(--radius-sm);
+        color: var(--color-text-tertiary);
+    }
+
+    .vote-btn.upvote.active {
+        color: var(--color-success);
+    }
+
+    .vote-btn.downvote.active {
+        color: var(--color-danger);
+    }
+
+    .vote-score {
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+
+    .post-main {
+        flex: 1;
+    }
+
+    .post-header {
+        margin-bottom: 0.5rem;
+    }
+
+    .post-meta {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.25rem 0.5rem;
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .post-community {
+        font-weight: 500;
+        color: var(--color-text-primary);
+        text-decoration: none;
+    }
+
+    .post-community:hover {
+        color: var(--color-primary);
+    }
+
+    .post-author a {
+        color: var(--color-text-secondary);
+        text-decoration: none;
+    }
+
+    .post-author a:hover {
+        color: var(--color-primary);
+    }
+
+    .post-title {
+        font-size: 1.125rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .post-title a {
+        color: var(--color-text-primary);
+        text-decoration: none;
+    }
+
+    .post-title a:hover {
+        color: var(--color-primary);
+    }
+
+    .post-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .post-tag {
+        font-size: 0.8125rem;
+        text-decoration: none;
+    }
+
+    .post-tag:hover {
+        text-decoration: underline;
+    }
+
+    .post-footer {
+        display: flex;
+        align-items: center;
+    }
+
+    .action-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        color: var(--color-text-tertiary);
+        text-decoration: none;
+        font-size: 0.875rem;
+    }
+
+    .action-btn:hover {
+        color: var(--color-primary);
+    }
+
+    .pagination-wrapper {
+        display: flex;
+        justify-content: center;
+        margin-top: 2rem;
+    }
+
+    .pagination {
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    .pagination-btn {
+        min-width: 2.25rem;
+        height: 2.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-md);
+        background: var(--color-bg-surface);
+        border: 1px solid var(--color-border);
+        color: var(--color-text-primary);
+        text-decoration: none;
+        font-size: 0.875rem;
+    }
+
+    .pagination-btn:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .pagination-btn.active {
+        background: var(--color-primary);
+        color: white;
+        border-color: var(--color-primary);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+    }
+
+    .empty-state i {
+        width: 3rem;
+        height: 3rem;
+        color: var(--color-text-tertiary);
+        margin-bottom: 1rem;
+    }
+
+    .empty-state h3 {
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-state p {
+        color: var(--color-text-secondary);
+        margin-bottom: 1.5rem;
+    }
+
+    @media (max-width: 768px) {
+        .tag-info-card {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .tag-meta {
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .post-card {
+            padding: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Сортировка
+        const sortSelect = document.getElementById('sortSelect');
+        sortSelect?.addEventListener('change', function() {
+            const url = new URL(window.location);
+            url.searchParams.set('sort', this.value);
+            window.location = url;
+        });
+
+        // Подписка на тег
+        const followBtn = document.querySelector('.follow-tag-btn');
+        followBtn?.addEventListener('click', async function() {
+            const tagSlug = this.dataset.tagSlug;
+
+            try {
+                const response = await fetch(`/tag/${tagSlug}/follow/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const icon = this.querySelector('i');
+                    const span = this.querySelector('span');
+
+                    if (data.following) {
+                        icon.setAttribute('data-feather', 'bell-off');
+                        span.textContent = 'Отписаться';
+                    } else {
+                        icon.setAttribute('data-feather', 'bell');
+                        span.textContent = 'Подписаться';
+                    }
+                    feather.replace();
+
+                    showToast({
+                        type: 'success',
+                        message: data.following ? 'Вы подписались на тег' : 'Вы отписались от тега'
+                    });
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        });
+
+        // Голосование
+        const voteBtns = document.querySelectorAll('.vote-btn');
+        voteBtns.forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const postId = this.dataset.postId;
+                const vote = this.dataset.vote;
+                const card = this.closest('.post-card');
+                const upvoteBtn = card.querySelector('.upvote');
+                const downvoteBtn = card.querySelector('.downvote');
+                const scoreSpan = card.querySelector('.vote-score');
+
+                try {
+                    const response = await fetch('/like/toggle/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({
+                            post_id: postId,
+                            vote_type: vote
+                        })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        scoreSpan.textContent = data.score;
+
+                        upvoteBtn.classList.toggle('active', data.user_vote === 'up');
+                        downvoteBtn.classList.toggle('active', data.user_vote === 'down');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            });
+        });
+    });
+</script>
 {% endblock %}

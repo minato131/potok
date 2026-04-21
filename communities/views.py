@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage  # ← добавь PageNotAnInteger, EmptyPage
 from django.db.models import Q, Count
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
@@ -11,45 +11,54 @@ from .forms import CommunityForm, CommunityPostForm, CommunityJoinRequestForm
 from posts.models import Post
 from django.utils import timezone
 
-def community_list(request):
-    """
-    Список всех сообществ
-    """
-    communities = Community.objects.filter(
-        status='active'
-    ).select_related('creator')
+from django.shortcuts import render
+from django.db.models import Q, Count
+from .models import Community
 
-    # Убираем annotate, так как поле уже есть в модели
-    # Или используем другое имя, если нужно пересчитать
+
+def community_list(request):
+    # Базовый queryset - используем существующие поля без аннотации
+    communities = Community.objects.filter(status='active')
 
     # Поиск
-    query = request.GET.get('q')
-    if query:
+    search_query = request.GET.get('q', '')
+    if search_query:
         communities = communities.filter(
-            Q(name__icontains=query) |
-            Q(description__icontains=query)
+            Q(name__icontains=search_query) |
+            Q(description__icontains=search_query)
         )
 
-    # Фильтр по приватности
-    privacy = request.GET.get('privacy')
-    if privacy in ['public', 'private', 'hidden']:
-        communities = communities.filter(privacy=privacy)
+    # Фильтрация
+    filter_type = request.GET.get('filter', 'all')
+    if filter_type == 'my' and request.user.is_authenticated:
+        communities = communities.filter(members=request.user)
+    elif filter_type == 'popular':
+        communities = communities.order_by('-members_count')
+    elif filter_type == 'new':
+        communities = communities.order_by('-created_at')
+    else:
+        communities = communities.order_by('name')
 
-    # Сортировка
-    sort = request.GET.get('sort', '-created_at')
-    if sort in ['name', '-name', '-created_at', '-members_count']:
-        communities = communities.order_by(sort)
-
+    # Пагинация
     paginator = Paginator(communities, 12)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    page = request.GET.get('page', 1)
+
+    try:
+        communities_page = paginator.page(page)
+    except PageNotAnInteger:
+        communities_page = paginator.page(1)
+    except EmptyPage:
+        communities_page = paginator.page(paginator.num_pages)
 
     context = {
-        'page_obj': page_obj,
-        'query': query,
-        'privacy': privacy,
-        'sort': sort,
+        'communities': communities_page,
+        'search_query': search_query,
+        'filter_type': filter_type,
+        'is_paginated': communities_page.has_other_pages(),
+        'page_obj': communities_page,
+        'total_count': communities.count(),
     }
+
     return render(request, 'communities/community_list.html', context)
 
 
@@ -397,7 +406,7 @@ def community_post_create(request, slug):
     else:
         form = CommunityPostForm()
 
-    return render(request, 'communities/community_post_form.html', {
+    return render(request, 'communities/community_post_create.html', {
         'form': form,
         'community': community
     })
@@ -535,7 +544,7 @@ def community_manage_requests(request, slug):
         approved__isnull=True
     ).select_related('user').order_by('created_at')
 
-    return render(request, 'communities/community_requests.html', {
+    return render(request, 'communities/community_manage_requests.html', {
         'community': community,
         'pending_requests': pending_requests
     })

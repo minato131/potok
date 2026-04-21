@@ -1,242 +1,714 @@
+<!-- templates/posts/post_detail.html -->
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}{{ post.title }} - Поток{% endblock %}
+{% block title %}{{ post.author.username }} · Пост · Поток{% endblock %}
+{% block page_title %}Пост{% endblock %}
+
+{% block content %}
+<div class="post-detail-container">
+    <article class="post-detail">
+        <!-- Автор поста -->
+        <div class="post-detail__header">
+            <div class="author-info">
+                <a href="{% url 'accounts:profile_by_username' username=post.author.username %}" class="author-avatar">
+                    {% if post.author.profile.avatar %}
+                    <img src="{{ post.author.profile.avatar.url }}" alt="{{ post.author.username }}">
+                    {% else %}
+                    <div class="avatar-placeholder">{{ post.author.username|make_list|first|upper }}</div>
+                    {% endif %}
+                </a>
+                <div class="author-details">
+                    <a href="{% url 'accounts:profile_by_username' username=post.author.username %}" class="author-name">
+                        {{ post.author.get_full_name|default:post.author.username }}
+                    </a>
+                    <span class="author-username">@{{ post.author.username }}</span>
+                </div>
+            </div>
+
+            <div class="post-actions">
+                <span class="post-date">{{ post.created_at|date:"d M Y, H:i" }}</span>
+                {% if user == post.author or user.is_staff %}
+                <div class="dropdown">
+                    <button class="dropdown-toggle">
+                        <i data-feather="more-horizontal"></i>
+                    </button>
+                    <div class="dropdown-menu">
+                        <a href="{% url 'posts:post_edit' pk=post.id %}" class="dropdown-item">
+                            <i data-feather="edit"></i>
+                            <span>Редактировать</span>
+                        </a>
+                        <a href="{% url 'posts:post_delete' pk=post.id %}" class="dropdown-item dropdown-item--danger">
+                            <i data-feather="trash-2"></i>
+                            <span>Удалить</span>
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Содержимое поста -->
+        <div class="post-detail__content">
+            <div class="post-text">
+                {{ post.content|linebreaks }}
+            </div>
+
+            {% if post.image %}
+            <div class="post-image-container">
+                <img src="{{ post.image.url }}" alt="Изображение поста" class="post-image-full">
+            </div>
+            {% endif %}
+
+            {% if post.tags.all %}
+            <div class="post-tags">
+                {% for tag in post.tags.all %}
+                <a href="{% url 'posts:tag_detail' slug=tag.slug %}" class="tag">
+                    #{{ tag.name }}
+                </a>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Действия с постом -->
+        <div class="post-detail__actions">
+            <button class="action-btn like-btn {% if user in post.likes.all %}active{% endif %}" data-post-id="{{ post.id }}">
+                <i data-feather="heart"></i>
+                <span>{{ post.likes.count }}</span>
+            </button>
+            <button class="action-btn comment-btn">
+                <i data-feather="message-circle"></i>
+                <span>{{ post.comments.count }}</span>
+            </button>
+            <button class="action-btn bookmark-btn {% if user in post.bookmarks.all %}active{% endif %}" data-post-id="{{ post.id }}">
+                <i data-feather="bookmark"></i>
+            </button>
+            <button class="action-btn share-btn">
+                <i data-feather="share-2"></i>
+            </button>
+        </div>
+    </article>
+
+    <!-- Комментарии -->
+    <section class="comments-section">
+        <h2 class="comments-title">
+            Комментарии
+            <span class="comments-count">{{ post.comments.count }}</span>
+        </h2>
+
+        {% if user.is_authenticated %}
+        <form class="comment-form" id="commentForm" data-post-id="{{ post.id }}">
+            {% csrf_token %}
+            <div class="comment-input-wrapper">
+                <div class="comment-avatar">
+                    {% if user.profile.avatar %}
+                    <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}">
+                    {% else %}
+                    <div class="avatar-placeholder">{{ user.username|make_list|first|upper }}</div>
+                    {% endif %}
+                </div>
+                <textarea name="content" placeholder="Написать комментарий..." class="comment-input" rows="1"></textarea>
+            </div>
+            <div class="comment-actions">
+                <button type="submit" class="btn btn--primary">Отправить</button>
+            </div>
+        </form>
+        {% else %}
+        <div class="login-prompt">
+            <p><a href="{% url 'accounts:login' %}">Войдите</a>, чтобы оставить комментарий</p>
+        </div>
+        {% endif %}
+
+        <div class="comments-list" id="commentsList">
+            {% for comment in comments %}
+            <div class="comment" id="comment-{{ comment.id }}">
+                <div class="comment-avatar">
+                    {% if comment.author.profile.avatar %}
+                    <img src="{{ comment.author.profile.avatar.url }}" alt="{{ comment.author.username }}">
+                    {% else %}
+                    <div class="avatar-placeholder">{{ comment.author.username|make_list|first|upper }}</div>
+                    {% endif %}
+                </div>
+                <div class="comment-content">
+                    <div class="comment-header">
+                        <a href="{% url 'accounts:profile_by_username' username=comment.author.username %}" class="comment-author">
+                            {{ comment.author.get_full_name|default:comment.author.username }}
+                        </a>
+                        <span class="comment-time">{{ comment.created_at|timesince }} назад</span>
+                    </div>
+                    <div class="comment-text">
+                        {{ comment.content|linebreaks }}
+                    </div>
+                    <div class="comment-footer">
+                        <button class="comment-like-btn" data-comment-id="{{ comment.id }}">
+                            <i data-feather="heart"></i>
+                            <span>{{ comment.likes.count }}</span>
+                        </button>
+                        <button class="comment-reply-btn" data-comment-id="{{ comment.id }}">
+                            <i data-feather="corner-up-left"></i>
+                            <span>Ответить</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="no-comments">
+                <i data-feather="message-circle"></i>
+                <p>Пока нет комментариев. Будьте первым!</p>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}
 
 {% block extra_css %}
 <style>
-    .comment-content {
-        white-space: pre-wrap;
-        word-wrap: break-word;
+    .post-detail-container {
+        max-width: 700px;
+        margin: 0 auto;
     }
-    .reply-form {
-        margin-top: 10px;
+
+    .post-detail {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        border: 1px solid var(--color-border-light);
+    }
+
+    .post-detail__header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+    }
+
+    .author-info {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .author-avatar {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 50%;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .author-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .author-details {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .author-name {
+        font-weight: 600;
+        color: var(--color-text-primary);
+        text-decoration: none;
+    }
+
+    .author-name:hover {
+        color: var(--color-primary);
+    }
+
+    .author-username {
+        font-size: 0.875rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .post-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .post-date {
+        font-size: 0.875rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .dropdown {
+        position: relative;
+    }
+
+    .dropdown-toggle {
+        padding: 0.25rem;
+        border-radius: var(--radius-md);
+        color: var(--color-text-tertiary);
+    }
+
+    .dropdown-toggle:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .dropdown-menu {
+        position: absolute;
+        right: 0;
+        top: 100%;
+        margin-top: 0.25rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-lg);
+        border: 1px solid var(--color-border);
+        min-width: 150px;
+        z-index: 10;
         display: none;
     }
-    .quote {
-        border-left: 3px solid #6c757d;
-        padding-left: 10px;
-        color: #6c757d;
-        font-style: italic;
-        margin: 10px 0;
+
+    .dropdown:hover .dropdown-menu {
+        display: block;
+    }
+
+    .dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        color: var(--color-text-primary);
+        text-decoration: none;
+        transition: background var(--transition-base);
+    }
+
+    .dropdown-item:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .dropdown-item--danger {
+        color: var(--color-danger);
+    }
+
+    .dropdown-item--danger:hover {
+        background: var(--color-danger);
+        color: white;
+    }
+
+    .post-detail__content {
+        margin-bottom: 1.5rem;
+    }
+
+    .post-text {
+        font-size: 1.125rem;
+        line-height: 1.6;
+        margin-bottom: 1.5rem;
+    }
+
+    .post-image-container {
+        margin: 1.5rem 0;
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+    }
+
+    .post-image-full {
+        width: 100%;
+        height: auto;
+        display: block;
+    }
+
+    .post-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+
+    .tag {
+        color: var(--color-primary);
+        text-decoration: none;
+        font-size: 0.875rem;
+    }
+
+    .tag:hover {
+        text-decoration: underline;
+    }
+
+    .post-detail__actions {
+        display: flex;
+        gap: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--color-border-light);
+    }
+
+    .action-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        color: var(--color-text-tertiary);
+        transition: color var(--transition-base);
+    }
+
+    .action-btn:hover {
+        color: var(--color-primary);
+    }
+
+    .action-btn.active {
+        color: var(--color-danger);
+    }
+
+    .comments-section {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        padding: 1.5rem;
+        border: 1px solid var(--color-border-light);
+    }
+
+    .comments-title {
+        font-size: 1.25rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .comments-count {
+        color: var(--color-text-tertiary);
+        font-size: 1rem;
+        font-weight: 400;
+    }
+
+    .comment-form {
+        margin-bottom: 2rem;
+    }
+
+    .comment-input-wrapper {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .comment-avatar {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .comment-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .comment-input {
+        flex: 1;
+        padding: 0.75rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        resize: none;
+        font-family: inherit;
+        font-size: 0.9375rem;
+        transition: border-color var(--transition-base);
+    }
+
+    .comment-input:focus {
+        outline: none;
+        border-color: var(--color-primary);
+    }
+
+    .comment-actions {
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .comments-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .comment {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .comment-content {
+        flex: 1;
+    }
+
+    .comment-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .comment-author {
+        font-weight: 600;
+        color: var(--color-text-primary);
+        text-decoration: none;
+    }
+
+    .comment-author:hover {
+        color: var(--color-primary);
+    }
+
+    .comment-time {
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .comment-text {
+        margin-bottom: 0.5rem;
+        line-height: 1.5;
+    }
+
+    .comment-footer {
+        display: flex;
+        gap: 1rem;
+    }
+
+    .comment-like-btn,
+    .comment-reply-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+        transition: color var(--transition-base);
+    }
+
+    .comment-like-btn:hover,
+    .comment-reply-btn:hover {
+        color: var(--color-primary);
+    }
+
+    .login-prompt {
+        text-align: center;
+        padding: 1.5rem;
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-lg);
+        margin-bottom: 1.5rem;
+    }
+
+    .login-prompt a {
+        color: var(--color-primary);
+        text-decoration: none;
+    }
+
+    .login-prompt a:hover {
+        text-decoration: underline;
+    }
+
+    .no-comments {
+        text-align: center;
+        padding: 2rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .no-comments i {
+        width: 2.5rem;
+        height: 2.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    @media (max-width: 768px) {
+        .post-detail {
+            padding: 1rem;
+        }
+
+        .post-detail__actions {
+            justify-content: space-around;
+        }
+
+        .comment-input-wrapper {
+            flex-direction: column;
+        }
+
+        .comment-avatar {
+            width: 2rem;
+            height: 2rem;
+        }
     }
 </style>
 {% endblock %}
 
-{% block content %}
-<div class="row">
-    <div class="col-lg-8 mx-auto">
-        <!-- Пост -->
-        <div class="card post-card">
-            {% if post.image %}
-                <img src="{{ post.image.url }}" class="card-img-top" alt="{{ post.title }}" style="max-height: 500px; object-fit: cover;">
-            {% endif %}
-            
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h1 class="card-title h2">{{ post.title }}</h1>
-                    {% if user == post.author %}
-                        <div class="dropdown">
-                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                                <i class="bi bi-three-dots"></i>
-                            </button>
-                            <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="{% url 'posts:post_edit' post.pk %}">
-                                    <i class="bi bi-pencil"></i> Редактировать
-                                </a></li>
-                                <li><a class="dropdown-item text-danger" href="{% url 'posts:post_delete' post.pk %}">
-                                    <i class="bi bi-trash"></i> Удалить
-                                </a></li>
-                            </ul>
-                        </div>
-                    {% endif %}
-                </div>
-
-                <div class="d-flex align-items-center mb-3">
-                    <a href="{% url 'accounts:profile_by_username' post.author.username %}">
-                        {% if post.author.avatar %}
-                            <img src="{{ post.author.avatar.url }}" class="avatar-medium" alt="{{ post.author.username }}">
-                        {% else %}
-                            <div class="avatar-medium bg-secondary text-white d-flex align-items-center justify-content-center">
-                                {{ post.author.username|first|upper }}
-                            </div>
-                        {% endif %}
-                    </a>
-                    <span class="text-muted ms-3">
-                        <i class="bi bi-calendar"></i> {{ post.created_at|date:"d.m.Y H:i" }}
-                    </span>
-                    {% if post.category %}
-                        <span class="badge bg-secondary ms-3">
-                            <i class="bi bi-folder"></i> {{ post.category.name }}
-                        </span>
-                    {% endif %}
-                </div>
-
-                <!-- Теги -->
-                {% if post.tags.all %}
-                    <div class="mb-4">
-                        <h6><i class="bi bi-tags"></i> Теги:</h6>
-                        {% for tag in post.tags.all %}
-                            <a href="{% url 'posts:tag_detail' tag.slug %}" class="tag">
-                                <i class="bi bi-tag"></i> {{ tag.name }}
-                            </a>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-
-                <!-- Контент -->
-                <div class="card-text mb-4" style="line-height: 1.8;">
-                    {{ post.content|linebreaks }}
-                </div>
-
-                {% if post.video %}
-                    <div class="mb-4">
-                        <video controls style="max-width: 100%;">
-                            <source src="{{ post.video.url }}" type="video/mp4">
-                            Ваш браузер не поддерживает видео.
-                        </video>
-                    </div>
-                {% endif %}
-
-                <!-- Действия -->
-                <div class="d-flex justify-content-between align-items-center border-top border-bottom py-3">
-                    <div>
-                        <button class="btn like-btn {% if user_like %}liked{% endif %} me-3" 
-                                data-type="post" 
-                                data-id="{{ post.id }}"
-                                data-like-type="like">
-                            <i class="bi {% if user_like and user_like.like_type == 'like' %}bi-heart-fill{% else %}bi-heart{% endif %}"></i>
-                            <span class="likes-count">{{ post.likes_count }}</span>
-                        </button>
-                        <span class="me-3"><i class="bi bi-eye"></i> {{ post.views_count }}</span>
-                    </div>
-                    <div>
-                        {% if user.is_authenticated %}
-                            <button class="btn bookmark-btn {% if is_bookmarked %}active{% endif %} me-2" 
-                                    data-post-id="{{ post.id }}">
-                                <i class="bi {% if is_bookmarked %}bi-bookmark-fill{% else %}bi-bookmark{% endif %}"></i>
-                            </button>
-                        {% endif %}
-                        <button class="btn btn-outline-secondary" onclick="copyLink()">
-                            <i class="bi bi-share"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Комментарии -->
-        <div class="card mt-4">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="bi bi-chat"></i> Комментарии ({{ post.comments_count }})
-                </h5>
-            </div>
-            <div class="card-body">
-                <!-- Форма комментария -->
-                {% if user.is_authenticated %}
-                    <form method="post" action="{% url 'posts:comment_create' post.pk %}" class="mb-4">
-                        {% csrf_token %}
-                        <div class="mb-3">
-                            {{ comment_form.content }}
-                        </div>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-send"></i> Отправить
-                        </button>
-                    </form>
-                {% else %}
-                    <div class="alert alert-info">
-                        <a href="{% url 'accounts:login' %}">Войдите</a>, чтобы оставить комментарий.
-                    </div>
-                {% endif %}
-
-                <!-- Список комментариев -->
-                <div class="comments-list">
-                    {% for comment in comments %}
-                        {% include 'posts/comment_item.html' with comment=comment %}
-                    {% empty %}
-                        <p class="text-muted text-center">Пока нет комментариев. Будьте первым!</p>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
 {% block extra_js %}
 <script>
-// Лайки через AJAX
-$('.like-btn').click(function() {
-    {% if user.is_authenticated %}
-        var btn = $(this);
-        $.ajax({
-            url: '{% url "posts:like_toggle" %}',
-            method: 'POST',
-            data: {
-                'content_type': btn.data('type'),
-                'object_id': btn.data('id'),
-                'like_type': 'like',
-                'csrfmiddlewaretoken': '{{ csrf_token }}'
-            },
-            success: function(data) {
-                var icon = btn.find('i');
-                if (data.action === 'added') {
-                    icon.removeClass('bi-heart').addClass('bi-heart-fill');
-                    btn.addClass('liked');
-                } else if (data.action === 'removed') {
-                    icon.removeClass('bi-heart-fill').addClass('bi-heart');
-                    btn.removeClass('liked');
-                }
-                btn.find('.likes-count').text(data.likes_count);
-            }
-        });
-    {% else %}
-        window.location.href = '{% url "accounts:login" %}';
-    {% endif %}
-});
+    document.addEventListener('DOMContentLoaded', function() {
+        // Лайк поста
+        const likeBtn = document.querySelector('.like-btn');
+        if (likeBtn) {
+            likeBtn.addEventListener('click', async function() {
+                const postId = this.dataset.postId;
 
-// Избранное
-$('.bookmark-btn').click(function() {
-    {% if user.is_authenticated %}
-        var btn = $(this);
-        var postId = btn.data('post-id');
-        $.ajax({
-            url: '/bookmark/' + postId + '/toggle/',
-            method: 'POST',
-            data: {
-                'csrfmiddlewaretoken': '{{ csrf_token }}'
-            },
-            success: function(data) {
-                var icon = btn.find('i');
-                if (data.action === 'added') {
-                    icon.removeClass('bi-bookmark').addClass('bi-bookmark-fill');
-                    btn.addClass('active');
+                try {
+                    const response = await fetch('/like/toggle/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({ post_id: postId })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.classList.toggle('active', data.liked);
+                        const countSpan = this.querySelector('span');
+                        countSpan.textContent = data.likes_count;
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            });
+        }
+
+        // Закладка
+        const bookmarkBtn = document.querySelector('.bookmark-btn');
+        if (bookmarkBtn) {
+            bookmarkBtn.addEventListener('click', async function() {
+                const postId = this.dataset.postId;
+
+                try {
+                    const response = await fetch(`/bookmark/${postId}/toggle/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken')
+                        }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        this.classList.toggle('active', data.bookmarked);
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            });
+        }
+
+        // Авто-расширение textarea
+        const commentInput = document.querySelector('.comment-input');
+        if (commentInput) {
+            commentInput.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = this.scrollHeight + 'px';
+            });
+        }
+
+        // Отправка комментария
+        const commentForm = document.getElementById('commentForm');
+        if (commentForm) {
+            commentForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                const postId = this.dataset.postId;
+                const content = this.querySelector('textarea').value;
+
+                if (!content.trim()) return;
+
+                try {
+                    const response = await fetch(`/post/${postId}/comment/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({ content: content })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        // Добавить новый комментарий в список
+                        addComment(data);
+                        this.reset();
+
+                        // Обновить счетчик
+                        const commentsCount = document.querySelector('.comments-count');
+                        const currentCount = parseInt(commentsCount.textContent) || 0;
+                        commentsCount.textContent = currentCount + 1;
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            });
+        }
+
+        function addComment(comment) {
+            const commentsList = document.getElementById('commentsList');
+            const noComments = commentsList.querySelector('.no-comments');
+            if (noComments) {
+                noComments.remove();
+            }
+
+            const commentHtml = `
+                <div class="comment" id="comment-${comment.id}">
+                    <div class="comment-avatar">
+                        ${comment.author_avatar}
+                    </div>
+                    <div class="comment-content">
+                        <div class="comment-header">
+                            <a href="${comment.author_url}" class="comment-author">
+                                ${comment.author_name}
+                            </a>
+                            <span class="comment-time">только что</span>
+                        </div>
+                        <div class="comment-text">
+                            ${comment.content}
+                        </div>
+                        <div class="comment-footer">
+                            <button class="comment-like-btn" data-comment-id="${comment.id}">
+                                <i data-feather="heart"></i>
+                                <span>0</span>
+                            </button>
+                            <button class="comment-reply-btn" data-comment-id="${comment.id}">
+                                <i data-feather="corner-up-left"></i>
+                                <span>Ответить</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            commentsList.insertAdjacentHTML('afterbegin', commentHtml);
+            feather.replace();
+        }
+
+        // Шеринг
+        const shareBtn = document.querySelector('.share-btn');
+        if (shareBtn) {
+            shareBtn.addEventListener('click', async function() {
+                const url = window.location.href;
+
+                if (navigator.share) {
+                    try {
+                        await navigator.share({
+                            title: document.title,
+                            url: url
+                        });
+                    } catch (err) {
+                        console.log('Share cancelled');
+                    }
                 } else {
-                    icon.removeClass('bi-bookmark-fill').addClass('bi-bookmark');
-                    btn.removeClass('active');
+                    // Fallback: копировать в буфер обмена
+                    navigator.clipboard?.writeText(url);
+                    alert('Ссылка скопирована в буфер обмена!');
+                }
+            });
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
                 }
             }
-        });
-    {% else %}
-        window.location.href = '{% url "accounts:login" %}';
-    {% endif %}
-});
-
-// Копирование ссылки
-function copyLink() {
-    var dummy = document.createElement('input');
-    dummy.value = window.location.href;
-    document.body.appendChild(dummy);
-    dummy.select();
-    document.execCommand('copy');
-    document.body.removeChild(dummy);
-    alert('Ссылка скопирована!');
-}
-
-// Ответ на комментарий
-function showReplyForm(commentId) {
-    $('#reply-form-' + commentId).slideToggle();
-}
+            return cookieValue;
+        }
+    });
 </script>
 {% endblock %}
