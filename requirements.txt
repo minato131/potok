@@ -2,6 +2,3 @@ Django
 psycopg2-binary
 python-dotenv
 Pillow
-django-imagekit
-gunicorn
-whitenoise

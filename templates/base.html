@@ -4,451 +4,551 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Социальная сеть Поток{% endblock %}</title>
+    <title>{% block title %}Поток{% endblock %}</title>
+
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <style>
-        .avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid #fff;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .avatar-large {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 3px solid #fff;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-        }
-        .avatar-medium {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid #fff;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .comment-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid #fff;
-        }
-        .follow-btn.following:hover {
-            background-color: #dc3545;
-            border-color: #dc3545;
-        }
-        .follow-btn.following:hover span {
-            display: none;
-        }
-        .follow-btn.following:hover::after {
-            content: "Отписаться";
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        /* ===== ЗАМЕТНЫЕ ИЗМЕНЕНИЯ ===== */
-
-        /* Посты - жирная рамка */
-        .post-card {
-            border: 2px solid #dee2e6 !important;
-            border-radius: 16px;
-            margin-bottom: 25px;
-            background: white;
-            transition: all 0.2s;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .post-card:hover {
-            border-color: #667eea !important;
-            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
-            transform: translateY(-2px);
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            color: #2c3e50;
         }
 
-        /* Левая колонка - заметная */
-        .sidebar-card, .card.sticky-top {
-            border: 2px solid #dee2e6 !important;
-            border-radius: 16px;
-            background: white;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            padding: 20px;
+        /* Шапка */
+        .navbar-flow {
+            background: linear-gradient(135deg, #4a6b8a 0%, #3a5a78 100%);
+            height: 56px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
         }
 
-        /* Кнопки лайков и действий */
-        .like-btn, .bookmark-btn, .action-btn {
-            border: 2px solid #ced4da !important;
-            background: white;
-            padding: 8px 16px;
-            border-radius: 30px;
-            font-weight: 600;
-            transition: all 0.2s;
-            cursor: pointer;
-            color: #495057;
-        }
-        .like-btn:hover {
-            border-color: #dc3545 !important;
-            background: #fff5f5;
-            color: #dc3545;
-            transform: scale(1.05);
-        }
-        .like-btn.liked {
-            border-color: #dc3545 !important;
-            background: #dc3545;
-            color: white;
-        }
-        .bookmark-btn:hover {
-            border-color: #ffc107 !important;
-            background: #fff9e6;
-            color: #ffc107;
-            transform: scale(1.05);
-        }
-        .bookmark-btn.active {
-            border-color: #ffc107 !important;
-            background: #ffc107;
-            color: white;
+        /* Левое меню */
+        .sidebar-flow {
+            background-color: #ffffff;
+            border-right: 1px solid #d8e2ed;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.02);
+            width: 250px;
+            position: fixed;
+            top: 56px;
+            bottom: 0;
+            overflow-y: auto;
         }
 
-        /* Теги - яркие */
-        .tag, .tag-badge {
-            display: inline-block;
-            padding: 6px 14px;
-            background: #e9ecef;
-            border: 2px solid #ced4da;
-            border-radius: 30px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: #212529;
-            text-decoration: none;
-            margin: 0 5px 5px 0;
-            transition: all 0.2s;
-        }
-        .tag:hover {
-            background: #667eea;
-            border-color: #5a67d8;
-            color: white;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+        /* Правая колонка - виджеты */
+        .right-widgets {
+            width: 250px;
+            position: fixed;
+            right: 0;
+            top: 56px;
+            bottom: 0;
+            overflow-y: auto;
+            padding: 16px 8px;
         }
 
-        /* Комментарии */
-        .comment {
-            border-left: 5px solid #667eea;
-            padding: 15px 0 10px 20px;
-            margin: 15px 0;
-            background: #f8f9fa;
-            border-radius: 0 12px 12px 0;
-        }
-        .comment-avatar {
-            border: 2px solid #fff;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
-
-        /* Разделители */
-        hr {
-            border-top: 2px solid #dee2e6;
-            opacity: 1;
-        }
-
-        /* Кнопки в целом */
-        .btn {
-            font-weight: 600;
-            transition: all 0.2s;
-        }
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea, #764ba2);
+        .widget-card {
+            background-color: #ffffff;
             border: none;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.6);
-        }
-
-        /* Статистика поста */
-        .post-stats {
-            background: #f8f9fa;
-            padding: 10px 15px;
-            border-radius: 30px;
-            border: 2px solid #e9ecef;
-            display: inline-flex;
-            gap: 20px;
-            font-weight: 500;
-        }
-        .post-stats a {
-            text-decoration: none !important;
-            color: inherit;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.03);
+            margin-bottom: 16px;
+            padding: 16px;
         }
 
-        .post-stats a:hover {
-            color: #667eea;
+        .widget-header {
+            border-bottom: 1px solid #e9f0f5;
+            padding: 0 0 12px 0;
+            margin-bottom: 12px;
+            font-weight: 600;
+            color: #2c3e50;
         }
 
-        /* Стили для ссылки на комментарии */
-        .comment-link {
-            text-decoration: none !important;
-            color: #6c757d;
-            padding: 5px 10px;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
+        /* Посты */
+        .post-card {
+            background-color: #ffffff;
+            border: 1px solid #e2eaf2;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.02);
             transition: all 0.2s;
         }
 
-        .comment-link:hover {
-            color: #667eea;
-            transform: scale(1.1);
+        .post-card:hover {
+            border-color: #bdd4e8;
+            box-shadow: 0 8px 24px rgba(58, 90, 120, 0.08);
         }
 
-        .comment-link i {
-            font-size: 1rem;
+        /* Аватарки */
+        .avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #ffffff;
+            box-shadow: 0 2px 6px rgba(58, 90, 120, 0.15);
+        }
+
+        .avatar-small {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #ffffff;
+        }
+
+        /* Кнопки */
+        .btn-flow {
+            background: linear-gradient(135deg, #4a6b8a 0%, #3a5a78 100%);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            padding: 8px 20px;
+            font-weight: 500;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-block;
+            cursor: pointer;
+        }
+
+        .btn-flow:hover {
+            background: linear-gradient(135deg, #3a5a78 0%, #2d4a64 100%);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(58, 90, 120, 0.3);
+            text-decoration: none;
+        }
+
+        .btn-outline-flow {
+            background: transparent;
+            border: 1px solid #b8ccdd;
+            color: #2c3e50;
+            border-radius: 30px;
+            padding: 6px 16px;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-block;
+            cursor: pointer;
+        }
+
+        .btn-outline-flow:hover {
+            border-color: #4a6b8a;
+            background-color: #f0f7ff;
+            color: #2c3e50;
+            text-decoration: none;
+        }
+
+        /* Навигационные ссылки */
+        .nav-link-flow {
+            color: #2c3e50;
+            padding: 10px 16px;
+            border-radius: 12px;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+            font-weight: 500;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+        }
+
+        .nav-link-flow:hover {
+            background-color: #e6f0fa;
+            color: #2c3e50;
+            text-decoration: none;
+        }
+
+        .nav-link-flow.active {
+            background-color: #d9e8f5;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        .nav-link-flow i {
+            margin-right: 12px;
+            color: #5f7d9c;
+            font-size: 1.2rem;
+        }
+
+        /* Категории в левом меню */
+        .menu-header {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #6f8bad;
+            font-weight: 700;
+            margin: 20px 0 8px 16px;
+        }
+
+        /* Теги */
+        .tag {
+            display: inline-block;
+            background-color: #e3ecf5;
+            color: #2c3e50;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            text-decoration: none;
+            margin: 0 4px 8px 0;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .tag:hover {
+            background-color: #cde1f2;
+            border-color: #9bb7d4;
+            transform: translateY(-1px);
+            text-decoration: none;
         }
 
         /* Статистика поста */
         .post-stats {
             display: flex;
-            gap: 5px;
-            align-items: center;
+            gap: 20px;
+            color: #5f7d9c;
+            font-size: 0.9rem;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #e2eaf2;
         }
+
+        .post-stat {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            color: #5f7d9c;
+            transition: color 0.2s;
+            padding: 0;
+        }
+
+        .post-stat:hover {
+            color: #3a5a78;
+        }
+
+        /* Поиск */
+        .search-wrapper {
+            position: relative;
+            max-width: 500px;
+            flex-grow: 1;
+            margin: 0 20px;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6f8bad;
+            z-index: 10;
+        }
+
+        .search-input {
+            background-color: #e3ecf5;
+            border: none;
+            border-radius: 30px;
+            padding: 6px 16px 6px 40px;
+            font-size: 0.9rem;
+            width: 100%;
+            transition: all 0.2s;
+        }
+
+        .search-input:focus {
+            background-color: #ffffff;
+            box-shadow: 0 0 0 3px rgba(74, 107, 138, 0.1);
+            outline: none;
+        }
+
+        /* Лайки */
         .like-btn {
-            background: transparent !important;
-            border: 1px solid #6c757d !important;
-            color: #6c757d !important;
-            border-radius: 30px !important;
-            padding: 5px 15px !important;
-            transition: all 0.2s !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            gap: 5px !important;
-            cursor: pointer !important;
+            background: transparent;
+            border: none;
+            color: #5f7d9c;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 20px;
+            transition: all 0.2s;
+            cursor: pointer;
         }
 
         .like-btn:hover {
-            border-color: #dc3545 !important;
-            color: #dc3545 !important;
-            background: transparent !important;
-        }
-
-        /* Когда лайкнуто - ВСЁ БЕЛОЕ */
-        .like-btn.liked,
-        .like-btn.liked i,
-        .like-btn.liked span,
-        .like-btn.liked .likes-count {
-            color: white !important;
+            background-color: #ffe2e2;
+            color: #dc3545;
         }
 
         .like-btn.liked {
-            background-color: #dc3545 !important;
-            border-color: #dc3545 !important;
+            color: #dc3545;
+            background-color: #ffe2e2;
         }
 
-        .like-btn.liked i {
-            color: white !important;
+        .like-btn i, .like-btn span {
+            pointer-events: none;
         }
 
-        .like-btn.liked .likes-count {
-            color: white !important;
-            font-weight: 600 !important;
+        /* Время */
+        .time-ago {
+            color: #8fa8c0;
+            font-size: 0.85rem;
         }
 
-        .like-btn i {
-            font-size: 1.1rem !important;
+        /* Разделители */
+        .divider {
+            border-top: 1px solid #d8e2ed;
+            margin: 16px 0;
         }
 
-        .like-btn .likes-count {
-            font-weight: 500 !important;
-            color: inherit !important;
+        /* Контейнер контента */
+        .content-wrapper {
+            margin-top: 56px;
+            margin-left: 250px;
+            margin-right: 250px;
+            padding: 20px;
+            min-height: calc(100vh - 56px);
+        }
+
+        @media (max-width: 1200px) {
+            .right-widgets {
+                display: none;
+            }
+            .content-wrapper {
+                margin-right: 0;
+            }
+        }
+
+        @media (max-width: 992px) {
+            .sidebar-flow {
+                display: none;
+            }
+            .content-wrapper {
+                margin-left: 0;
+            }
         }
     </style>
-    {% block extra_css %}
-        <link rel="stylesheet" href="{% static 'css/style.css' %}">
-    {% endblock %}
+
+    {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <!-- Логотип -->
-            <a class="navbar-brand" href="{% url 'posts:post_list' %}">
-                <i class="bi bi-water"></i> Поток
-            </a>
+    <!-- Верхняя шапка -->
+    <nav class="navbar-flow d-flex align-items-center px-4">
+        <div class="d-flex align-items-center w-100">
+            <!-- Левая часть шапки -->
+            <div class="d-flex align-items-center">
+                <a class="text-white fw-bold me-4 text-decoration-none" href="{% url 'posts:post_list' %}" style="font-size: 1.5rem; letter-spacing: -0.5px;">
+                    Поток
+                </a>
 
-            <!-- Кнопка для мобильной версии -->
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+                <button class="btn text-white p-1 me-3" type="button" data-bs-toggle="collapse" data-bs-target="#leftMenuCollapse"
+                        style="background: transparent; border: none;">
+                        <i class="bi bi-list fs-4"></i>
+                </button>
+            </div>
 
-            <!-- Основное меню -->
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <!-- Левая часть - основные разделы -->
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'posts:post_list' %}">
-                            <i class="bi bi-house-door"></i> Лента
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'communities:community_list' %}">
-                            <i class="bi bi-people"></i> Сообщества
-                        </a>
-                    </li>
-                    {% if user.is_authenticated %}
-                        <li class="nav-item">
-                            <a class="nav-link position-relative" href="{% url 'messenger:chat_list' %}">
-                                <i class="bi bi-chat-dots"></i> Сообщения
-                                {% if unread_messages_count > 0 %}
-                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                                        {{ unread_messages_count }}
-                                    </span>
-                                {% endif %}
-                            </a>
-                        </li>
-                    {% endif %}
-                </ul>
-
-                <!-- Поиск (по центру) -->
-                <form class="d-flex mx-auto" action="{% url 'posts:search' %}" method="get" style="width: 40%;">
-                    <input class="form-control me-2" type="search" name="q" placeholder="Поиск постов, сообществ, пользователей..." value="{{ request.GET.q }}">
-                    <button class="btn btn-outline-light" type="submit">
-                        <i class="bi bi-search"></i>
-                    </button>
+            <!-- Поиск -->
+            <div class="search-wrapper">
+                <i class="bi bi-search search-icon"></i>
+                <form action="{% url 'posts:search' %}" method="get">
+                    <input class="search-input" type="search" name="q" placeholder="Поиск" value="{{ request.GET.q }}">
                 </form>
+            </div>
 
-                <!-- Правая часть - пользовательское меню -->
-                <ul class="navbar-nav ms-auto">
-                    {% if user.is_authenticated %}
-                        <!-- Создать пост -->
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'posts:post_create' %}">
-                                <i class="bi bi-plus-circle"></i> Создать
-                            </a>
-                        </li>
+            <!-- Правая часть шапки -->
+            <div class="d-flex align-items-center gap-3 ms-auto">
+                <!-- Уведомления -->
+                <div class="dropdown">
+                    <button class="btn text-white p-1 position-relative" type="button" data-bs-toggle="dropdown"
+                            style="background: transparent; border: none;">
+                        <i class="bi bi-bell fs-5"></i>
+                        {% if unread_notifications_count > 0 %}
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 10px;">
+                                {{ unread_notifications_count }}
+                            </span>
+                        {% endif %}
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end" style="width: 350px;">
+                        <div class="dropdown-header">Уведомления</div>
+                        <div id="notifications-list">
+                            <div class="text-center py-3">Загрузка...</div>
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item text-center" href="{% url 'accounts:notifications' %}">Все уведомления</a>
+                    </div>
+                </div>
 
-                        <!-- Закладки (Избранное) -->
-                        <li class="nav-item">
-                            <a class="nav-link position-relative" href="{% url 'posts:bookmarks' %}">
-                                <i class="bi bi-bookmark"></i> Закладки
-                                {% with bookmarks_count=user.bookmarks.count %}
-                                    {% if bookmarks_count > 0 %}
-                                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-info">
-                                            {{ bookmarks_count }}
-                                        </span>
-                                    {% endif %}
-                                {% endwith %}
-                            </a>
-                        </li>
-
-                        <!-- Уведомления -->
-                        <li class="nav-item dropdown">
-                            <a class="nav-link position-relative" href="#" id="notificationDropdown" role="button" data-bs-toggle="dropdown">
-                                <i class="bi bi-bell"></i>
-                                {% if unread_notifications_count > 0 %}
-                                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notification-badge">
-                                        {{ unread_notifications_count }}
-                                    </span>
-                                {% endif %}
-                            </a>
-                            <div class="dropdown-menu dropdown-menu-end" style="width: 350px;" id="notification-menu">
-                                <div class="dropdown-header d-flex justify-content-between align-items-center">
-                                    <span>Уведомления</span>
-                                    <button class="btn btn-sm btn-link p-0" id="mark-all-read" style="font-size: 12px;">
-                                        <i class="bi bi-check-all"></i> Все прочитано
-                                    </button>
-                                </div>
-                                <div class="dropdown-divider"></div>
-                                <div id="notifications-list" style="max-height: 400px; overflow-y: auto;">
-                                    <!-- Уведомления будут подгружаться через AJAX -->
-                                    <div class="text-center py-3">
-                                        <div class="spinner-border spinner-border-sm text-primary" role="status">
-                                            <span class="visually-hidden">Загрузка...</span>
-                                        </div>
-                                        <p class="text-muted small mt-2">Загрузка уведомлений...</p>
-                                    </div>
-                                </div>
-                                <div class="dropdown-divider"></div>
-                                <a class="dropdown-item text-center text-primary" href="{% url 'accounts:notifications' %}">
-                                    Все уведомления
-                                </a>
-                            </div>
-                        </li>
-
-                        <!-- Профиль -->
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
-                                {% if user.avatar %}
-                                    <img src="{{ user.avatar.url }}" class="avatar" alt="avatar">
-                                {% else %}
-                                    <div class="avatar bg-secondary text-white d-inline-flex align-items-center justify-content-center"
-                                         style="width: 30px; height: 30px; border-radius: 50%; font-size: 14px;">
-                                        {{ user.username|first|upper }}
-                                    </div>
-                                {% endif %}
-                                <span class="ms-1">{{ user.username|truncatechars:10 }}</span>
-                            </a>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'accounts:profile' %}">
-                                        <i class="bi bi-person"></i> Мой профиль
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'accounts:profile_edit' %}">
-                                        <i class="bi bi-gear"></i> Настройки
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'posts:bookmarks' %}">
-                                        <i class="bi bi-bookmark"></i> Закладки
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'accounts:password_change' %}">
-                                        <i class="bi bi-key"></i> Сменить пароль
-                                    </a>
-                                </li>
-
-                                <!-- Для модераторов и админов -->
-                                {% if user.is_staff or user.is_superuser %}
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li>
-                                        <a class="dropdown-item" href="{% url 'moderation:panel' %}">
-                                            <i class="bi bi-shield"></i> Панель модератора
-                                        </a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" href="{% url 'admin:index' %}">
-                                            <i class="bi bi-tools"></i> Админка
-                                        </a>
-                                    </li>
-                                {% endif %}
-
-                                <li><hr class="dropdown-divider"></li>
-                                <li>
-                                    <a class="dropdown-item text-danger" href="{% url 'accounts:logout' %}">
-                                        <i class="bi bi-box-arrow-right"></i> Выйти
-                                    </a>
-                                </li>
-                            </ul>
-                        </li>
-                    {% else %}
-                        <!-- Для неавторизованных -->
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'accounts:login' %}">
-                                <i class="bi bi-box-arrow-in-right"></i> Вход
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'accounts:register' %}">
-                                <i class="bi bi-person-plus"></i> Регистрация
-                            </a>
-                        </li>
+                <!-- Сообщения -->
+                <a href="{% url 'messenger:chat_list' %}" class="btn text-white p-1 position-relative" style="background: transparent; border: none;">
+                    <i class="bi bi-chat-dots fs-5"></i>
+                    {% if unread_messages_count > 0 %}
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 10px;">
+                            {{ unread_messages_count }}
+                        </span>
                     {% endif %}
-                </ul>
+                </a>
+
+                <!-- Профиль -->
+                <div class="dropdown">
+                    <button class="btn text-white d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown"
+                            style="background: transparent; border: none; padding: 2px 8px;">
+                        {% if user.avatar %}
+                            <img src="{{ user.avatar.url }}" class="avatar-small">
+                        {% else %}
+                            <div class="avatar-small bg-secondary text-white d-flex align-items-center justify-content-center">
+                                {{ user.username|first|upper }}
+                            </div>
+                        {% endif %}
+                        <span class="d-none d-md-inline">{{ user.username|truncatechars:10 }}</span>
+                        <i class="bi bi-chevron-down" style="font-size: 12px;"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{% url 'accounts:profile' %}">Мой профиль</a></li>
+                        <li><a class="dropdown-item" href="{% url 'accounts:profile_edit' %}">Настройки</a></li>
+                        <li><a class="dropdown-item" href="{% url 'posts:bookmarks' %}">Закладки</a></li>
+                        <li><a class="dropdown-item" href="{% url 'accounts:password_change' %}">Сменить пароль</a></li>
+                        {% if user.is_staff %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'moderation:panel' %}">Панель модератора</a></li>
+                            <li><a class="dropdown-item" href="{% url 'admin:index' %}">Админка</a></li>
+                        {% endif %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="{% url 'accounts:logout' %}">Выйти</a></li>
+                    </ul>
+                </div>
             </div>
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <!-- ЛЕВАЯ КОЛОНКА - МЕНЮ -->
+    <div class="sidebar-flow collapse show" id="leftMenuCollapse">
+        <div class="p-3">
+            <!-- Профиль в меню -->
+            {% if user.is_authenticated %}
+                <div class="d-flex align-items-center gap-3 mb-4 mt-2">
+                    {% if user.avatar %}
+                        <img src="{{ user.avatar.url }}" class="avatar">
+                    {% else %}
+                        <div class="avatar bg-secondary text-white d-flex align-items-center justify-content-center">
+                            {{ user.username|first|upper }}
+                        </div>
+                    {% endif %}
+                    <div>
+                        <h6 class="mb-0 fw-bold">{{ user.get_full_name|default:user.username }}</h6>
+                        <small class="text-muted">@{{ user.username }}</small>
+                    </div>
+                </div>
+            {% else %}
+                <div class="d-flex align-items-center gap-3 mb-4 mt-2">
+                    <div class="avatar bg-secondary text-white d-flex align-items-center justify-content-center">
+                        <i class="bi bi-person"></i>
+                    </div>
+                    <div>
+                        <h6 class="mb-0 fw-bold">Гость</h6>
+                        <small class="text-muted">не авторизован</small>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Основное меню -->
+            <div class="nav flex-column">
+                <a href="{% url 'posts:post_list' %}" class="nav-link-flow {% if request.resolver_match.url_name == 'post_list' %}active{% endif %}">
+                    <i class="bi bi-house-door"></i> Лента
+                </a>
+                <a href="{% url 'communities:community_list' %}" class="nav-link-flow {% if request.resolver_match.url_name == 'community_list' %}active{% endif %}">
+                    <i class="bi bi-people"></i> Сообщества
+                </a>
+                {% if user.is_authenticated %}
+                    <a href="{% url 'messenger:chat_list' %}" class="nav-link-flow {% if request.resolver_match.url_name == 'chat_list' %}active{% endif %}">
+                        <i class="bi bi-chat-dots"></i> Сообщения
+                        {% if unread_messages_count > 0 %}
+                            <span class="badge bg-danger ms-auto">{{ unread_messages_count }}</span>
+                        {% endif %}
+                    </a>
+                    <a href="{% url 'posts:bookmarks' %}" class="nav-link-flow {% if request.resolver_match.url_name == 'bookmarks' %}active{% endif %}">
+                        <i class="bi bi-bookmark"></i> Закладки
+                    </a>
+                    <a href="{% url 'posts:post_create' %}" class="nav-link-flow {% if request.resolver_match.url_name == 'post_create' %}active{% endif %}">
+                        <i class="bi bi-plus-circle"></i> Создать пост
+                    </a>
+                {% endif %}
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Категории -->
+            <div class="menu-header">КАТЕГОРИИ</div>
+            <div class="nav flex-column mb-2">
+                <a href="{% url 'posts:category_list' %}" class="nav-link-flow py-2">
+                    <i class="bi bi-folder"></i> Все категории
+                </a>
+                {% if user.is_authenticated %}
+                    <a href="{% url 'posts:category_create' %}" class="nav-link-flow py-2">
+                        <i class="bi bi-plus-circle"></i> Создать категорию
+                    </a>
+                {% endif %}
+            </div>
+
+            <!-- Теги -->
+            <div class="menu-header">ТЕГИ</div>
+            <div class="nav flex-column mb-2">
+                <a href="{% url 'posts:tag_list' %}" class="nav-link-flow py-2">
+                    <i class="bi bi-tags"></i> Все теги
+                </a>
+                {% if user.is_authenticated %}
+                    <a href="{% url 'posts:tag_create' %}" class="nav-link-flow py-2">
+                        <i class="bi bi-plus-circle"></i> Создать тег
+                    </a>
+                {% endif %}
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Подписки -->
+            <div class="menu-header">ПОДПИСКИ</div>
+            <div class="nav flex-column">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'accounts:followers' user.username %}" class="nav-link-flow py-2">
+                        <i class="bi bi-people"></i> Подписчики
+                    </a>
+                    <a href="{% url 'accounts:following' user.username %}" class="nav-link-flow py-2">
+                        <i class="bi bi-person-check"></i> Подписки
+                    </a>
+                    <a href="{% url 'accounts:user_list' %}" class="nav-link-flow py-2">
+                        <i class="bi bi-grid"></i> Все пользователи
+                    </a>
+                {% else %}
+                    <a href="{% url 'accounts:login' %}?next={{ request.path }}" class="nav-link-flow py-2">
+                        <i class="bi bi-box-arrow-in-right"></i> Войти
+                    </a>
+                {% endif %}
+            </div>
+
+            {% if not user.is_authenticated %}
+                <div class="divider"></div>
+                <a href="{% url 'accounts:login' %}" class="btn-flow w-100 mb-2 text-center">Войти</a>
+                <a href="{% url 'accounts:register' %}" class="btn-outline-flow w-100 text-center">Регистрация</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ЦЕНТРАЛЬНАЯ КОЛОНКА - КОНТЕНТ -->
+    <div class="content-wrapper">
         {% if messages %}
             {% for message in messages %}
                 <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
@@ -462,106 +562,120 @@
         {% endblock %}
     </div>
 
-    <!-- Footer -->
-    <footer class="bg-light mt-5 py-3">
-        <div class="container text-center">
-            <p class="text-muted mb-0">
-                <i class="bi bi-water"></i> Социальная сеть "Поток" © {% now "Y" %}
-            </p>
+    <!-- ПРАВАЯ КОЛОНКА - ВИДЖЕТЫ -->
+    <div class="right-widgets">
+        <!-- Сейчас онлайн -->
+        <div class="widget-card">
+            <div class="widget-header">
+                <i class="bi bi-circle-fill text-success me-2" style="font-size: 8px;"></i> Сейчас онлайн
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                {% for online_user in online_users %}
+                    <a href="{% url 'accounts:profile_by_username' online_user.username %}" class="text-decoration-none" title="{{ online_user.username }}">
+                        {% if online_user.avatar %}
+                            <img src="{{ online_user.avatar.url }}" class="avatar-small">
+                        {% else %}
+                            <div class="avatar-small bg-secondary text-white d-flex align-items-center justify-content-center">
+                                {{ online_user.username|first|upper }}
+                            </div>
+                        {% endif %}
+                    </a>
+                {% empty %}
+                    <p class="text-muted small mb-0">Нет активных пользователей</p>
+                {% endfor %}
+            </div>
         </div>
-    </footer>
 
+        <!-- Рекомендуемые сообщества -->
+        <div class="widget-card">
+            <div class="widget-header">
+                <i class="bi bi-people me-2"></i> Рекомендуемые сообщества
+            </div>
+            {% for community in recommended_communities %}
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    {% if community.avatar %}
+                        <img src="{{ community.avatar.url }}" class="avatar-small">
+                    {% else %}
+                        <div class="avatar-small bg-gradient text-white d-flex align-items-center justify-content-center"
+                             style="background: linear-gradient(135deg, #4a6b8a 0%, #3a5a78 100%);">
+                            {{ community.name|first|upper }}
+                        </div>
+                    {% endif %}
+                    <div class="flex-grow-1">
+                        <a href="{% url 'communities:community_detail' community.slug %}" class="text-decoration-none fw-bold small">
+                            {{ community.name }}
+                        </a>
+                        <br>
+                        <small class="text-muted">{{ community.members_count }} участников</small>
+                    </div>
+                </div>
+            {% empty %}
+                <p class="text-muted small mb-0">Нет рекомендаций</p>
+            {% endfor %}
+        </div>
+
+        <!-- Топ недели -->
+        <div class="widget-card">
+            <div class="widget-header">
+                <i class="bi bi-trophy me-2"></i> Топ недели
+            </div>
+            {% for top_post in top_posts %}
+                <div class="mb-2 pb-2 {% if not forloop.last %}border-bottom{% endif %}" style="border-color: #e2eaf2 !important;">
+                    <a href="{% url 'posts:post_detail' top_post.pk %}" class="text-decoration-none">
+                        <small class="fw-bold">{{ top_post.title|truncatechars:30 }}</small>
+                    </a>
+                    <br>
+                    <small class="text-muted">
+                        <i class="bi bi-heart"></i> {{ top_post.likes_count }}
+                        <i class="bi bi-eye ms-2"></i> {{ top_post.views_count }}
+                    </small>
+                </div>
+            {% empty %}
+                <p class="text-muted small mb-0">Нет данных</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Скрипты -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
     <script>
         // Автоматическое скрытие alert-сообщений через 5 секунд
         setTimeout(function() {
             $('.alert').fadeOut('slow');
         }, 5000);
-    </script>
-    {% block extra_js %}{% endblock %}
 
-<script>
-    // Функция загрузки уведомлений
-    function loadNotifications() {
-        $.ajax({
-            url: '{% url "accounts:notifications_ajax" %}',
-            method: 'GET',
-            success: function(data) {
-                updateNotificationsList(data);
-            },
-            error: function(xhr, status, error) {
-                console.error('Ошибка загрузки уведомлений:', error);
-            }
-        });
-    }
-
-    // Функция обновления списка уведомлений
-    function updateNotificationsList(data) {
-        var list = $('#notifications-list');
-        list.empty();
-
-        if (data.notifications && data.notifications.length > 0) {
-            $.each(data.notifications, function(i, notif) {
-                var item = $('<a>', {
-                    class: 'dropdown-item',
-                    href: notif.link,
-                    html: '<div class="d-flex justify-content-between align-items-start">' +
-                          '<div class="flex-grow-1 me-2">' +
-                          '<small><strong>' + notif.title + '</strong></small>' +
-                          '<p class="small text-muted mb-0">' + notif.message + '</p>' +
-                          '</div>' +
-                          '<small class="text-muted" style="font-size: 10px;">' + notif.created_at + '</small>' +
-                          '</div>'
-                });
-                list.append(item);
-            });
-
-            // Обновляем счетчик
-            $('#notification-badge').text(data.count).show();
-        } else {
-            list.html('<div class="text-center py-3"><i class="bi bi-bell-slash text-muted" style="font-size: 2rem;"></i><p class="text-muted small mt-2">Нет новых уведомлений</p></div>');
-            $('#notification-badge').hide();
-        }
-    }
-
-    // Отметить все как прочитанные
-    $('#mark-all-read').click(function() {
-        $.ajax({
-            url: '{% url "accounts:notification_mark_all_read" %}',
-            method: 'POST',
-            data: {
-                'csrfmiddlewaretoken': '{{ csrf_token }}'
-            },
-            success: function() {
-                loadNotifications();
-            }
-        });
-    });
-
-    // Загружаем уведомления при открытии дропдауна
-    $('#notificationDropdown').on('show.bs.dropdown', function() {
-        loadNotifications();
-    });
-
-    // Периодическая проверка новых уведомлений (каждые 30 секунд)
-    setInterval(function() {
-        if (document.visibilityState === 'visible') {
+        // Загрузка уведомлений
+        function loadNotifications() {
             $.ajax({
                 url: '{% url "accounts:notifications_ajax" %}',
                 method: 'GET',
                 success: function(data) {
-                    if (data.count > 0) {
-                        $('#notification-badge').text(data.count).show();
-                        // Обновляем список только если дропдаун открыт
-                        if ($('#notificationDropdown').attr('aria-expanded') === 'true') {
-                            updateNotificationsList(data);
-                        }
+                    var list = $('#notifications-list');
+                    list.empty();
+
+                    if (data.notifications && data.notifications.length > 0) {
+                        $.each(data.notifications, function(i, notif) {
+                            var item = $('<a>', {
+                                class: 'dropdown-item',
+                                href: notif.link,
+                                html: '<div><small><strong>' + notif.title + '</strong></small>' +
+                                      '<p class="small text-muted mb-0">' + notif.message + '</p>' +
+                                      '<small class="text-muted">' + notif.created_at + '</small></div>'
+                            });
+                            list.append(item);
+                        });
+                    } else {
+                        list.html('<div class="text-center py-3">Нет новых уведомлений</div>');
                     }
                 }
             });
         }
-    }, 30000);
-</script>
+
+        $('#notificationDropdown').on('show.bs.dropdown', loadNotifications);
+    </script>
+
+    {% block extra_js %}{% endblock %}
 </body>
 </html>
