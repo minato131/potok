@@ -1,0 +1,232 @@
+/* ===== ОСНОВНЫЕ СТИЛИ ===== */
+:root {
+    --border-color: #e9ecef;
+    --border-hover: #ced4da;
+    --bg-light: #fafafa;
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.02);
+    --shadow-hover: 0 8px 16px rgba(0,0,0,0.08);
+    --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* ===== КАРТОЧКИ ПОСТОВ ===== */
+.post-card {
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    margin-bottom: 24px;
+    background: white;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+}
+
+.post-card:hover {
+    border-color: var(--border-hover);
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-2px);
+}
+
+/* Шапка поста */
+.post-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: linear-gradient(to bottom, #ffffff, var(--bg-light));
+}
+
+/* Тело поста */
+.post-body {
+    padding: 20px;
+}
+
+/* Футер поста */
+.post-footer {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-light);
+}
+
+/* Разделитель между постами */
+.post-separator {
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--border-color), transparent);
+    margin: -12px 0 24px 0;
+}
+
+/* Анимация появления */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.post-card {
+    animation: slideIn 0.4s ease-out;
+}
+
+/* ===== ТЕГИ ===== */
+.tag-badge {
+    background: #f8f9fa;
+    color: #495057;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    text-decoration: none;
+    transition: all 0.2s;
+    border: 1px solid var(--border-color);
+    display: inline-block;
+    margin: 0 4px 4px 0;
+}
+
+.tag-badge:hover {
+    background: #e9ecef;
+    border-color: var(--border-hover);
+    transform: translateY(-1px);
+    color: #212529;
+}
+
+/* ===== СТАТИСТИКА ПОСТА ===== */
+.post-stats {
+    display: flex;
+    gap: 16px;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.post-stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* ===== КНОПКИ ДЕЙСТВИЙ ===== */
+.action-btn {
+    color: #6c757d;
+    transition: all 0.2s;
+    padding: 4px 8px;
+    border-radius: 20px;
+}
+
+.action-btn:hover {
+    background: #f8f9fa;
+    color: #0d6efd;
+}
+
+.action-btn.liked {
+    color: #dc3545;
+}
+
+/* ===== МЕДИА-КОНТЕНТ ===== */
+.post-media {
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 16px 0;
+    border: 1px solid var(--border-color);
+}
+
+.post-media img,
+.post-media video {
+    width: 100%;
+    max-height: 400px;
+    object-fit: cover;
+    display: block;
+}
+
+/* ===== АВАТАРЫ ===== */
+.avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.avatar-medium {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.avatar-large {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #fff;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.comment-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #fff;
+}
+
+/* ===== ГРАДИЕНТЫ ===== */
+.bg-gradient {
+    background: var(--gradient-primary);
+}
+
+/* ===== КАРТОЧКИ ===== */
+.card-custom {
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    transition: all 0.2s ease;
+}
+
+.card-custom:hover {
+    border-color: var(--border-hover);
+    box-shadow: var(--shadow-hover);
+}
+
+/* ===== НАВИГАЦИЯ ===== */
+.nav-pills .nav-link.active {
+    background: var(--gradient-primary);
+}
+
+/* ===== РАЗДЕЛИТЕЛИ ===== */
+.divider-custom {
+    border-color: var(--border-color);
+    margin: 1rem 0;
+}
+
+/* ===== ПАГИНАЦИЯ ===== */
+.page-link {
+    border-radius: 10px;
+    margin: 0 2px;
+    border: 1px solid var(--border-color);
+    color: #495057;
+}
+
+.page-link:hover {
+    background: var(--gradient-primary);
+    color: white;
+    border-color: transparent;
+}
+
+.page-item.active .page-link {
+    background: var(--gradient-primary);
+    border-color: transparent;
+}
+
+/* ===== УТИЛИТЫ ===== */
+.border-custom {
+    border-color: var(--border-color) !important;
+}
+
+.shadow-custom {
+    box-shadow: var(--shadow-sm);
+}
+
+.shadow-custom-hover:hover {
+    box-shadow: var(--shadow-hover);
+}

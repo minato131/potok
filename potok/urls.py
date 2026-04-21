@@ -1,3 +1,4 @@
+# potok/urls.py
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
@@ -5,11 +6,11 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('accounts/', include('accounts.urls')),
-    path('', include('posts.urls')),
-    path('communities/', include('communities.urls')),
-    path('messenger/', include('messenger.urls')),
-    path('moderation/', include('moderation.urls')),
+    path('accounts/', include('accounts.urls', namespace='accounts')),
+    path('communities/', include('communities.urls', namespace='communities')),
+    path('messenger/', include('messenger.urls', namespace='messenger')),
+    path('moderation/', include('moderation.urls', namespace='moderation')),
+    path('', include('posts.urls', namespace='posts')),
 ]
 
 if settings.DEBUG:

@@ -1,0 +1,47 @@
+/* static/css/variables.css */
+:root {
+    /* Основные цвета */
+    --color-primary: #2563eb;
+    --color-primary-hover: #1d4ed8;
+    --color-primary-light: #dbeafe;
+
+    /* Нейтральные */
+    --color-bg-app: #f3f4f6;
+    --color-bg-surface: #ffffff;
+    --color-bg-elevated: #f9fafb;
+
+    --color-border: #e5e7eb;
+    --color-border-light: #f3f4f6;
+
+    --color-text-primary: #111827;
+    --color-text-secondary: #4b5563;
+    --color-text-tertiary: #6b7280;
+    --color-text-inverse: #ffffff;
+
+    /* Состояния */
+    --color-success: #10b981;
+    --color-warning: #f59e0b;
+    --color-danger: #ef4444;
+    --color-danger-hover: #dc2626;
+
+    /* Размеры */
+    --sidebar-width: 280px;
+    --right-sidebar-width: 320px;
+    --header-height: 64px;
+    --content-max-width: 680px;
+
+    /* Тени */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+    /* Радиусы */
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+    --radius-full: 9999px;
+
+    /* Анимации */
+    --transition-base: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}

@@ -1,0 +1,368 @@
+/* static/css/components.css */
+/* Навигация */
+.nav-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-lg);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    transition: all var(--transition-base);
+}
+
+.nav-link:hover {
+    background-color: var(--color-bg-elevated);
+    color: var(--color-text-primary);
+}
+
+.nav-link--active {
+    background-color: var(--color-primary-light);
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+.nav-link i {
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+/* Карточка пользователя */
+.user-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border-radius: var(--radius-lg);
+    transition: background-color var(--transition-base);
+}
+
+.user-card:hover {
+    background-color: var(--color-bg-elevated);
+}
+
+.user-card__avatar {
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+}
+
+.user-card__avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: var(--radius-full);
+}
+
+.avatar-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--color-primary-light);
+    color: var(--color-primary);
+    font-weight: 600;
+    border-radius: var(--radius-full);
+}
+
+.user-card__info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.user-card__name {
+    font-weight: 600;
+    font-size: 0.9375rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.user-card__username {
+    font-size: 0.8125rem;
+    color: var(--color-text-tertiary);
+}
+
+.user-card__logout {
+    padding: 0.25rem;
+    border-radius: var(--radius-md);
+    color: var(--color-text-tertiary);
+    transition: all var(--transition-base);
+}
+
+.user-card__logout:hover {
+    background-color: var(--color-danger);
+    color: var(--color-text-inverse);
+}
+
+/* Кнопки */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    border-radius: var(--radius-lg);
+    font-weight: 500;
+    font-size: 0.9375rem;
+    transition: all var(--transition-base);
+    border: 1px solid transparent;
+    cursor: pointer;
+}
+
+.btn--primary {
+    background-color: var(--color-primary);
+    color: var(--color-text-inverse);
+}
+
+.btn--primary:hover {
+    background-color: var(--color-primary-hover);
+}
+
+.btn--outline {
+    background-color: transparent;
+    border-color: var(--color-border);
+    color: var(--color-text-primary);
+}
+
+.btn--outline:hover {
+    background-color: var(--color-bg-elevated);
+}
+
+.btn--danger {
+    background-color: var(--color-danger);
+    color: var(--color-text-inverse);
+}
+
+.btn--danger:hover {
+    background-color: var(--color-danger-hover);
+}
+
+.btn--block {
+    width: 100%;
+}
+
+.btn--icon {
+    padding: 0.5rem;
+    border-radius: var(--radius-full);
+}
+
+/* Формы */
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    font-size: 0.9375rem;
+    color: var(--color-text-primary);
+}
+
+.form-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-bg-surface);
+    color: var(--color-text-primary);
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.form-input::placeholder {
+    color: var(--color-text-tertiary);
+}
+
+/* Карточка поста */
+.post-card {
+    background-color: var(--color-bg-surface);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-border-light);
+    transition: box-shadow var(--transition-base);
+}
+
+.post-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.post-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.post-content {
+    margin-bottom: 1.25rem;
+    line-height: 1.6;
+    word-break: break-word;
+}
+
+.post-footer {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-border-light);
+}
+
+.post-action {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    color: var(--color-text-tertiary);
+    font-size: 0.875rem;
+    transition: color var(--transition-base);
+}
+
+.post-action:hover {
+    color: var(--color-primary);
+}
+
+.post-action i {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+/* Информационная карточка */
+.info-card {
+    background-color: var(--color-bg-surface);
+    border-radius: var(--radius-xl);
+    padding: 1.25rem;
+    border: 1px solid var(--color-border-light);
+}
+
+.info-card__title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+.info-card__text {
+    color: var(--color-text-secondary);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+}
+
+/* Сообщества */
+.community-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.community-card {
+    background-color: var(--color-bg-surface);
+    border-radius: var(--radius-xl);
+    padding: 1.5rem;
+    border: 1px solid var(--color-border-light);
+    transition: all var(--transition-base);
+}
+
+.community-card:hover {
+    border-color: var(--color-primary-light);
+    box-shadow: var(--shadow-md);
+}
+
+.community-card__header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.community-avatar {
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: var(--radius-lg);
+    background-color: var(--color-primary-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-primary);
+    font-weight: 700;
+    font-size: 1.5rem;
+}
+
+.community-card__title {
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.community-card__description {
+    color: var(--color-text-secondary);
+    font-size: 0.9375rem;
+    margin-bottom: 1.25rem;
+    line-height: 1.5;
+}
+
+/* Алерты */
+.alert {
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius-lg);
+    margin-bottom: 1rem;
+    font-size: 0.9375rem;
+}
+
+.alert--success {
+    background-color: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.alert--error {
+    background-color: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.auth-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+/* Добавь в static/css/components.css */
+.user-card__actions {
+    display: flex;
+    gap: 0.25rem;
+    margin-left: 0.5rem;
+}
+
+.user-card__notifications {
+    padding: 0.25rem;
+    border-radius: var(--radius-md);
+    color: var(--color-text-tertiary);
+    transition: all var(--transition-base);
+}
+
+.user-card__notifications:hover {
+    background-color: var(--color-primary-light);
+    color: var(--color-primary);
+}
+
+/* Стили для кнопок в правой панели */
+.btn--block {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+}

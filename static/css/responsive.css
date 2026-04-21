@@ -1,0 +1,66 @@
+/* static/css/responsive.css */
+/* Планшеты (скрываем правую боковую панель) */
+@media (max-width: 1024px) {
+    .app {
+        grid-template-columns: var(--sidebar-width) 1fr;
+    }
+
+    .right-sidebar {
+        display: none;
+    }
+
+    .main-content {
+        padding: 1.5rem 1.5rem;
+    }
+}
+
+/* Маленькие планшеты и большие телефоны */
+@media (max-width: 768px) {
+    .app {
+        grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+        display: none;
+    }
+
+    .main-content {
+        padding: 1rem 1rem;
+    }
+
+    .mobile-menu-toggle {
+        display: block;
+    }
+
+    .page-title {
+        font-size: 1.5rem;
+    }
+
+    .content-container {
+        max-width: 100%;
+    }
+
+    .community-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Маленькие телефоны */
+@media (max-width: 480px) {
+    .main-content {
+        padding: 0.75rem 0.75rem;
+    }
+
+    .post-card {
+        padding: 1rem;
+        border-radius: var(--radius-lg);
+    }
+
+    .btn {
+        padding: 0.5rem 1rem;
+    }
+
+    .page-title {
+        font-size: 1.25rem;
+    }
+}
