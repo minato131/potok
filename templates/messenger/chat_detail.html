@@ -77,9 +77,6 @@
 
 {% block header_actions %}
 <div class="chat-header-actions">
-    <button class="btn btn--icon" id="searchMessagesBtn" title="Поиск в чате">
-        <i data-feather="search"></i>
-    </button>
     <a href="{% url 'messenger:chat_settings' chat_id=chat.id %}" class="btn btn--icon" title="Настройки чата">
         <i data-feather="settings"></i>
     </a>
@@ -88,17 +85,6 @@
 
 {% block content %}
 <div class="chat-detail-container">
-    <!-- Поиск сообщений -->
-    <div class="message-search" id="messageSearchPanel" style="display: none;">
-        <div class="search-header">
-            <input type="text" id="messageSearchInput" placeholder="Поиск в сообщениях..." class="search-input">
-            <button class="btn btn--icon" id="closeSearchBtn">
-                <i data-feather="x"></i>
-            </button>
-        </div>
-        <div class="search-results" id="searchResults"></div>
-    </div>
-
     <!-- Область сообщений -->
     <div class="messages-container" id="messagesContainer">
         <div class="messages-list" id="messagesList">
@@ -208,7 +194,6 @@
 </div>
 
 <script>
-    // Передаем данные в JavaScript
     window.chatConfig = {
         chatId: {{ chat.id }},
         currentUserId: {{ user.id }},
@@ -221,10 +206,40 @@
 </script>
 {% endblock %}
 
-<!-- Остальной CSS и JavaScript без изменений -->
-
 {% block extra_css %}
 <style>
+    /* === ХЕДЕР И КНОПКА НАСТРОЕК === */
+    .chat-header-actions {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .btn--icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5rem;
+        border-radius: 10px;
+        color: var(--color-text-secondary);
+        text-decoration: none;
+        transition: all 0.2s;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+    }
+
+    .btn--icon:hover {
+        background: var(--color-bg-elevated);
+        color: var(--color-text-primary);
+    }
+
+    .btn--icon i {
+        width: 1.25rem;
+        height: 1.25rem;
+    }
+
+    /* === ОСНОВНОЙ КОНТЕЙНЕР === */
     .chat-detail-container {
         display: flex;
         flex-direction: column;
@@ -301,65 +316,7 @@
         color: var(--color-text-tertiary);
     }
 
-    .chat-header-actions {
-        display: flex;
-        gap: 0.5rem;
-    }
-
-    .btn--icon {
-        padding: 0.5rem;
-        border-radius: var(--radius-md);
-        color: var(--color-text-secondary);
-    }
-
-    .btn--icon:hover {
-        background: var(--color-bg-elevated);
-    }
-
-    /* Поиск сообщений */
-    .message-search {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        background: var(--color-bg-surface);
-        border-bottom: 1px solid var(--color-border);
-        padding: 0.75rem 1rem;
-        z-index: 10;
-    }
-
-    .search-header {
-        display: flex;
-        gap: 0.5rem;
-    }
-
-    .search-header .search-input {
-        flex: 1;
-    }
-
-    .search-results {
-        max-height: 300px;
-        overflow-y: auto;
-        margin-top: 0.5rem;
-    }
-
-    .search-result-item {
-        padding: 0.75rem;
-        border-radius: var(--radius-md);
-        cursor: pointer;
-        transition: background var(--transition-base);
-    }
-
-    .search-result-item:hover {
-        background: var(--color-bg-elevated);
-    }
-
-    .search-result-item .highlight {
-        background: yellow;
-        font-weight: 600;
-    }
-
-    /* Контейнер сообщений */
+    /* === КОНТЕЙНЕР СООБЩЕНИЙ === */
     .messages-container {
         flex: 1;
         overflow-y: auto;
@@ -405,7 +362,7 @@
         color: var(--color-text-secondary);
     }
 
-    /* Индикатор печати */
+    /* === ИНДИКАТОР ПЕЧАТИ === */
     .typing-indicator {
         display: flex;
         align-items: center;
@@ -450,7 +407,7 @@
         color: var(--color-text-tertiary);
     }
 
-    /* Кнопка прокрутки */
+    /* === КНОПКА ПРОКРУТКИ === */
     .scroll-to-bottom {
         position: sticky;
         bottom: 1rem;
@@ -481,7 +438,7 @@
         font-size: 0.75rem;
     }
 
-    /* Форма сообщения */
+    /* === ФОРМА СООБЩЕНИЯ === */
     .message-form-container {
         padding: 1rem 0;
         border-top: 1px solid var(--color-border-light);
@@ -634,7 +591,7 @@
         cursor: not-allowed;
     }
 
-    /* Эмодзи пикер */
+    /* === ЭМОДЗИ ПИКЕР === */
     .emoji-picker {
         position: absolute;
         bottom: 80px;
@@ -693,7 +650,7 @@
         background: var(--color-bg-elevated);
     }
 
-    /* Адаптивность */
+    /* === АДАПТИВНОСТЬ === */
     @media (max-width: 768px) {
         .back-btn {
             display: block;
@@ -716,12 +673,10 @@
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Элементы
         const messageForm = document.getElementById('messageForm');
         const messageInput = document.getElementById('messageInput');
         const sendBtn = document.getElementById('sendBtn');
         const messagesContainer = document.getElementById('messagesContainer');
-        const messagesList = document.getElementById('messagesList');
         const fileInput = document.getElementById('fileInput');
         const attachmentBtn = document.getElementById('attachmentBtn');
         const attachmentsPreview = document.getElementById('attachmentsPreview');
@@ -736,15 +691,9 @@
         const cancelEditBtn = document.getElementById('cancelEditBtn');
         const editMessageIdInput = document.getElementById('editMessageIdInput');
         const scrollToBottomBtn = document.getElementById('scrollToBottomBtn');
-        const typingIndicator = document.getElementById('typingIndicator');
-        const searchBtn = document.getElementById('searchMessagesBtn');
-        const searchPanel = document.getElementById('messageSearchPanel');
-        const closeSearchBtn = document.getElementById('closeSearchBtn');
 
         let selectedFiles = [];
-        let typingTimeout = null;
 
-        // Эмодзи
         const emojis = ['😊', '😂', '❤️', '👍', '😍', '🎉', '😢', '😡', '🤔', '🙏', '👋', '✨', '🔥', '💯', '⭐', '🎨', '🎵', '💡', '📚', '✏️'];
 
         function renderEmojis() {
@@ -766,41 +715,25 @@
             const cursorPos = messageInput.selectionStart;
             const textBefore = messageInput.value.substring(0, cursorPos);
             const textAfter = messageInput.value.substring(cursorPos);
-
             messageInput.value = textBefore + emoji + textAfter;
             messageInput.focus();
             messageInput.setSelectionRange(cursorPos + emoji.length, cursorPos + emoji.length);
             messageInput.dispatchEvent(new Event('input'));
         }
 
-        // Авто-расширение textarea
         messageInput.addEventListener('input', function() {
             this.style.height = 'auto';
             this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-
-            const hasContent = this.value.trim().length > 0 || selectedFiles.length > 0;
-            sendBtn.disabled = !hasContent;
-
-            // Индикатор печати
-            if (hasContent && !editMessageIdInput.value) {
-                clearTimeout(typingTimeout);
-                typingTimeout = setTimeout(() => {
-                    // Отправка события печати через WebSocket если есть
-                }, 1000);
-            }
+            sendBtn.disabled = !this.value.trim() && selectedFiles.length === 0;
         });
 
-        // Отправка по Enter
         messageInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                if (!sendBtn.disabled) {
-                    messageForm.dispatchEvent(new Event('submit'));
-                }
+                if (!sendBtn.disabled) messageForm.dispatchEvent(new Event('submit'));
             }
         });
 
-        // Эмодзи пикер
         emojiBtn.addEventListener('click', function(e) {
             e.stopPropagation();
             emojiPicker.style.display = emojiPicker.style.display === 'none' ? 'block' : 'none';
@@ -812,45 +745,31 @@
             }
         });
 
-        // Вложения
         attachmentBtn.addEventListener('click', () => fileInput.click());
 
         fileInput.addEventListener('change', function() {
-            handleFiles(this.files);
-        });
-
-        function handleFiles(files) {
-            selectedFiles = [...files];
+            selectedFiles = [...this.files];
             renderAttachments();
             sendBtn.disabled = !messageInput.value.trim() && selectedFiles.length === 0;
-        }
+        });
 
         function renderAttachments() {
             if (selectedFiles.length === 0) {
                 attachmentsPreview.style.display = 'none';
                 return;
             }
-
             attachmentsPreview.style.display = 'flex';
             attachmentsPreview.innerHTML = '';
-
             selectedFiles.forEach((file, index) => {
                 const preview = document.createElement('div');
                 preview.className = 'attachment-preview';
-
                 if (file.type.startsWith('image/')) {
                     const img = document.createElement('img');
                     img.src = URL.createObjectURL(file);
                     preview.appendChild(img);
                 } else {
-                    preview.innerHTML = `
-                        <div class="file-preview">
-                            <i data-feather="file"></i>
-                            <span>${file.name.substring(0, 15)}...</span>
-                        </div>
-                    `;
+                    preview.innerHTML = `<div class="file-preview"><i data-feather="file"></i><span>${file.name.substring(0, 15)}...</span></div>`;
                 }
-
                 const removeBtn = document.createElement('button');
                 removeBtn.className = 'remove-attachment';
                 removeBtn.innerHTML = '<i data-feather="x"></i>';
@@ -859,15 +778,12 @@
                     renderAttachments();
                     sendBtn.disabled = !messageInput.value.trim() && selectedFiles.length === 0;
                 };
-
                 preview.appendChild(removeBtn);
                 attachmentsPreview.appendChild(preview);
             });
-
             feather.replace();
         }
 
-        // Ответ на сообщение
         window.replyToMessage = function(messageId, content, author) {
             replyToInput.value = messageId;
             replyText.textContent = `${author}: ${content.substring(0, 50)}...`;
@@ -882,7 +798,6 @@
             replyToInput.value = '';
         });
 
-        // Редактирование сообщения
         window.editMessage = function(messageId, content) {
             editMessageIdInput.value = messageId;
             editText.textContent = content.substring(0, 50) + '...';
@@ -901,19 +816,8 @@
             messageInput.dispatchEvent(new Event('input'));
         });
 
-        // Поиск сообщений
-        searchBtn?.addEventListener('click', function() {
-            searchPanel.style.display = 'block';
-        });
-
-        closeSearchBtn?.addEventListener('click', function() {
-            searchPanel.style.display = 'none';
-        });
-
-        // Отправка сообщения
         messageForm.addEventListener('submit', async function(e) {
             e.preventDefault();
-
             const content = messageInput.value.trim();
             if (!content && selectedFiles.length === 0) return;
 
@@ -930,27 +834,19 @@
             try {
                 const response = await fetch(url, {
                     method: 'POST',
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken')
-                    },
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') },
                     body: formData
                 });
-
                 if (response.ok) {
-                    // Очистка формы
                     messageInput.value = '';
                     messageInput.style.height = 'auto';
                     selectedFiles = [];
                     renderAttachments();
                     sendBtn.disabled = true;
-
-                    // Сброс ответа/редактирования
                     replyPreview.style.display = 'none';
                     replyToInput.value = '';
                     editPreview.style.display = 'none';
                     editMessageIdInput.value = '';
-
-                    // Перезагрузка сообщений
                     setTimeout(() => location.reload(), 500);
                 }
             } catch (error) {
@@ -959,27 +855,18 @@
             }
         });
 
-        // Прокрутка
         function checkScroll() {
             const isNearBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 100;
             scrollToBottomBtn.style.display = isNearBottom ? 'none' : 'flex';
         }
 
         messagesContainer.addEventListener('scroll', checkScroll);
-
         scrollToBottomBtn.addEventListener('click', function() {
-            messagesContainer.scrollTo({
-                top: messagesContainer.scrollHeight,
-                behavior: 'smooth'
-            });
+            messagesContainer.scrollTo({ top: messagesContainer.scrollHeight, behavior: 'smooth' });
         });
 
-        // Прокрутка вниз при загрузке
-        setTimeout(() => {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }, 100);
+        setTimeout(() => { messagesContainer.scrollTop = messagesContainer.scrollHeight; }, 100);
 
-        // CSRF токен
         function getCookie(name) {
             let cookieValue = null;
             if (document.cookie && document.cookie !== '') {

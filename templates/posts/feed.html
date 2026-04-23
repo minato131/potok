@@ -1,0 +1,635 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+    {% if category %}{{ category.name }}{% elif tag %}#{{ tag.name }}{% else %}Главная · Поток{% endif %}
+{% endblock %}
+
+{% block page_title %}
+    {% if category %}
+        <span class="page-title-with-icon"><i data-feather="folder"></i> {{ category.name }}</span>
+    {% elif tag %}
+        <span class="page-title-with-icon"><i data-feather="tag"></i> #{{ tag.name }}</span>
+    {% else %}
+        <span class="page-title-with-icon"><i data-feather="home"></i> Лента</span>
+    {% endif %}
+{% endblock %}
+
+{% block header_actions %}
+<div class="feed-header-actions">
+    <div class="feed-tabs">
+        <a href="?feed=all" class="feed-tab {% if current_feed == 'all' %}active{% endif %}">
+            <i data-feather="globe"></i> <span>Все</span>
+        </a>
+        {% if user.is_authenticated %}
+        <a href="?feed=following" class="feed-tab {% if current_feed == 'following' %}active{% endif %}">
+            <i data-feather="users"></i> <span>Подписки</span>
+        </a>
+        {% endif %}
+        <a href="?feed=popular" class="feed-tab {% if current_feed == 'popular' %}active{% endif %}">
+            <i data-feather="trending-up"></i> <span>Популярное</span>
+        </a>
+    </div>
+    {% if user.is_authenticated %}
+    <a href="{% url 'posts:post_create' %}" class="btn btn--primary">
+        <i data-feather="plus"></i> <span>Создать пост</span>
+    </a>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="home-layout">
+    <!-- Лента постов -->
+    <div class="posts-feed-container">
+        {% if user.is_authenticated and not category and not tag %}
+        <div class="create-post-card">
+            <div class="create-post-header">
+                <div class="user-avatar-mini">
+                    {% if user.profile.avatar %}
+                    <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}">
+                    {% else %}
+                    <div class="avatar-placeholder">{{ user.username|make_list|first|upper }}</div>
+                    {% endif %}
+                </div>
+                <a href="{% url 'posts:post_create' %}" class="create-post-input">Поделитесь чем-нибудь...</a>
+            </div>
+            <div class="create-post-actions">
+                <button onclick="location.href='{% url 'posts:post_create' %}?type=image'">
+                    <i data-feather="image"></i> Фото
+                </button>
+                <button onclick="location.href='{% url 'posts:post_create' %}?type=video'">
+                    <i data-feather="video"></i> Видео
+                </button>
+                <button onclick="location.href='{% url 'posts:post_create' %}?type=link'">
+                    <i data-feather="link"></i> Ссылка
+                </button>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="posts-toolbar">
+            <select class="sort-select" id="sortSelect">
+                <option value="new" {% if current_sort == 'new' %}selected{% endif %}>Новые</option>
+                <option value="top" {% if current_sort == 'top' %}selected{% endif %}>Лучшие за день</option>
+                <option value="hot" {% if current_sort == 'hot' %}selected{% endif %}>Обсуждаемые</option>
+            </select>
+        </div>
+
+        <div class="posts-feed">
+            {% for post in posts %}
+            <article class="post-item" data-post-id="{{ post.id }}">
+                <div class="post-vote">
+                    <button class="vote-btn upvote" data-post-id="{{ post.id }}">
+                        <i data-feather="arrow-up"></i>
+                    </button>
+                    <span class="vote-count">{{ post.likes_count|default:0 }}</span>
+                    <button class="vote-btn downvote" data-post-id="{{ post.id }}">
+                        <i data-feather="arrow-down"></i>
+                    </button>
+                </div>
+
+                <div class="post-content-wrapper">
+                    <div class="post-meta-top">
+                        {% if post.community %}
+                        <a href="{% url 'communities:community_detail' slug=post.community.slug %}" class="post-community">
+                            c/{{ post.community.name }}
+                        </a>
+                        <span class="meta-dot">·</span>
+                        {% endif %}
+                        <span class="post-author">
+                            <a href="{% url 'accounts:profile_by_username' username=post.author.username %}">
+                                u/{{ post.author.username }}
+                            </a>
+                        </span>
+                        <span class="meta-dot">·</span>
+                        <span class="post-time" title="{{ post.created_at|date:'d.m.Y H:i' }}">
+                            {{ post.created_at|timesince }} назад
+                        </span>
+                    </div>
+
+                    <h3 class="post-title">
+                        <a href="{% url 'posts:post_detail' pk=post.id %}">{{ post.title }}</a>
+                    </h3>
+
+                    {% if post.image %}
+                    <div class="post-media">
+                        <a href="{% url 'posts:post_detail' pk=post.id %}">
+                            <img src="{{ post.image.url }}" alt="{{ post.title }}" loading="lazy">
+                        </a>
+                    </div>
+                    {% elif post.video %}
+                    <div class="post-media post-media--video">
+                        <video controls preload="metadata">
+                            <source src="{{ post.video.url }}" type="video/mp4">
+                        </video>
+                    </div>
+                    {% endif %}
+
+                    <div class="post-text">
+                        {{ post.content|truncatewords:50|linebreaks }}
+                        {% if post.content|wordcount > 50 %}
+                        <a href="{% url 'posts:post_detail' pk=post.id %}" class="read-more">Читать дальше</a>
+                        {% endif %}
+                    </div>
+
+                    {% if post.tags.all %}
+                    <div class="post-tags">
+                        {% for t in post.tags.all %}
+                        <a href="{% url 'posts:tag_detail' slug=t.slug %}" class="post-tag">#{{ t.name }}</a>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="post-footer">
+                        <a href="{% url 'posts:post_detail' pk=post.id %}#comments" class="post-action">
+                            <i data-feather="message-circle"></i>
+                            <span>{{ post.comments_count|default:0 }}</span>
+                        </a>
+                        <button class="post-action share-btn" data-url="{% url 'posts:post_detail' pk=post.id %}">
+                            <i data-feather="share-2"></i>
+                            <span>Поделиться</span>
+                        </button>
+                        <button class="post-action bookmark-btn" data-post-id="{{ post.id }}">
+                            <i data-feather="bookmark"></i>
+                            <span>В закладки</span>
+                        </button>
+                    </div>
+                </div>
+            </article>
+            {% empty %}
+            <div class="empty-feed">
+                <i data-feather="inbox"></i>
+                <h3>Лента пуста</h3>
+                <p>Подпишитесь на пользователей или создайте первый пост</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% include 'includes/pagination.html' with page_obj=page_obj %}
+    </div>
+
+    <!-- Правая колонка -->
+    <aside class="home-sidebar">
+        {% include 'includes/sidebar_widgets.html' %}
+    </aside>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .home-layout {
+        display: grid;
+        grid-template-columns: 1fr 320px;
+        gap: 1.5rem;
+        max-width: 1100px;
+        margin: 0 auto;
+        align-items: start;
+    }
+
+    .feed-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .feed-tabs {
+        display: flex;
+        gap: 0.25rem;
+        background: var(--color-bg-surface);
+        padding: 0.25rem;
+        border-radius: 12px;
+        border: 1px solid var(--color-border-light);
+    }
+
+    .feed-tab {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        color: var(--color-text-secondary);
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 0.9375rem;
+        transition: all 0.2s;
+    }
+
+    .feed-tab:hover { background: var(--color-bg-elevated); }
+    .feed-tab.active { background: var(--color-primary); color: white; }
+
+    .create-post-card {
+        background: var(--color-bg-surface);
+        border-radius: 16px;
+        padding: 1rem;
+        border: 1px solid var(--color-border-light);
+        margin-bottom: 1rem;
+    }
+
+    .create-post-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .user-avatar-mini {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        overflow: hidden;
+    }
+
+    .user-avatar-mini img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+        font-weight: 600;
+    }
+
+    .create-post-input {
+        flex: 1;
+        padding: 0.625rem 1rem;
+        background: var(--color-bg-elevated);
+        border-radius: 24px;
+        color: var(--color-text-tertiary);
+        text-decoration: none;
+        font-size: 0.9375rem;
+    }
+
+    .create-post-input:hover { background: var(--color-border-light); }
+
+    .create-post-actions {
+        display: flex;
+        gap: 0.5rem;
+        padding-left: 3.25rem;
+    }
+
+    .create-post-actions button {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.5rem 0.75rem;
+        background: transparent;
+        border: none;
+        border-radius: 8px;
+        color: var(--color-text-secondary);
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .create-post-actions button:hover { background: var(--color-bg-elevated); color: var(--color-primary); }
+
+    .posts-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+        padding: 0.5rem;
+        background: var(--color-bg-surface);
+        border-radius: 12px;
+        border: 1px solid var(--color-border-light);
+    }
+
+    .sort-select {
+        padding: 0.5rem 2rem 0.5rem 1rem;
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        background: var(--color-bg-surface);
+        font-size: 0.875rem;
+        cursor: pointer;
+    }
+
+    .posts-feed {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .post-item {
+        display: flex;
+        gap: 1rem;
+        padding: 1.25rem;
+        background: var(--color-bg-surface);
+        border-radius: 16px;
+        border: 1px solid var(--color-border-light);
+        transition: all 0.2s;
+    }
+
+    .post-item:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .post-vote {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+        min-width: 2rem;
+    }
+
+    .vote-btn {
+        padding: 0.25rem;
+        border-radius: 4px;
+        color: var(--color-text-tertiary);
+        transition: all 0.2s;
+    }
+
+    .vote-btn:hover { background: var(--color-bg-elevated); }
+    .vote-btn.active { color: var(--color-primary); }
+
+    .vote-count {
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+
+    .post-content-wrapper {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .post-meta-top {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.25rem 0.5rem;
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+        margin-bottom: 0.5rem;
+    }
+
+    .post-community {
+        color: var(--color-text-primary);
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .post-author a {
+        color: var(--color-text-secondary);
+        text-decoration: none;
+    }
+
+    .post-author a:hover { color: var(--color-primary); text-decoration: underline; }
+
+    .meta-dot { color: var(--color-border); }
+
+    .post-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+    }
+
+    .post-title a {
+        color: var(--color-text-primary);
+        text-decoration: none;
+    }
+
+    .post-title a:hover { color: var(--color-primary); }
+
+    .post-media {
+        margin: 0.75rem 0;
+        border-radius: 12px;
+        overflow: hidden;
+        max-height: 400px;
+    }
+
+    .post-media img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .post-media--video video {
+        width: 100%;
+        max-height: 400px;
+    }
+
+    .post-text {
+        color: var(--color-text-secondary);
+        line-height: 1.6;
+        font-size: 0.9375rem;
+    }
+
+    .read-more {
+        color: var(--color-primary);
+        text-decoration: none;
+        font-size: 0.875rem;
+    }
+
+    .post-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+    }
+
+    .post-tag {
+        color: var(--color-primary);
+        text-decoration: none;
+        font-size: 0.8125rem;
+    }
+
+    .post-tag:hover { text-decoration: underline; }
+
+    .post-footer {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        margin-top: 0.75rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--color-border-light);
+    }
+
+    .post-action {
+        display: flex;
+        align-items: center;
+        gap: 0.375rem;
+        color: var(--color-text-tertiary);
+        text-decoration: none;
+        transition: color 0.2s;
+        cursor: pointer;
+        background: none;
+        border: none;
+        font-size: 0.875rem;
+    }
+
+    .post-action:hover { color: var(--color-primary); }
+
+    .post-action i {
+        width: 1.125rem;
+        height: 1.125rem;
+    }
+
+    .empty-feed {
+        text-align: center;
+        padding: 3rem;
+        background: var(--color-bg-surface);
+        border-radius: 16px;
+        border: 1px solid var(--color-border-light);
+    }
+
+    .empty-feed i {
+        width: 3rem;
+        height: 3rem;
+        color: var(--color-text-tertiary);
+        margin-bottom: 1rem;
+    }
+
+    .empty-feed h3 { margin-bottom: 0.5rem; }
+    .empty-feed p { color: var(--color-text-secondary); }
+
+    @media (max-width: 1024px) {
+        .home-layout {
+            grid-template-columns: 1fr;
+        }
+        .home-sidebar { display: none; }
+    }
+
+    @media (max-width: 600px) {
+        .feed-tabs span { display: none; }
+        .post-item { padding: 1rem; }
+        .post-footer { gap: 1rem; }
+        .post-action span { display: none; }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Сортировка
+        document.getElementById('sortSelect')?.addEventListener('change', function() {
+            const url = new URL(window.location);
+            url.searchParams.set('sort', this.value);
+            window.location = url;
+        });
+
+        // Голосование
+        document.querySelectorAll('.vote-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const postId = this.dataset.postId;
+                const isUpvote = this.classList.contains('upvote');
+                const postItem = this.closest('.post-item');
+                const upBtn = postItem.querySelector('.upvote');
+                const downBtn = postItem.querySelector('.downvote');
+                const countSpan = postItem.querySelector('.vote-count');
+
+                try {
+                    const response = await fetch('/like/toggle/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({ post_id: postId, vote_type: isUpvote ? 'up' : 'down' })
+                    });
+
+                    const data = await response.json();
+                    if (data.score !== undefined) {
+                        countSpan.textContent = data.score;
+                        upBtn.classList.toggle('active', data.user_vote === 'up');
+                        downBtn.classList.toggle('active', data.user_vote === 'down');
+                    }
+                } catch (error) {
+                    console.error('Vote error:', error);
+                }
+            });
+        });
+
+        // Поделиться — копирует ссылку
+        document.querySelectorAll('.share-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const postUrl = this.dataset.url;
+                const fullUrl = window.location.origin + postUrl;
+
+                navigator.clipboard.writeText(fullUrl).then(() => {
+                    showToast({ type: 'success', message: 'Ссылка скопирована!' });
+                }).catch(() => {
+                    // Fallback
+                    const input = document.createElement('input');
+                    input.value = fullUrl;
+                    document.body.appendChild(input);
+                    input.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(input);
+                    alert('Ссылка скопирована!');
+                });
+            });
+        });
+
+        // Закладки
+        document.querySelectorAll('.bookmark-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const postId = this.dataset.postId;
+
+                try {
+                    const response = await fetch(`/bookmark/${postId}/toggle/`, {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': getCookie('csrftoken') }
+                    });
+
+                    const data = await response.json();
+                    if (data.bookmarked !== undefined) {
+                        const icon = this.querySelector('i');
+                        const span = this.querySelector('span');
+                        if (data.bookmarked) {
+                            icon.setAttribute('fill', 'currentColor');
+                            span.textContent = 'В закладках';
+                        } else {
+                            icon.setAttribute('fill', 'none');
+                            span.textContent = 'В закладки';
+                        }
+                        feather.replace();
+                        showToast({
+                            type: 'success',
+                            message: data.bookmarked ? 'Добавлено в закладки!' : 'Удалено из закладок!'
+                        });
+                    }
+                } catch (error) {
+                    console.error('Bookmark error:', error);
+                }
+            });
+        });
+
+        function showToast({ type, message }) {
+            const toast = document.createElement('div');
+            toast.className = `toast toast--${type}`;
+            toast.textContent = message;
+            toast.style.cssText = `
+                position: fixed; bottom: 20px; right: 20px; padding: 12px 20px;
+                border-radius: 12px; color: white; z-index: 9999; font-weight: 500;
+                animation: slideIn 0.3s ease;
+                background: ${type === 'success' ? '#10b981' : '#ef4444'};
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function getCookie(name) {
+            let v = null;
+            if (document.cookie) {
+                document.cookie.split(';').forEach(c => {
+                    c = c.trim();
+                    if (c.startsWith(name + '=')) v = decodeURIComponent(c.substring(name.length + 1));
+                });
+            }
+            return v;
+        }
+    });
+</script>
+{% endblock %}

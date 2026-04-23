@@ -1,0 +1,132 @@
+<!-- templates/includes/sidebar_widgets.html -->
+{% load static %}
+
+<!-- Популярные сообщества -->
+<div class="sidebar-widget">
+    <h3 class="widget-title">
+        <i data-feather="users"></i>
+        Популярные сообщества
+    </h3>
+    <div class="community-list">
+        {% for community in popular_communities %}
+        <a href="{% url 'communities:community_detail' slug=community.slug %}" class="community-item">
+            <div class="community-icon-small">
+                {% if community.avatar %}
+                <img src="{{ community.avatar.url }}" alt="{{ community.name }}">
+                {% else %}
+                <span>{{ community.name|first|upper }}</span>
+                {% endif %}
+            </div>
+            <div class="community-info-small">
+                <span class="community-name">c/{{ community.name }}</span>
+                <span class="community-members">{{ community.members_count }} уч.</span>
+            </div>
+        </a>
+        {% empty %}
+        <p class="empty-widget">Нет сообществ</p>
+        {% endfor %}
+    </div>
+    <a href="{% url 'communities:community_list' %}" class="widget-link">Все сообщества →</a>
+</div>
+
+<!-- Популярные теги -->
+<div class="sidebar-widget">
+    <h3 class="widget-title">
+        <i data-feather="tag"></i>
+        Популярные теги
+    </h3>
+    <div class="tags-cloud">
+        {% for tag in popular_tags %}
+            {% if tag.slug and tag.name %}
+            <a href="{% url 'posts:tag_detail' slug=tag.slug %}" class="tag-item">#{{ tag.name }}</a>
+            {% endif %}
+        {% empty %}
+        <p class="empty-widget">Нет тегов</p>
+        {% endfor %}
+    </div>
+    <a href="{% url 'posts:tag_list' %}" class="widget-link">Все теги →</a>
+</div>
+
+<!-- Закладки -->
+{% if user.is_authenticated %}
+<div class="sidebar-widget">
+    <h3 class="widget-title">
+        <i data-feather="bookmark"></i>
+        Закладки
+    </h3>
+    <a href="{% url 'posts:bookmarks' %}" class="bookmark-link">
+        <span>Просмотреть сохраненное</span>
+        <span class="bookmark-count">{{ user.bookmarks.count|default:0 }}</span>
+    </a>
+</div>
+{% endif %}
+
+<!-- Футер -->
+<div class="sidebar-footer">
+    <div class="footer-links">
+        <a href="{% url 'accounts:terms' %}">Условия</a>
+        <span>·</span>
+        <a href="{% url 'accounts:privacy' %}">Приватность</a>
+    </div>
+    <p class="footer-copyright">© 2026 Поток</p>
+</div>
+
+<style>
+    .sidebar-widget {
+        background: var(--color-bg-surface);
+        border-radius: 16px;
+        padding: 1.25rem;
+        border: 1px solid var(--color-border-light);
+        margin-bottom: 1rem;
+    }
+    .widget-title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: var(--color-text-primary);
+    }
+    .widget-title i {
+        width: 1.125rem;
+        height: 1.125rem;
+        color: var(--color-primary);
+    }
+    .community-list { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 0.75rem; }
+    .community-item { display: flex; align-items: center; gap: 0.75rem; text-decoration: none; }
+    .community-icon-small {
+        width: 2rem; height: 2rem; border-radius: 8px; overflow: hidden;
+        background: var(--color-primary-light); display: flex; align-items: center;
+        justify-content: center; color: var(--color-primary); font-weight: 600;
+    }
+    .community-icon-small img { width: 100%; height: 100%; object-fit: cover; }
+    .community-info-small { flex: 1; }
+    .community-name { display: block; font-weight: 500; color: var(--color-text-primary); }
+    .community-members { font-size: 0.75rem; color: var(--color-text-tertiary); }
+    .tags-cloud { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .tag-item {
+        padding: 0.375rem 0.75rem; background: var(--color-bg-elevated);
+        border-radius: 20px; color: var(--color-text-secondary); text-decoration: none;
+        font-size: 0.8125rem; transition: all 0.2s;
+    }
+    .tag-item:hover { background: var(--color-primary); color: white; }
+    .widget-link { color: var(--color-primary); text-decoration: none; font-size: 0.875rem; }
+    .widget-link:hover { text-decoration: underline; }
+    .bookmark-link {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0.75rem; background: var(--color-bg-elevated); border-radius: 12px;
+        text-decoration: none; color: var(--color-text-primary); transition: background 0.2s;
+    }
+    .bookmark-link:hover { background: var(--color-border-light); }
+    .bookmark-count {
+        background: var(--color-primary); color: white; padding: 0.125rem 0.5rem;
+        border-radius: 20px; font-size: 0.75rem; font-weight: 600;
+    }
+    .empty-widget { color: var(--color-text-tertiary); font-size: 0.875rem; text-align: center; padding: 1rem 0; }
+    .sidebar-footer { padding: 1rem 0.5rem; text-align: center; }
+    .footer-links { display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.5rem; font-size: 0.8125rem; color: var(--color-text-tertiary); }
+    .footer-links a { color: var(--color-text-secondary); text-decoration: none; }
+    .footer-links a:hover { color: var(--color-primary); }
+    .footer-copyright { font-size: 0.75rem; color: var(--color-text-tertiary); }
+</style>

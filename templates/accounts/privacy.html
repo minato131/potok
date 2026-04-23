@@ -1,0 +1,190 @@
+<!-- templates/accounts/privacy.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Политика конфиденциальности · Поток{% endblock %}
+{% block page_title %}Политика конфиденциальности{% endblock %}
+
+{% block content %}
+<div class="legal-container">
+    <div class="legal-card">
+        <div class="legal-header">
+            <i data-feather="shield"></i>
+            <h2>Политика конфиденциальности</h2>
+            <p class="legal-date">Последнее обновление: 23 апреля 2026 г.</p>
+        </div>
+
+        <div class="legal-content">
+            <section class="legal-section">
+                <h3>1. Какие данные мы собираем</h3>
+                <p>При использовании платформы «Поток» мы можем собирать следующие данные:</p>
+                <ul>
+                    <li><strong>Информация аккаунта:</strong> имя пользователя, email, имя, фамилия</li>
+                    <li><strong>Профиль:</strong> аватар, обложка, биография, местоположение, веб-сайт</li>
+                    <li><strong>Контент:</strong> посты, комментарии, сообщения, закладки</li>
+                    <li><strong>Активность:</strong> лайки, подписки, просмотры, время посещения</li>
+                    <li><strong>Технические данные:</strong> IP-адрес, браузер, устройство, cookie</li>
+                </ul>
+            </section>
+
+            <section class="legal-section">
+                <h3>2. Как мы используем данные</h3>
+                <p>Собранные данные используются для:</p>
+                <ul>
+                    <li>Предоставления и улучшения сервиса</li>
+                    <li>Персонализации контента и рекомендаций</li>
+                    <li>Обеспечения безопасности и предотвращения мошенничества</li>
+                    <li>Связи с вами по вопросам аккаунта</li>
+                    <li>Анализа и статистики использования платформы</li>
+                </ul>
+            </section>
+
+            <section class="legal-section">
+                <h3>3. Хранение данных</h3>
+                <p>Мы храним ваши данные до тех пор, пока ваш аккаунт активен. Вы можете в любой момент:</p>
+                <ul>
+                    <li>Запросить копию ваших данных</li>
+                    <li>Исправить неточные данные</li>
+                    <li>Удалить свой аккаунт и все связанные данные</li>
+                </ul>
+            </section>
+
+            <section class="legal-section">
+                <h3>4. Передача данных третьим лицам</h3>
+                <p>Мы не продаем ваши личные данные. Данные могут быть переданы только:</p>
+                <ul>
+                    <li>По вашему явному согласию</li>
+                    <li>По требованию закона или судебного решения</li>
+                    <li>Для защиты прав и безопасности платформы</li>
+                </ul>
+            </section>
+
+            <section class="legal-section">
+                <h3>5. Cookie файлы</h3>
+                <p>Мы используем cookie для:</p>
+                <ul>
+                    <li>Поддержания сессии авторизации</li>
+                    <li>Сохранения ваших предпочтений</li>
+                    <li>Анализа посещаемости</li>
+                </ul>
+                <p>Вы можете отключить cookie в настройках браузера, но это может повлиять на работу платформы.</p>
+            </section>
+
+            <section class="legal-section">
+                <h3>6. Безопасность</h3>
+                <p>Мы принимаем разумные меры для защиты ваших данных, включая:</p>
+                <ul>
+                    <li>Шифрование данных при передаче (HTTPS)</li>
+                    <li>Хеширование паролей</li>
+                    <li>Ограничение доступа к данным сотрудников</li>
+                </ul>
+            </section>
+
+            <section class="legal-section">
+                <h3>7. Ваши права</h3>
+                <p>В соответствии с законодательством, вы имеете право:</p>
+                <ul>
+                    <li>На доступ к вашим данным</li>
+                    <li>На исправление неточных данных</li>
+                    <li>На удаление данных («право быть забытым»)</li>
+                    <li>На ограничение обработки данных</li>
+                    <li>На перенос данных</li>
+                </ul>
+            </section>
+
+            <section class="legal-section">
+                <h3>8. Контакты</h3>
+                <p>По вопросам конфиденциальности обращайтесь:</p>
+                <p>Email: privacy@potok.ru</p>
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Используем те же стили, что и для terms.html */
+    .legal-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+    }
+
+    .legal-card {
+        background: var(--color-bg-surface);
+        border-radius: 24px;
+        padding: 2.5rem;
+        border: 1px solid var(--color-border-light);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    }
+
+    .legal-header {
+        text-align: center;
+        margin-bottom: 2.5rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid var(--color-border-light);
+    }
+
+    .legal-header i {
+        width: 3rem;
+        height: 3rem;
+        color: var(--color-primary);
+        margin-bottom: 1rem;
+    }
+
+    .legal-header h2 {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: var(--color-text-primary);
+    }
+
+    .legal-date {
+        color: var(--color-text-tertiary);
+        font-size: 0.875rem;
+    }
+
+    .legal-section {
+        margin-bottom: 2rem;
+    }
+
+    .legal-section:last-child {
+        margin-bottom: 0;
+    }
+
+    .legal-section h3 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: var(--color-text-primary);
+    }
+
+    .legal-section p {
+        color: var(--color-text-secondary);
+        line-height: 1.7;
+        margin-bottom: 0.75rem;
+    }
+
+    .legal-section ul {
+        list-style: disc;
+        padding-left: 1.5rem;
+        color: var(--color-text-secondary);
+        line-height: 1.7;
+    }
+
+    .legal-section li {
+        margin-bottom: 0.5rem;
+    }
+
+    @media (max-width: 600px) {
+        .legal-card {
+            padding: 1.5rem;
+        }
+
+        .legal-header h2 {
+            font-size: 1.75rem;
+        }
+    }
+</style>
+{% endblock %}

@@ -30,7 +30,7 @@
         <!-- Левая панель навигации -->
         <aside class="sidebar">
             <div class="sidebar__header">
-                <a href="{% url 'posts:post_list' %}" class="logo">
+                <a href="{% url 'posts:feed' %}" class="logo">
                     <span class="logo__icon">🌊</span>
                     <span class="logo__text">Поток</span>
                 </a>
@@ -39,7 +39,7 @@
             <nav class="sidebar__nav">
                 <ul class="nav-menu">
                     <li class="nav-menu__item">
-                        <a href="{% url 'posts:post_list' %}" class="nav-link {% if request.resolver_match.url_name == 'post_list' %}nav-link--active{% endif %}">
+                        <a href="{% url 'posts:feed' %}" class="nav-link {% if request.resolver_match.url_name == 'post_list' %}nav-link--active{% endif %}">
                             <i data-feather="home"></i>
                             <span>Главная</span>
                         </a>
@@ -182,7 +182,7 @@
             </button>
         </div>
         <ul class="nav-menu nav-menu--mobile">
-            <li><a href="{% url 'posts:post_list' %}"><i data-feather="home"></i> Главная</a></li>
+            <li><a href="{% url 'posts:feed' %}"><i data-feather="home"></i> Главная</a></li>
             <li><a href="{% url 'posts:search' %}"><i data-feather="search"></i> Поиск</a></li>
             <li><a href="{% url 'communities:community_list' %}"><i data-feather="users"></i> Сообщества</a></li>
             <li><a href="{% url 'messenger:chat_list' %}"><i data-feather="message-circle"></i> Мессенджер</a></li>

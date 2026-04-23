@@ -114,16 +114,13 @@
                     <a href="{% url 'posts:post_detail' pk=post.id %}">{{ post.title }}</a>
                 </h3>
 
-                {% if post.tags.all %}
-                <div class="post-tags">
-                    {% for t in post.tags.all %}
-                    <a href="{% url 'posts:tag_detail' slug=t.slug %}" class="post-tag"
-                       style="color: {{ t.color|default:'var(--color-primary)' }};">
-                        #{{ t.name }}
-                    </a>
-                    {% endfor %}
-                </div>
-                {% endif %}
+                {% for tag in popular_tags %}
+                    {% if tag.slug %}
+                    <a href="{% url 'posts:tag_detail' slug=tag.slug %}" class="tag-item">#{{ tag.name }}</a>
+                    {% else %}
+                    <span class="tag-item">#{{ tag.name }}</span>
+                    {% endif %}
+                {% endfor %}
 
                 <div class="post-footer">
                     <a href="{% url 'posts:post_detail' pk=post.id %}#comments" class="action-btn">

@@ -7,37 +7,43 @@ class PostForm(forms.ModelForm):
     """
     Форма создания/редактирования поста
     """
+    tags_input = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={'id': 'tagsInput'}),
+        help_text='Теги через запятую'
+    )
+
     class Meta:
         model = Post
-        fields = ['title', 'content', 'category', 'tags', 'image', 'video', 'status']
+        fields = ['title', 'content', 'category', 'image', 'video']
         widgets = {
             'title': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Введите заголовок'
+                'class': 'form-input',
+                'placeholder': 'Введите заголовок поста'
             }),
             'content': forms.Textarea(attrs={
-                'class': 'form-control',
+                'class': 'form-textarea',
                 'rows': 10,
                 'placeholder': 'Содержание поста...'
-                # Убрали 'required' отсюда
             }),
             'category': forms.Select(attrs={
-                'class': 'form-control'
-            }),
-            'tags': forms.SelectMultiple(attrs={
-                'class': 'form-control',
-                'size': 5
+                'class': 'form-select'
             }),
             'image': forms.FileInput(attrs={
-                'class': 'form-control'
+                'class': 'form-input',
+                'accept': 'image/*'
             }),
             'video': forms.FileInput(attrs={
-                'class': 'form-control'
-            }),
-            'status': forms.Select(attrs={
-                'class': 'form-control'
+                'class': 'form-input',
+                'accept': 'video/*'
             }),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['category'].required = False
+        self.fields['image'].required = False
+        self.fields['video'].required = False
 
     def clean_title(self):
         title = self.cleaned_data.get('title')
@@ -49,9 +55,7 @@ class PostForm(forms.ModelForm):
 
     def clean_content(self):
         content = self.cleaned_data.get('content')
-        if not content:
-            raise ValidationError('Содержание обязательно')
-        if len(content) < 10:
+        if not content or len(content.strip()) < 10:
             raise ValidationError('Содержание должно содержать минимум 10 символов')
         return content
 

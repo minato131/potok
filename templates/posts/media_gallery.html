@@ -1,0 +1,297 @@
+<!-- templates/posts/media_gallery.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+    {% if media_type == 'photo' %}Фотографии{% else %}Видео{% endif %} · Поток
+{% endblock %}
+
+{% block page_title %}
+    <span class="page-title-with-icon">
+        <i data-feather="{% if media_type == 'photo' %}image{% else %}video{% endif %}"></i>
+        {% if media_type == 'photo' %}Сохраненные фото{% else %}Сохраненные видео{% endif %}
+    </span>
+{% endblock %}
+
+{% block header_actions %}
+<div class="media-tabs">
+    <a href="{% url 'posts:saved_photos' %}" class="media-tab {% if media_type == 'photo' %}active{% endif %}">
+        <i data-feather="image"></i>
+        <span>Фото</span>
+    </a>
+    <a href="{% url 'posts:saved_videos' %}" class="media-tab {% if media_type == 'video' %}active{% endif %}">
+        <i data-feather="video"></i>
+        <span>Видео</span>
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="media-gallery">
+    {% if media_items %}
+    <div class="gallery-grid">
+        {% for item in media_items %}
+        <div class="gallery-item">
+            <a href="{{ item.post_url }}" class="gallery-link">
+                {% if media_type == 'photo' %}
+                <img src="{{ item.image.url }}" alt="{{ item.title }}" loading="lazy">
+                {% else %}
+                <div class="video-thumbnail">
+                    <video src="{{ item.video.url }}" preload="metadata"></video>
+                    <span class="play-icon"><i data-feather="play"></i></span>
+                </div>
+                {% endif %}
+            </a>
+            <div class="gallery-item-info">
+                <a href="{{ item.post_url }}" class="item-title">{{ item.title }}</a>
+                <div class="item-meta">
+                    <span>от <a href="{{ item.author_url }}">{{ item.author }}</a></span>
+                    <span>{{ item.created_at|date:"d.m.Y" }}</span>
+                </div>
+            </div>
+            <button class="gallery-action remove-btn" data-item-id="{{ item.id }}" title="Удалить из сохраненного">
+                <i data-feather="bookmark"></i>
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% include 'includes/pagination.html' with page_obj=page_obj %}
+    {% else %}
+    <div class="empty-gallery">
+        <div class="empty-icon">
+            <i data-feather="{% if media_type == 'photo' %}image{% else %}video{% endif %}"></i>
+        </div>
+        <h3>Нет сохраненных {{ media_type == 'photo'|yesno:'фото,видео' }}</h3>
+        <p>Сохраняйте понравившиеся {{ media_type == 'photo'|yesno:'фотографии,видео' }}, и они появятся здесь</p>
+        <a href="{% url 'posts:post_list' %}" class="btn btn--primary">Перейти к ленте</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .media-tabs {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .media-tab {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1.25rem;
+        border-radius: 10px;
+        color: var(--color-text-secondary);
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .media-tab:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .media-tab.active {
+        background: var(--color-primary);
+        color: white;
+    }
+
+    .media-gallery {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 1.5rem 1rem;
+    }
+
+    .gallery-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .gallery-item {
+        position: relative;
+        background: var(--color-bg-surface);
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid var(--color-border-light);
+        transition: all 0.2s;
+    }
+
+    .gallery-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    }
+
+    .gallery-link {
+        display: block;
+        aspect-ratio: 1;
+        overflow: hidden;
+        background: var(--color-bg-elevated);
+    }
+
+    .gallery-link img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.3s;
+    }
+
+    .gallery-item:hover .gallery-link img {
+        transform: scale(1.05);
+    }
+
+    .video-thumbnail {
+        position: relative;
+        width: 100%;
+        height: 100%;
+    }
+
+    .video-thumbnail video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .play-icon {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 3rem;
+        height: 3rem;
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        backdrop-filter: blur(4px);
+    }
+
+    .gallery-item-info {
+        padding: 0.75rem 1rem;
+    }
+
+    .item-title {
+        display: block;
+        font-weight: 600;
+        color: var(--color-text-primary);
+        text-decoration: none;
+        margin-bottom: 0.25rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .item-meta {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .item-meta a {
+        color: var(--color-text-secondary);
+        text-decoration: none;
+    }
+
+    .gallery-action {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        padding: 0.5rem;
+        background: rgba(0, 0, 0, 0.5);
+        border-radius: 8px;
+        color: white;
+        backdrop-filter: blur(4px);
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+
+    .gallery-item:hover .gallery-action {
+        opacity: 1;
+    }
+
+    .gallery-action:hover {
+        background: var(--color-danger);
+    }
+
+    .empty-gallery {
+        text-align: center;
+        padding: 3rem;
+        max-width: 400px;
+        margin: 2rem auto;
+    }
+
+    .empty-icon {
+        width: 5rem;
+        height: 5rem;
+        border-radius: 20px;
+        background: var(--color-bg-surface);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1.5rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .empty-icon i {
+        width: 2.5rem;
+        height: 2.5rem;
+    }
+
+    .empty-gallery h3 {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-gallery p {
+        color: var(--color-text-secondary);
+        margin-bottom: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.querySelectorAll('.remove-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const itemId = this.dataset.itemId;
+            const item = this.closest('.gallery-item');
+
+            if (confirm('Удалить из сохраненного?')) {
+                try {
+                    const response = await fetch(`/bookmark/${itemId}/toggle/`, {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': getCookie('csrftoken') }
+                    });
+                    if (response.ok) {
+                        item.style.transition = 'opacity 0.3s';
+                        item.style.opacity = '0';
+                        setTimeout(() => item.remove(), 300);
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                }
+            }
+        });
+    });
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+{% endblock %}

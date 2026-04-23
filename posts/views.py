@@ -1,3 +1,4 @@
+import uuid
 from datetime import timedelta
 
 from django.shortcuts import render, get_object_or_404, redirect
@@ -11,40 +12,64 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib.auth import get_user_model
 from unicodedata import category
-
+import json
 from accounts.models import Notification
-from communities.models import Community
+from communities.models import Community, CommunityPost
 from .models import Post, Comment, Like, Category, Tag, Bookmark, PostView
 from .forms import PostForm, CommentForm, PostSearchForm, TagForm, CategoryForm
 from accounts.utils import create_notification
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
-
+from accounts.models import Profile
+from django.utils.text import slugify
+from django.db.models import Count, Q
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
 
 User = get_user_model()
 
 
-# posts/views.py
 def post_list(request):
     # Базовый queryset
     posts = Post.objects.select_related(
-        'author', 'author__profile', 'community_post'
+        'author',
+        'author__profile',
+        'category'
     ).prefetch_related(
-        'tags', 'comments'
+        'tags',
+        'comments'
     ).filter(status='published')
 
     # Фильтрация по ленте
     feed = request.GET.get('feed', 'all')
+
     if feed == 'following' and request.user.is_authenticated:
-        following_users = request.user.profile.following.all()
-        following_communities = Community.objects.filter(members=request.user)
-        posts = posts.filter(
-            Q(author__in=following_users) |
-            Q(community__in=following_communities)
-        )
+        try:
+            # Получаем ID пользователей, на которых подписан текущий пользователь
+            following_user_ids = request.user.profile.following.values_list('id', flat=True)
+
+            # Получаем ID сообществ, в которых состоит пользователь
+            following_communities = Community.objects.filter(members=request.user)
+
+            # Получаем ID постов из сообществ
+            community_post_ids = CommunityPost.objects.filter(
+                community__in=following_communities
+            ).values_list('post_id', flat=True)
+
+            # Фильтруем: посты от подписанных пользователей ИЛИ посты из сообществ
+            posts = posts.filter(
+                Q(author_id__in=following_user_ids) |
+                Q(id__in=community_post_ids)
+            )
+        except (AttributeError, Profile.DoesNotExist):
+            # Если нет профиля - показываем пустую ленту
+            posts = posts.none()
+
     elif feed == 'popular':
+        # Используем существующее поле likes_count
         posts = posts.annotate(
-            popularity_score=Count('likes') + Count('comments') * 2
-        ).order_by('-popularity_score', '-created_at')
+            comment_count=Count('comments')
+        ).order_by('-likes_count', '-comment_count', '-created_at')
 
     # Сортировка
     sort = request.GET.get('sort', 'new')
@@ -54,9 +79,25 @@ def post_list(request):
         day_ago = timezone.now() - timedelta(days=1)
         posts = posts.filter(created_at__gte=day_ago).order_by('-likes_count', '-created_at')
     elif sort == 'hot':
-        posts = posts.order_by('-comments_count', '-created_at')
+        posts = posts.annotate(
+            comment_count=Count('comments')
+        ).order_by('-comment_count', '-created_at')
     else:
         posts = posts.order_by('-created_at')
+
+    # Фильтрация по категории
+    category_slug = request.GET.get('category')
+    category = None
+    if category_slug:
+        category = get_object_or_404(Category, slug=category_slug)
+        posts = posts.filter(category=category)
+
+    # Фильтрация по тегу
+    tag_slug = request.GET.get('tag')
+    tag = None
+    if tag_slug:
+        tag = get_object_or_404(Tag, slug=tag_slug)
+        posts = posts.filter(tags=tag)
 
     # Пагинация
     paginator = Paginator(posts, 20)
@@ -69,27 +110,27 @@ def post_list(request):
     except EmptyPage:
         posts_page = paginator.page(paginator.num_pages)
 
-    # Популярные сообщества - используем count_members чтобы избежать конфликта
-    popular_communities = Community.objects.annotate(
-        count_members=Count('members')
-    ).order_by('-count_members')[:10]
+    # Популярные сообщества
+    popular_communities = Community.objects.filter(
+        status='active'
+    ).order_by('-members_count')[:10]
 
     # Популярные теги
     popular_tags = Tag.objects.annotate(
-        count_posts=Count('posts')
-    ).order_by('-count_posts')[:10]
+        post_count=Count('posts')
+    ).order_by('-post_count')[:10]
 
     context = {
         'posts': posts_page,
         'is_paginated': posts_page.has_other_pages(),
         'page_obj': posts_page,
-        'category': category if 'category' in locals() else None,
-        'tag': tag if 'tag' in locals() else None,
+        'category': category,
+        'tag': tag,
         'popular_communities': popular_communities,
         'popular_tags': popular_tags,
     }
 
-    return render(request, 'posts/post_list.html', context)
+    return render(request, 'posts/feed.html', context)
 
 
 def post_detail(request, pk):
@@ -158,30 +199,41 @@ def post_detail(request, pk):
 
 @login_required
 def post_create(request):
-    """
-    Создание нового поста
-    """
     if request.method == 'POST':
         form = PostForm(request.POST, request.FILES)
         if form.is_valid():
             post = form.save(commit=False)
             post.author = request.user
+            post.status = 'published'
             post.save()
-            form.save_m2m()  # Сохраняем ManyToMany поля (теги)
-            messages.success(request, 'Пост успешно создан!')
+
+            # Обрабатываем теги из скрытого поля tags_input
+            tags_str = request.POST.get('tags', '') or request.POST.get('tags_input', '')
+            if tags_str:
+                tag_names = [t.strip().lower() for t in tags_str.split(',') if t.strip()]
+                for tag_name in tag_names:
+                    # Ищем или создаем тег
+                    tag = Tag.objects.filter(name__iexact=tag_name).first()
+                    if not tag:
+                        slug = slugify(tag_name)
+                        if not slug:
+                            slug = f"tag-{uuid.uuid4().hex[:8]}"
+                        # Проверяем уникальность slug
+                        if Tag.objects.filter(slug=slug).exists():
+                            slug = f"{slug}-{uuid.uuid4().hex[:4]}"
+                        tag = Tag.objects.create(name=tag_name, slug=slug)
+                    post.tags.add(tag)
+
+            messages.success(request, 'Пост успешно опубликован!')
             return redirect('posts:post_detail', pk=post.pk)
         else:
-            # Если форма не валидна, показываем ошибки
             for field, errors in form.errors.items():
                 for error in errors:
                     messages.error(request, f'{field}: {error}')
     else:
         form = PostForm()
 
-    return render(request, 'posts/post_form.html', {
-        'form': form,
-        'title': 'Создать пост'
-    })
+    return render(request, 'posts/post_form.html', {'form': form})
 
 @login_required
 def post_edit(request, pk):
@@ -421,263 +473,266 @@ def bookmarks_list(request):
 
 
 def category_list(request):
-    """
-    Список всех категорий
-    """
-    categories = Category.objects.filter(parent=None).prefetch_related('children')
+    """Список всех категорий"""
+    categories = Category.objects.all()
     return render(request, 'posts/category_list.html', {'categories': categories})
 
 
 def category_detail(request, slug):
-    """
-    Детальная страница категории
-    """
+    """Детальная страница категории с постами"""
     category = get_object_or_404(Category, slug=slug)
-    posts = Post.objects.filter(
-        category=category,
-        status='published'
-    ).select_related('author').order_by('-created_at')[:10]
-
+    posts = category.posts.filter(status='published').order_by('-created_at')
     return render(request, 'posts/category_detail.html', {
         'category': category,
-        'posts': posts
+        'posts': posts,
     })
 
 
 def search(request):
     query = request.GET.get('q', '')
     search_type = request.GET.get('type', 'posts')
+    sort = request.GET.get('sort', 'relevance')
+    date_filter = request.GET.get('date', 'all')
+    community_filter = request.GET.get('community', '')
+    category_filter = request.GET.get('category', '')
 
     context = {
         'query': query,
         'type': search_type,
+        'sort': sort,
+        'date_filter': date_filter,
+        'community_filter': community_filter,
+        'category_filter': category_filter,
+        'communities': Community.objects.filter(status='active')[:20],
+        'categories': Category.objects.all()[:20],
     }
+
+    results = []
+    total_count = 0
 
     if query:
         if search_type == 'posts':
-            # Поиск по постам
             results = Post.objects.filter(
-                Q(title__icontains=query) |
-                Q(content__icontains=query)
-            ).select_related('author', 'community').prefetch_related('tags', 'likes')
+                Q(title__icontains=query) | Q(content__icontains=query),
+                status='published'
+            ).select_related('author', 'community').prefetch_related('tags')
 
-            context['posts_count'] = results.count()
-            context['results'] = results[:50]
+            # Фильтр по дате
+            if date_filter == 'day':
+                from django.utils import timezone
+                from datetime import timedelta
+                day_ago = timezone.now() - timedelta(days=1)
+                results = results.filter(created_at__gte=day_ago)
+            elif date_filter == 'week':
+                from django.utils import timezone
+                from datetime import timedelta
+                week_ago = timezone.now() - timedelta(days=7)
+                results = results.filter(created_at__gte=week_ago)
+            elif date_filter == 'month':
+                from django.utils import timezone
+                from datetime import timedelta
+                month_ago = timezone.now() - timedelta(days=30)
+                results = results.filter(created_at__gte=month_ago)
+
+            # Фильтр по сообществу
+            if community_filter:
+                results = results.filter(community__slug=community_filter)
+
+            # Фильтр по категории
+            if category_filter:
+                results = results.filter(category__slug=category_filter)
+
+            # Сортировка
+            if sort == 'new':
+                results = results.order_by('-created_at')
+            elif sort == 'top':
+                results = results.order_by('-likes_count', '-created_at')
+            elif sort == 'comments':
+                results = results.annotate(comment_count=Count('comments')).order_by('-comment_count', '-created_at')
+            else:
+                results = results.order_by('-created_at')
+
+            total_count = results.count()
+            context['posts_count'] = total_count
 
         elif search_type == 'communities':
-            # Поиск по сообществам
             results = Community.objects.filter(
-                Q(name__icontains=query) |
-                Q(description__icontains=query)
+                Q(name__icontains=query) | Q(description__icontains=query),
+                status='active'
             ).annotate(members_count=Count('members'))
 
-            context['communities_count'] = results.count()
-            context['results'] = results[:30]
+            if sort == 'popular':
+                results = results.order_by('-members_count')
+            elif sort == 'new':
+                results = results.order_by('-created_at')
+            else:
+                results = results.order_by('name')
+
+            total_count = results.count()
+            context['communities_count'] = total_count
 
         elif search_type == 'users':
-            # Поиск по пользователям
             results = User.objects.filter(
                 Q(username__icontains=query) |
                 Q(first_name__icontains=query) |
                 Q(last_name__icontains=query)
             ).select_related('profile')
 
-            context['users_count'] = results.count()
-            context['results'] = results[:30]
+            if sort == 'followers':
+                results = results.annotate(followers_count=Count('profile__followers')).order_by('-followers_count')
+            elif sort == 'new':
+                results = results.order_by('-date_joined')
+            else:
+                results = results.order_by('username')
+
+            total_count = results.count()
+            context['users_count'] = total_count
 
         elif search_type == 'tags':
-            # Поиск по тегам
             results = Tag.objects.filter(
-                Q(name__icontains=query) |
-                Q(description__icontains=query)
+                Q(name__icontains=query) | Q(description__icontains=query)
             ).annotate(posts_count=Count('posts'))
 
-            context['tags_count'] = results.count()
-            context['results'] = results[:50]
+            if sort == 'popular':
+                results = results.order_by('-posts_count')
+            else:
+                results = results.order_by('name')
 
-    # Пагинация
-    page = request.GET.get('page', 1)
-    # Добавь пагинацию здесь
+            total_count = results.count()
+            context['tags_count'] = total_count
+
+        # Пагинация
+        paginator = Paginator(results, 20)
+        page = request.GET.get('page', 1)
+        try:
+            results_page = paginator.page(page)
+        except:
+            results_page = paginator.page(1)
+
+        context['results'] = results_page
+        context['is_paginated'] = results_page.has_other_pages()
+        context['page_obj'] = results_page
 
     return render(request, 'posts/search.html', context)
 
 
 @login_required
 def category_create(request):
-    """
-    Создание новой категории (доступно всем авторизованным)
-    """
+    """Создание новой категории (только для персонала)"""
+    if not request.user.is_staff:
+        messages.error(request, 'У вас нет прав для создания категорий')
+        return redirect('posts:category_list')
+
     if request.method == 'POST':
-        form = CategoryForm(request.POST, user=request.user)
+        form = CategoryForm(request.POST)
         if form.is_valid():
-            category = form.save(commit=False)
-            category.created_by = request.user
-            category.save()
-            messages.success(request, f'Категория "{category.name}" создана')
+            category = form.save()
+            messages.success(request, f'Категория "{category.name}" успешно создана')
             return redirect('posts:category_detail', slug=category.slug)
     else:
-        form = CategoryForm(user=request.user)
+        form = CategoryForm()
 
-    return render(request, 'posts/category_form.html', {'form': form})
+    return render(request, 'posts/category_form.html', {'form': form, 'title': 'Создание категории'})
 
 
 @login_required
 def category_edit(request, slug):
-    """
-    Редактирование категории (только создатель или админ)
-    """
+    """Редактирование категории (только для персонала)"""
+    if not request.user.is_staff:
+        messages.error(request, 'У вас нет прав для редактирования категорий')
+        return redirect('posts:category_detail', slug=slug)
+
     category = get_object_or_404(Category, slug=slug)
 
-    # Проверяем права
-    if category.created_by != request.user and not request.user.is_staff:
-        messages.error(request, 'У вас нет прав для редактирования этой категории')
-        return redirect('posts:category_detail', slug=category.slug)
-
     if request.method == 'POST':
-        form = CategoryForm(request.POST, instance=category, user=request.user)
+        form = CategoryForm(request.POST, instance=category)
         if form.is_valid():
             category = form.save()
-            messages.success(request, f'Категория "{category.name}" обновлена')
+            messages.success(request, f'Категория "{category.name}" успешно обновлена')
             return redirect('posts:category_detail', slug=category.slug)
     else:
-        form = CategoryForm(instance=category, user=request.user)
+        form = CategoryForm(instance=category)
 
-    return render(request, 'posts/category_form.html', {'form': form, 'category': category})
+    return render(request, 'posts/category_form.html', {
+        'form': form,
+        'category': category,
+        'title': f'Редактирование "{category.name}"'
+    })
 
 
 def tag_list(request):
-    """
-    Список всех тегов с количеством постов
-    """
-    # Получаем все теги с подсчетом количества постов
-    tags = Tag.objects.annotate(
-        posts_count=Count('posts', filter=Q(posts__status='published'))
-    ).order_by('-posts_count', 'name')
-
-    # Поиск по тегам
-    query = request.GET.get('q')
-    if query:
-        tags = tags.filter(name__icontains=query)
-
-    # Пагинация
-    paginator = Paginator(tags, 30)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-
-    # Для AJAX запросов
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        data = [{
-            'id': tag.id,
-            'name': tag.name,
-            'slug': tag.slug,
-            'posts_count': tag.posts_count
-        } for tag in tags[:10]]
-        return JsonResponse({'tags': data})
-
-    # Статистика
-    total_tags = Tag.objects.count()
-    tags_with_posts = tags.filter(posts_count__gt=0).count()
-
-    context = {
-        'page_obj': page_obj,
-        'query': query,
-        'total_tags': total_tags,
-        'tags_with_posts': tags_with_posts,
-    }
-    return render(request, 'posts/tag_list.html', context)
+    """Список всех тегов"""
+    tags = Tag.objects.annotate(posts_count=Count('posts')).order_by('-posts_count')
+    return render(request, 'posts/tag_list.html', {'tags': tags})
 
 
 def tag_detail(request, slug):
-    """
-    Детальная страница тега
-    """
+    """Детальная страница тега с постами"""
     tag = get_object_or_404(Tag, slug=slug)
-    posts = Post.objects.filter(
-        tags=tag,
-        status='published'
-    ).select_related('author').prefetch_related('tags').order_by('-created_at')
-
-    paginator = Paginator(posts, 10)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-
-    # Похожие теги
-    similar_tags = Tag.objects.filter(
-        posts__in=posts[:20]
-    ).exclude(id=tag.id).annotate(
-        common_count=Count('posts')
-    ).order_by('-common_count')[:10]
-
-    context = {
+    posts = tag.posts.filter(status='published').order_by('-created_at')
+    is_following = False
+    if request.user.is_authenticated:
+        is_following = request.user.followed_tags.filter(id=tag.id).exists()
+    return render(request, 'posts/tag_detail.html', {
         'tag': tag,
-        'page_obj': page_obj,
-        'posts_count': posts.count(),
-        'similar_tags': similar_tags,
-    }
-    return render(request, 'posts/tag_detail.html', context)
+        'posts': posts,
+        'is_following': is_following,
+    })
 
 
 @login_required
 def tag_create(request):
-    """
-    Создание нового тега (доступно всем авторизованным)
-    """
+    """Создание нового тега (доступно всем авторизованным пользователям)"""
     if request.method == 'POST':
-        form = TagForm(request.POST, user=request.user)
+        form = TagForm(request.POST)
         if form.is_valid():
-            tag = form.save(commit=False)
-            tag.created_by = request.user
-            tag.save()
-            messages.success(request, f'Тег "{tag.name}" успешно создан')
+            tag = form.save()
+            messages.success(request, f'Тег "#{tag.name}" успешно создан')
             return redirect('posts:tag_detail', slug=tag.slug)
-        else:
-            messages.error(request, 'Пожалуйста, исправьте ошибки в форме')
     else:
-        form = TagForm(user=request.user)
+        form = TagForm()
 
-    return render(request, 'posts/tag_form.html', {'form': form, 'is_create': True})
+    return render(request, 'posts/tag_form.html', {'form': form, 'title': 'Создание тега'})
 
 
 @login_required
 def tag_edit(request, slug):
-    """
-    Редактирование тега (только создатель или админ)
-    """
+    """Редактирование тега (только для персонала или создателя)"""
     tag = get_object_or_404(Tag, slug=slug)
 
-    # Проверяем права
-    if tag.created_by != request.user and not request.user.is_staff:
+    if not request.user.is_staff and request.user != tag.creator:
         messages.error(request, 'У вас нет прав для редактирования этого тега')
-        return redirect('posts:tag_detail', slug=tag.slug)
+        return redirect('posts:tag_detail', slug=slug)
 
     if request.method == 'POST':
-        form = TagForm(request.POST, instance=tag, user=request.user)
+        form = TagForm(request.POST, instance=tag)
         if form.is_valid():
             tag = form.save()
-            messages.success(request, f'Тег "{tag.name}" обновлен')
+            messages.success(request, f'Тег "#{tag.name}" успешно обновлен')
             return redirect('posts:tag_detail', slug=tag.slug)
     else:
-        form = TagForm(instance=tag, user=request.user)
+        form = TagForm(instance=tag)
 
-    return render(request, 'posts/tag_form.html', {'form': form, 'tag': tag})
+    return render(request, 'posts/tag_form.html', {
+        'form': form,
+        'tag': tag,
+        'title': f'Редактирование тега "#{tag.name}"'
+    })
 
 
 @login_required
 def tag_delete(request, slug):
-    """
-    Удаление тега (только создатель или админ)
-    """
+    """Удаление тега (только для персонала)"""
+    if not request.user.is_staff:
+        messages.error(request, 'У вас нет прав для удаления тегов')
+        return redirect('posts:tag_detail', slug=slug)
+
     tag = get_object_or_404(Tag, slug=slug)
 
-    # Проверяем права
-    if tag.created_by != request.user and not request.user.is_staff:
-        messages.error(request, 'У вас нет прав для удаления этого тега')
-        return redirect('posts:tag_detail', slug=tag.slug)
-
     if request.method == 'POST':
-        name = tag.name
+        tag_name = tag.name
         tag.delete()
-        messages.success(request, f'Тег "{name}" удален')
+        messages.success(request, f'Тег "#{tag_name}" успешно удален')
         return redirect('posts:tag_list')
 
     return render(request, 'posts/tag_confirm_delete.html', {'tag': tag})
@@ -725,3 +780,129 @@ def search_ajax(request):
             })
 
     return JsonResponse({'results': results})
+
+
+@login_required
+@require_POST
+def tag_create_ajax(request):
+    """Создание тега через AJAX"""
+    name = request.POST.get('name', '').strip()
+
+    if not name:
+        return JsonResponse({'success': False, 'error': 'Введите название тега'}, status=400)
+
+    if len(name) < 2:
+        return JsonResponse({'success': False, 'error': 'Название тега должно быть не менее 2 символов'}, status=400)
+
+    if len(name) > 50:
+        return JsonResponse({'success': False, 'error': 'Название тега должно быть не более 50 символов'}, status=400)
+
+    # Проверяем, существует ли уже такой тег
+    existing_tag = Tag.objects.filter(name__iexact=name).first()
+    if existing_tag:
+        return JsonResponse({
+            'success': True,
+            'tag': {
+                'id': existing_tag.id,
+                'name': existing_tag.name,
+                'slug': existing_tag.slug if existing_tag.slug else '',
+            },
+            'message': 'Тег уже существует'
+        })
+
+    # Генерируем slug (транслитерация или UUID если не получается)
+    slug = slugify(name)
+    if not slug:
+        # Если slugify не смог (например, только кириллица), используем UUID
+        slug = f"tag-{uuid.uuid4().hex[:8]}"
+
+    # Проверяем уникальность slug
+    original_slug = slug
+    counter = 1
+    while Tag.objects.filter(slug=slug).exists():
+        slug = f"{original_slug}-{counter}"
+        counter += 1
+
+    # Создаем тег
+    tag = Tag.objects.create(
+        name=name,
+        slug=slug
+    )
+
+    return JsonResponse({
+        'success': True,
+        'tag': {
+            'id': tag.id,
+            'name': tag.name,
+            'slug': tag.slug,
+        },
+        'message': f'Тег "#{tag.name}" успешно создан'
+    })
+
+
+def tag_popular(request):
+    """Возвращает популярные теги для подсказок"""
+    tags = Tag.objects.annotate(
+        posts_count=Count('posts')
+    ).order_by('-posts_count')[:10]
+
+    return JsonResponse({
+        'tags': [
+            {
+                'id': tag.id,
+                'name': tag.name,
+                'slug': tag.slug,
+                'posts_count': tag.posts_count,
+            }
+            for tag in tags
+        ]
+    })
+
+@login_required
+def post_preview(request):
+    """Предпросмотр Markdown"""
+    import markdown
+    try:
+        data = json.loads(request.body)
+        content = data.get('content', '')
+        html = markdown.markdown(content, extensions=['fenced_code', 'tables', 'nl2br'])
+        return JsonResponse({'html': html})
+    except Exception as e:
+        return JsonResponse({'html': '<p>Ошибка предпросмотра</p>'})
+
+
+def tag_search(request):
+    """Поиск тегов для автодополнения"""
+    query = request.GET.get('q', '').strip()
+    if not query:
+        return JsonResponse({'tags': []})
+
+    tags = Tag.objects.filter(
+        name__icontains=query
+    ).annotate(
+        posts_count=Count('posts')
+    ).order_by('-posts_count')[:8]
+
+    return JsonResponse({
+        'tags': [
+            {
+                'id': tag.id,
+                'name': tag.name,
+                'slug': tag.slug,
+                'posts_count': tag.posts_count,
+            }
+            for tag in tags
+        ]
+    })
+
+
+def test_view(request):
+    """Временная страница для теста нового дизайна"""
+    posts = Post.objects.filter(status='published').order_by('-created_at')[:10]
+    return render(request, 'posts/feed.html', {
+        'posts': posts,
+        'page_obj': None,
+        'is_paginated': False,
+        'popular_communities': Community.objects.all()[:5],
+        'popular_tags': Tag.objects.all()[:10],
+    })

@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     'communities',
     'messenger',
     'moderation',
+    'markdown',
 
 ]
 
@@ -75,7 +76,7 @@ WSGI_APPLICATION = 'potok.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'db_potok'),
+        'NAME': os.getenv('DB_NAME', 'db_potok2'),
         'USER': os.getenv('DB_USER', 'postgres'),
         'PASSWORD': os.getenv('DB_PASSWORD', 'postgres'),
         'HOST': os.getenv('DB_HOST', 'localhost'),

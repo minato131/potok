@@ -59,7 +59,7 @@
 
                     <div class="user-card-stats">
                         <span class="stat">
-                            <strong>{{ user_item.profile.followers.count }}</strong> подписчиков
+                            <strong>{{ user_item.profile.user_followers.count }}</strong> подписчиков
                         </span>
                         <span class="stat">
                             <strong>{{ user_item.posts.count }}</strong> постов
@@ -67,20 +67,22 @@
                     </div>
                 </div>
 
-                {% if user.is_authenticated and user != user_item %}
-                <div class="user-card-actions">
+                {% if user != user_item %}
                     {% if user_item in user.profile.following.all %}
-                    <button class="btn btn--outline btn--block follow-btn" data-user-id="{{ user_item.id }}" data-action="unfollow">
+                    <button class="btn btn--outline btn--sm follow-btn"
+                            data-user-id="{{ user_item.id }}"
+                            data-action="unfollow">
                         <i data-feather="user-check"></i>
                         <span>Отписаться</span>
                     </button>
                     {% else %}
-                    <button class="btn btn--primary btn--block follow-btn" data-user-id="{{ user_item.id }}" data-action="follow">
+                    <button class="btn btn--primary btn--sm follow-btn"
+                            data-user-id="{{ user_item.id }}"
+                            data-action="follow">
                         <i data-feather="user-plus"></i>
                         <span>Подписаться</span>
                     </button>
                     {% endif %}
-                </div>
                 {% endif %}
             </div>
         </div>

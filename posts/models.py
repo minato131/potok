@@ -153,7 +153,7 @@ class Post(models.Model):
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default='draft',
+        default='published',
         verbose_name='Статус',
         db_index=True
     )

@@ -7,6 +7,7 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from typing import Any
 
 class User(AbstractUser):
     """
@@ -152,15 +153,13 @@ class Follow(models.Model):
     """
     follower = models.ForeignKey(
         User,
-        on_delete=models.CASCADE,
-        related_name='following',  # те, на кого подписан пользователь
-        verbose_name='Подписчик'
+        related_name='follow_relations',  # ← изменено
+        on_delete=models.CASCADE
     )
     following = models.ForeignKey(
         User,
-        on_delete=models.CASCADE,
-        related_name='followers',  # те, кто подписан на пользователя
-        verbose_name='Подписка'
+        related_name='followed_by_relations',  # ← изменено
+        on_delete=models.CASCADE
     )
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -292,11 +291,19 @@ class Profile(models.Model):
     is_online = models.BooleanField(default=False)
     last_seen = models.DateTimeField(null=True, blank=True)
 
-    # Подписки
-    following = models.ManyToManyField('self', symmetrical=False, related_name='followers', blank=True)
+    # Подписки - ManyToMany на User
+    following = models.ManyToManyField(
+        User,
+        related_name='profile_followers',
+        symmetrical=False,
+        blank=True
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'accounts_profile'
 
     def __str__(self):
         return f"{self.user.username}'s profile"
@@ -308,7 +315,7 @@ class Profile(models.Model):
         return self.following.count()
 
 
-# Сигнал для автоматического создания профиля
+# Сигналы для автоматического создания профиля
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:

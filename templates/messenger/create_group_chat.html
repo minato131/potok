@@ -1,618 +1,344 @@
-<!-- templates/moderation/moderation_panel.html -->
+<!-- templates/messenger/create_group_chat.html -->
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Панель модератора · Поток{% endblock %}
-{% block page_title %}Панель модератора{% endblock %}
+{% block title %}Создание группы · Поток{% endblock %}
+{% block page_title %}
+    <span class="page-title-with-icon">
+        Создание группового чата
+    </span>
+{% endblock %}
 
 {% block content %}
-<div class="moderation-container">
-    <!-- Статистика -->
-    <div class="stats-grid">
-        <div class="stat-card stat-card--warning">
-            <div class="stat-icon">
-                <i data-feather="flag"></i>
-            </div>
-            <div class="stat-content">
-                <span class="stat-value">{{ pending_reports_count }}</span>
-                <span class="stat-label">Жалоб на рассмотрении</span>
-            </div>
-            <a href="{% url 'moderation:report_list' %}?status=pending" class="stat-link">
-                Просмотреть →
-            </a>
-        </div>
+<div class="create-group-page">
+    <div class="create-group-container">
+        <form method="post" enctype="multipart/form-data" class="group-form" id="groupForm" novalidate>
+            {% csrf_token %}
 
-        <div class="stat-card">
-            <div class="stat-icon">
-                <i data-feather="check-circle"></i>
-            </div>
-            <div class="stat-content">
-                <span class="stat-value">{{ resolved_today }}</span>
-                <span class="stat-label">Решено сегодня</span>
-            </div>
-        </div>
+            <!-- Название и описание -->
+            <div class="form-card">
+                <div class="card-header">
+                    <i data-feather="info"></i>
+                    <h2>Информация о группе</h2>
+                </div>
 
-        <div class="stat-card stat-card--danger">
-            <div class="stat-icon">
-                <i data-feather="user-x"></i>
-            </div>
-            <div class="stat-content">
-                <span class="stat-value">{{ active_bans_count }}</span>
-                <span class="stat-label">Активных банов</span>
-            </div>
-        </div>
+                <!-- Аватар -->
+                <div class="avatar-section">
+                    <label class="section-label">Аватар группы</label>
 
-        <div class="stat-card">
-            <div class="stat-icon">
-                <i data-feather="eye-off"></i>
-            </div>
-            <div class="stat-content">
-                <span class="stat-value">{{ hidden_content_count }}</span>
-                <span class="stat-label">Скрытого контента</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Быстрые действия -->
-    <div class="quick-actions">
-        <h3>Быстрые действия</h3>
-        <div class="actions-grid">
-            <a href="{% url 'moderation:report_list' %}?status=pending" class="action-card">
-                <i data-feather="flag"></i>
-                <span>Новые жалобы</span>
-                {% if pending_reports_count > 0 %}
-                <span class="badge badge--warning">{{ pending_reports_count }}</span>
-                {% endif %}
-            </a>
-            <a href="{% url 'moderation:report_list' %}" class="action-card">
-                <i data-feather="list"></i>
-                <span>Все жалобы</span>
-            </a>
-            <div class="action-card" onclick="openUserSearch()">
-                <i data-feather="search"></i>
-                <span>Найти пользователя</span>
-            </div>
-            <a href="{% url 'moderation:report_list' %}?type=post" class="action-card">
-                <i data-feather="file-text"></i>
-                <span>Жалобы на посты</span>
-            </a>
-            <a href="{% url 'moderation:report_list' %}?type=comment" class="action-card">
-                <i data-feather="message-circle"></i>
-                <span>Жалобы на комментарии</span>
-            </a>
-            <a href="{% url 'moderation:report_list' %}?type=user" class="action-card">
-                <i data-feather="user"></i>
-                <span>Жалобы на пользователей</span>
-            </a>
-        </div>
-    </div>
-
-    <!-- Последние жалобы -->
-    <div class="recent-section">
-        <div class="section-header">
-            <h3>
-                <i data-feather="clock"></i>
-                Последние жалобы
-            </h3>
-            <a href="{% url 'moderation:report_list' %}" class="view-all">Все жалобы →</a>
-        </div>
-
-        <div class="reports-table">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Тип</th>
-                        <th>Контент</th>
-                        <th>Автор</th>
-                        <th>Жалоб</th>
-                        <th>Статус</th>
-                        <th>Действия</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for report in recent_reports %}
-                    <tr>
-                        <td>
-                            <span class="type-badge type-badge--{{ report.content_type }}">
-                                {% if report.content_type == 'post' %}
-                                <i data-feather="file-text"></i> Пост
-                                {% elif report.content_type == 'comment' %}
-                                <i data-feather="message-circle"></i> Комментарий
-                                {% else %}
-                                <i data-feather="user"></i> Пользователь
-                                {% endif %}
-                            </span>
-                        </td>
-                        <td>
-                            <a href="{{ report.content_url }}" target="_blank" class="content-link">
-                                {{ report.content_preview|truncatechars:40 }}
-                            </a>
-                        </td>
-                        <td>
-                            <a href="{% url 'moderation:user_detail' user_id=report.content_author.id %}" class="author-link">
-                                @{{ report.content_author.username }}
-                            </a>
-                        </td>
-                        <td>
-                            <span class="report-count">{{ report.total_reports }}</span>
-                        </td>
-                        <td>
-                            <span class="status-badge status-badge--{{ report.status }}">
-                                {% if report.status == 'pending' %}
-                                На рассмотрении
-                                {% elif report.status == 'resolved' %}
-                                Решено
-                                {% else %}
-                                Отклонено
-                                {% endif %}
-                            </span>
-                        </td>
-                        <td>
-                            <div class="row-actions">
-                                <a href="{% url 'moderation:report_detail' report_id=report.id %}" class="action-btn" title="Просмотреть">
-                                    <i data-feather="eye"></i>
-                                </a>
-                                <button class="action-btn quick-resolve" data-report-id="{{ report.id }}" title="Быстрое решение">
-                                    <i data-feather="check"></i>
-                                </button>
+                    <div class="avatar-upload-container">
+                        <!-- Превью аватарки (такого же размера как в чате) -->
+                        <div class="avatar-preview-chat" id="avatarPreviewChat">
+                            <div class="chat-avatar-placeholder">
+                                <i data-feather="camera"></i>
                             </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="6" class="empty-row">
-                            <i data-feather="check-circle"></i>
-                            Нет активных жалоб
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+                        </div>
 
-    <!-- Активные баны -->
-    <div class="recent-section">
-        <div class="section-header">
-            <h3>
-                <i data-feather="shield"></i>
-                Активные баны
-            </h3>
-        </div>
+                        <div class="avatar-controls">
+                            <button type="button" class="btn btn--outline btn--sm" id="uploadAvatarBtn">
+                                <i data-feather="upload"></i>
+                                Выбрать
+                            </button>
+                            <button type="button" class="btn btn--outline btn--sm" id="removeAvatarBtn" style="display: none;">
+                                <i data-feather="trash-2"></i>
+                                Удалить
+                            </button>
+                        </div>
+                    </div>
 
-        <div class="bans-list">
-            {% for ban in active_bans %}
-            <div class="ban-item">
-                <div class="ban-user">
-                    <a href="{% url 'moderation:user_detail' user_id=ban.user.id %}">
-                        <strong>{{ ban.user.get_full_name|default:ban.user.username }}</strong>
-                        <span class="ban-username">@{{ ban.user.username }}</span>
-                    </a>
+                    <input type="file" name="avatar" id="avatarInput" accept="image/jpeg,image/png,image/gif,image/webp" style="display: none;">
+                    <p class="upload-hint">PNG, JPG, GIF до 2MB. Рекомендуемый размер: 200x200</p>
                 </div>
-                <div class="ban-info">
-                    <span class="ban-reason">{{ ban.reason|truncatechars:30 }}</span>
-                    <span class="ban-expires">
-                        {% if ban.is_permanent %}
-                        Навсегда
-                        {% else %}
-                        Истекает {{ ban.expires_at|timesince }}
-                        {% endif %}
-                    </span>
+
+                <div class="form-group">
+                    <label for="groupName" class="form-label">
+                        <i data-feather="type"></i>
+                        Название группы
+                        <span class="required">*</span>
+                    </label>
+                    <input type="text" name="name" id="groupName" class="form-input"
+                           placeholder="Например: Команда разработки" maxlength="50" required>
+                    <div class="field-hint">
+                        <span class="char-counter">
+                            <span id="nameCounter">0</span>/50
+                        </span>
+                    </div>
                 </div>
-                <div class="ban-actions">
-                    <button class="btn btn--outline btn--sm lift-ban-btn" data-ban-id="{{ ban.id }}">
-                        <i data-feather="unlock"></i>
-                        Снять
-                    </button>
+
+                <div class="form-group">
+                    <label for="groupDescription" class="form-label">
+                        <i data-feather="align-left"></i>
+                        Описание
+                    </label>
+                    <textarea name="description" id="groupDescription" class="form-textarea"
+                              placeholder="О чём эта группа?..." rows="3" maxlength="200"></textarea>
+                    <div class="field-hint">
+                        <span class="char-counter">
+                            <span id="descCounter">0</span>/200
+                        </span>
+                    </div>
                 </div>
             </div>
-            {% empty %}
-            <p class="empty-text">Нет активных банов</p>
-            {% endfor %}
-        </div>
+
+            <!-- Участники -->
+            <div class="form-card">
+                <div class="card-header">
+                    <i data-feather="user-plus"></i>
+                    <h2>Добавить участников</h2>
+                </div>
+                <p class="card-description">Выберите пользователей, которых хотите добавить в группу (минимум 1)</p>
+
+                <!-- Выбранные участники -->
+                <div class="selected-participants" id="selectedParticipants"></div>
+
+                <!-- Поиск участников -->
+                <div class="participant-search">
+                    <div class="search-wrapper">
+                        <i data-feather="search"></i>
+                        <input type="text" id="participantSearch"
+                               placeholder="Поиск по имени или @username..."
+                               class="search-input" autocomplete="off">
+                    </div>
+                    <div class="search-results" id="participantResults"></div>
+                </div>
+
+                <input type="hidden" name="participants" id="participantsInput">
+            </div>
+
+            <!-- Кнопки -->
+            <div class="form-actions">
+                <a href="{% url 'messenger:chat_list' %}" class="btn btn--outline">
+                    <i data-feather="arrow-left"></i>
+                    Отмена
+                </a>
+                <button type="submit" class="btn btn--primary" id="createBtn" disabled>
+                    <i data-feather="users"></i>
+                    Создать группу
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 
-<!-- Модальное окно поиска пользователя -->
-<div class="modal-overlay" id="userSearchModal">
-    <div class="modal">
-        <div class="modal-header">
-            <h3 class="modal-title">Поиск пользователя</h3>
-            <button class="modal-close" onclick="closeUserSearch()">
-                <i data-feather="x"></i>
-            </button>
+<!-- Модалка загрузки -->
+<div class="modal-overlay" id="loadingModal" style="display: none;">
+    <div class="modal modal--loading">
+        <div class="loading-spinner">
+            <i data-feather="loader"></i>
         </div>
-        <div class="modal-body">
-            <div class="search-wrapper">
-                <i data-feather="search"></i>
-                <input type="text" id="userSearchInput" placeholder="Введите имя или @username..." class="search-input">
-            </div>
-            <div class="search-results" id="userSearchResults"></div>
-        </div>
+        <p>Создание группы...</p>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-    .moderation-container {
-        max-width: 1200px;
+    .create-group-page {
+        min-height: calc(100vh - 80px);
+        padding: 2rem 1.5rem;
+        background: var(--color-bg-app);
+    }
+
+    .create-group-container {
+        max-width: 600px;
         margin: 0 auto;
     }
 
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 1.5rem;
-        margin-bottom: 2rem;
-    }
-
-    .stat-card {
+    .form-card {
         background: var(--color-bg-surface);
-        border-radius: var(--radius-xl);
-        padding: 1.5rem;
+        border-radius: 24px;
+        padding: 2rem;
         border: 1px solid var(--color-border-light);
-        position: relative;
-        overflow: hidden;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
     }
 
-    .stat-card--warning {
-        border-left: 4px solid var(--color-warning);
+    .card-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
     }
 
-    .stat-card--danger {
-        border-left: 4px solid var(--color-danger);
-    }
-
-    .stat-icon {
-        position: absolute;
-        top: 1rem;
-        right: 1rem;
-        color: var(--color-text-tertiary);
-        opacity: 0.3;
-    }
-
-    .stat-icon i {
-        width: 3rem;
-        height: 3rem;
-    }
-
-    .stat-content {
-        margin-bottom: 1rem;
-    }
-
-    .stat-value {
-        display: block;
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: var(--color-text-primary);
-        line-height: 1.2;
-    }
-
-    .stat-label {
-        font-size: 0.875rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .stat-link {
+    .card-header i {
+        width: 1.5rem;
+        height: 1.5rem;
         color: var(--color-primary);
-        text-decoration: none;
-        font-size: 0.875rem;
     }
 
-    .stat-link:hover {
-        text-decoration: underline;
+    .card-header h2 {
+        font-size: 1.5rem;
+        font-weight: 700;
     }
 
-    .quick-actions {
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-xl);
-        padding: 1.5rem;
-        border: 1px solid var(--color-border-light);
-        margin-bottom: 2rem;
+    .card-description {
+        color: var(--color-text-secondary);
+        margin-bottom: 1.5rem;
     }
 
-    .quick-actions h3 {
-        font-size: 1.125rem;
-        margin-bottom: 1.25rem;
+    /* Аватар */
+    .avatar-section {
+        margin-bottom: 1.5rem;
     }
 
-    .actions-grid {
-        display: grid;
-        grid-template-columns: repeat(6, 1fr);
-        gap: 1rem;
+    .section-label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 0.75rem;
+        color: var(--color-text-primary);
     }
 
-    .action-card {
+    .avatar-upload-container {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+    }
+
+    /* Превью аватарки — размер как в чате */
+    .avatar-preview-chat {
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 2px dashed var(--color-border);
+        background: var(--color-bg-elevated);
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+
+    .avatar-preview-chat.has-image {
+        border: 2px solid var(--color-primary);
+        border-style: solid;
+    }
+
+    .avatar-preview-chat img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .chat-avatar-placeholder {
+        width: 100%;
+        height: 100%;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 0.5rem;
-        padding: 1rem;
-        background: var(--color-bg-elevated);
-        border-radius: var(--radius-lg);
-        text-decoration: none;
-        color: var(--color-text-primary);
-        transition: all var(--transition-base);
-        cursor: pointer;
-        position: relative;
+        justify-content: center;
+        color: var(--color-text-tertiary);
     }
 
-    .action-card:hover {
-        background: var(--color-primary-light);
-        color: var(--color-primary);
-        transform: translateY(-2px);
-    }
-
-    .action-card i {
+    .chat-avatar-placeholder i {
         width: 1.5rem;
         height: 1.5rem;
     }
 
-    .action-card span {
-        font-size: 0.875rem;
-        font-weight: 500;
-    }
-
-    .badge {
-        position: absolute;
-        top: -5px;
-        right: -5px;
-        padding: 0.125rem 0.375rem;
-        border-radius: var(--radius-full);
-        font-size: 0.6875rem;
-        font-weight: 600;
-    }
-
-    .badge--warning {
-        background: var(--color-warning);
-        color: white;
-    }
-
-    .recent-section {
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-xl);
-        padding: 1.5rem;
-        border: 1px solid var(--color-border-light);
-        margin-bottom: 2rem;
-    }
-
-    .section-header {
+    .avatar-controls {
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 1.25rem;
-    }
-
-    .section-header h3 {
-        display: flex;
-        align-items: center;
         gap: 0.5rem;
-        font-size: 1.125rem;
     }
 
-    .view-all {
-        color: var(--color-primary);
-        text-decoration: none;
-        font-size: 0.875rem;
-    }
-
-    .view-all:hover {
-        text-decoration: underline;
-    }
-
-    .reports-table {
-        overflow-x: auto;
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    th {
-        text-align: left;
-        padding: 0.75rem 1rem;
-        font-size: 0.8125rem;
-        font-weight: 600;
-        color: var(--color-text-tertiary);
-        border-bottom: 1px solid var(--color-border);
-    }
-
-    td {
-        padding: 1rem;
-        border-bottom: 1px solid var(--color-border-light);
-    }
-
-    .type-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.375rem;
-        padding: 0.25rem 0.5rem;
-        border-radius: var(--radius-md);
-        font-size: 0.8125rem;
-        background: var(--color-bg-elevated);
-    }
-
-    .type-badge i {
-        width: 0.875rem;
-        height: 0.875rem;
-    }
-
-    .content-link {
-        color: var(--color-text-primary);
-        text-decoration: none;
-    }
-
-    .content-link:hover {
-        color: var(--color-primary);
-        text-decoration: underline;
-    }
-
-    .author-link {
-        color: var(--color-text-secondary);
-        text-decoration: none;
-    }
-
-    .author-link:hover {
-        color: var(--color-primary);
-    }
-
-    .report-count {
-        font-weight: 600;
-    }
-
-    .status-badge {
-        display: inline-block;
-        padding: 0.25rem 0.5rem;
-        border-radius: var(--radius-md);
+    .upload-hint {
         font-size: 0.75rem;
-        font-weight: 500;
-    }
-
-    .status-badge--pending {
-        background: #fef3c7;
-        color: #92400e;
-    }
-
-    .status-badge--resolved {
-        background: #d1fae5;
-        color: #065f46;
-    }
-
-    .status-badge--dismissed {
-        background: var(--color-bg-elevated);
         color: var(--color-text-tertiary);
+        margin-top: 0.5rem;
     }
 
-    .row-actions {
-        display: flex;
-        gap: 0.25rem;
-    }
-
-    .action-btn {
-        padding: 0.375rem;
-        border-radius: var(--radius-md);
-        color: var(--color-text-tertiary);
-    }
-
-    .action-btn:hover {
-        background: var(--color-bg-elevated);
-        color: var(--color-text-primary);
-    }
-
-    .empty-row {
-        text-align: center;
-        padding: 3rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .empty-row i {
-        width: 2rem;
-        height: 2rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .bans-list {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-
-    .ban-item {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        padding: 1rem;
-        background: var(--color-bg-elevated);
-        border-radius: var(--radius-lg);
-    }
-
-    .ban-user {
-        flex: 1;
-    }
-
-    .ban-user a {
-        text-decoration: none;
-    }
-
-    .ban-user strong {
-        color: var(--color-text-primary);
-    }
-
-    .ban-username {
-        margin-left: 0.5rem;
-        font-size: 0.8125rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .ban-info {
-        flex: 2;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-    }
-
-    .ban-reason {
-        color: var(--color-text-secondary);
-        font-size: 0.875rem;
-    }
-
-    .ban-expires {
-        font-size: 0.8125rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .empty-text {
-        text-align: center;
-        padding: 2rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: none;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-    }
-
-    .modal {
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-xl);
-        padding: 1.5rem;
-        max-width: 500px;
-        width: 90%;
-        max-height: 80vh;
-        overflow-y: auto;
-    }
-
-    .modal-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
+    /* Форма */
+    .form-group {
         margin-bottom: 1.5rem;
     }
 
-    .modal-title {
-        font-size: 1.25rem;
-        font-weight: 600;
+    .form-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
     }
 
-    .modal-close {
-        padding: 0.25rem;
-        border-radius: var(--radius-md);
+    .form-label i {
+        width: 1rem;
+        height: 1rem;
         color: var(--color-text-tertiary);
+    }
+
+    .required {
+        color: var(--color-danger);
+    }
+
+    .form-input,
+    .form-textarea {
+        width: 100%;
+        padding: 0.875rem 1rem;
+        border: 1.5px solid var(--color-border);
+        border-radius: 14px;
+        font-size: 0.9375rem;
+        background: var(--color-bg-surface);
+        transition: all 0.2s;
+    }
+
+    .form-input:focus,
+    .form-textarea:focus {
+        outline: none;
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+
+    .field-hint {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 0.375rem;
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .char-counter {
+        font-family: monospace;
+    }
+
+    /* Выбранные участники */
+    .selected-participants {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+        min-height: 2.5rem;
+    }
+
+    .selected-participant {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.375rem 0.75rem;
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+        border-radius: 30px;
+        font-size: 0.875rem;
+    }
+
+    .selected-participant button {
+        padding: 0.125rem;
+        color: currentColor;
+        opacity: 0.7;
+        cursor: pointer;
+    }
+
+    .selected-participant button:hover {
+        opacity: 1;
+    }
+
+    .selected-participant.self {
+        background: var(--color-bg-elevated);
+        color: var(--color-text-secondary);
+    }
+
+    /* Поиск участников */
+    .participant-search {
+        position: relative;
     }
 
     .search-wrapper {
         position: relative;
-        margin-bottom: 1rem;
     }
 
     .search-wrapper i {
@@ -625,53 +351,152 @@
 
     .search-input {
         width: 100%;
-        padding: 0.75rem 1rem 0.75rem 2.5rem;
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-lg);
+        padding: 0.875rem 1rem 0.875rem 2.5rem;
+        border: 1.5px solid var(--color-border);
+        border-radius: 14px;
         font-size: 0.9375rem;
     }
 
     .search-results {
-        max-height: 300px;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--color-bg-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 14px;
+        max-height: 250px;
         overflow-y: auto;
+        z-index: 10;
+        display: none;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+        margin-top: 4px;
     }
 
-    @media (max-width: 1024px) {
-        .stats-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-
-        .actions-grid {
-            grid-template-columns: repeat(3, 1fr);
-        }
+    .participant-result {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.875rem 1rem;
+        cursor: pointer;
+        transition: background 0.15s;
     }
 
-    @media (max-width: 768px) {
-        .stats-grid {
-            grid-template-columns: 1fr;
+    .participant-result:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .participant-result.selected {
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+    }
+
+    .result-avatar {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        overflow: hidden;
+    }
+
+    .result-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+        font-weight: 600;
+    }
+
+    .result-info {
+        flex: 1;
+    }
+
+    .result-name {
+        font-weight: 500;
+    }
+
+    .result-username {
+        font-size: 0.75rem;
+        opacity: 0.7;
+    }
+
+    .check-icon {
+        color: var(--color-primary);
+    }
+
+    /* Кнопки */
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+    }
+
+    /* Модалка загрузки */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        backdrop-filter: blur(4px);
+    }
+
+    .modal--loading {
+        background: var(--color-bg-surface);
+        border-radius: 20px;
+        padding: 2rem;
+        text-align: center;
+    }
+
+    .loading-spinner {
+        margin-bottom: 1rem;
+    }
+
+    .loading-spinner i {
+        width: 2.5rem;
+        height: 2.5rem;
+        color: var(--color-primary);
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 600px) {
+        .create-group-page {
+            padding: 1rem;
         }
 
-        .actions-grid {
-            grid-template-columns: repeat(2, 1fr);
+        .form-card {
+            padding: 1.5rem;
         }
 
-        .ban-item {
+        .form-actions {
+            flex-direction: column;
+        }
+
+        .form-actions .btn {
+            width: 100%;
+        }
+
+        .avatar-upload-container {
             flex-direction: column;
             align-items: flex-start;
-        }
-
-        .ban-info {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.25rem;
-        }
-
-        .reports-table {
-            font-size: 0.875rem;
-        }
-
-        th, td {
-            padding: 0.75rem 0.5rem;
         }
     }
 </style>
@@ -680,35 +505,81 @@
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Модальное окно поиска пользователя
-        const searchModal = document.getElementById('userSearchModal');
-        const searchInput = document.getElementById('userSearchInput');
-        const searchResults = document.getElementById('userSearchResults');
+        // === АВАТАР ===
+        const avatarInput = document.getElementById('avatarInput');
+        const avatarPreviewChat = document.getElementById('avatarPreviewChat');
+        const uploadAvatarBtn = document.getElementById('uploadAvatarBtn');
+        const removeAvatarBtn = document.getElementById('removeAvatarBtn');
+
+        uploadAvatarBtn?.addEventListener('click', () => avatarInput.click());
+
+        avatarInput?.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    avatarPreviewChat.innerHTML = `<img src="${e.target.result}" alt="Avatar">`;
+                    avatarPreviewChat.classList.add('has-image');
+                    removeAvatarBtn.style.display = 'inline-flex';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        removeAvatarBtn?.addEventListener('click', function() {
+            avatarInput.value = '';
+            avatarPreviewChat.innerHTML = `
+                <div class="chat-avatar-placeholder">
+                    <i data-feather="camera"></i>
+                </div>
+            `;
+            avatarPreviewChat.classList.remove('has-image');
+            removeAvatarBtn.style.display = 'none';
+            feather.replace();
+        });
+
+        // === СЧЕТЧИКИ ===
+        const nameInput = document.getElementById('groupName');
+        const nameCounter = document.getElementById('nameCounter');
+        const descInput = document.getElementById('groupDescription');
+        const descCounter = document.getElementById('descCounter');
+        const createBtn = document.getElementById('createBtn');
+
+        nameInput?.addEventListener('input', () => {
+            nameCounter.textContent = nameInput.value.length;
+            updateCreateButton();
+        });
+
+        descInput?.addEventListener('input', () => {
+            descCounter.textContent = descInput.value.length;
+        });
+
+        // === УЧАСТНИКИ ===
+        const searchInput = document.getElementById('participantSearch');
+        const searchResults = document.getElementById('participantResults');
+        const selectedContainer = document.getElementById('selectedParticipants');
+        const participantsInput = document.getElementById('participantsInput');
+        const currentUserId = '{{ user.id }}';
+        const currentUsername = '{{ user.username }}';
+        const currentFullname = '{{ user.get_full_name|default:user.username }}';
+
+        let selectedUsers = new Map();
         let searchTimeout;
 
-        window.openUserSearch = function() {
-            searchModal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-            searchInput.focus();
-        };
-
-        window.closeUserSearch = function() {
-            searchModal.style.display = 'none';
-            document.body.style.overflow = '';
-            searchInput.value = '';
-            searchResults.innerHTML = '';
-        };
-
-        searchModal?.addEventListener('click', (e) => {
-            if (e.target === searchModal) closeUserSearch();
+        // Добавить себя автоматически
+        selectedUsers.set(currentUserId, {
+            username: currentUsername,
+            fullname: currentFullname,
+            isSelf: true
         });
+        updateSelectedDisplay();
 
         searchInput?.addEventListener('input', function() {
             clearTimeout(searchTimeout);
             const query = this.value.trim();
 
             if (query.length < 2) {
-                searchResults.innerHTML = '';
+                searchResults.style.display = 'none';
                 return;
             }
 
@@ -717,96 +588,131 @@
                     const response = await fetch(`/accounts/users/search/?q=${encodeURIComponent(query)}`);
                     const users = await response.json();
 
-                    searchResults.innerHTML = users.map(user => `
-                        <div class="search-result-item" onclick="window.location.href='/moderation/user/${user.id}/'">
-                            <div class="result-avatar">
-                                ${user.avatar ?
-                                    `<img src="${user.avatar}" alt="${user.username}">` :
-                                    `<div class="avatar-placeholder">${user.username.charAt(0).toUpperCase()}</div>`
-                                }
+                    // Фильтруем текущего пользователя
+                    const filteredUsers = users.filter(u => u.id != currentUserId);
+
+                    searchResults.innerHTML = filteredUsers.map(user => {
+                        const isSelected = selectedUsers.has(user.id.toString());
+                        return `
+                            <div class="participant-result ${isSelected ? 'selected' : ''}"
+                                 data-user-id="${user.id}"
+                                 data-username="${user.username}"
+                                 data-fullname="${user.full_name || user.username}">
+                                <div class="result-avatar">
+                                    ${user.avatar ?
+                                        `<img src="${user.avatar}" alt="${user.username}">` :
+                                        `<div class="avatar-placeholder">${user.username.charAt(0).toUpperCase()}</div>`
+                                    }
+                                </div>
+                                <div class="result-info">
+                                    <div class="result-name">${user.full_name || user.username}</div>
+                                    <div class="result-username">@${user.username}</div>
+                                </div>
+                                ${isSelected ? '<i data-feather="check" class="check-icon"></i>' : ''}
                             </div>
-                            <div class="result-info">
-                                <div class="result-name">${user.full_name || user.username}</div>
-                                <div class="result-username">@${user.username}</div>
-                            </div>
-                        </div>
-                    `).join('');
+                        `;
+                    }).join('');
+
+                    searchResults.style.display = filteredUsers.length ? 'block' : 'none';
+
+                    document.querySelectorAll('.participant-result').forEach(item => {
+                        item.addEventListener('click', function() {
+                            const userId = this.dataset.userId;
+
+                            if (selectedUsers.has(userId)) {
+                                selectedUsers.delete(userId);
+                            } else {
+                                selectedUsers.set(userId, {
+                                    username: this.dataset.username,
+                                    fullname: this.dataset.fullname
+                                });
+                            }
+
+                            updateSelectedDisplay();
+                            searchInput.value = '';
+                            searchResults.style.display = 'none';
+                        });
+                    });
                 } catch (error) {
                     console.error('Error:', error);
                 }
             }, 300);
         });
 
-        // Быстрое решение жалобы
-        document.querySelectorAll('.quick-resolve').forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const reportId = this.dataset.reportId;
-                const row = this.closest('tr');
+        function updateSelectedDisplay() {
+            selectedContainer.innerHTML = '';
 
-                if (confirm('Отметить жалобу как решенную?')) {
-                    try {
-                        const response = await fetch(`/moderation/report/${reportId}/resolve/`, {
-                            method: 'POST',
-                            headers: {
-                                'X-CSRFToken': getCookie('csrftoken')
-                            }
-                        });
+            // Сначала показываем себя
+            const selfUser = selectedUsers.get(currentUserId);
+            if (selfUser) {
+                const selfBadge = document.createElement('span');
+                selfBadge.className = 'selected-participant self';
+                selfBadge.innerHTML = `${selfUser.fullname} (Вы)`;
+                selectedContainer.appendChild(selfBadge);
+            }
 
-                        if (response.ok) {
-                            row.style.transition = 'opacity 0.3s ease';
-                            row.style.opacity = '0';
-                            setTimeout(() => row.remove(), 300);
-
-                            showToast({
-                                type: 'success',
-                                message: 'Жалоба отмечена как решенная'
-                            });
-                        }
-                    } catch (error) {
-                        console.error('Error:', error);
-                    }
+            // Затем остальных
+            selectedUsers.forEach((user, id) => {
+                if (id !== currentUserId) {
+                    const badge = document.createElement('span');
+                    badge.className = 'selected-participant';
+                    badge.innerHTML = `
+                        ${user.fullname}
+                        <button type="button" onclick="removeParticipant('${id}')">
+                            <i data-feather="x"></i>
+                        </button>
+                    `;
+                    selectedContainer.appendChild(badge);
                 }
             });
-        });
 
-        // Снятие бана
-        document.querySelectorAll('.lift-ban-btn').forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const banId = this.dataset.banId;
-                const item = this.closest('.ban-item');
+            feather.replace();
+            participantsInput.value = Array.from(selectedUsers.keys()).join(',');
+            updateCreateButton();
+        }
 
-                if (confirm('Снять бан с пользователя?')) {
-                    try {
-                        const response = await fetch(`/moderation/ban/${banId}/lift/`, {
-                            method: 'POST',
-                            headers: {
-                                'X-CSRFToken': getCookie('csrftoken')
-                            }
-                        });
+        window.removeParticipant = function(userId) {
+            if (userId !== currentUserId) {
+                selectedUsers.delete(userId);
+                updateSelectedDisplay();
+            }
+        };
 
-                        if (response.ok) {
-                            item.style.transition = 'opacity 0.3s ease';
-                            item.style.opacity = '0';
-                            setTimeout(() => item.remove(), 300);
+        function updateCreateButton() {
+            const hasName = nameInput.value.trim().length > 0;
+            const hasParticipants = selectedUsers.size >= 2;
+            createBtn.disabled = !hasName || !hasParticipants;
+        }
 
-                            showToast({
-                                type: 'success',
-                                message: 'Бан снят'
-                            });
-                        }
-                    } catch (error) {
-                        console.error('Error:', error);
-                    }
-                }
-            });
-        });
-
-        // Закрытие по Escape
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && searchModal?.style.display === 'flex') {
-                closeUserSearch();
+        // Скрыть результаты при клике вне
+        document.addEventListener('click', (e) => {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                searchResults.style.display = 'none';
             }
         });
+
+        // === ОТПРАВКА ФОРМЫ ===
+        const groupForm = document.getElementById('groupForm');
+        const loadingModal = document.getElementById('loadingModal');
+
+        groupForm.addEventListener('submit', function(e) {
+            const hasName = nameInput.value.trim().length > 0;
+            const hasParticipants = selectedUsers.size >= 2;
+
+            if (!hasName || !hasParticipants) {
+                e.preventDefault();
+                alert('Введите название группы и добавьте хотя бы одного участника');
+                return;
+            }
+
+            // Показываем модалку загрузки
+            loadingModal.style.display = 'flex';
+        });
+
+        // Инициализация
+        nameCounter.textContent = nameInput.value.length;
+        descCounter.textContent = descInput.value.length;
+        updateCreateButton();
     });
 </script>
 {% endblock %}

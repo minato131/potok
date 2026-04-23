@@ -80,12 +80,16 @@
                 </button>
                 {% elif user != following_user %}
                     {% if following_user in user.profile.following.all %}
-                    <button class="btn btn--outline follow-btn" data-user-id="{{ following_user.id }}" data-action="unfollow">
+                    <button class="btn btn--outline follow-btn"
+                            data-user-id="{{ user.id }}"
+                            data-action="unfollow">
                         <i data-feather="user-check"></i>
                         <span>Отписаться</span>
                     </button>
                     {% else %}
-                    <button class="btn btn--primary follow-btn" data-user-id="{{ following_user.id }}" data-action="follow">
+                    <button class="btn btn--primary follow-btn"
+                            data-user-id="{{ user.id }}"
+                            data-action="follow">
                         <i data-feather="user-plus"></i>
                         <span>Подписаться</span>
                     </button>

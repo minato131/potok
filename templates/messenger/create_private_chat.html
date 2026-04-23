@@ -2,178 +2,281 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Новый личный чат · Поток{% endblock %}
-{% block page_title %}Новый личный чат{% endblock %}
+{% block title %}Новый чат · Поток{% endblock %}
+{% block page_title %}
+    <span class="page-title-with-icon">
+        Новый личный чат
+    </span>
+{% endblock %}
 
 {% block content %}
-<div class="create-chat-container">
-    <div class="create-chat-card">
-        <div class="card-header">
-            <div class="icon-wrapper">
-                <i data-feather="user-plus"></i>
-            </div>
-            <h2>Найти пользователя</h2>
-            <p>Начните вводить имя пользователя, чтобы начать чат</p>
-        </div>
-
-        <div class="search-section">
-            <div class="search-wrapper-large">
+<div class="create-chat-page">
+    <div class="create-chat-container">
+        <!-- Поиск пользователей -->
+        <div class="search-card">
+            <div class="card-header">
                 <i data-feather="search"></i>
-                <input type="text" id="userSearch" placeholder="Поиск по имени или @username..." class="search-input-large" autofocus>
+                <h2>Найти пользователя</h2>
+            </div>
+            <p class="card-description">Введите имя или @username, чтобы начать чат</p>
+
+            <div class="search-wrapper-large">
+                <input type="text"
+                       id="userSearch"
+                       placeholder="Например: Иван или @ivan..."
+                       class="search-input-large"
+                       autofocus
+                       autocomplete="off">
+
+                <!-- Индикатор загрузки -->
+                <div class="search-loader" id="searchLoader" style="display: none;">
+                    <i data-feather="loader"></i>
+                </div>
             </div>
 
-            <div class="search-results-container" id="searchResults">
-                <!-- Результаты поиска -->
-            </div>
+            <!-- Результаты поиска -->
+            <div class="search-results-container" id="searchResults"></div>
         </div>
 
-        <!-- Последние чаты -->
-        {% if recent_chats %}
-        <div class="recent-chats">
-            <h3>Недавние чаты</h3>
-            <div class="recent-list">
-                {% for chat in recent_chats %}
-                <a href="{% url 'messenger:chat_detail' chat_id=chat.id %}" class="recent-item">
-                    <div class="recent-avatar">
-                        {% with other_user=chat.participants.all|first %}
-                            {% if other_user == user %}{% with other_user=chat.participants.all|last %}{% endwith %}{% endif %}
-                            {% if other_user.profile.avatar %}
-                            <img src="{{ other_user.profile.avatar.url }}" alt="{{ other_user.username }}">
-                            {% else %}
-                            <div class="avatar-placeholder">{{ other_user.username|make_list|first|upper }}</div>
-                            {% endif %}
-                        {% endwith %}
+        <!-- Недавние чаты -->
+        {% if recent_users %}
+        <div class="recent-card">
+            <div class="card-header">
+                <i data-feather="clock"></i>
+                <h2>Недавние контакты</h2>
+            </div>
+            <p class="card-description">Пользователи, с которыми вы недавно общались</p>
+
+            <div class="recent-users-list">
+                {% for contact in recent_users %}
+                <div class="recent-user-item" data-user-id="{{ contact.id }}" data-username="{{ contact.username }}">
+                    <div class="user-avatar">
+                        {% if contact.profile.avatar %}
+                        <img src="{{ contact.profile.avatar.url }}" alt="{{ contact.username }}">
+                        {% else %}
+                        <div class="avatar-placeholder">{{ contact.username|first|upper }}</div>
+                        {% endif %}
+                        {% if contact.profile.is_online %}
+                        <span class="online-indicator"></span>
+                        {% endif %}
                     </div>
-                    <div class="recent-info">
-                        <span class="recent-name">
-                            {% with other_user=chat.participants.all|first %}
-                                {% if other_user == user %}{% with other_user=chat.participants.all|last %}{% endwith %}{% endif %}
-                                {{ other_user.get_full_name|default:other_user.username }}
-                            {% endwith %}
-                        </span>
-                        <span class="recent-username">
-                            {% with other_user=chat.participants.all|first %}
-                                {% if other_user == user %}{% with other_user=chat.participants.all|last %}{% endwith %}{% endif %}
-                                @{{ other_user.username }}
-                            {% endwith %}
-                        </span>
+
+                    <div class="user-info">
+                        <span class="user-name">{{ contact.get_full_name|default:contact.username }}</span>
+                        <span class="user-username">@{{ contact.username }}</span>
                     </div>
-                    <i data-feather="chevron-right"></i>
-                </a>
+
+                    <button class="btn btn--outline btn--sm message-btn" data-user-id="{{ contact.id }}">
+                        <i data-feather="message-circle"></i>
+                        Написать
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Популярные пользователи -->
+        {% if popular_users %}
+        <div class="suggested-card">
+            <div class="card-header">
+                <i data-feather="users"></i>
+                <h2>Рекомендуемые</h2>
+            </div>
+            <p class="card-description">Популярные пользователи платформы</p>
+
+            <div class="suggested-users-grid">
+                {% for user_item in popular_users %}
+                <div class="suggested-user-card">
+                    <div class="user-avatar-large">
+                        {% if user_item.profile.avatar %}
+                        <img src="{{ user_item.profile.avatar.url }}" alt="{{ user_item.username }}">
+                        {% else %}
+                        <div class="avatar-placeholder">{{ user_item.username|first|upper }}</div>
+                        {% endif %}
+                    </div>
+                    <span class="user-name">{{ user_item.get_full_name|default:user_item.username }}</span>
+                    <span class="user-username">@{{ user_item.username }}</span>
+                    <button class="btn btn--primary btn--sm message-btn" data-user-id="{{ user_item.id }}">
+                        <i data-feather="message-circle"></i>
+                        Написать
+                    </button>
+                </div>
                 {% endfor %}
             </div>
         </div>
         {% endif %}
     </div>
 </div>
+
+<!-- Модалка создания чата -->
+<div class="modal-overlay" id="chatModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Начать чат</h3>
+            <button class="modal-close" onclick="closeChatModal()">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="selected-user" id="selectedUserInfo">
+                <div class="user-avatar"></div>
+                <div>
+                    <div class="user-name" id="modalUserName"></div>
+                    <div class="user-username" id="modalUserUsername"></div>
+                </div>
+            </div>
+            <p class="modal-hint">Вы можете сразу отправить первое сообщение</p>
+            <textarea id="firstMessage" class="form-textarea" placeholder="Привет! Как дела?..." rows="3"></textarea>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn--outline" onclick="closeChatModal()">Отмена</button>
+            <button class="btn btn--primary" id="startChatBtn">
+                <i data-feather="send"></i>
+                Начать чат
+            </button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
+    .create-chat-page {
+        min-height: calc(100vh - 80px);
+        padding: 2rem 1.5rem;
+        background: var(--color-bg-app);
+    }
+
     .create-chat-container {
-        max-width: 500px;
+        max-width: 700px;
         margin: 0 auto;
     }
 
-    .create-chat-card {
+    /* Карточки */
+    .search-card,
+    .recent-card,
+    .suggested-card {
         background: var(--color-bg-surface);
-        border-radius: var(--radius-xl);
+        border-radius: 24px;
         padding: 2rem;
         border: 1px solid var(--color-border-light);
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
     }
 
     .card-header {
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-
-    .icon-wrapper {
-        width: 4rem;
-        height: 4rem;
-        border-radius: 50%;
-        background: var(--color-primary-light);
         display: flex;
         align-items: center;
-        justify-content: center;
-        margin: 0 auto 1rem;
-        color: var(--color-primary);
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
     }
 
-    .icon-wrapper i {
-        width: 2rem;
-        height: 2rem;
+    .card-header i {
+        width: 1.5rem;
+        height: 1.5rem;
+        color: var(--color-primary);
     }
 
     .card-header h2 {
         font-size: 1.5rem;
-        margin-bottom: 0.5rem;
+        font-weight: 700;
+        color: var(--color-text-primary);
     }
 
-    .card-header p {
+    .card-description {
         color: var(--color-text-secondary);
+        margin-bottom: 1.5rem;
+        font-size: 0.9375rem;
     }
 
-    .search-section {
-        margin-bottom: 2rem;
-    }
-
+    /* Поиск */
     .search-wrapper-large {
         position: relative;
     }
 
     .search-wrapper-large i {
         position: absolute;
-        left: 1rem;
+        left: 1.25rem;
         top: 50%;
         transform: translateY(-50%);
         color: var(--color-text-tertiary);
+        pointer-events: none;
     }
 
     .search-input-large {
         width: 100%;
-        padding: 1rem 1rem 1rem 3rem;
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-lg);
+        padding: 1rem 1.25rem 1rem 3rem;
+        border: 1.5px solid var(--color-border);
+        border-radius: 16px;
         font-size: 1rem;
         background: var(--color-bg-surface);
+        transition: all 0.2s;
     }
 
     .search-input-large:focus {
         outline: none;
         border-color: var(--color-primary);
-        box-shadow: 0 0 0 3px var(--color-primary-light);
+        box-shadow: 0 0 0 4px var(--color-primary-light);
     }
 
+    .search-loader {
+        position: absolute;
+        right: 1.25rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--color-primary);
+    }
+
+    .search-loader i {
+        position: static;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    /* Результаты поиска */
     .search-results-container {
         margin-top: 0.5rem;
         border: 1px solid var(--color-border);
-        border-radius: var(--radius-lg);
-        max-height: 300px;
+        border-radius: 16px;
+        max-height: 350px;
         overflow-y: auto;
         display: none;
+        background: var(--color-bg-surface);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
     }
 
     .user-result-item {
         display: flex;
         align-items: center;
         gap: 1rem;
-        padding: 1rem;
+        padding: 1rem 1.25rem;
         cursor: pointer;
-        transition: background var(--transition-base);
+        transition: background 0.15s;
+        border-bottom: 1px solid var(--color-border-light);
+    }
+
+    .user-result-item:last-child {
+        border-bottom: none;
     }
 
     .user-result-item:hover {
         background: var(--color-bg-elevated);
     }
 
-    .result-avatar {
+    .user-result-item .user-avatar {
         width: 3rem;
         height: 3rem;
         border-radius: 50%;
         overflow: hidden;
+        position: relative;
     }
 
-    .result-avatar img {
+    .user-result-item .user-avatar img {
         width: 100%;
         height: 100%;
         object-fit: cover;
@@ -188,19 +291,32 @@
         background: var(--color-primary-light);
         color: var(--color-primary);
         font-weight: 600;
+        font-size: 1.25rem;
     }
 
-    .result-info {
+    .online-indicator {
+        position: absolute;
+        bottom: 2px;
+        right: 2px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--color-success);
+        border: 2px solid white;
+    }
+
+    .user-result-item .user-info {
         flex: 1;
     }
 
-    .result-name {
+    .user-name {
         font-weight: 600;
         color: var(--color-text-primary);
+        display: block;
     }
 
-    .result-username {
-        font-size: 0.875rem;
+    .user-username {
+        font-size: 0.8125rem;
         color: var(--color-text-tertiary);
     }
 
@@ -210,68 +326,209 @@
         color: var(--color-text-tertiary);
     }
 
-    .recent-chats {
-        padding-top: 1.5rem;
-        border-top: 1px solid var(--color-border-light);
-    }
-
-    .recent-chats h3 {
-        font-size: 1rem;
-        margin-bottom: 1rem;
-        color: var(--color-text-secondary);
-    }
-
-    .recent-list {
+    /* Недавние контакты */
+    .recent-users-list {
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
     }
 
-    .recent-item {
+    .recent-user-item {
         display: flex;
         align-items: center;
         gap: 1rem;
-        padding: 0.75rem;
-        border-radius: var(--radius-md);
-        text-decoration: none;
-        transition: background var(--transition-base);
-    }
-
-    .recent-item:hover {
+        padding: 0.875rem 1rem;
         background: var(--color-bg-elevated);
+        border-radius: 14px;
+        transition: all 0.2s;
     }
 
-    .recent-avatar {
-        width: 2.5rem;
-        height: 2.5rem;
+    .recent-user-item:hover {
+        background: var(--color-border-light);
+    }
+
+    .recent-user-item .user-avatar {
+        width: 2.75rem;
+        height: 2.75rem;
         border-radius: 50%;
         overflow: hidden;
+        position: relative;
     }
 
-    .recent-avatar img {
+    .recent-user-item .user-avatar img {
         width: 100%;
         height: 100%;
         object-fit: cover;
     }
 
-    .recent-info {
+    .recent-user-item .user-info {
         flex: 1;
     }
 
-    .recent-name {
-        font-weight: 500;
-        color: var(--color-text-primary);
+    /* Рекомендуемые */
+    .suggested-users-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 1rem;
+    }
+
+    .suggested-user-card {
+        background: var(--color-bg-elevated);
+        border-radius: 16px;
+        padding: 1.25rem;
+        text-align: center;
+        transition: all 0.2s;
+    }
+
+    .suggested-user-card:hover {
+        background: var(--color-border-light);
+    }
+
+    .user-avatar-large {
+        width: 4rem;
+        height: 4rem;
+        border-radius: 50%;
+        overflow: hidden;
+        margin: 0 auto 0.75rem;
+    }
+
+    .user-avatar-large img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .user-avatar-large .avatar-placeholder {
+        font-size: 1.75rem;
+    }
+
+    .suggested-user-card .user-name {
+        margin-bottom: 0.125rem;
+    }
+
+    .suggested-user-card .user-username {
         display: block;
+        margin-bottom: 0.75rem;
     }
 
-    .recent-username {
-        font-size: 0.8125rem;
+    /* Модалка */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        backdrop-filter: blur(4px);
+    }
+
+    .modal {
+        background: var(--color-bg-surface);
+        border-radius: 24px;
+        padding: 1.75rem;
+        width: 90%;
+        max-width: 450px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    }
+
+    .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+    }
+
+    .modal-header h3 {
+        font-size: 1.25rem;
+        font-weight: 700;
+    }
+
+    .modal-close {
+        padding: 0.375rem;
+        border-radius: 8px;
         color: var(--color-text-tertiary);
+        transition: all 0.2s;
     }
 
-    @media (max-width: 768px) {
-        .create-chat-card {
+    .modal-close:hover {
+        background: var(--color-bg-elevated);
+        color: var(--color-text-primary);
+    }
+
+    .selected-user {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: var(--color-bg-elevated);
+        border-radius: 14px;
+        margin-bottom: 1.25rem;
+    }
+
+    .selected-user .user-avatar {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 50%;
+        overflow: hidden;
+    }
+
+    .selected-user .user-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .modal-hint {
+        font-size: 0.875rem;
+        color: var(--color-text-secondary);
+        margin-bottom: 0.75rem;
+    }
+
+    .form-textarea {
+        width: 100%;
+        padding: 0.875rem 1rem;
+        border: 1.5px solid var(--color-border);
+        border-radius: 14px;
+        font-size: 0.9375rem;
+        resize: vertical;
+        font-family: inherit;
+    }
+
+    .form-textarea:focus {
+        outline: none;
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+
+    .modal-footer {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: flex-end;
+        margin-top: 1.5rem;
+    }
+
+    /* Адаптивность */
+    @media (max-width: 600px) {
+        .create-chat-page {
+            padding: 1rem;
+        }
+
+        .search-card,
+        .recent-card,
+        .suggested-card {
             padding: 1.5rem;
+        }
+
+        .card-header h2 {
+            font-size: 1.25rem;
+        }
+
+        .suggested-users-grid {
+            grid-template-columns: repeat(2, 1fr);
         }
     }
 </style>
@@ -282,16 +539,23 @@
     document.addEventListener('DOMContentLoaded', function() {
         const searchInput = document.getElementById('userSearch');
         const searchResults = document.getElementById('searchResults');
+        const searchLoader = document.getElementById('searchLoader');
+        const chatModal = document.getElementById('chatModal');
+        let selectedUserId = null;
         let searchTimeout;
 
+        // Поиск пользователей
         searchInput?.addEventListener('input', function() {
             clearTimeout(searchTimeout);
             const query = this.value.trim();
 
             if (query.length < 2) {
                 searchResults.style.display = 'none';
+                searchResults.innerHTML = '';
                 return;
             }
+
+            searchLoader.style.display = 'block';
 
             searchTimeout = setTimeout(async () => {
                 try {
@@ -302,24 +566,28 @@
                         searchResults.innerHTML = '<div class="empty-results">Пользователи не найдены</div>';
                     } else {
                         searchResults.innerHTML = users.map(user => `
-                            <div class="user-result-item" data-user-id="${user.id}" data-username="${user.username}">
-                                <div class="result-avatar">
+                            <div class="user-result-item" data-user-id="${user.id}" data-username="${user.username}" data-fullname="${user.full_name || user.username}" data-avatar="${user.avatar || ''}">
+                                <div class="user-avatar">
                                     ${user.avatar ?
                                         `<img src="${user.avatar}" alt="${user.username}">` :
                                         `<div class="avatar-placeholder">${user.username.charAt(0).toUpperCase()}</div>`
                                     }
                                 </div>
-                                <div class="result-info">
-                                    <div class="result-name">${user.full_name || user.username}</div>
-                                    <div class="result-username">@${user.username}</div>
+                                <div class="user-info">
+                                    <span class="user-name">${user.full_name || user.username}</span>
+                                    <span class="user-username">@${user.username}</span>
                                 </div>
                             </div>
                         `).join('');
 
                         document.querySelectorAll('.user-result-item').forEach(item => {
                             item.addEventListener('click', function() {
-                                const userId = this.dataset.userId;
-                                createOrOpenChat(userId);
+                                openChatModal({
+                                    id: this.dataset.userId,
+                                    username: this.dataset.username,
+                                    fullname: this.dataset.fullname,
+                                    avatar: this.dataset.avatar
+                                });
                             });
                         });
                     }
@@ -327,34 +595,13 @@
                     searchResults.style.display = 'block';
                 } catch (error) {
                     console.error('Error:', error);
+                    searchResults.innerHTML = '<div class="empty-results">Ошибка поиска</div>';
+                    searchResults.style.display = 'block';
+                } finally {
+                    searchLoader.style.display = 'none';
                 }
             }, 300);
         });
-
-        async function createOrOpenChat(userId) {
-            try {
-                const response = await fetch('/messenger/create/private/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCookie('csrftoken')
-                    },
-                    body: JSON.stringify({ user_id: userId })
-                });
-
-                const data = await response.json();
-
-                if (data.chat_id) {
-                    window.location.href = `/messenger/chat/${data.chat_id}/`;
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                showToast({
-                    type: 'error',
-                    message: 'Не удалось создать чат'
-                });
-            }
-        }
 
         // Скрыть результаты при клике вне
         document.addEventListener('click', (e) => {
@@ -365,10 +612,121 @@
 
         // Показать результаты при фокусе
         searchInput?.addEventListener('focus', function() {
-            if (this.value.length >= 2) {
+            if (this.value.trim().length >= 2) {
                 searchResults.style.display = 'block';
             }
         });
+
+        // Кнопки "Написать"
+        document.querySelectorAll('.message-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const userId = this.dataset.userId;
+                const item = this.closest('.recent-user-item') || this.closest('.suggested-user-card');
+                const name = item.querySelector('.user-name').textContent;
+                const username = item.querySelector('.user-username').textContent;
+                const avatarImg = item.querySelector('.user-avatar img');
+
+                openChatModal({
+                    id: userId,
+                    username: username.replace('@', ''),
+                    fullname: name,
+                    avatar: avatarImg ? avatarImg.src : ''
+                });
+            });
+        });
+
+        // Модалка
+        window.openChatModal = function(user) {
+            selectedUserId = user.id;
+            document.getElementById('modalUserName').textContent = user.fullname;
+            document.getElementById('modalUserUsername').textContent = '@' + user.username;
+
+            const avatarDiv = document.querySelector('#selectedUserInfo .user-avatar');
+            if (user.avatar) {
+                avatarDiv.innerHTML = `<img src="${user.avatar}" alt="${user.username}">`;
+            } else {
+                avatarDiv.innerHTML = `<div class="avatar-placeholder">${user.username.charAt(0).toUpperCase()}</div>`;
+            }
+
+            chatModal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        };
+
+        window.closeChatModal = function() {
+            chatModal.style.display = 'none';
+            document.body.style.overflow = '';
+            selectedUserId = null;
+            document.getElementById('firstMessage').value = '';
+        };
+
+        // Создание чата
+        document.getElementById('startChatBtn')?.addEventListener('click', async function() {
+            if (!selectedUserId) return;
+
+            const message = document.getElementById('firstMessage').value.trim();
+            const btn = this;
+
+            btn.disabled = true;
+            btn.innerHTML = '<i data-feather="loader"></i> Создание...';
+            feather.replace();
+
+            try {
+                const formData = new FormData();
+                formData.append('user_id', selectedUserId);
+                if (message) {
+                    formData.append('message', message);
+                }
+
+                const response = await fetch('/messenger/create/private/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.chat_id) {
+                    window.location.href = `/messenger/chat/${data.chat_id}/`;
+                } else {
+                    alert(data.error || 'Не удалось создать чат');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Не удалось создать чат');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i data-feather="send"></i> Начать чат';
+                feather.replace();
+            }
+        });
+
+        // Закрытие модалок
+        chatModal?.addEventListener('click', (e) => {
+            if (e.target === chatModal) closeChatModal();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && chatModal.style.display === 'flex') {
+                closeChatModal();
+            }
+        });
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
     });
 </script>
 {% endblock %}
