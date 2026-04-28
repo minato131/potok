@@ -16,9 +16,17 @@
     .pd-author:hover{color:var(--color-primary)}
     .pd-meta{font-size:0.75rem;color:var(--color-text-tertiary);display:flex;gap:4px;margin-top:2px}
     .pd-meta a{color:var(--color-primary);text-decoration:none}
+
+    .pd-header-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
     .pd-subscribe{padding:7px 16px;border-radius:20px;font-size:0.8rem;font-weight:600;border:none;cursor:pointer;background:var(--color-primary-light);color:var(--color-primary);white-space:nowrap;transition:all 0.2s}
     .pd-subscribe:hover{background:var(--color-primary);color:#fff}
     .pd-subscribe.subscribed{background:var(--color-bg-elevated);color:var(--color-text-secondary)}
+    .pd-friend{padding:7px 14px;border-radius:20px;font-size:0.8rem;font-weight:600;border:none;cursor:pointer;background:var(--color-success-light);color:var(--color-success);white-space:nowrap;transition:all 0.2s}
+    .pd-friend:hover{background:var(--color-success);color:#fff}
+    .pd-friend.friend{background:var(--color-bg-elevated);color:var(--color-text-secondary)}
+    .post-vk-menu-btn{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:none;background:transparent;cursor:pointer;color:var(--color-text-tertiary);transition:all 0.2s}
+    .post-vk-menu-btn:hover{background:var(--color-bg-elevated);color:var(--color-text)}
+
     .pd-content{font-size:0.95rem;line-height:1.7;color:var(--color-text);margin-bottom:16px;word-break:break-word}
     .pd-media img{width:100%;max-height:450px;object-fit:cover;border-radius:10px;display:block;margin-bottom:16px}
     .pd-media video{width:100%;max-height:450px;border-radius:10px;display:block;margin-bottom:16px;background:#000}
@@ -73,6 +81,30 @@
     .cmt-reply-item{display:flex;gap:8px;margin-top:8px;padding:8px;background:var(--color-bg-elevated);border-radius:8px}
     .reply-form-actions{display:flex;gap:6px;margin-top:6px;justify-content:flex-end}
     .no-cmt{text-align:center;padding:20px;color:var(--color-text-tertiary);font-size:0.85rem}
+
+    .post-menu-dropdown{animation:menuIn 0.15s ease-out}
+    @keyframes menuIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+    .menu-item{display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;border:none;background:transparent;font-size:0.85rem;color:var(--color-text);cursor:pointer;border-radius:8px;text-decoration:none;text-align:left}
+    .menu-item:hover{background:var(--color-bg-elevated)}
+    .menu-item svg{width:16px;height:16px}
+    .menu-item.danger{color:var(--color-danger)}
+    .menu-item.danger:hover{background:var(--color-danger-light)}
+    .menu-item.active{color:var(--color-primary)}
+    .menu-divider{height:1px;background:var(--color-border);margin:4px 0}
+
+    .markdown-content{line-height:1.7;word-break:break-word}
+    .markdown-content h1,.markdown-content h2,.markdown-content h3{font-weight:700;margin:12px 0 6px}
+    .markdown-content h1{font-size:1.3rem}.markdown-content h2{font-size:1.15rem}.markdown-content h3{font-size:1.05rem}
+    .markdown-content p{margin-bottom:8px}.markdown-content ul,.markdown-content ol{padding-left:24px;margin-bottom:8px}.markdown-content li{margin-bottom:2px}
+    .markdown-content code{background:var(--color-bg-elevated);padding:2px 6px;border-radius:4px;font-size:0.85em}
+    .markdown-content pre{background:var(--color-bg-elevated);padding:12px;border-radius:8px;overflow-x:auto;margin-bottom:8px}
+    .markdown-content pre code{background:none;padding:0}
+    .markdown-content blockquote{border-left:3px solid var(--color-primary);padding-left:12px;color:var(--color-text-secondary);margin:8px 0}
+    .markdown-content a{color:var(--color-primary);text-decoration:underline}
+    .markdown-content img{max-width:100%;border-radius:8px;margin:8px 0}
+    .spoiler{background:var(--color-text);color:transparent;border-radius:4px;padding:1px 4px;cursor:pointer;transition:all 0.2s;user-select:none}
+    .spoiler:hover{opacity:0.85}
+    .spoiler.revealed{background:var(--color-bg-elevated);color:var(--color-text);cursor:default}
 </style>
 
 <div class="pd-wrap">
@@ -84,13 +116,44 @@
             <a href="{% url 'accounts:profile_by_username' username=post.author.username %}" class="pd-author">{{ post.author.get_full_name|default:post.author.username }}</a>
             <div class="pd-meta"><span>{{ post.created_at|date:'d M Y, H:i' }}</span>{% if post.community %}<span>·</span><a href="{% url 'communities:community_detail' slug=post.community.slug %}">{{ post.community.name }}</a>{% endif %}</div>
         </div>
-        {% if user.is_authenticated and user != post.author %}
-        <button class="pd-subscribe {% if is_subscribed %}subscribed{% endif %}" data-author-id="{{ post.author.id }}">{% if is_subscribed %}Вы подписаны{% else %}Подписаться{% endif %}</button>
-        {% endif %}
+
+        <div class="pd-header-actions">
+            {% if user.is_authenticated and user != post.author %}
+            <button class="pd-subscribe {% if is_subscribed %}subscribed{% endif %}" data-author-id="{{ post.author.id }}" data-type="user">
+                {% if is_subscribed %}Вы подписаны{% else %}Подписаться{% endif %}
+            </button>
+            <button class="pd-friend {% if post.author.id in friend_ids %}friend{% endif %}" data-friend-id="{{ post.author.id }}">
+                {% if post.author.id in friend_ids %}Друг{% else %}+ Друг{% endif %}
+            </button>
+            {% endif %}
+
+            <div style="position:relative">
+                <button class="post-vk-menu-btn" onclick="togglePostMenu(this)" title="Меню">
+                    <i data-feather="more-horizontal"></i>
+                </button>
+                <div class="post-menu-dropdown" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--color-bg-surface);border:1px solid var(--color-border);border-radius:12px;box-shadow:var(--shadow-lg);min-width:180px;z-index:30;padding:4px">
+                    {% if user == post.author %}
+                    <a href="{% url 'posts:post_edit' pk=post.id %}" class="menu-item"><i data-feather="edit"></i> Редактировать</a>
+                    <button class="menu-item danger" onclick="deletePost({{ post.id }})"><i data-feather="trash-2"></i> Удалить</button>
+                    <div class="menu-divider"></div>
+                    {% endif %}
+                    <button class="menu-item bookmark-menu-item {% if is_bookmarked %}active{% endif %}" data-post-id="{{ post.id }}" onclick="toggleBookmark(this)"><i data-feather="bookmark"></i> <span>{% if is_bookmarked %}Убрать из закладок{% else %}В закладки{% endif %}</span></button>
+                    <button class="menu-item" onclick="copyLink({{ post.id }})"><i data-feather="link"></i> Скопировать ссылку</button>
+                    {% if post.image %}
+                    <button class="menu-item" onclick="savePhoto('{{ post.image.url }}', {{ post.id }})"><i data-feather="image"></i> Сохранить фото</button>
+                    {% endif %}
+                    {% if post.video %}
+                    <button class="menu-item" onclick="saveVideo('{{ post.video.url }}', {{ post.id }})"><i data-feather="video"></i> Сохранить видео</button>
+                    {% endif %}
+                    <div class="menu-divider"></div>
+                    <button class="menu-item" onclick="reportPost({{ post.id }})"><i data-feather="flag"></i> Пожаловаться</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <h2 style="font-size:1.2rem;font-weight:700;margin-bottom:8px">{{ post.title }}</h2>
-    <div class="pd-content">{{ post.content|linebreaks }}</div>
+    <div class="pd-content markdown-content" data-raw="{{ post.content|escapejs }}"></div>
     {% if post.image %}<div class="pd-media"><img src="{{ post.image.url }}" alt=""></div>{% endif %}
     {% if post.video %}<div class="pd-media"><video controls preload="metadata" playsinline><source src="{{ post.video.url }}"></video></div>{% endif %}
 
@@ -161,79 +224,120 @@
 {% block extra_js %}
 <script>
 feather.replace();
+const EMOJIS=['😂','❤️','😍','😢','😡','👍','🔥','🎉','💯','👏','💀','😭','🤔','😎','🙏','💪','🤗','😅'];
 function getCookie(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
+function showToast(m) {
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:10px;font-size:0.8rem;font-weight:600;color:#fff;z-index:9999;background:#7c3aed;box-shadow:0 8px 24px rgba(0,0,0,0.2);animation:toastIn 0.25s';
+    t.textContent = m;
+    document.body.appendChild(t);
+    setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'all 0.3s'; setTimeout(() => t.remove(), 300); }, 2000);
+}
 
+// Подписаться
 document.querySelector('.pd-subscribe')?.addEventListener('click',async function(){
     const r=await fetch(`/accounts/follow/${this.dataset.authorId}/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken')}});
     if(r.ok){this.classList.toggle('subscribed');this.textContent=this.classList.contains('subscribed')?'Вы подписаны':'Подписаться';}
 });
+
+// Друг
+document.querySelector('.pd-friend')?.addEventListener('click',async function(){
+    const r=await fetch(`/accounts/friend/${this.dataset.friendId}/toggle/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken')}});
+    const d=await r.json();this.classList.toggle('friend',d.action==='added');this.textContent=d.action==='added'?'Друг':'+ Друг';
+});
+
+// Лайк поста
 document.querySelector('.like-btn-vk')?.addEventListener('click',async function(){
     const pid=this.dataset.postId,cnt=this.querySelector('span');
     const r=await fetch('/like/toggle/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`content_type=post&object_id=${pid}&like_type=like`});
     const d=await r.json();this.classList.toggle('liked',d.action==='added');cnt.textContent=d.likes_count;
 });
+
+// Закладка
 document.querySelector('.bookmark-btn-vk')?.addEventListener('click',async function(){
     const r=await fetch(`/bookmark/${this.dataset.postId}/toggle/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'}});
     const d=await r.json();this.classList.toggle('bookmarked',d.action==='added');
 });
+
+// Шеринг
 document.querySelector('.share-btn-vk')?.addEventListener('click',()=>{
     if(navigator.share)navigator.share({url:location.href});else navigator.clipboard.writeText(location.href).then(()=>alert('Ссылка скопирована'));
 });
 
-// Эмодзи — использует родительскую функцию если есть
+// Инструменты комментария
 document.querySelectorAll('.comment-inline-tool').forEach(btn=>{
     if(btn.querySelector('[data-feather="smile"]')) btn.addEventListener('click',function(){
         const picker=this.parentElement.querySelector('.emoji-picker');
-        if(!picker.dataset.filled){
-            picker.innerHTML=['😂','❤️','😍','😢','😡','👍','🔥','🎉','💯','👏','💀','😭','🤔','😎','🙏','💪','🤗','😅'].map(e=>`<button>${e}</button>`).join('');
-            picker.dataset.filled='1';
-            picker.querySelectorAll('button').forEach(b=>b.addEventListener('click',function(){
-                const ta=this.closest('.comment-inline-body')?.querySelector('textarea');if(ta){ta.value+=this.textContent;ta.focus();}
-                picker.classList.remove('open');
-            }));
-        }
+        if(!picker.dataset.filled){picker.innerHTML=EMOJIS.map(e=>`<button>${e}</button>`).join('');picker.dataset.filled='1';
+            picker.querySelectorAll('button').forEach(b=>b.addEventListener('click',function(){const ta=this.closest('.comment-inline-body')?.querySelector('textarea');if(ta){ta.value+=this.textContent;ta.focus()}picker.classList.remove('open')}))}
         picker.classList.toggle('open');
     });
-    if(btn.querySelector('[data-feather="bookmark"]')) btn.addEventListener('click',function(){
-        alert('Закладки — откройте пост в полном режиме');
-    });
-    if(btn.querySelector('[data-feather="image"]')) btn.addEventListener('click',function(){
-        this.nextElementSibling?.click();
-    });
+    if(btn.querySelector('[data-feather="bookmark"]')) btn.addEventListener('click',function(){window._toggleSavedPicker(this)});
+    if(btn.querySelector('[data-feather="image"]')) btn.addEventListener('click',function(){this.nextElementSibling?.click()});
 });
 
 // Отправка комментария
 document.querySelector('.comment-inline-send')?.addEventListener('click',async function(){
-    const pid=this.dataset.postId,body=this.closest('.comment-inline-body'),ta=body.querySelector('textarea');
-    const content=ta.value.trim(),files=body.querySelector('input[type="file"]').files;
+    const pid=this.dataset.postId,body=this.closest('.comment-inline-body'),ta=body.querySelector('textarea'),content=ta.value.trim(),files=body.querySelector('input[type="file"]').files;
     if(!content&&files.length===0)return;
-    const fd=new FormData();fd.append('content',content);
-    for(let f of files)fd.append(f.type.startsWith('image/')?'image':'video',f);
+    const fd=new FormData();fd.append('content',content);for(let f of files)fd.append(f.type.startsWith('image/')?'image':'video',f);
     const r=await fetch(`/post/${pid}/comment/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'},body:fd});
     if(r.ok)location.reload();
 });
-document.querySelector('.comment-inline-input')?.addEventListener('keydown',function(e){
-    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();this.closest('.comment-inline-body').querySelector('.comment-inline-send').click();}
-});
+document.querySelector('.comment-inline-input')?.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();this.closest('.comment-inline-body').querySelector('.comment-inline-send').click()}});
 
 // Превью
 document.querySelector('input[type="file"]')?.addEventListener('change',function(){
     const pv=document.getElementById('preview-inline-'+this.closest('.comment-inline-form')?.querySelector('.comment-inline-send')?.dataset.postId);
     if(!pv)return;pv.innerHTML='';
-    [...this.files].forEach(f=>{
-        const url=URL.createObjectURL(f),wrap=document.createElement('span');wrap.className='preview-item';
-        if(f.type.startsWith('image/')){const img=document.createElement('img');img.src=url;wrap.appendChild(img)}
-        else{const vid=document.createElement('video');vid.src=url;vid.muted=true;vid.autoplay=true;vid.loop=true;wrap.appendChild(vid)}
-        const rmv=document.createElement('button');rmv.className='remove-preview';rmv.innerHTML='×';rmv.onclick=e=>{e.stopPropagation();wrap.remove()};wrap.appendChild(rmv);pv.appendChild(wrap);
-    });
+    [...this.files].forEach(f=>{const url=URL.createObjectURL(f),wrap=document.createElement('span');wrap.className='preview-item';
+        if(f.type.startsWith('image/')){const img=document.createElement('img');img.src=url;wrap.appendChild(img)}else{const vid=document.createElement('video');vid.src=url;vid.muted=true;vid.autoplay=true;vid.loop=true;wrap.appendChild(vid)}
+        const rmv=document.createElement('button');rmv.className='remove-preview';rmv.innerHTML='×';rmv.onclick=e=>{e.stopPropagation();wrap.remove()};wrap.appendChild(rmv);pv.appendChild(wrap)});
 });
 
-// Лайк комментария
+// Markdown
+function renderMarkdown(raw){let html=marked.parse(raw||'');html=html.replace(/\|\|(.+?)\|\|/g,'<span class="spoiler" onclick="this.classList.toggle(\'revealed\')">$1</span>');return html}
+document.querySelectorAll('.markdown-content').forEach(el=>{el.innerHTML=renderMarkdown(el.dataset.raw||el.textContent||'')});
+
+// Меню
+window.togglePostMenu=function(btn){const menu=btn.parentElement.querySelector('.post-menu-dropdown');document.querySelectorAll('.post-menu-dropdown').forEach(m=>{if(m!==menu)m.style.display='none'});menu.style.display=menu.style.display==='none'?'block':'none'};
+window.toggleBookmark=async function(btn){const pid=btn.dataset.postId;const r=await fetch(`/bookmark/${pid}/toggle/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'}});const d=await r.json();btn.classList.toggle('active',d.action==='added');btn.querySelector('span').textContent=d.action==='added'?'Убрать из закладок':'В закладки'};
+window.deletePost=async function(pid){if(!confirm('Удалить пост?'))return;const r=await fetch(`/post/${pid}/delete/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken')}});if(r.ok)location.reload()};
+window.reportPost=function(pid){const reason=prompt('Причина жалобы:');if(reason){fetch('/moderation/report/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`post_id=${pid}&reason=${encodeURIComponent(reason)}`}).then(r=>{if(r.ok)showToast('Жалоба отправлена')})}};
+window.copyLink=function(pid){navigator.clipboard.writeText(location.origin+'/post/'+pid+'/').then(()=>showToast('Ссылка скопирована'))};
+window.savePhoto=async function(url,postId){const r=await fetch('/media-storage/photo/save/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`url=${encodeURIComponent(url)}&post_id=${postId}`});const d=await r.json();showToast(d.success?'Фото сохранено':'Ошибка')};
+window.saveVideo=async function(url,postId){const r=await fetch('/media-storage/video/save/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`url=${encodeURIComponent(url)}&post_id=${postId}`});const d=await r.json();showToast(d.success?'Видео сохранено':'Ошибка')};
+document.addEventListener('click',function(e){if(!e.target.closest('.post-menu-dropdown')&&!e.target.closest('.post-vk-menu-btn')){document.querySelectorAll('.post-menu-dropdown').forEach(m=>m.style.display='none')}});
+
+// Комментарии
 window.likeComment=async function(id,btn){const cnt=btn.querySelector('span');const r=await fetch('/like/toggle/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`content_type=comment&object_id=${id}&like_type=like`});const d=await r.json();btn.classList.toggle('active',d.action==='added');if(cnt)cnt.textContent=d.likes_count};
 window.showReplyForm=function(id){document.getElementById('replyForm-'+id).style.display='block'};
 window.hideReplyForm=function(id){document.getElementById('replyForm-'+id).style.display='none'};
 window.sendReply=async function(cid,pid){const form=document.getElementById('replyForm-'+cid);const text=form.querySelector('textarea').value.trim();if(!text)return;const r=await fetch(`/post/${pid}/comment/`,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'},body:`content=${encodeURIComponent(text)}&parent_id=${cid}`});if(r.ok)location.reload()};
 document.querySelectorAll('textarea').forEach(t=>t.addEventListener('input',function(){this.style.height='auto';this.style.height=this.scrollHeight+'px'}));
 document.addEventListener('click',e=>{if(!e.target.closest('.comment-inline-tools')){document.querySelectorAll('.emoji-picker.open,.saved-picker.open').forEach(p=>p.classList.remove('open'))}});
+
+
+window.savePhoto = async function(url, postId) {
+    const fullUrl = url.startsWith('http') ? url : location.origin + url;
+    const r = await fetch('/media-storage/photo/save/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+        body: `url=${encodeURIComponent(fullUrl)}&post_id=${postId}`
+    });
+    const d = await r.json();
+    showToast(d.success ? 'Фото сохранено' : 'Ошибка: ' + (d.error || ''));
+};
+
+window.saveVideo = async function(url, postId) {
+    const fullUrl = url.startsWith('http') ? url : location.origin + url;
+    const r = await fetch('/media-storage/video/save/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+        body: `url=${encodeURIComponent(fullUrl)}&post_id=${postId}`
+    });
+    const d = await r.json();
+    showToast(d.success ? 'Видео сохранено' : 'Ошибка: ' + (d.error || ''));
+};
 </script>
 {% endblock %}

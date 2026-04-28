@@ -592,3 +592,19 @@ def terms_view(request):
 def privacy_view(request):
     """Страница политики конфиденциальности"""
     return render(request, 'accounts/privacy.html')
+
+
+@login_required
+@require_POST
+def toggle_friend(request, user_id):
+    target = get_object_or_404(User, id=user_id)
+    if target == request.user:
+        return JsonResponse({'error': 'Нельзя добавить себя'}, status=400)
+
+    friendship = Friendship.objects.filter(user=request.user, friend=target).first()
+    if friendship:
+        friendship.delete()
+        return JsonResponse({'action': 'removed'})
+    else:
+        Friendship.objects.create(user=request.user, friend=target)
+        return JsonResponse({'action': 'added'})

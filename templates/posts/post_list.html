@@ -14,8 +14,13 @@
 {% block header_actions %}
 <div class="feed-tabs">
     <a href="?feed=all" class="feed-tab {% if current_feed == 'all' %}active{% endif %}"><i data-feather="globe"></i><span>Все</span></a>
-    {% if user.is_authenticated %}<a href="?feed=following" class="feed-tab {% if current_feed == 'following' %}active{% endif %}"><i data-feather="users"></i><span>Подписки</span></a>{% endif %}
+    {% if user.is_authenticated %}
+    <a href="?feed=following" class="feed-tab {% if current_feed == 'following' %}active{% endif %}"><i data-feather="users"></i><span>Подписки</span></a>
+    {% endif %}
     <a href="?feed=popular" class="feed-tab {% if current_feed == 'popular' %}active{% endif %}"><i data-feather="trending-up"></i><span>Популярное</span></a>
+    {% if user.is_authenticated %}
+    <a href="?feed=recommended" class="feed-tab {% if current_feed == 'recommended' %}active{% endif %}"><i data-feather="thumbs-up"></i><span>Рекомендации</span></a>
+    {% endif %}
 </div>
 {% endblock %}
 
@@ -138,7 +143,63 @@
         .post-vk-media--video{margin:0 12px 8px}
         .post-modal{border-radius:0;max-height:100vh}
     }
-</style>
+
+        /* Markdown */
+    .markdown-content { line-height: 1.7; word-break: break-word; }
+    .markdown-content h1, .markdown-content h2, .markdown-content h3 { font-weight: 700; margin: 12px 0 6px; }
+    .markdown-content h1 { font-size: 1.3rem; }
+    .markdown-content h2 { font-size: 1.15rem; }
+    .markdown-content h3 { font-size: 1.05rem; }
+    .markdown-content p { margin-bottom: 8px; }
+    .markdown-content ul, .markdown-content ol { padding-left: 24px; margin-bottom: 8px; }
+    .markdown-content li { margin-bottom: 2px; }
+    .markdown-content code { background: var(--color-bg-elevated); padding: 2px 6px; border-radius: 4px; font-size: 0.85em; }
+    .markdown-content pre { background: var(--color-bg-elevated); padding: 12px; border-radius: 8px; overflow-x: auto; margin-bottom: 8px; }
+    .markdown-content pre code { background: none; padding: 0; }
+    .markdown-content blockquote { border-left: 3px solid var(--color-primary); padding-left: 12px; color: var(--color-text-secondary); margin: 8px 0; }
+    .markdown-content a { color: var(--color-primary); text-decoration: underline; }
+    .markdown-content img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
+
+    /* Спойлер */
+    .spoiler {
+        background: var(--color-text);
+        color: transparent;
+        border-radius: 4px;
+        padding: 1px 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+        user-select: none;
+    }
+    .spoiler:hover { opacity: 0.85; }
+    .spoiler.revealed {
+        background: var(--color-bg-elevated);
+        color: var(--color-text);
+        cursor: default;
+    }
+
+    .post-vk-menu-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    border: none; background: transparent;
+    cursor: pointer; color: var(--color-text-tertiary);
+    transition: all 0.2s;
+    }
+    .post-vk-menu-btn:hover {
+        background: var(--color-bg-elevated);
+        color: var(--color-text);
+    }
+    .post-vk-friend {
+        padding: 7px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+        cursor: pointer; border: none; background: var(--color-success-light); color: var(--color-success);
+        transition: all 0.2s; white-space: nowrap;
+    }
+    .post-vk-friend:hover { background: var(--color-success); color: #fff; }
+    .post-vk-friend.friend { background: var(--color-bg-elevated); color: var(--color-text-secondary);
+    }
+
+
+    </style>
 
 <div class="home-container">
     {% if user.is_authenticated and not category and not tag %}
@@ -155,16 +216,24 @@
     </div>
     {% endif %}
 
-    <div class="posts-toolbar">
-        <div class="sort-group">
-            <span class="sort-label">Сортировка</span>
-            <div class="sort-buttons">
-                <button class="sort-btn {% if current_sort == 'new' or not current_sort %}active{% endif %}" data-sort="new">Новые</button>
-                <button class="sort-btn {% if current_sort == 'top' %}active{% endif %}" data-sort="top">Лучшие</button>
-                <button class="sort-btn {% if current_sort == 'hot' %}active{% endif %}" data-sort="hot">Обсуждаемые</button>
-            </div>
+<div class="posts-toolbar">
+    <div class="sort-group">
+        <span class="sort-label">Сортировка</span>
+        <div class="sort-buttons">
+            <button class="sort-btn {% if current_sort == 'new' or not current_sort %}active{% endif %}" data-sort="new">Новые</button>
+            <button class="sort-btn {% if current_sort == 'top' %}active{% endif %}" data-sort="top">Лучшие</button>
+            <button class="sort-btn {% if current_sort == 'hot' %}active{% endif %}" data-sort="hot">Обсуждаемые</button>
         </div>
     </div>
+    {% if current_feed == 'popular' or current_sort == 'top' %}
+    <div class="period-group" style="display:flex;gap:4px;margin-left:auto;background:var(--color-bg-surface);padding:4px;border-radius:10px;border:1px solid var(--color-border-light)">
+        <button class="sort-btn {% if current_period == 'day' %}active{% endif %}" data-period="day">День</button>
+        <button class="sort-btn {% if current_period == 'week' or not current_period %}active{% endif %}" data-period="week">Неделя</button>
+        <button class="sort-btn {% if current_period == 'month' %}active{% endif %}" data-period="month">Месяц</button>
+        <button class="sort-btn {% if current_period == 'year' %}active{% endif %}" data-period="year">Год</button>
+    </div>
+    {% endif %}
+</div>
 
     {% for post in posts %}
     <article class="post-card-vk" data-post-id="{{ post.id }}">
@@ -174,19 +243,67 @@
                 <a href="{% url 'accounts:profile_by_username' username=post.author.username %}" class="post-vk-author">{{ post.author.get_full_name|default:post.author.username }}</a>
                 <div class="post-vk-meta"><span>{{ post.created_at|date:'d M в H:i' }}</span>{% if post.community %}<span>·</span><a href="{% url 'communities:community_detail' slug=post.community.slug %}" class="post-vk-community">{{ post.community.name }}</a>{% endif %}</div>
             </div>
-            {% if user.is_authenticated and post.author != user %}
-            <button class="post-vk-subscribe {% if user in post.author.profile.followers.all %}subscribed{% endif %}" data-author-id="{{ post.author.id }}">
-                {% if user in post.author.profile.followers.all %}Вы подписаны{% else %}Подписаться{% endif %}
-            </button>
+            {% if user.is_authenticated %}
+                {% if post.community %}
+                    {% if user not in post.community.members.all %}
+                    <button class="pd-subscribe" data-community-id="{{ post.community.id }}" data-type="community">
+                        Подписаться на сообщество
+                    </button>
+                    {% endif %}
+                {% elif user != post.author %}
+                    <button class="pd-subscribe {% if is_subscribed %}subscribed{% endif %}" data-author-id="{{ post.author.id }}" data-type="user">
+                        {% if is_subscribed %}Вы подписаны{% else %}Подписаться{% endif %}
+                    </button>
+                {% endif %}
+                {% if user.is_authenticated and post.author != user %}
+                <button class="post-vk-friend {% if post.author.id in friend_ids %}friend{% endif %}" data-friend-id="{{ post.author.id }}">
+                    {% if post.author.id in friend_ids %}Друг{% else %}+ Друг{% endif %}
+                </button>
+                {% endif %}
             {% endif %}
+         <div style="position:relative;flex-shrink:0">
+                <button class="post-vk-menu-btn" onclick="event.stopPropagation();togglePostMenu(this)" title="Меню">
+                    <i data-feather="more-horizontal"></i>
+                </button>
+                <div class="post-menu-dropdown" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--color-bg-surface);border:1px solid var(--color-border);border-radius:12px;box-shadow:var(--shadow-lg);min-width:180px;z-index:30;padding:4px">
+                    {% if user == post.author %}
+                    <a href="{% url 'posts:post_edit' pk=post.id %}" class="menu-item" onclick="event.stopPropagation()">
+                        <i data-feather="edit"></i> Редактировать
+                    </a>
+                    <button class="menu-item danger" onclick="event.stopPropagation();deletePost({{ post.id }})">
+                        <i data-feather="trash-2"></i> Удалить
+                    </button>
+                    <div class="menu-divider"></div>
+                    {% endif %}
+                    <button class="menu-item bookmark-menu-item {% if post.id in bookmarked_post_ids %}active{% endif %}" data-post-id="{{ post.id }}" onclick="event.stopPropagation();toggleBookmark(this)">
+                        <i data-feather="bookmark"></i> <span>{% if post.id in bookmarked_post_ids %}Убрать из закладок{% else %}В закладки{% endif %}</span>
+                    </button>
+                    <button class="menu-item" onclick="event.stopPropagation();copyLink({{ post.id }})">
+                        <i data-feather="link"></i> Скопировать ссылку
+                    </button>
+                    <div class="menu-divider"></div>
+                    <button class="menu-item" onclick="event.stopPropagation();reportPost({{ post.id }})">
+                        <i data-feather="flag"></i> Пожаловаться
+                    </button>
+                    {% if post.image %}
+                    <button class="menu-item" onclick="event.stopPropagation();savePhoto('{{ post.image.url }}', {{ post.id }})">
+                        <i data-feather="image"></i> Сохранить фото
+                    </button>
+                    {% endif %}
+                    {% if post.video %}
+                    <button class="menu-item" onclick="event.stopPropagation();saveVideo('{{ post.video.url }}', {{ post.id }})">
+                        <i data-feather="video"></i> Сохранить видео
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
         </div>
 
         <!-- ЗАГОЛОВОК — КЛИК ОТКРЫВАЕТ МОДАЛКУ -->
         <h3 class="post-vk-title" onclick="openPostModal({{ post.id }})">{{ post.title }}</h3>
 
-        <div class="post-vk-text">
-            {{ post.content|truncatechars:80 }}
-            {% if post.content|length > 80 %}<button class="show-more-btn" onclick="event.stopPropagation();openPostModal({{ post.id }})">Показать ещё</button>{% endif %}
+        <div class="post-vk-text" onclick="event.stopPropagation()">
+            <div class="markdown-content markdown-preview" data-full="{{ post.content|escapejs }}"></div>
         </div>
 
         {% if post.image %}<div class="post-vk-media"><img src="{{ post.image.url }}" class="post-vk-img" loading="lazy" onclick="event.stopPropagation();openPostModal({{ post.id }})"></div>{% endif %}
@@ -506,10 +623,21 @@ document.addEventListener('keydown', function(e) { if (e.key === 'Escape') close
 
 function initModalHandlers() {
     // Подписаться
-    document.querySelector('#postModal .pd-subscribe')?.addEventListener('click', async function() {
-        const r = await fetch(`/accounts/follow/${this.dataset.authorId}/`, { method:'POST', headers:{'X-CSRFToken':getCookie('csrftoken')} });
-        if (r.ok) { this.classList.toggle('subscribed'); this.textContent = this.classList.contains('subscribed') ? 'Вы подписаны' : 'Подписаться'; }
-    });
+    document.querySelectorAll('.post-vk-subscribe').forEach(btn => btn.addEventListener('click', async function(e) {
+        e.stopPropagation();
+        const type = this.dataset.type || 'user';
+        let url;
+        if (type === 'community') {
+            url = `/communities/${this.dataset.communityId}/join/`;
+        } else {
+            url = `/accounts/follow/${this.dataset.authorId}/`;
+        }
+        const r = await fetch(url, { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } });
+        if (r.ok) {
+            this.classList.toggle('subscribed');
+            this.textContent = this.classList.contains('subscribed') ? 'Вы подписаны' : 'Подписаться';
+        }
+    }));
 
     // Лайк поста
     document.querySelector('#postModal .like-btn-vk')?.addEventListener('click', async function() {
@@ -608,6 +736,98 @@ document.querySelectorAll('.vk-video-player').forEach(p => {
     v?.addEventListener('ended', () => ov.style.display = 'flex');
     p.addEventListener('click', e => { if (!e.target.closest('.vk-video-player__play-btn')) toggle(); });
 });
+
+document.querySelectorAll('[data-period]').forEach(b => b.addEventListener('click', function() {
+    const u = new URL(location);
+    u.searchParams.set('period', this.dataset.period);
+    location = u;
+}));
+// ===== MARKDOWN =====
+function renderMarkdown(raw) {
+    let html = marked.parse(raw || '');
+    // Спойлер: ||текст|| → размытый span
+    html = html.replace(/\|\|(.+?)\|\|/g, '<span class="spoiler" onclick="this.classList.toggle(\'revealed\')">$1</span>');
+    return html;
+}
+
+// Рендерим превью в ленте
+document.querySelectorAll('.markdown-preview').forEach(el => {
+    const raw = el.dataset.full || '';
+    const truncated = raw.length > 80 ? raw.substring(0, 80) + '...' : raw;
+    el.innerHTML = renderMarkdown(truncated);
+});
+
+// Меню поста
+window.togglePostMenu = function(btn) {
+    const menu = btn.parentElement.querySelector('.post-menu-dropdown');
+    document.querySelectorAll('.post-menu-dropdown').forEach(m => { if (m !== menu) m.style.display = 'none'; });
+    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+};
+
+window.toggleBookmark = async function(btn) {
+    const pid = btn.dataset.postId;
+    const r = await fetch(`/bookmark/${pid}/toggle/`, {
+        method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken'), 'X-Requested-With': 'XMLHttpRequest' }
+    });
+    const d = await r.json();
+    btn.classList.toggle('active', d.action === 'added');
+    btn.querySelector('span').textContent = d.action === 'added' ? 'Убрать из закладок' : 'В закладки';
+};
+
+window.deletePost = async function(pid) {
+    if (!confirm('Удалить пост?')) return;
+    const r = await fetch(`/post/${pid}/delete/`, { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } });
+    if (r.ok) location.reload();
+};
+
+window.reportPost = function(pid) {
+    const reason = prompt('Причина жалобы:');
+    if (reason) {
+        fetch('/moderation/report/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+            body: `post_id=${pid}&reason=${encodeURIComponent(reason)}`
+        }).then(r => { if (r.ok) showToast('Жалоба отправлена'); });
+    }
+};
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.post-menu-dropdown') && !e.target.closest('.post-vk-menu-btn')) {
+        document.querySelectorAll('.post-menu-dropdown').forEach(m => m.style.display = 'none');
+    }
+});
+
+document.querySelectorAll('.post-vk-friend').forEach(btn => btn.addEventListener('click', async function(e) {
+    e.stopPropagation();
+    const r = await fetch(`/accounts/friend/${this.dataset.friendId}/toggle/`, {
+        method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }
+    });
+    const d = await r.json();
+    this.classList.toggle('friend', d.action === 'added');
+    this.textContent = d.action === 'added' ? 'Друг' : '+ Друг';
+}));
+
+window.savePhoto = async function(url, postId) {
+    const fullUrl = url.startsWith('http') ? url : location.origin + url;
+    const r = await fetch('/media-storage/photo/save/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+        body: `url=${encodeURIComponent(fullUrl)}&post_id=${postId}`
+    });
+    const d = await r.json();
+    showToast(d.success ? 'Фото сохранено' : 'Ошибка: ' + (d.error || ''));
+};
+
+window.saveVideo = async function(url, postId) {
+    const fullUrl = url.startsWith('http') ? url : location.origin + url;
+    const r = await fetch('/media-storage/video/save/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+        body: `url=${encodeURIComponent(fullUrl)}&post_id=${postId}`
+    });
+    const d = await r.json();
+    showToast(d.success ? 'Видео сохранено' : 'Ошибка: ' + (d.error || ''));
+};
 
 document.addEventListener('click', e => { if (!e.target.closest('.comment-inline-tools') && !e.target.closest('.cmt-tools')) { document.querySelectorAll('.emoji-picker.open,.saved-picker.open').forEach(p => p.classList.remove('open')); } });
 </script>

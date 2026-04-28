@@ -326,3 +326,18 @@ def create_user_profile(sender, instance, created, **kwargs):
 def save_user_profile(sender, instance, **kwargs):
     if hasattr(instance, 'profile'):
         instance.profile.save()
+
+
+class Friendship(models.Model):
+    """Модель дружбы между пользователями"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='friendships')
+    friend = models.ForeignKey(User, on_delete=models.CASCADE, related_name='friend_of')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['user', 'friend']
+        verbose_name = 'Дружба'
+        verbose_name_plural = 'Дружба'
+
+    def __str__(self):
+        return f"{self.user.username} → {self.friend.username}"

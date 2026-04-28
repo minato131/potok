@@ -36,6 +36,7 @@
         }
     </style>
 
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     {% block extra_css %}{% endblock %}
 
     <!-- Feather Icons -->
@@ -82,6 +83,18 @@
                         <a href="{% url 'posts:bookmarks' %}" class="nav-link {% if request.resolver_match.url_name == 'bookmarks' %}nav-link--active{% endif %}">
                             <i data-feather="bookmark"></i>
                             <span>Закладки</span>
+                        </a>
+                    </li>
+                    <li class="nav-menu__item">
+                        <a href="{% url 'media_storage:photo_list' %}" class="nav-link {% if 'media_storage' in request.resolver_match.namespace and request.resolver_match.url_name == 'photo_list' %}nav-link--active{% endif %}">
+                            <i data-feather="image"></i>
+                            <span>Мои фото</span>
+                        </a>
+                    </li>
+                    <li class="nav-menu__item">
+                        <a href="{% url 'media_storage:video_list' %}" class="nav-link {% if 'media_storage' in request.resolver_match.namespace and request.resolver_match.url_name == 'video_list' %}nav-link--active{% endif %}">
+                            <i data-feather="video"></i>
+                            <span>Мои видео</span>
                         </a>
                     </li>
                     {% if user.is_authenticated and user.is_staff %}
@@ -180,6 +193,8 @@
             <li><a href="{% url 'communities:community_list' %}"><i data-feather="users"></i> Сообщества</a></li>
             <li><a href="{% url 'messenger:chat_list' %}"><i data-feather="message-circle"></i> Мессенджер</a></li>
             <li><a href="{% url 'posts:bookmarks' %}"><i data-feather="bookmark"></i> Закладки</a></li>
+            <li><a href="{% url 'media_storage:photo_list' %}"><i data-feather="image"></i> Мои фото</a></li>
+            <li><a href="{% url 'media_storage:video_list' %}"><i data-feather="video"></i> Мои видео</a></li>
             {% if user.is_authenticated and user.is_staff %}
             <li><a href="{% url 'moderation:panel' %}"><i data-feather="shield"></i> Модерация</a></li>
             {% endif %}

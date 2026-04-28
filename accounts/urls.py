@@ -77,4 +77,8 @@ urlpatterns = [
     path('terms/', views.terms_view, name='terms'),
     path('privacy/', views.privacy_view, name='privacy'),
     path('profile/delete/', views.delete_account, name='delete_account'),
+
+
+
+    path('friend/<int:user_id>/toggle/', views.toggle_friend, name='toggle_friend'),
 ]

@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Мои фото · Поток{% endblock %}
+{% block page_title %}🖼️ Мои фото{% endblock %}
+
+{% block content %}
+<style>
+    .media-page { max-width: 1100px; margin: 0 auto; }
+    .media-count { font-size: 0.95rem; color: var(--color-text-secondary); margin-bottom: 16px; }
+    .media-count strong { color: var(--color-text); }
+    .media-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .media-card { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; cursor: pointer; background: var(--color-bg-elevated); }
+    .media-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .media-card .del { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 50%; background: rgba(0,0,0,0.55); color: #fff; border: none; cursor: pointer; font-size: 14px; display: none; align-items: center; justify-content: center; z-index: 2; }
+    .media-card:hover .del { display: flex; }
+    .empty { text-align: center; padding: 80px 20px; grid-column: span 4; }
+    .empty .icon { font-size: 3rem; margin-bottom: 12px; }
+    .empty h3 { font-size: 1.1rem; margin-bottom: 4px; }
+    .empty p { color: var(--color-text-tertiary); font-size: 0.85rem; }
+    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.96); z-index: 1000; align-items: center; justify-content: center; }
+    .lightbox.on { display: flex; }
+    .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 6px; }
+    .lightbox .close { position: absolute; top: 20px; right: 20px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.12); color: #fff; border: none; cursor: pointer; font-size: 1.2rem; }
+    .lightbox .prev, .lightbox .next { position: absolute; top: 50%; transform: translateY(-50%); width: 42px; height: 42px; border-radius: 50%; background: rgba(255,255,255,0.1); color: #fff; border: none; cursor: pointer; font-size: 1.3rem; }
+    .lightbox .prev { left: 20px; } .lightbox .next { right: 20px; }
+    @media (max-width: 768px) { .media-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 480px) { .media-grid { grid-template-columns: repeat(2, 1fr); } }
+</style>
+
+<div class="media-page">
+    <div class="media-count"><strong>{{ page_obj.paginator.count }}</strong> фото</div>
+    <div class="media-grid">
+        {% for photo in photos %}
+        <div class="media-card" data-src="{{ photo.image.url }}">
+            <img src="{{ photo.image.url }}" loading="lazy" alt="">
+            <button class="del" onclick="event.stopPropagation();del('photo',{{ photo.id }},this)">×</button>
+        </div>
+        {% empty %}
+        <div class="empty"><div class="icon">🖼️</div><h3>Нет фото</h3><p>Сохраняйте фото из постов через меню ⋮</p></div>
+        {% endfor %}
+    </div>
+    {% if is_paginated %}
+    <div style="display:flex;justify-content:center;gap:8px;padding:24px 0">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="btn btn--outline btn--sm">←</a>{% endif %}
+        {% for n in page_obj.paginator.page_range %}{% if n == page_obj.number %}<span class="btn btn--primary btn--sm">{{ n }}</span>{% elif n > page_obj.number|add:'-3' and n < page_obj.number|add:'3' %}<a href="?page={{ n }}" class="btn btn--outline btn--sm">{{ n }}</a>{% endif %}{% endfor %}
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="btn btn--outline btn--sm">→</a>{% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<div class="lightbox" id="lb">
+    <button class="close" onclick="lbClose()">✕</button>
+    <button class="prev" onclick="lbNav(-1)">‹</button>
+    <button class="next" onclick="lbNav(1)">›</button>
+    <img src="" id="lbImg">
+</div>
+
+<script>
+function getCookie(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
+const items = [...document.querySelectorAll('.media-card[data-src]')].map(c => c.dataset.src);
+let idx = 0;
+window.lbOpen = function(src) { document.getElementById('lb').classList.add('on'); document.getElementById('lbImg').src = src; idx = items.indexOf(src); };
+window.lbClose = function() { document.getElementById('lb').classList.remove('on'); };
+window.lbNav = function(d) { idx = (idx + d + items.length) % items.length; document.getElementById('lbImg').src = items[idx]; };
+document.querySelectorAll('.media-card').forEach(c => c.addEventListener('click', function() { lbOpen(this.dataset.src); }));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') lbClose(); if (e.key === 'ArrowLeft') lbNav(-1); if (e.key === 'ArrowRight') lbNav(1); });
+window.del = async function(type, id, btn) { if (!confirm('Удалить?')) return; await fetch(`/media-storage/${type}/${id}/delete/`, { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } }); btn.closest('.media-card').remove(); };
+</script>
+{% endblock %}

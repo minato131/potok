@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'messenger',
     'moderation',
     'markdown',
+    'media_storage',
 
 ]
 

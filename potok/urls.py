@@ -11,6 +11,7 @@ urlpatterns = [
     path('messenger/', include('messenger.urls', namespace='messenger')),
     path('moderation/', include('moderation.urls', namespace='moderation')),
     path('', include('posts.urls', namespace='posts')),
+    path('media-storage/', include('media_storage.urls', namespace='media_storage')),
 ]
 
 if settings.DEBUG:

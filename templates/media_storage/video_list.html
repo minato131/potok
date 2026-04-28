@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Мои видео · Поток{% endblock %}
+{% block page_title %}🎬 Мои видео{% endblock %}
+
+{% block content %}
+<style>
+    .media-page { max-width: 1100px; margin: 0 auto; }
+    .media-count { font-size: 0.95rem; color: var(--color-text-secondary); margin-bottom: 16px; }
+    .media-count strong { color: var(--color-text); }
+    .media-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .media-card { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; cursor: pointer; background: #000; }
+    .media-card video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .media-card .del { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 50%; background: rgba(0,0,0,0.55); color: #fff; border: none; cursor: pointer; font-size: 14px; display: none; align-items: center; justify-content: center; z-index: 2; }
+    .media-card:hover .del { display: flex; }
+    .empty { text-align: center; padding: 80px 20px; grid-column: span 4; }
+    .empty .icon { font-size: 3rem; margin-bottom: 12px; }
+    .empty h3 { font-size: 1.1rem; margin-bottom: 4px; }
+    .empty p { color: var(--color-text-tertiary); font-size: 0.85rem; }
+    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.96); z-index: 1000; align-items: center; justify-content: center; }
+    .lightbox.on { display: flex; }
+    .lightbox video { max-width: 90vw; max-height: 90vh; border-radius: 6px; outline: none; }
+    .lightbox .close { position: absolute; top: 20px; right: 20px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.12); color: #fff; border: none; cursor: pointer; font-size: 1.2rem; z-index: 2; }
+    @media (max-width: 768px) { .media-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 480px) { .media-grid { grid-template-columns: repeat(2, 1fr); } }
+</style>
+
+<div class="media-page">
+    <div class="media-count"><strong>{{ page_obj.paginator.count }}</strong> видео</div>
+    <div class="media-grid">
+        {% for video in videos %}
+        <div class="media-card">
+            <video src="{{ video.file.url }}" muted preload="metadata" loop playsinline></video>
+            <button class="del" onclick="event.stopPropagation();del('video',{{ video.id }},this)">×</button>
+        </div>
+        {% empty %}
+        <div class="empty"><div class="icon">🎬</div><h3>Нет видео</h3><p>Сохраняйте видео из постов через меню ⋮</p></div>
+        {% endfor %}
+    </div>
+    {% if is_paginated %}
+    <div style="display:flex;justify-content:center;gap:8px;padding:24px 0">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="btn btn--outline btn--sm">←</a>{% endif %}
+        {% for n in page_obj.paginator.page_range %}{% if n == page_obj.number %}<span class="btn btn--primary btn--sm">{{ n }}</span>{% elif n > page_obj.number|add:'-3' and n < page_obj.number|add:'3' %}<a href="?page={{ n }}" class="btn btn--outline btn--sm">{{ n }}</a>{% endif %}{% endfor %}
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="btn btn--outline btn--sm">→</a>{% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<div class="lightbox" id="lb">
+    <button class="close" onclick="lbClose()">✕</button>
+    <video id="lbVid" controls autoplay playsinline></video>
+</div>
+
+<script>
+function getCookie(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
+
+// Превью при наведении
+document.querySelectorAll('.media-card video').forEach(v => {
+    v.addEventListener('mouseenter', () => { v.play().catch(() => {}); });
+    v.addEventListener('mouseleave', () => { v.pause(); v.currentTime = 0; });
+});
+
+// Клик по карточке — открыть лайтбокс
+document.querySelectorAll('.media-card').forEach(card => {
+    card.addEventListener('click', function() {
+        const vid = this.querySelector('video');
+        if (vid) lbOpen(vid.src);
+    });
+});
+
+window.lbOpen = function(src) {
+    document.getElementById('lb').classList.add('on');
+    const v = document.getElementById('lbVid');
+    v.src = src;
+    v.load();
+    v.play().catch(() => {});
+};
+window.lbClose = function() {
+    document.getElementById('lb').classList.remove('on');
+    const v = document.getElementById('lbVid');
+    v.pause();
+    v.removeAttribute('src');
+    v.load();
+};
+document.addEventListener('keydown', e => { if (e.key === 'Escape') lbClose(); });
+window.del = async function(type, id, btn) { if (!confirm('Удалить?')) return; await fetch(`/media-storage/${type}/${id}/delete/`, { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } }); btn.closest('.media-card').remove(); };
+</script>
+{% endblock %}

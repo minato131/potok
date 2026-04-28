@@ -25,84 +25,98 @@ from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
-
+from django.db.models import Case, When, Value, IntegerField
 User = get_user_model()
 
 
 def post_list(request):
-    # Базовый queryset
     posts = Post.objects.select_related(
-        'author',
-        'author__profile',
-        'category'
+        'author', 'author__profile', 'category'
     ).prefetch_related(
-        'tags',
-        'comments'
+        'tags', 'comments'
     ).filter(status='published')
 
-    # Фильтрация по ленте
     feed = request.GET.get('feed', 'all')
-
-    if feed == 'following' and request.user.is_authenticated:
-        try:
-            # Получаем ID пользователей, на которых подписан текущий пользователь
-            following_user_ids = request.user.profile.following.values_list('id', flat=True)
-
-            # Получаем ID сообществ, в которых состоит пользователь
-            following_communities = Community.objects.filter(members=request.user)
-
-            # Получаем ID постов из сообществ
-            community_post_ids = CommunityPost.objects.filter(
-                community__in=following_communities
-            ).values_list('post_id', flat=True)
-
-            # Фильтруем: посты от подписанных пользователей ИЛИ посты из сообществ
-            posts = posts.filter(
-                Q(author_id__in=following_user_ids) |
-                Q(id__in=community_post_ids)
-            )
-        except (AttributeError, Profile.DoesNotExist):
-            # Если нет профиля - показываем пустую ленту
-            posts = posts.none()
-
-    elif feed == 'popular':
-        # Используем существующее поле likes_count
-        posts = posts.annotate(
-            comment_count=Count('comments')
-        ).order_by('-likes_count', '-comment_count', '-created_at')
-
-    # Сортировка
     sort = request.GET.get('sort', 'new')
-    if sort == 'top':
-        from django.utils import timezone
-        from datetime import timedelta
-        day_ago = timezone.now() - timedelta(days=1)
-        posts = posts.filter(created_at__gte=day_ago).order_by('-likes_count', '-created_at')
-    elif sort == 'hot':
-        posts = posts.annotate(
-            comment_count=Count('comments')
-        ).order_by('-comment_count', '-created_at')
+    period = request.GET.get('period', 'week')
+
+    # === ФИД: ПОДПИСКИ ===
+    if feed == 'following' and request.user.is_authenticated:
+        # Друзья
+        friend_ids = list(
+            Friendship.objects.filter(user=request.user).values_list('friend_id', flat=True)
+        )
+        # Подписки (исключая друзей)
+        following_ids = list(
+            request.user.profile.following.exclude(id__in=friend_ids).values_list('id', flat=True)
+        )
+        # Сообщества
+        community_ids = list(
+            Community.objects.filter(members=request.user).values_list('id', flat=True)
+        )
+        community_post_ids = list(
+            CommunityPost.objects.filter(community_id__in=community_ids).values_list('post_id', flat=True)
+        )
+
+        posts = posts.filter(
+            Q(author_id__in=friend_ids) |
+            Q(id__in=community_post_ids) |
+            Q(author_id__in=following_ids)
+        ).annotate(
+            priority=Case(
+                When(author_id__in=friend_ids, then=Value(0)),
+                When(id__in=community_post_ids, then=Value(1)),
+                default=Value(2),
+                output_field=IntegerField()
+            )
+        ).order_by('priority', '-created_at')
+
+    # === ФИД: ПОПУЛЯРНОЕ ===
+    elif feed == 'popular':
+        if period == 'day':
+            date_from = timezone.now() - timedelta(days=1)
+        elif period == 'month':
+            date_from = timezone.now() - timedelta(days=30)
+        elif period == 'year':
+            date_from = timezone.now() - timedelta(days=365)
+        else:  # week
+            date_from = timezone.now() - timedelta(days=7)
+
+        posts = posts.filter(created_at__gte=date_from).order_by('-likes_count', '-created_at')
+
+    # === ФИД: РЕКОМЕНДАЦИИ ===
+    elif feed == 'recommended' and request.user.is_authenticated:
+        # Теги, которые пользователь часто лайкал/комментировал
+        user_liked_posts = Post.objects.filter(
+            likes__user=request.user
+        ).values_list('id', flat=True)[:50]
+        user_tags = Tag.objects.filter(posts__id__in=user_liked_posts).distinct()[:10]
+        user_categories = Category.objects.filter(posts__id__in=user_liked_posts).distinct()[:5]
+
+        posts = posts.filter(
+            Q(tags__in=user_tags) | Q(category__in=user_categories)
+        ).exclude(author=request.user).distinct().order_by('-created_at')
+
+    # === СОРТИРОВКА ===
     else:
-        posts = posts.order_by('-created_at')
-
-    # Фильтрация по категории
-    category_slug = request.GET.get('category')
-    category = None
-    if category_slug:
-        category = get_object_or_404(Category, slug=category_slug)
-        posts = posts.filter(category=category)
-
-    # Фильтрация по тегу
-    tag_slug = request.GET.get('tag')
-    tag = None
-    if tag_slug:
-        tag = get_object_or_404(Tag, slug=tag_slug)
-        posts = posts.filter(tags=tag)
+        if sort == 'top':
+            if period == 'day':
+                date_from = timezone.now() - timedelta(days=1)
+            elif period == 'month':
+                date_from = timezone.now() - timedelta(days=30)
+            elif period == 'year':
+                date_from = timezone.now() - timedelta(days=365)
+            else:
+                date_from = timezone.now() - timedelta(days=7)
+            posts = posts.filter(created_at__gte=date_from).order_by('-likes_count', '-created_at')
+        elif sort == 'hot':
+            posts = posts.annotate(comment_count=Count('comments')).order_by('-comment_count', '-created_at')
+        else:
+            posts = posts.order_by('-created_at')
 
     # Пагинация
     paginator = Paginator(posts, 20)
     page = request.GET.get('page', 1)
-
     try:
         posts_page = paginator.page(page)
     except PageNotAnInteger:
@@ -110,44 +124,35 @@ def post_list(request):
     except EmptyPage:
         posts_page = paginator.page(paginator.num_pages)
 
-    # Популярные сообщества
-    popular_communities = Community.objects.filter(
-        status='active'
-    ).order_by('-members_count')[:10]
-
-    # Популярные теги
-    popular_tags = Tag.objects.annotate(
-        post_count=Count('posts')
-    ).order_by('-post_count')[:10]
-
+    # Лайки и закладки пользователя
     liked_post_ids = set()
     bookmarked_post_ids = set()
-
     if request.user.is_authenticated:
+        post_ids = [p.id for p in posts_page]
         liked_post_ids = set(Like.objects.filter(
-            user=request.user, content_type='post',
-            object_id__in=posts.values_list('id', flat=True)
+            user=request.user, content_type='post', object_id__in=post_ids
         ).values_list('object_id', flat=True))
-
         bookmarked_post_ids = set(Bookmark.objects.filter(
-            user=request.user,
-            post_id__in=posts.values_list('id', flat=True)
+            user=request.user, post_id__in=post_ids
         ).values_list('post_id', flat=True))
+
+    friend_ids = set()
+    if request.user.is_authenticated:
+        from accounts.models import Friendship
+        friend_ids = set(Friendship.objects.filter(user=request.user).values_list('friend_id', flat=True))
 
     context = {
         'posts': posts_page,
         'is_paginated': posts_page.has_other_pages(),
         'page_obj': posts_page,
-        'category': category,
-        'tag': tag,
-        'popular_communities': popular_communities,
-        'popular_tags': popular_tags,
         'liked_post_ids': liked_post_ids,
         'bookmarked_post_ids': bookmarked_post_ids,
+        'current_feed': feed,
+        'current_sort': sort,
+        'current_period': period,
+        'friend_ids': friend_ids,
     }
-
     return render(request, 'posts/post_list.html', context)
-
 
 def post_detail(request, pk):
     """
@@ -218,6 +223,11 @@ def post_detail(request, pk):
             object_id__in=comment_ids
         ).values_list('object_id', flat=True))
 
+    friend_ids = set()
+    if request.user.is_authenticated:
+        from accounts.models import Friendship
+        friend_ids = set(Friendship.objects.filter(user=request.user).values_list('friend_id', flat=True))
+
     context = {
         'post': post,
         'comments': comments,
@@ -226,6 +236,7 @@ def post_detail(request, pk):
         'is_bookmarked': is_bookmarked,
         'is_subscribed': is_subscribed,
         'liked_comment_ids': liked_comment_ids,
+        'friend_ids': friend_ids,
     }
     return render(request, 'posts/post_detail.html', context)
 
