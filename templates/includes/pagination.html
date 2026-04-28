@@ -1,0 +1,130 @@
+<!-- templates/includes/pagination.html -->
+{% load static %}
+
+{% if is_paginated %}
+<div class="pagination-wrapper">
+    <div class="pagination-info">
+        Показано {{ page_obj.start_index }}–{{ page_obj.end_index }} из {{ page_obj.paginator.count }}
+    </div>
+
+    <nav class="pagination" aria-label="Пагинация">
+        {% if page_obj.has_previous %}
+        <a href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}"
+           class="pagination-btn" aria-label="Первая страница">
+            <i data-feather="chevrons-left"></i>
+        </a>
+        <a href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}"
+           class="pagination-btn" aria-label="Предыдущая страница">
+            <i data-feather="chevron-left"></i>
+        </a>
+        {% else %}
+        <span class="pagination-btn disabled" aria-disabled="true">
+            <i data-feather="chevrons-left"></i>
+        </span>
+        <span class="pagination-btn disabled" aria-disabled="true">
+            <i data-feather="chevron-left"></i>
+        </span>
+        {% endif %}
+
+        <div class="pagination-pages">
+            {% for num in page_obj.paginator.page_range %}
+                {% if num == page_obj.number %}
+                <span class="pagination-btn active" aria-current="page">{{ num }}</span>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}"
+                   class="pagination-btn">{{ num }}</a>
+                {% elif num == 1 or num == page_obj.paginator.num_pages %}
+                <a href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}"
+                   class="pagination-btn">{{ num }}</a>
+                {% elif num == page_obj.number|add:'-3' or num == page_obj.number|add:'3' %}
+                <span class="pagination-ellipsis">…</span>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}"
+           class="pagination-btn" aria-label="Следующая страница">
+            <i data-feather="chevron-right"></i>
+        </a>
+        <a href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}"
+           class="pagination-btn" aria-label="Последняя страница">
+            <i data-feather="chevrons-right"></i>
+        </a>
+        {% else %}
+        <span class="pagination-btn disabled" aria-disabled="true">
+            <i data-feather="chevron-right"></i>
+        </span>
+        <span class="pagination-btn disabled" aria-disabled="true">
+            <i data-feather="chevrons-right"></i>
+        </span>
+        {% endif %}
+    </nav>
+</div>
+{% endif %}
+
+<style>
+    .pagination-wrapper {
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--color-border-light);
+    }
+
+    .pagination-info {
+        text-align: center;
+        margin-bottom: 1rem;
+        color: var(--color-text-secondary);
+        font-size: 0.875rem;
+    }
+
+    .pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.25rem;
+    }
+
+    .pagination-pages {
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    .pagination-btn {
+        min-width: 2.25rem;
+        height: 2.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        background: var(--color-bg-surface);
+        border: 1px solid var(--color-border);
+        color: var(--color-text-primary);
+        text-decoration: none;
+        font-size: 0.875rem;
+        transition: all 0.2s;
+    }
+
+    .pagination-btn:hover:not(.disabled):not(.active) {
+        background: var(--color-bg-elevated);
+        border-color: var(--color-primary);
+    }
+
+    .pagination-btn.active {
+        background: var(--color-primary);
+        color: white;
+        border-color: var(--color-primary);
+    }
+
+    .pagination-btn.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .pagination-ellipsis {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.25rem;
+        color: var(--color-text-tertiary);
+    }
+</style>

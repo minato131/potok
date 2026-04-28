@@ -63,9 +63,11 @@
             {% if post.tags.all %}
             <div class="post-tags">
                 {% for tag in post.tags.all %}
-                <a href="{% url 'posts:tag_detail' slug=tag.slug %}" class="tag">
-                    #{{ tag.name }}
-                </a>
+                    {% if tag.slug %}
+                    <a href="{% url 'posts:tag_detail' slug=tag.slug %}" class="post-tag">#{{ tag.name }}</a>
+                    {% else %}
+                    <span class="post-tag">#{{ tag.name }}</span>
+                    {% endif %}
                 {% endfor %}
             </div>
             {% endif %}

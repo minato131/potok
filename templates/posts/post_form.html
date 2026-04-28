@@ -11,7 +11,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="post-form-container">
+<div class="post-create-container">
     <form method="post" enctype="multipart/form-data" class="post-form" id="postForm" novalidate>
         {% csrf_token %}
 
@@ -26,9 +26,6 @@
                 <div class="field-hint">
                     Выберите сообщество или оставьте пустым для публикации в профиле
                 </div>
-                {% if form.community.errors %}
-                <div class="form-error">{{ form.community.errors.0 }}</div>
-                {% endif %}
             </div>
         </div>
 
@@ -36,6 +33,7 @@
         <div class="form-section">
             <div class="form-group">
                 <label for="{{ form.title.id_for_label }}" class="form-label">
+                    <i data-feather="type"></i>
                     Заголовок
                     <span class="required">*</span>
                 </label>
@@ -45,20 +43,18 @@
                         <span id="titleCounter">0</span>/200
                     </span>
                 </div>
-                {% if form.title.errors %}
-                <div class="form-error">{{ form.title.errors.0 }}</div>
-                {% endif %}
             </div>
         </div>
 
-        <!-- Контент -->
+        <!-- Текст поста -->
         <div class="form-section">
             <div class="form-group">
                 <label for="{{ form.content.id_for_label }}" class="form-label">
+                    <i data-feather="message-square"></i>
                     Текст поста
                 </label>
 
-                <!-- Панель инструментов -->
+                <!-- Панель форматирования -->
                 <div class="editor-toolbar">
                     <div class="toolbar-group">
                         <button type="button" class="toolbar-btn" data-format="bold" title="Жирный (Ctrl+B)">
@@ -71,16 +67,6 @@
                             <i data-feather="minus"></i>
                         </button>
                     </div>
-
-                    <div class="toolbar-group">
-                        <button type="button" class="toolbar-btn" data-format="h2" title="Заголовок 2">
-                            H2
-                        </button>
-                        <button type="button" class="toolbar-btn" data-format="h3" title="Заголовок 3">
-                            H3
-                        </button>
-                    </div>
-
                     <div class="toolbar-group">
                         <button type="button" class="toolbar-btn" data-format="link" title="Ссылка (Ctrl+K)">
                             <i data-feather="link"></i>
@@ -89,7 +75,6 @@
                             <i data-feather="image"></i>
                         </button>
                     </div>
-
                     <div class="toolbar-group">
                         <button type="button" class="toolbar-btn" data-format="list-ul" title="Маркированный список">
                             <i data-feather="list"></i>
@@ -98,7 +83,6 @@
                             <i data-feather="list-ordered"></i>
                         </button>
                     </div>
-
                     <div class="toolbar-group">
                         <button type="button" class="toolbar-btn" data-format="quote" title="Цитата">
                             <i data-feather="message-square"></i>
@@ -110,7 +94,6 @@
                             <i data-feather="alert-triangle"></i>
                         </button>
                     </div>
-
                     <div class="toolbar-group">
                         <button type="button" class="toolbar-btn" id="previewBtn" title="Предпросмотр">
                             <i data-feather="eye"></i>
@@ -125,38 +108,56 @@
                     {{ form.content }}
                     <div class="editor-preview" id="contentPreview" style="display: none;"></div>
                 </div>
-
-                {% if form.content.errors %}
-                <div class="form-error">{{ form.content.errors.0 }}</div>
-                {% endif %}
             </div>
         </div>
 
-        <!-- Изображение -->
-        <div class="form-section">
-            <div class="form-group">
-                <label class="form-label">
-                    <i data-feather="image"></i>
-                    Изображение
-                </label>
+        <!-- Медиа-контент (фото/видео) -->
+        <div class="form-section form-section--media">
+            <h3 class="section-title">
+                <i data-feather="image"></i>
+                Медиа-контент
+            </h3>
 
-                <div class="image-upload-area" id="imageUploadArea">
+            <div class="media-tabs">
+                <button type="button" class="media-tab active" data-tab="photo">
+                    <i data-feather="camera"></i>
+                    Фото
+                </button>
+                <button type="button" class="media-tab" data-tab="video">
+                    <i data-feather="video"></i>
+                    Видео
+                </button>
+                <button type="button" class="media-tab" data-tab="link">
+                    <i data-feather="link"></i>
+                    Ссылка
+                </button>
+            </div>
+
+            <!-- Вкладка Фото -->
+            <div class="media-panel active" id="photoPanel">
+                <div class="photo-upload-area" id="photoUploadArea">
                     {{ form.image }}
-                    <div class="upload-placeholder" id="uploadPlaceholder">
+                    <div class="upload-placeholder" id="photoPlaceholder">
                         <i data-feather="upload-cloud"></i>
                         <span>Нажмите или перетащите изображение</span>
-                        <span class="upload-hint">PNG, JPG, GIF до 5MB</span>
+                        <span class="upload-hint">PNG, JPG, GIF до 10MB</span>
                     </div>
-                    <div class="image-preview-container" id="imagePreviewContainer" style="display: none;">
-                        <img id="imagePreview" src="" alt="Preview">
-                        <button type="button" class="remove-image" id="removeImage">
-                            <i data-feather="x"></i>
-                        </button>
+                    <div class="photo-preview-container" id="photoPreviewContainer" style="display: none;">
+                        <img id="photoPreview" src="" alt="Preview">
+                        <div class="preview-actions">
+                            <button type="button" class="preview-btn" id="changePhotoBtn">
+                                <i data-feather="edit"></i>
+                                Изменить
+                            </button>
+                            <button type="button" class="preview-btn preview-btn--danger" id="removePhotoBtn">
+                                <i data-feather="trash-2"></i>
+                                Удалить
+                            </button>
+                        </div>
                     </div>
                 </div>
-
                 {% if form.instance.image %}
-                <div class="current-image">
+                <div class="current-media">
                     <span>Текущее изображение:</span>
                     <img src="{{ form.instance.image.url }}" alt="Current" class="current-image-preview">
                     <label class="checkbox-label">
@@ -165,40 +166,100 @@
                     </label>
                 </div>
                 {% endif %}
+            </div>
 
-                {% if form.image.errors %}
-                <div class="form-error">{{ form.image.errors.0 }}</div>
+            <!-- Вкладка Видео -->
+            <div class="media-panel" id="videoPanel">
+                <div class="video-upload-area" id="videoUploadArea">
+                    {{ form.video }}
+                    <div class="upload-placeholder" id="videoPlaceholder">
+                        <i data-feather="video"></i>
+                        <span>Нажмите или перетащите видео</span>
+                        <span class="upload-hint">MP4, WebM до 100MB</span>
+                    </div>
+                    <div class="video-preview-container" id="videoPreviewContainer" style="display: none;">
+                        <video id="videoPreview" controls>
+                            <source src="" type="video/mp4">
+                        </video>
+                        <div class="preview-actions">
+                            <button type="button" class="preview-btn" id="changeVideoBtn">
+                                <i data-feather="edit"></i>
+                                Изменить
+                            </button>
+                            <button type="button" class="preview-btn preview-btn--danger" id="removeVideoBtn">
+                                <i data-feather="trash-2"></i>
+                                Удалить
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% if form.instance.video %}
+                <div class="current-media">
+                    <span>Текущее видео:</span>
+                    <video controls class="current-video-preview">
+                        <source src="{{ form.instance.video.url }}" type="video/mp4">
+                    </video>
+                </div>
                 {% endif %}
             </div>
-        </div>
 
-        <!-- Ссылка -->
-        <div class="form-section">
-            <div class="form-group">
-                <label for="{{ form.link.id_for_label }}" class="form-label">
-                    <i data-feather="link"></i>
-                    Ссылка
-                </label>
-                {{ form.link }}
-                <div class="field-hint">Добавьте ссылку на внешний ресурс</div>
-                {% if form.link.errors %}
-                <div class="form-error">{{ form.link.errors.0 }}</div>
-                {% endif %}
+            <!-- Вкладка Ссылка -->
+            <div class="media-panel" id="linkPanel">
+                <div class="form-group">
+                    <label for="{{ form.link.id_for_label }}" class="form-label">
+                        <i data-feather="link"></i>
+                        URL ссылки
+                    </label>
+                    {{ form.link }}
+                    <div class="field-hint">
+                        Добавьте ссылку на внешний ресурс. Будет отображаться превью.
+                    </div>
+                </div>
             </div>
         </div>
 
         <!-- Теги -->
         <div class="form-section">
             <div class="form-group">
-                <label for="{{ form.tags.id_for_label }}" class="form-label">
+                <label class="form-label">
                     <i data-feather="tag"></i>
                     Теги
                 </label>
-                {{ form.tags }}
-                <div class="field-hint">Разделяйте теги запятыми. Максимум 5 тегов.</div>
-                {% if form.tags.errors %}
-                <div class="form-error">{{ form.tags.errors.0 }}</div>
-                {% endif %}
+
+                <!-- Выбранные теги -->
+                <div class="selected-tags" id="selectedTags"></div>
+
+                <!-- Скрытое поле -->
+                <input type="hidden" name="tags" id="tagsInput" value="{{ form.tags_input.value|default:'' }}">
+
+                <!-- Поиск и создание тегов -->
+                <div class="tags-controls">
+                    <div class="tag-search-wrapper">
+                        <input type="text" id="tagSearchInput" class="form-input" placeholder="Поиск или создание тега..." autocomplete="off">
+                        <div class="tag-search-results" id="tagSearchResults"></div>
+                    </div>
+                    <button type="button" class="btn btn--outline btn--sm" id="showCreateTagBtn">
+                        <i data-feather="plus"></i>
+                        Создать
+                    </button>
+                </div>
+
+                <!-- Форма создания тега -->
+                <div class="create-tag-form" id="createTagForm" style="display: none;">
+                    <input type="text" id="newTagName" class="form-input" placeholder="Название тега" maxlength="30">
+                    <div class="tag-form-actions">
+                        <button type="button" class="btn btn--primary btn--sm" id="createTagBtn">
+                            <i data-feather="check"></i>
+                            Создать
+                        </button>
+                        <button type="button" class="btn btn--outline btn--sm" id="cancelCreateTagBtn">
+                            Отмена
+                        </button>
+                    </div>
+                    <div class="tag-create-message" id="tagCreateMessage" style="display: none;"></div>
+                </div>
+
+                <div class="field-hint">Максимум 5 тегов. Нажмите на тег чтобы удалить.</div>
             </div>
         </div>
 
@@ -210,52 +271,47 @@
                     Категория
                 </label>
                 {{ form.category }}
-                {% if form.category.errors %}
-                <div class="form-error">{{ form.category.errors.0 }}</div>
-                {% endif %}
             </div>
         </div>
 
-        <!-- Дополнительные настройки -->
+        <!-- Дополнительно -->
         <div class="form-section">
-            <h3 class="section-title">Дополнительные настройки</h3>
+            <h3 class="section-title">
+                <i data-feather="more-horizontal"></i>
+                Дополнительно
+            </h3>
 
             <div class="settings-group">
-                <div class="setting-item">
-                    <label class="checkbox-label">
-                        {{ form.is_nsfw }}
-                        <span>Контент 18+ (NSFW)</span>
-                    </label>
-                </div>
+                <label class="checkbox-label">
+                    <input type="checkbox" name="is_nsfw" id="id_is_nsfw" {% if form.is_nsfw.value %}checked{% endif %}>
+                    <span class="checkbox-custom"></span>
+                    <span class="checkbox-text">Контент 18+ (NSFW)</span>
+                </label>
 
-                <div class="setting-item">
-                    <label class="checkbox-label">
-                        {{ form.is_spoiler }}
-                        <span>Содержит спойлеры</span>
-                    </label>
-                </div>
+                <label class="checkbox-label">
+                    <input type="checkbox" name="is_spoiler" id="id_is_spoiler" {% if form.is_spoiler.value %}checked{% endif %}>
+                    <span class="checkbox-custom"></span>
+                    <span class="checkbox-text">Содержит спойлеры</span>
+                </label>
 
-                <div class="setting-item">
-                    <label class="checkbox-label">
-                        {{ form.disable_comments }}
-                        <span>Отключить комментарии</span>
-                    </label>
-                </div>
+                <label class="checkbox-label">
+                    <input type="checkbox" name="disable_comments" id="id_disable_comments" {% if form.disable_comments.value %}checked{% endif %}>
+                    <span class="checkbox-custom"></span>
+                    <span class="checkbox-text">Отключить комментарии</span>
+                </label>
             </div>
         </div>
 
         <!-- Действия -->
         <div class="form-actions">
-            <a href="{% if form.instance.pk %}{% url 'posts:post_detail' pk=form.instance.pk %}{% else %}{% url 'posts:post_list' %}{% endif %}"
-               class="btn btn--outline">
+            <a href="{% if form.instance.pk %}{% url 'posts:post_detail' pk=form.instance.pk %}{% else %}{% url 'posts:post_list' %}{% endif %}" class="btn btn--outline">
                 <i data-feather="arrow-left"></i>
                 Отмена
             </a>
-
             <div class="form-actions-right">
                 <button type="submit" name="action" value="draft" class="btn btn--outline">
                     <i data-feather="save"></i>
-                    Сохранить черновик
+                    Черновик
                 </button>
                 <button type="submit" name="action" value="publish" class="btn btn--primary">
                     <i data-feather="send"></i>
@@ -266,64 +322,38 @@
     </form>
 
     <!-- Справка по Markdown -->
-    <div class="markdown-help">
-        <h3>Поддерживается Markdown</h3>
+    <div class="markdown-help" id="markdownHelp" style="display: none;">
+        <div class="help-header">
+            <h3>Поддерживается Markdown</h3>
+            <button type="button" class="help-close" id="closeHelpBtn"><i data-feather="x"></i></button>
+        </div>
         <div class="help-grid">
-            <div class="help-item">
-                <code>**жирный**</code>
-                <span>→</span>
-                <strong>жирный</strong>
-            </div>
-            <div class="help-item">
-                <code>*курсив*</code>
-                <span>→</span>
-                <em>курсив</em>
-            </div>
-            <div class="help-item">
-                <code>~~зачеркнутый~~</code>
-                <span>→</span>
-                <del>зачеркнутый</del>
-            </div>
-            <div class="help-item">
-                <code>[ссылка](url)</code>
-                <span>→</span>
-                <a href="#">ссылка</a>
-            </div>
-            <div class="help-item">
-                <code>`код`</code>
-                <span>→</span>
-                <code>код</code>
-            </div>
-            <div class="help-item">
-                <code>> цитата</code>
-                <span>→</span>
-                <span style="border-left: 3px solid var(--color-primary); padding-left: 0.5rem;">цитата</span>
-            </div>
-            <div class="help-item">
-                <code>||спойлер||</code>
-                <span>→</span>
-                <span style="background: var(--color-bg-elevated); padding: 0.125rem 0.25rem;">спойлер</span>
-            </div>
+            <div class="help-item"><code>**жирный**</code> → <strong>жирный</strong></div>
+            <div class="help-item"><code>*курсив*</code> → <em>курсив</em></div>
+            <div class="help-item"><code>~~зачеркнутый~~</code> → <del>зачеркнутый</del></div>
+            <div class="help-item"><code>[ссылка](url)</code> → <a href="#">ссылка</a></div>
+            <div class="help-item"><code>`код`</code> → <code>код</code></div>
+            <div class="help-item"><code>> цитата</code> → <span class="quote-example">цитата</span></div>
+            <div class="help-item"><code>- список</code> → • список</div>
+            <div class="help-item"><code>||спойлер||</code> → <span class="spoiler-example">спойлер</span></div>
         </div>
     </div>
 </div>
 
-<!-- Модальное окно вставки ссылки -->
+<!-- Модалки -->
 <div class="modal-overlay" id="linkModal">
-    <div class="modal modal--small">
+    <div class="modal">
         <div class="modal-header">
-            <h3 class="modal-title">Вставить ссылку</h3>
-            <button class="modal-close" onclick="closeLinkModal()">
-                <i data-feather="x"></i>
-            </button>
+            <h3>Вставить ссылку</h3>
+            <button class="modal-close" onclick="closeLinkModal()"><i data-feather="x"></i></button>
         </div>
         <div class="modal-body">
             <div class="form-group">
-                <label class="form-label">Текст ссылки</label>
-                <input type="text" id="linkText" class="form-input" placeholder="Текст ссылки">
+                <label>Текст ссылки</label>
+                <input type="text" id="linkText" class="form-input" placeholder="Текст">
             </div>
             <div class="form-group">
-                <label class="form-label">URL</label>
+                <label>URL</label>
                 <input type="url" id="linkUrl" class="form-input" placeholder="https://...">
             </div>
         </div>
@@ -334,22 +364,19 @@
     </div>
 </div>
 
-<!-- Модальное окно вставки изображения -->
 <div class="modal-overlay" id="imageModal">
-    <div class="modal modal--small">
+    <div class="modal">
         <div class="modal-header">
-            <h3 class="modal-title">Вставить изображение</h3>
-            <button class="modal-close" onclick="closeImageModal()">
-                <i data-feather="x"></i>
-            </button>
+            <h3>Вставить изображение</h3>
+            <button class="modal-close" onclick="closeImageModal()"><i data-feather="x"></i></button>
         </div>
         <div class="modal-body">
             <div class="form-group">
-                <label class="form-label">Описание (alt)</label>
-                <input type="text" id="imageAlt" class="form-input" placeholder="Описание изображения">
+                <label>Описание</label>
+                <input type="text" id="imageAlt" class="form-input" placeholder="Описание">
             </div>
             <div class="form-group">
-                <label class="form-label">URL изображения</label>
+                <label>URL изображения</label>
                 <input type="url" id="imageUrl" class="form-input" placeholder="https://...">
             </div>
         </div>
@@ -363,381 +390,236 @@
 
 {% block extra_css %}
 <style>
-    .post-form-container {
-        max-width: 900px;
-        margin: 0 auto;
-    }
+    .post-create-container { max-width: 800px; margin: 0 auto; padding: 1.5rem 1rem; }
+    .post-form { background: var(--color-bg-surface); border-radius: 24px; padding: 2rem; border: 1px solid var(--color-border-light); margin-bottom: 1.5rem; }
+    .form-section { margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--color-border-light); }
+    .form-section:last-of-type { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .section-title { display: flex; align-items: center; gap: 0.5rem; font-size: 1rem; font-weight: 600; margin-bottom: 1.25rem; }
+    .form-group { margin-bottom: 1.5rem; }
+    .form-group:last-child { margin-bottom: 0; }
+    .form-label { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; font-weight: 500; }
+    .form-label i { width: 1rem; height: 1rem; color: var(--color-text-tertiary); }
+    .required { color: var(--color-danger); }
+    .form-input, .form-textarea, .form-select { width: 100%; padding: 0.875rem 1rem; border: 1.5px solid var(--color-border); border-radius: 12px; font-size: 0.9375rem; background: var(--color-bg-surface); transition: all 0.2s; }
+    .form-input:focus, .form-textarea:focus, .form-select:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-light); }
+    .form-textarea { min-height: 200px; resize: vertical; font-family: inherit; }
+    .field-hint { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.375rem; font-size: 0.8125rem; color: var(--color-text-tertiary); }
+    .char-counter { margin-left: auto; font-family: monospace; }
 
-    .post-form {
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-xl);
-        padding: 2rem;
-        border: 1px solid var(--color-border-light);
-        margin-bottom: 1.5rem;
-    }
+    .editor-toolbar { display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.5rem; background: var(--color-bg-elevated); border-radius: 12px 12px 0 0; border: 1.5px solid var(--color-border); border-bottom: none; }
+    .toolbar-group { display: flex; gap: 0.125rem; padding: 0 0.5rem; border-right: 1px solid var(--color-border); }
+    .toolbar-group:last-child { border-right: none; }
+    .toolbar-btn { padding: 0.5rem; border-radius: 6px; color: var(--color-text-secondary); transition: all 0.2s; }
+    .toolbar-btn:hover { background: var(--color-border-light); color: var(--color-text-primary); }
+    .editor-wrapper { position: relative; }
+    .editor-preview { min-height: 200px; padding: 1rem; border: 1.5px solid var(--color-border); border-radius: 0 0 12px 12px; background: var(--color-bg-surface); line-height: 1.6; }
 
-    .form-section {
-        margin-bottom: 2rem;
-        padding-bottom: 2rem;
-        border-bottom: 1px solid var(--color-border-light);
-    }
+    .media-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--color-border); }
+    .media-tab { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; background: none; border: none; color: var(--color-text-secondary); font-size: 0.9375rem; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+    .media-tab:hover { color: var(--color-text-primary); }
+    .media-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+    .media-panel { display: none; }
+    .media-panel.active { display: block; }
 
-    .form-section:last-of-type {
-        border-bottom: none;
-        margin-bottom: 0;
-        padding-bottom: 0;
-    }
+    .photo-upload-area, .video-upload-area { position: relative; border: 2px dashed var(--color-border); border-radius: 16px; transition: all 0.2s; cursor: pointer; min-height: 200px; }
+    .photo-upload-area:hover, .video-upload-area:hover { border-color: var(--color-primary); background: var(--color-primary-light); }
+    .photo-upload-area input[type="file"], .video-upload-area input[type="file"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+    .upload-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem; color: var(--color-text-tertiary); }
+    .upload-placeholder i { width: 3rem; height: 3rem; margin-bottom: 0.75rem; }
+    .upload-hint { font-size: 0.8125rem; margin-top: 0.25rem; }
+    .photo-preview-container, .video-preview-container { padding: 1.5rem; }
+    .photo-preview-container img { width: 100%; max-height: 400px; object-fit: contain; border-radius: 12px; }
+    .video-preview-container video { width: 100%; max-height: 400px; border-radius: 12px; }
+    .preview-actions { display: flex; gap: 0.75rem; margin-top: 1rem; justify-content: center; }
+    .preview-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1.25rem; background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: 10px; color: var(--color-text-primary); font-size: 0.875rem; cursor: pointer; transition: all 0.2s; }
+    .preview-btn:hover { background: var(--color-bg-elevated); }
+    .preview-btn--danger { color: var(--color-danger); border-color: var(--color-danger-light); }
+    .preview-btn--danger:hover { background: var(--color-danger); color: white; }
+    .current-media { margin-top: 1.5rem; padding: 1rem; background: var(--color-bg-elevated); border-radius: 12px; }
+    .current-image-preview { max-width: 200px; max-height: 150px; margin: 0.75rem 0; border-radius: 8px; }
+    .current-video-preview { max-width: 300px; max-height: 200px; margin: 0.75rem 0; border-radius: 8px; }
 
-    .section-title {
-        font-size: 1rem;
-        font-weight: 600;
-        margin-bottom: 1rem;
-    }
+    /* === ТЕГИ === */
+    ..selected-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    min-height: 2rem;
+}
 
-    .form-group {
-        margin-bottom: 1.5rem;
-    }
+.selected-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
 
-    .form-group:last-child {
-        margin-bottom: 0;
-    }
+.selected-tag:hover {
+    background: var(--color-danger);
+    color: white;
+}
 
-    .form-label {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 0.5rem;
-        font-weight: 500;
-    }
+.selected-tag i {
+    width: 0.875rem;
+    height: 0.875rem;
+}
 
-    .form-label i {
-        width: 1rem;
-        height: 1rem;
-        color: var(--color-text-tertiary);
-    }
+.tags-controls {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    position: relative;
+}
 
-    .required {
-        color: var(--color-danger);
-    }
+.tag-search-wrapper {
+    flex: 1;
+    position: relative;
+}
 
-    .form-input,
-    .form-textarea,
-    .form-select {
-        width: 100%;
-        padding: 0.75rem 1rem;
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-lg);
-        font-size: 0.9375rem;
-        transition: all var(--transition-base);
-        background: var(--color-bg-surface);
-    }
+.tag-search-wrapper > i {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-text-tertiary);
+    pointer-events: none;
+    z-index: 1;
+}
 
-    .form-input:focus,
-    .form-textarea:focus,
-    .form-select:focus {
-        outline: none;
-        border-color: var(--color-primary);
-        box-shadow: 0 0 0 3px var(--color-primary-light);
-    }
+.tag-search-wrapper .form-input {
+    padding-left: 2.5rem;
+}
 
-    .form-textarea {
-        resize: vertical;
-        min-height: 300px;
-        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-        font-size: 0.875rem;
-        line-height: 1.6;
-    }
+.tag-search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 100;
+    display: none;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    margin-top: 4px;
+}
 
-    .field-hint {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 0.375rem;
-        font-size: 0.8125rem;
-        color: var(--color-text-tertiary);
-    }
+.tag-search-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid var(--color-border-light);
+}
 
-    .char-counter {
-        font-family: monospace;
-    }
+.tag-search-item:last-child {
+    border-bottom: none;
+}
 
-    .editor-toolbar {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        padding: 0.5rem;
-        background: var(--color-bg-elevated);
-        border-radius: var(--radius-md) var(--radius-md) 0 0;
-        border: 1px solid var(--color-border);
-        border-bottom: none;
-    }
+.tag-search-item:hover {
+    background: var(--color-bg-elevated);
+}
 
-    .toolbar-group {
-        display: flex;
-        gap: 0.125rem;
-        padding: 0 0.5rem;
-        border-right: 1px solid var(--color-border);
-    }
+.tag-search-item.selected {
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+}
 
-    .toolbar-group:last-child {
-        border-right: none;
-    }
+.tag-search-name {
+    font-weight: 500;
+}
 
-    .toolbar-btn {
-        padding: 0.5rem;
-        border-radius: var(--radius-sm);
-        color: var(--color-text-secondary);
-        font-size: 0.875rem;
-        transition: all var(--transition-base);
-    }
+.tag-search-count {
+    font-size: 0.75rem;
+    color: var(--color-text-tertiary);
+}
 
-    .toolbar-btn:hover {
-        background: var(--color-border-light);
-        color: var(--color-text-primary);
-    }
+.tag-no-results {
+    padding: 1rem;
+    text-align: center;
+    color: var(--color-text-tertiary);
+    font-size: 0.875rem;
+}
 
-    .editor-wrapper {
-        position: relative;
-    }
+.create-tag-form {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--color-bg-elevated);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
 
-    .editor-preview {
-        min-height: 300px;
-        padding: 1rem;
-        border: 1px solid var(--color-border);
-        border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-        background: var(--color-bg-surface);
-        overflow-y: auto;
-        line-height: 1.6;
-    }
+.tag-form-actions {
+    display: flex;
+    gap: 0.5rem;
+}
 
-    .image-upload-area {
-        position: relative;
-        border: 2px dashed var(--color-border);
-        border-radius: var(--radius-lg);
-        transition: all var(--transition-base);
-        cursor: pointer;
-        min-height: 150px;
-    }
+.tag-create-message {
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+}
 
-    .image-upload-area:hover {
-        border-color: var(--color-primary);
-    }
+.tag-create-message.success {
+    background: #d1fae5;
+    color: #065f46;
+}
 
-    .image-upload-area.dragover {
-        border-color: var(--color-primary);
-        background: var(--color-primary-light);
-    }
+.tag-create-message.error {
+    background: #fee2e2;
+    color: #991b1b;
+}
 
-    .image-upload-area input[type="file"] {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        opacity: 0;
-        cursor: pointer;
-    }
+    /* === ЧЕКБОКСЫ === */
+    .settings-group { display: flex; flex-direction: column; gap: 1rem; }
+    .checkbox-label { display: flex; align-items: center; gap: 0.625rem; cursor: pointer; font-size: 0.9375rem; color: var(--color-text-primary); }
+    .checkbox-label input[type="checkbox"] { display: none; }
+    .checkbox-custom { width: 1.25rem; height: 1.25rem; border: 2px solid var(--color-border); border-radius: 5px; transition: all 0.2s; flex-shrink: 0; }
+    .checkbox-label input[type="checkbox"]:checked + .checkbox-custom { background: var(--color-primary); border-color: var(--color-primary); position: relative; }
+    .checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after { content: ''; position: absolute; left: 5px; top: 2px; width: 5px; height: 10px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+    .checkbox-text { user-select: none; }
 
-    .upload-placeholder {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        padding: 2rem;
-        color: var(--color-text-tertiary);
-    }
+    /* === КНОПКИ === */
+    .form-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border-light); }
+    .form-actions-right { display: flex; gap: 1rem; }
 
-    .upload-placeholder i {
-        width: 2.5rem;
-        height: 2.5rem;
-        margin-bottom: 0.5rem;
-    }
+    /* === СПРАВКА === */
+    .markdown-help { background: var(--color-bg-surface); border-radius: 16px; padding: 1.5rem; border: 1px solid var(--color-border-light); margin-top: 1.5rem; }
+    .help-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .help-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; }
+    .help-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
+    .help-item code { background: var(--color-bg-elevated); padding: 0.25rem 0.5rem; border-radius: 5px; }
+    .quote-example { border-left: 3px solid var(--color-primary); padding-left: 0.5rem; }
+    .spoiler-example { background: var(--color-bg-elevated); padding: 0.125rem 0.375rem; border-radius: 4px; }
 
-    .upload-hint {
-        font-size: 0.8125rem;
-        margin-top: 0.25rem;
-    }
+    /* === МОДАЛКИ === */
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
+    .modal { background: var(--color-bg-surface); border-radius: 20px; padding: 1.5rem; width: 90%; max-width: 450px; }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+    .modal-header h3 { font-size: 1.25rem; font-weight: 600; }
+    .modal-close { padding: 0.25rem; border-radius: 6px; color: var(--color-text-tertiary); }
+    .modal-footer { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem; }
 
-    .image-preview-container {
-        position: relative;
-        padding: 1rem;
-    }
-
-    .image-preview-container img {
-        width: 100%;
-        max-height: 400px;
-        object-fit: contain;
-        border-radius: var(--radius-md);
-    }
-
-    .remove-image {
-        position: absolute;
-        top: 1.5rem;
-        right: 1.5rem;
-        padding: 0.5rem;
-        background: var(--color-danger);
-        color: white;
-        border-radius: 50%;
-        box-shadow: var(--shadow-md);
-    }
-
-    .current-image {
-        margin-top: 1rem;
-        padding: 1rem;
-        background: var(--color-bg-elevated);
-        border-radius: var(--radius-md);
-    }
-
-    .current-image-preview {
-        max-width: 200px;
-        max-height: 150px;
-        margin: 0.5rem 0;
-        border-radius: var(--radius-sm);
-    }
-
-    .settings-group {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-
-    .setting-item {
-        display: flex;
-        align-items: center;
-    }
-
-    .checkbox-label {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        cursor: pointer;
-    }
-
-    .form-actions {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-top: 2rem;
-        padding-top: 1.5rem;
-        border-top: 1px solid var(--color-border-light);
-    }
-
-    .form-actions-right {
-        display: flex;
-        gap: 1rem;
-    }
-
-    .form-error {
-        color: var(--color-danger);
-        font-size: 0.875rem;
-        margin-top: 0.25rem;
-    }
-
-    .markdown-help {
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-xl);
-        padding: 1.5rem;
-        border: 1px solid var(--color-border-light);
-    }
-
-    .markdown-help h3 {
-        font-size: 1rem;
-        margin-bottom: 1rem;
-    }
-
-    .help-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 0.75rem;
-    }
-
-    .help-item {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 0.875rem;
-    }
-
-    .help-item code {
-        background: var(--color-bg-elevated);
-        padding: 0.125rem 0.375rem;
-        border-radius: var(--radius-sm);
-        font-family: monospace;
-    }
-
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: none;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-    }
-
-    .modal {
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-xl);
-        padding: 1.5rem;
-        width: 90%;
-        max-width: 500px;
-    }
-
-    .modal--small {
-        max-width: 400px;
-    }
-
-    .modal-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 1.5rem;
-    }
-
-    .modal-title {
-        font-size: 1.25rem;
-        font-weight: 600;
-    }
-
-    .modal-close {
-        padding: 0.25rem;
-        border-radius: var(--radius-md);
-        color: var(--color-text-tertiary);
-    }
-
-    .modal-footer {
-        display: flex;
-        gap: 0.75rem;
-        justify-content: flex-end;
-        margin-top: 1.5rem;
-    }
-
-    @media (max-width: 768px) {
-        .post-form {
-            padding: 1.5rem;
-        }
-
-        .editor-toolbar {
-            overflow-x: auto;
-            flex-wrap: nowrap;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .toolbar-group {
-            flex-shrink: 0;
-        }
-
-        .form-actions {
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .form-actions-right {
-            width: 100%;
-            flex-direction: column;
-        }
+    @media (max-width: 600px) {
+        .post-form { padding: 1.5rem; }
+        .media-tabs { flex-wrap: wrap; }
+        .form-actions { flex-direction: column; gap: 1rem; }
+        .form-actions-right { width: 100%; flex-direction: column; }
+        .help-grid { grid-template-columns: repeat(2, 1fr); }
     }
 </style>
 {% endblock %}
@@ -745,263 +627,329 @@
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const contentTextarea = document.querySelector('textarea[name="content"]');
+        // ========== МЕДИА-ТАБЫ ==========
+        document.querySelectorAll('.media-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.media-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.media-panel').forEach(p => p.classList.remove('active'));
+                this.classList.add('active');
+                document.getElementById(this.dataset.tab + 'Panel').classList.add('active');
+            });
+        });
+
+        // ========== ЗАГРУЗКА ФОТО ==========
+        const photoInput = document.querySelector('input[name="image"]');
+        if (photoInput) {
+            photoInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        document.getElementById('photoPreview').src = e.target.result;
+                        document.getElementById('photoPlaceholder').style.display = 'none';
+                        document.getElementById('photoPreviewContainer').style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+        document.getElementById('changePhotoBtn')?.addEventListener('click', () => photoInput.click());
+        document.getElementById('removePhotoBtn')?.addEventListener('click', () => {
+            photoInput.value = '';
+            document.getElementById('photoPlaceholder').style.display = 'flex';
+            document.getElementById('photoPreviewContainer').style.display = 'none';
+        });
+
+        // ========== ЗАГРУЗКА ВИДЕО ==========
+        const videoInput = document.querySelector('input[name="video"]');
+        if (videoInput) {
+            videoInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    document.getElementById('videoPreview').src = URL.createObjectURL(file);
+                    document.getElementById('videoPlaceholder').style.display = 'none';
+                    document.getElementById('videoPreviewContainer').style.display = 'block';
+                }
+            });
+        }
+        document.getElementById('changeVideoBtn')?.addEventListener('click', () => videoInput.click());
+        document.getElementById('removeVideoBtn')?.addEventListener('click', () => {
+            videoInput.value = '';
+            document.getElementById('videoPlaceholder').style.display = 'flex';
+            document.getElementById('videoPreviewContainer').style.display = 'none';
+        });
+
+        // ========== СЧЕТЧИК ЗАГОЛОВКА ==========
         const titleInput = document.querySelector('input[name="title"]');
         const titleCounter = document.getElementById('titleCounter');
-        const previewDiv = document.getElementById('contentPreview');
-        const previewBtn = document.getElementById('previewBtn');
-        let isPreviewMode = false;
-
-        // Счетчик заголовка
-        if (titleInput && titleCounter) {
-            titleInput.addEventListener('input', () => {
-                titleCounter.textContent = titleInput.value.length;
-            });
+        if (titleInput) {
+            titleInput.addEventListener('input', () => titleCounter.textContent = titleInput.value.length);
             titleCounter.textContent = titleInput.value.length;
         }
 
-        // Предпросмотр
-        previewBtn?.addEventListener('click', async function() {
-            isPreviewMode = !isPreviewMode;
-
-            if (isPreviewMode) {
-                const content = contentTextarea.value;
-
-                try {
-                    const response = await fetch('/posts/preview/', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': getCookie('csrftoken')
-                        },
-                        body: JSON.stringify({ content: content })
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        previewDiv.innerHTML = data.html;
-                        previewDiv.style.display = 'block';
-                        contentTextarea.style.display = 'none';
-                        this.innerHTML = '<i data-feather="edit"></i>';
-                        feather.replace();
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                }
-            } else {
-                previewDiv.style.display = 'none';
-                contentTextarea.style.display = 'block';
-                this.innerHTML = '<i data-feather="eye"></i>';
-                feather.replace();
-            }
-        });
-
-        // Инструменты форматирования
-        const toolbarBtns = document.querySelectorAll('.toolbar-btn[data-format]');
-        toolbarBtns.forEach(btn => {
+        // ========== ФОРМАТИРОВАНИЕ ==========
+        const textarea = document.querySelector('textarea[name="content"]');
+        const formats = {
+            'bold': { prefix: '**', suffix: '**', placeholder: 'жирный' },
+            'italic': { prefix: '*', suffix: '*', placeholder: 'курсив' },
+            'strikethrough': { prefix: '~~', suffix: '~~', placeholder: 'зачеркнутый' },
+            'list-ul': { prefix: '- ', suffix: '', placeholder: 'элемент' },
+            'list-ol': { prefix: '1. ', suffix: '', placeholder: 'элемент' },
+            'quote': { prefix: '> ', suffix: '', placeholder: 'цитата' },
+            'code': { prefix: '`', suffix: '`', placeholder: 'код' },
+            'spoiler': { prefix: '||', suffix: '||', placeholder: 'спойлер' }
+        };
+        document.querySelectorAll('.toolbar-btn[data-format]').forEach(btn => {
             btn.addEventListener('click', function() {
                 const format = this.dataset.format;
-
-                if (format === 'link') {
-                    openLinkModal();
-                } else if (format === 'image') {
-                    openImageModal();
-                } else {
-                    applyFormat(format);
+                if (format === 'link') return openLinkModal();
+                if (format === 'image') return openImageModal();
+                const f = formats[format];
+                if (f) {
+                    const s = textarea.selectionStart, e = textarea.selectionEnd;
+                    const t = textarea.value.substring(s, e) || f.placeholder;
+                    const r = f.prefix + t + f.suffix;
+                    textarea.value = textarea.value.substring(0, s) + r + textarea.value.substring(e);
+                    textarea.focus();
+                    textarea.setSelectionRange(s + r.length, s + r.length);
                 }
             });
         });
 
-        function applyFormat(format) {
-            const textarea = contentTextarea;
-            const start = textarea.selectionStart;
-            const end = textarea.selectionEnd;
-            const selectedText = textarea.value.substring(start, end);
-
-            const formats = {
-                'bold': { prefix: '**', suffix: '**', placeholder: 'жирный текст' },
-                'italic': { prefix: '*', suffix: '*', placeholder: 'курсив' },
-                'strikethrough': { prefix: '~~', suffix: '~~', placeholder: 'зачеркнутый' },
-                'h2': { prefix: '## ', suffix: '', placeholder: 'Заголовок' },
-                'h3': { prefix: '### ', suffix: '', placeholder: 'Заголовок' },
-                'list-ul': { prefix: '- ', suffix: '', placeholder: 'элемент списка' },
-                'list-ol': { prefix: '1. ', suffix: '', placeholder: 'элемент списка' },
-                'quote': { prefix: '> ', suffix: '', placeholder: 'цитата' },
-                'code': { prefix: '`', suffix: '`', placeholder: 'код' },
-                'spoiler': { prefix: '||', suffix: '||', placeholder: 'спойлер' }
-            };
-
-            const f = formats[format];
-            if (!f) return;
-
-            const text = selectedText || f.placeholder;
-            const formatted = f.prefix + text + f.suffix;
-
-            textarea.value = textarea.value.substring(0, start) + formatted + textarea.value.substring(end);
+        // ========== МОДАЛКИ ==========
+        function insertAtCursor(text) {
+            const s = textarea.selectionStart;
+            textarea.value = textarea.value.substring(0, s) + text + textarea.value.substring(textarea.selectionEnd);
             textarea.focus();
-
-            const newCursorPos = start + formatted.length;
-            textarea.setSelectionRange(newCursorPos, newCursorPos);
         }
-
-        // Модальное окно ссылки
-        const linkModal = document.getElementById('linkModal');
-        const linkText = document.getElementById('linkText');
-        const linkUrl = document.getElementById('linkUrl');
-
-        window.openLinkModal = function() {
-            const selectedText = contentTextarea.value.substring(
-                contentTextarea.selectionStart,
-                contentTextarea.selectionEnd
-            );
-            linkText.value = selectedText || '';
-            linkUrl.value = '';
-            linkModal.style.display = 'flex';
-        };
-
-        window.closeLinkModal = function() {
-            linkModal.style.display = 'none';
-        };
-
-        window.insertLink = function() {
-            const text = linkText.value || 'ссылка';
-            const url = linkUrl.value || '#';
-            const formatted = `[${text}](${url})`;
-
-            insertAtCursor(contentTextarea, formatted);
+        window.openLinkModal = () => document.getElementById('linkModal').style.display = 'flex';
+        window.closeLinkModal = () => document.getElementById('linkModal').style.display = 'none';
+        window.insertLink = () => {
+            insertAtCursor(`[${document.getElementById('linkText').value || 'ссылка'}](${document.getElementById('linkUrl').value || '#'})`);
             closeLinkModal();
         };
-
-        // Модальное окно изображения
-        const imageModal = document.getElementById('imageModal');
-        const imageAlt = document.getElementById('imageAlt');
-        const imageUrl = document.getElementById('imageUrl');
-
-        window.openImageModal = function() {
-            imageAlt.value = '';
-            imageUrl.value = '';
-            imageModal.style.display = 'flex';
-        };
-
-        window.closeImageModal = function() {
-            imageModal.style.display = 'none';
-        };
-
-        window.insertImage = function() {
-            const alt = imageAlt.value || 'изображение';
-            const url = imageUrl.value || '#';
-            const formatted = `![${alt}](${url})`;
-
-            insertAtCursor(contentTextarea, formatted);
+        window.openImageModal = () => document.getElementById('imageModal').style.display = 'flex';
+        window.closeImageModal = () => document.getElementById('imageModal').style.display = 'none';
+        window.insertImage = () => {
+            insertAtCursor(`![${document.getElementById('imageAlt').value || 'изображение'}](${document.getElementById('imageUrl').value || '#'})`);
             closeImageModal();
         };
 
-        function insertAtCursor(textarea, text) {
-            const start = textarea.selectionStart;
-            const end = textarea.selectionEnd;
-            textarea.value = textarea.value.substring(0, start) + text + textarea.value.substring(end);
-            textarea.focus();
-            textarea.setSelectionRange(start + text.length, start + text.length);
-        }
-
-        // Загрузка изображения
-        const imageUploadArea = document.getElementById('imageUploadArea');
-        const imageInput = document.querySelector('input[name="image"]');
-        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
-        const imagePreviewContainer = document.getElementById('imagePreviewContainer');
-        const imagePreview = document.getElementById('imagePreview');
-        const removeImage = document.getElementById('removeImage');
-
-        if (imageInput) {
-            imageInput.addEventListener('change', handleImageSelect);
-
-            imageUploadArea?.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                imageUploadArea.classList.add('dragover');
-            });
-
-            imageUploadArea?.addEventListener('dragleave', () => {
-                imageUploadArea.classList.remove('dragover');
-            });
-
-            imageUploadArea?.addEventListener('drop', (e) => {
-                e.preventDefault();
-                imageUploadArea.classList.remove('dragover');
-
-                const file = e.dataTransfer.files[0];
-                if (file && file.type.startsWith('image/')) {
-                    imageInput.files = e.dataTransfer.files;
-                    handleImageFile(file);
-                }
-            });
-        }
-
-        function handleImageSelect(e) {
-            const file = e.target.files[0];
-            if (file) {
-                handleImageFile(file);
+        // ========== ПРЕДПРОСМОТР ==========
+        let previewMode = false;
+        document.getElementById('previewBtn')?.addEventListener('click', async function() {
+            previewMode = !previewMode;
+            const previewDiv = document.getElementById('contentPreview');
+            if (previewMode) {
+                previewDiv.innerHTML = '<p>Загрузка...</p>';
+                previewDiv.style.display = 'block';
+                textarea.style.display = 'none';
+                try {
+                    const r = await fetch('/posts/preview/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                        body: JSON.stringify({ content: textarea.value })
+                    });
+                    previewDiv.innerHTML = (await r.json()).html;
+                } catch { previewDiv.innerHTML = '<p>Ошибка</p>'; }
+                this.innerHTML = '<i data-feather="edit"></i>';
+            } else {
+                previewDiv.style.display = 'none';
+                textarea.style.display = 'block';
+                this.innerHTML = '<i data-feather="eye"></i>';
             }
+            feather.replace();
+        });
+
+        // ========== СПРАВКА ==========
+        const helpDiv = document.getElementById('markdownHelp');
+        document.getElementById('helpBtn')?.addEventListener('click', () => helpDiv.style.display = helpDiv.style.display === 'none' ? 'block' : 'none');
+        document.getElementById('closeHelpBtn')?.addEventListener('click', () => helpDiv.style.display = 'none');
+
+        // =====================================================================
+        // ========== ТЕГИ ====================================================
+        // =====================================================================
+        const tagsHiddenInput = document.getElementById('tagsInput');
+        const selectedTagsContainer = document.getElementById('selectedTags');
+        const tagSearchInput = document.getElementById('tagSearchInput');
+        const tagSearchResults = document.getElementById('tagSearchResults');
+        const showCreateTagBtn = document.getElementById('showCreateTagBtn');
+        const createTagForm = document.getElementById('createTagForm');
+        const cancelCreateTagBtn = document.getElementById('cancelCreateTagBtn');
+        const createTagBtn = document.getElementById('createTagBtn');
+        const newTagNameInput = document.getElementById('newTagName');
+        const tagCreateMessage = document.getElementById('tagCreateMessage');
+
+        let selectedTags = [];
+        let searchTimeout;
+
+        // Инициализация
+        function initTags() {
+            const val = tagsHiddenInput.value.trim();
+            if (val) selectedTags = val.split(',').map(t => t.trim()).filter(Boolean);
+            renderTags();
         }
+        initTags();
 
-        function handleImageFile(file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                imagePreview.src = e.target.result;
-                uploadPlaceholder.style.display = 'none';
-                imagePreviewContainer.style.display = 'block';
-            };
-            reader.readAsDataURL(file);
-        }
+        function renderTags() {
+            selectedTagsContainer.innerHTML = '';
 
-        removeImage?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            imageInput.value = '';
-            uploadPlaceholder.style.display = 'flex';
-            imagePreviewContainer.style.display = 'none';
-            imagePreview.src = '';
-        });
-
-        // Сочетания клавиш
-        contentTextarea?.addEventListener('keydown', function(e) {
-            if (e.ctrlKey || e.metaKey) {
-                switch(e.key) {
-                    case 'b':
-                        e.preventDefault();
-                        applyFormat('bold');
-                        break;
-                    case 'i':
-                        e.preventDefault();
-                        applyFormat('italic');
-                        break;
-                    case 'k':
-                        e.preventDefault();
-                        openLinkModal();
-                        break;
-                }
-            }
-        });
-
-        // Справка
-        document.getElementById('helpBtn')?.addEventListener('click', function() {
-            document.querySelector('.markdown-help').scrollIntoView({ behavior: 'smooth' });
-        });
-
-        // Закрытие модалок по Escape
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                closeLinkModal();
-                closeImageModal();
-            }
-        });
-
-        // Закрытие по клику вне модалки
-        [linkModal, imageModal].forEach(modal => {
-            modal?.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.style.display = 'none';
-                }
+            selectedTags.forEach(tag => {
+                const span = document.createElement('span');
+                span.className = 'selected-tag';
+                span.innerHTML = `#${tag} <i data-feather="x"></i>`;
+                span.addEventListener('click', function() {
+                    removeTag(tag);
+                });
+                selectedTagsContainer.appendChild(span);
             });
+
+            feather.replace();
+            tagsHiddenInput.value = selectedTags.join(', ');
+        }
+
+        function removeTag(tag) {
+            selectedTags = selectedTags.filter(t => t !== tag);
+            renderTags();
+        }
+
+        function addTag(tag) {
+            if (selectedTags.length >= 5) {
+                alert('Максимум 5 тегов');
+                return;
+            }
+            if (!selectedTags.includes(tag)) {
+                selectedTags.push(tag);
+                renderTags();
+            }
+            tagSearchInput.value = '';
+            tagSearchResults.style.display = 'none';
+        }
+
+        // Поиск тегов
+        tagSearchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const q = this.value.trim();
+
+            if (!q || q.length < 1) {
+                tagSearchResults.style.display = 'none';
+                return;
+            }
+
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const r = await fetch(`/tags/search/?q=${encodeURIComponent(q)}`);
+                    const data = await r.json();
+
+                    if (data.tags && data.tags.length > 0) {
+                        tagSearchResults.innerHTML = data.tags.map(t =>
+                            `<div class="tag-search-item ${selectedTags.includes(t.name) ? 'selected' : ''}" data-tag="${t.name}">
+                                <span class="tag-search-name">#${t.name}</span>
+                                <span class="tag-search-count">${t.posts_count || 0} постов</span>
+                            </div>`
+                        ).join('');
+
+                        tagSearchResults.querySelectorAll('.tag-search-item').forEach(item => {
+                            item.addEventListener('click', function() {
+                                const tn = this.dataset.tag;
+                                if (selectedTags.includes(tn)) {
+                                    removeTag(tn);
+                                } else {
+                                    addTag(tn);
+                                }
+                            });
+                        });
+                    } else {
+                        tagSearchResults.innerHTML = `<div class="tag-no-results">Ничего не найдено</div>`;
+                    }
+                    tagSearchResults.style.display = 'block';
+                } catch (error) {
+                    console.error('Ошибка поиска:', error);
+                    tagSearchResults.style.display = 'none';
+                }
+            }, 300);
         });
+
+        // Скрыть результаты при клике вне
+        document.addEventListener('click', function(e) {
+            if (!tagSearchInput.contains(e.target) && !tagSearchResults.contains(e.target)) {
+                tagSearchResults.style.display = 'none';
+            }
+        });
+
+        // Создание тега
+        showCreateTagBtn.addEventListener('click', function() {
+            createTagForm.style.display = 'flex';
+            showCreateTagBtn.style.display = 'none';
+            newTagNameInput.focus();
+        });
+
+        cancelCreateTagBtn.addEventListener('click', function() {
+            createTagForm.style.display = 'none';
+            showCreateTagBtn.style.display = 'inline-flex';
+            newTagNameInput.value = '';
+            tagCreateMessage.style.display = 'none';
+        });
+
+        createTagBtn.addEventListener('click', async function() {
+            const name = newTagNameInput.value.trim();
+
+            if (!name || name.length < 2) {
+                alert('Минимум 2 символа');
+                return;
+            }
+
+            this.disabled = true;
+
+            try {
+                const fd = new FormData();
+                fd.append('name', name);
+
+                const r = await fetch('/tags/create/', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                    body: fd
+                });
+
+                const data = await r.json();
+
+                if (data.success) {
+                    addTag(data.tag.name);
+                    tagCreateMessage.textContent = `Тег "#${data.tag.name}" создан`;
+                    tagCreateMessage.className = 'tag-create-message success';
+                    tagCreateMessage.style.display = 'block';
+
+                    setTimeout(() => {
+                        createTagForm.style.display = 'none';
+                        showCreateTagBtn.style.display = 'inline-flex';
+                        newTagNameInput.value = '';
+                        tagCreateMessage.style.display = 'none';
+                    }, 1500);
+                } else {
+                    alert(data.error || 'Ошибка при создании');
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert('Ошибка сети');
+            } finally {
+                this.disabled = false;
+            }
+        });
+
+        // ========== ЗАКРЫТИЕ МОДАЛОК ==========
+        document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.style.display = 'none'; }));
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') { document.getElementById('linkModal').style.display = 'none'; document.getElementById('imageModal').style.display = 'none'; } });
+
+        function getCookie(name) {
+            let v = null;
+            if (document.cookie) {
+                document.cookie.split(';').forEach(c => {
+                    c = c.trim();
+                    if (c.startsWith(name + '=')) v = decodeURIComponent(c.substring(name.length + 1));
+                });
+            }
+            return v;
+        }
     });
 </script>
 {% endblock %}

@@ -36,15 +36,23 @@
                     {% endif %}
                 </div>
                 {% if user != profile_user %}
-                <button class="btn btn--primary follow-btn" data-user-id="{{ profile_user.id }}">
+                <div class="profile-actions">
                     {% if is_following %}
-                    <i data-feather="user-check"></i>
-                    <span>Отписаться</span>
+                    <button class="btn btn--outline follow-btn"
+                            data-user-id="{{ profile_user.id }}"
+                            data-action="unfollow">
+                        <i data-feather="user-check"></i>
+                        <span>Отписаться</span>
+                    </button>
                     {% else %}
-                    <i data-feather="user-plus"></i>
-                    <span>Подписаться</span>
+                    <button class="btn btn--primary follow-btn"
+                            data-user-id="{{ profile_user.id }}"
+                            data-action="follow">
+                        <i data-feather="user-plus"></i>
+                        <span>Подписаться</span>
+                    </button>
                     {% endif %}
-                </button>
+                </div>
                 {% endif %}
             </div>
 

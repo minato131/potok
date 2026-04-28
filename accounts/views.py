@@ -12,6 +12,7 @@ from django.contrib.auth.forms import AuthenticationForm
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from .models import Notification
+from .models import Profile
 
 from .forms import CustomUserCreationForm, CustomUserChangeForm, CustomPasswordChangeForm
 from .models import User, Follow, Notification
@@ -50,6 +51,8 @@ def register_view(request):
             user = form.save(commit=False)
             user.email_verified = False
             user.save()
+
+            Profile.objects.get_or_create(user=user)
 
             # Генерируем и отправляем код
             code = generate_verification_code()
@@ -189,61 +192,52 @@ def profile_edit_view(request):
 
 
 @login_required
+@require_POST
 def follow_view(request, user_id):
-    """
-    Подписка/отписка от пользователя (поддерживает AJAX)
-    """
-    user_to_follow = get_object_or_404(User, id=user_id)
+    """Подписка/отписка от пользователя"""
+    target_user = get_object_or_404(User, id=user_id)
 
-    if request.user == user_to_follow:
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({'error': 'Нельзя подписаться на себя'}, status=400)
-        messages.error(request, 'Нельзя подписаться на самого себя')
-        return redirect('accounts:profile_by_username', username=user_to_follow.username)
+    if target_user == request.user:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Нельзя подписаться на самого себя'
+        }, status=400)
 
-    follow, created = Follow.objects.get_or_create(
-        follower=request.user,
-        following=user_to_follow
-    )
+    # Получаем или создаем профиль текущего пользователя
+    current_profile, _ = Profile.objects.get_or_create(user=request.user)
 
-    if created:
-        # Создаем уведомление
-        from .utils import create_notification
-        create_notification(
-            recipient=user_to_follow,
-            sender=request.user,
-            notification_type='follow',
-            title='Новый подписчик',
-            message=f'@{request.user.username} подписался на вас',
-            link=f'/accounts/profile/{request.user.username}/'
-        )
+    # Получаем или создаем профиль целевого пользователя
+    target_profile, _ = Profile.objects.get_or_create(user=target_user)
 
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            # Возвращаем ТОЛЬКО количество подписчиков пользователя, на которого подписались
-            followers_count = Follow.objects.filter(following=user_to_follow).count()
-            return JsonResponse({
-                'action': 'followed',
-                'followers_count': followers_count,  # Только это нужно для обновления
-                'message': f'Вы подписались на {user_to_follow.username}'
-            })
-        messages.success(request, f'Вы подписались на {user_to_follow.username}')
+    if current_profile.following.filter(id=target_user.id).exists():
+        current_profile.following.remove(target_user)
+        status = 'unfollowed'
+        message = 'Вы отписались'
     else:
-        follow.delete()
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            # Возвращаем ТОЛЬКО количество подписчиков пользователя, от которого отписались
-            followers_count = Follow.objects.filter(following=user_to_follow).count()
-            return JsonResponse({
-                'action': 'unfollowed',
-                'followers_count': followers_count,  # Только это нужно для обновления
-                'message': f'Вы отписались от {user_to_follow.username}'
-            })
-        messages.info(request, f'Вы отписались от {user_to_follow.username}')
+        current_profile.following.add(target_user)
+        status = 'followed'
+        message = 'Вы подписались'
 
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return JsonResponse({'error': 'Invalid request'}, status=400)
+        # Создаем уведомление
+        try:
+            from accounts.utils import create_notification
+            create_notification(
+                recipient=target_user,
+                sender=request.user,
+                notification_type='follow',
+                title='Новый подписчик',
+                message=f'@{request.user.username} подписался на вас',
+                link=f'/accounts/profile/{request.user.username}/'
+            )
+        except (ImportError, AttributeError):
+            pass
 
-    return redirect('accounts:profile_by_username', username=user_to_follow.username)
-
+    return JsonResponse({
+        'status': status,
+        'message': message,
+        'user_id': user_id,
+        'followers_count': target_profile.followers.count()
+    })
 
 @login_required
 def followers_list_view(request, username):
@@ -588,3 +582,13 @@ def delete_account(request):
             return redirect('accounts:profile_edit')
 
     return redirect('accounts:profile_edit')
+
+
+def terms_view(request):
+    """Страница условий использования"""
+    return render(request, 'accounts/terms.html')
+
+
+def privacy_view(request):
+    """Страница политики конфиденциальности"""
+    return render(request, 'accounts/privacy.html')

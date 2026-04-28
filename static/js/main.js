@@ -215,6 +215,151 @@ function pluralize(count, one, two, five) {
     }
 }
 
+// static/js/main.js
+
+function initFollowButtons() {
+    const followBtns = document.querySelectorAll('.follow-btn, .follow-user-btn');
+
+    followBtns.forEach(btn => {
+        // Удаляем старые обработчики
+        btn.removeEventListener('click', handleFollowClick);
+        // Добавляем новый
+        btn.addEventListener('click', handleFollowClick);
+    });
+}
+
+async function handleFollowClick(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const btn = e.currentTarget;
+    const userId = btn.dataset.userId;
+    const action = btn.dataset.action;
+
+    // Блокируем кнопку на время запроса
+    btn.disabled = true;
+
+    // Сохраняем оригинальный HTML
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i data-feather="loader"></i>';
+    feather.replace();
+
+    try {
+        const response = await fetch(`/accounts/follow/${userId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+
+            // Обновляем кнопку
+            if (data.status === 'followed') {
+                btn.classList.remove('btn--primary');
+                btn.classList.add('btn--outline');
+                btn.dataset.action = 'unfollow';
+                btn.innerHTML = '<i data-feather="user-check"></i><span>Отписаться</span>';
+            } else {
+                btn.classList.remove('btn--outline');
+                btn.classList.add('btn--primary');
+                btn.dataset.action = 'follow';
+                btn.innerHTML = '<i data-feather="user-plus"></i><span>Подписаться</span>';
+            }
+
+            feather.replace();
+
+            // Обновляем счетчики подписчиков на странице
+            updateFollowerCounts(data);
+
+            // Показываем уведомление
+            showToast({
+                type: 'success',
+                message: data.status === 'followed' ? 'Вы подписались' : 'Вы отписались'
+            });
+        } else {
+            // Восстанавливаем кнопку при ошибке
+            btn.innerHTML = originalHTML;
+            feather.replace();
+            showToast({
+                type: 'error',
+                message: 'Произошла ошибка'
+            });
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        btn.innerHTML = originalHTML;
+        feather.replace();
+        showToast({
+            type: 'error',
+            message: 'Произошла ошибка'
+        });
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function updateFollowerCounts(data) {
+    // Обновляем счетчик подписчиков в профиле
+    const followersCountEl = document.querySelector('.followers-count');
+    if (followersCountEl && data.followers_count !== undefined) {
+        followersCountEl.textContent = data.followers_count;
+    }
+
+    // Обновляем все кнопки для этого пользователя на странице
+    const allBtns = document.querySelectorAll(`.follow-btn[data-user-id="${data.user_id}"], .follow-user-btn[data-user-id="${data.user_id}"]`);
+    allBtns.forEach(btn => {
+        if (btn.dataset.action !== data.status) {
+            if (data.status === 'followed') {
+                btn.classList.remove('btn--primary');
+                btn.classList.add('btn--outline');
+                btn.dataset.action = 'unfollow';
+                btn.innerHTML = '<i data-feather="user-check"></i><span>Отписаться</span>';
+            } else {
+                btn.classList.remove('btn--outline');
+                btn.classList.add('btn--primary');
+                btn.dataset.action = 'follow';
+                btn.innerHTML = '<i data-feather="user-plus"></i><span>Подписаться</span>';
+            }
+        }
+    });
+    feather.replace();
+}
+
+// Вспомогательная функция для CSRF токена
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Инициализация при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    initFollowButtons();
+
+    // Для динамически добавленных кнопок используем MutationObserver
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.addedNodes.length) {
+                initFollowButtons();
+            }
+        });
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+});
+
 // Экспорт функций в глобальную область
 window.getCookie = getCookie;
 window.debounce = debounce;
