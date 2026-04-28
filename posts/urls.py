@@ -12,6 +12,9 @@ urlpatterns = [
 
     # Закладки
     path('bookmarks/', views.bookmarks_list, name='bookmarks'),
+    path('bookmark/<int:post_pk>/toggle/', views.bookmark_toggle, name='bookmark_toggle'),
+    path('bookmark/<int:bookmark_id>/remove/', views.bookmark_remove, name='bookmark_remove'),
+    path('bookmarks/clear/', views.bookmarks_clear, name='bookmarks_clear'),
 
     # Категории
     path('categories/', views.category_list, name='category_list'),

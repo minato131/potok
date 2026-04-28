@@ -20,7 +20,6 @@
     <div class="profile-header">
         <div class="profile-cover">
             {% if profile_user.profile.cover_image %}
-            <img src="{{ profile_user.profile.cover_image.url }}" alt="Обложка">
             {% else %}
             <div class="profile-cover-placeholder"></div>
             {% endif %}

@@ -3,719 +3,612 @@
 {% load static %}
 {% load post_filters %}
 
-{% block title %}
-    {% if category %}{{ category.name }}{% elif tag %}#{{ tag.name }}{% else %}Главная · Поток{% endif %}
-{% endblock %}
+{% block title %}{% if category %}{{ category.name }}{% elif tag %}#{{ tag.name }}{% else %}Главная · Поток{% endif %}{% endblock %}
 
 {% block page_title %}
-    {% if category %}
-        <span class="page-title-with-icon">
-            <i data-feather="folder"></i>
-            {{ category.name }}
-        </span>
-    {% elif tag %}
-        <span class="page-title-with-icon">
-            <i data-feather="tag"></i>
-            #{{ tag.name }}
-        </span>
-    {% else %}
-        <span class="page-title-with-icon">
-            Лента
-        </span>
-    {% endif %}
+    {% if category %}<span><i data-feather="folder"></i> {{ category.name }}</span>
+    {% elif tag %}<span><i data-feather="tag"></i> #{{ tag.name }}</span>
+    {% else %}<span>Лента</span>{% endif %}
 {% endblock %}
 
 {% block header_actions %}
-<div class="feed-header-actions">
-    <div class="feed-tabs">
-        <a href="?feed=all" class="feed-tab {% if current_feed == 'all' %}active{% endif %}">
-            <i data-feather="globe"></i>
-            <span>Все</span>
-        </a>
-        {% if user.is_authenticated %}
-        <a href="?feed=following" class="feed-tab {% if current_feed == 'following' %}active{% endif %}">
-            <i data-feather="users"></i>
-            <span>Подписки</span>
-        </a>
-        {% endif %}
-        <a href="?feed=popular" class="feed-tab {% if current_feed == 'popular' %}active{% endif %}">
-            <i data-feather="trending-up"></i>
-            <span>Популярное</span>
-        </a>
-    </div>
-
-    {% if user.is_authenticated %}
-    <a href="{% url 'posts:post_create' %}" class="btn btn--primary">
-        <i data-feather="plus"></i>
-        <span>Создать пост</span>
-    </a>
-    {% endif %}
+<div class="feed-tabs">
+    <a href="?feed=all" class="feed-tab {% if current_feed == 'all' %}active{% endif %}"><i data-feather="globe"></i><span>Все</span></a>
+    {% if user.is_authenticated %}<a href="?feed=following" class="feed-tab {% if current_feed == 'following' %}active{% endif %}"><i data-feather="users"></i><span>Подписки</span></a>{% endif %}
+    <a href="?feed=popular" class="feed-tab {% if current_feed == 'popular' %}active{% endif %}"><i data-feather="trending-up"></i><span>Популярное</span></a>
 </div>
 {% endblock %}
 
 {% block content %}
+<style>
+    :root{--vk-radius:10px}
+    .home-container{max-width:650px;margin:0 auto;width:100%}
+    .feed-tabs{display:flex;gap:4px;background:var(--color-bg-surface);padding:4px;border-radius:12px;border:1px solid var(--color-border-light)}
+    .feed-tab{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;color:var(--color-text-secondary);text-decoration:none;font-weight:500;font-size:0.9rem;transition:all 0.2s}
+    .feed-tab:hover{background:var(--color-bg-elevated)}
+    .feed-tab.active{background:var(--color-primary);color:#fff}
+    .create-post-card{background:var(--color-bg-surface);border-radius:12px;padding:18px;border:1px solid var(--color-border-light);margin-bottom:14px}
+    .create-post-header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+    .user-avatar-mini{width:40px;height:40px;border-radius:50%;overflow:hidden;flex-shrink:0}
+    .user-avatar-mini img{width:100%;height:100%;object-fit:cover}
+    .av-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--color-primary-light);color:var(--color-primary);font-weight:700;border-radius:50%}
+    .create-post-input{flex:1;padding:10px 18px;background:var(--color-bg-elevated);border-radius:24px;color:var(--color-text-tertiary);text-decoration:none;font-size:0.9rem;border:1px solid transparent;transition:all 0.2s}
+    .create-post-input:hover{border-color:var(--color-primary);background:#fff;color:var(--color-text)}
+    .create-post-actions{display:flex;gap:8px;padding-left:52px}
+    .create-post-actions button{display:flex;align-items:center;gap:6px;padding:8px 14px;background:transparent;border:none;border-radius:10px;color:var(--color-text-secondary);font-size:0.85rem;cursor:pointer;transition:all 0.2s}
+    .create-post-actions button:hover{background:var(--color-primary-light);color:var(--color-primary)}
+    .posts-toolbar{margin-bottom:14px}
+    .sort-group{display:flex;align-items:center;gap:12px;background:var(--color-bg-surface);padding:6px;border-radius:12px;border:1px solid var(--color-border-light)}
+    .sort-label{font-size:0.75rem;font-weight:700;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.05em;padding:0 8px}
+    .sort-buttons{display:flex;gap:4px;flex:1}
+    .sort-btn{flex:1;padding:7px 12px;border-radius:8px;font-size:0.85rem;font-weight:500;background:transparent;border:none;cursor:pointer;color:var(--color-text-secondary);transition:all 0.2s}
+    .sort-btn:hover{background:var(--color-bg-elevated)}
+    .sort-btn.active{background:var(--color-primary);color:#fff;font-weight:600}
+
+    .post-card-vk{background:var(--color-bg-surface);border-radius:var(--vk-radius);border:1px solid var(--color-border-light);margin-bottom:14px;overflow:hidden;position:relative}
+    .post-vk-header{display:flex;align-items:center;gap:12px;padding:14px 18px 8px}
+    .post-vk-avatar{width:44px;height:44px;border-radius:50%;overflow:hidden;flex-shrink:0;display:block}
+    .post-vk-avatar img{width:100%;height:100%;object-fit:cover}
+    .post-vk-header-info{flex:1;min-width:0}
+    .post-vk-author{font-weight:600;font-size:0.9rem;color:var(--color-text);text-decoration:none;display:block}
+    .post-vk-author:hover{color:var(--color-primary)}
+    .post-vk-meta{display:flex;align-items:center;gap:6px;font-size:0.75rem;color:var(--color-text-tertiary);margin-top:2px}
+    .post-vk-community{color:var(--color-primary);text-decoration:none;font-weight:500}
+    .post-vk-subscribe{flex-shrink:0;padding:7px 16px;border-radius:20px;font-size:0.8rem;font-weight:600;cursor:pointer;border:none;transition:all 0.2s;background:var(--color-primary-light);color:var(--color-primary)}
+    .post-vk-subscribe:hover{background:var(--color-primary);color:#fff}
+    .post-vk-subscribe.subscribed{background:var(--color-bg-elevated);color:var(--color-text-secondary)}
+
+    /* ЗАГОЛОВОК ПОСТА — ОТКРЫВАЕТ МОДАЛКУ */
+    .post-vk-title{font-size:1.05rem;font-weight:700;padding:0 18px 6px;margin:0;color:var(--color-text);cursor:pointer;line-height:1.3}
+    .post-vk-title:hover{color:var(--color-primary)}
+
+    .post-vk-text{padding:0 18px 8px;font-size:0.9rem;line-height:1.65;color:var(--color-text-secondary);word-break:break-word}
+    .post-vk-text .show-more-btn{color:var(--color-primary);cursor:pointer;font-weight:500;font-size:0.85rem;background:none;border:none;padding:0;margin-top:4px;display:inline-block}
+    .post-vk-text .show-more-btn:hover{text-decoration:underline}
+    .post-vk-media{margin:0 0 8px}
+    .post-vk-img{width:100%;max-height:500px;object-fit:cover;display:block;cursor:pointer}
+    .post-vk-media--video{margin:0 18px 8px;border-radius:var(--vk-radius);overflow:hidden;cursor:pointer}
+    .vk-video-player{position:relative;width:100%;max-height:400px;background:#000}
+    .vk-video-player__video{width:100%;max-height:400px;display:block}
+    .vk-video-player__overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:5;pointer-events:none}
+    .vk-video-player__play-btn{background:none;border:none;cursor:pointer;pointer-events:all}
+
+    .post-vk-footer{display:flex;align-items:center;padding:8px 18px;border-top:1px solid var(--color-border-light);gap:4px}
+    .post-vk-footer-left{display:flex;align-items:center;gap:16px;flex:1}
+    .post-vk-footer-right{display:flex;align-items:center;gap:4px}
+    .post-vk-stat{display:flex;align-items:center;gap:6px;font-size:0.85rem;color:var(--color-text-secondary);background:none;border:none;cursor:pointer;padding:6px 8px;border-radius:8px;transition:all 0.2s;text-decoration:none}
+    .post-vk-stat:hover{background:var(--color-bg-elevated)}
+    .post-vk-stat.liked{color:#e74c3c}
+    .post-vk-stat.liked svg{fill:#e74c3c}
+    .post-vk-stat svg{width:20px;height:20px}
+
+    .comment-inline-form{display:flex;align-items:flex-start;gap:10px;padding:0 18px 10px}
+    .comment-inline-avatar{width:32px;height:32px;border-radius:50%;overflow:hidden;flex-shrink:0;margin-top:2px}
+    .comment-inline-avatar img{width:100%;height:100%;object-fit:cover}
+    .comment-inline-body{flex:1;position:relative}
+    .comment-inline-input{width:100%;padding:8px 14px;border:1px solid var(--color-border);border-radius:20px;font-size:0.85rem;outline:none;background:var(--color-bg-elevated);color:var(--color-text);resize:none;font-family:inherit}
+    .comment-inline-input:focus{border-color:var(--color-primary)}
+    .comment-inline-foot{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
+    .comment-inline-tools{display:flex;gap:4px;position:relative}
+    .comment-inline-tool{width:30px;height:30px;border-radius:50%;border:none;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--color-text-tertiary);transition:all 0.2s}
+    .comment-inline-tool:hover{background:var(--color-bg-hover);color:var(--color-primary)}
+    .comment-inline-tool svg{width:16px;height:16px}
+    .comment-inline-send{padding:6px 14px;border-radius:20px;background:var(--color-primary);color:#fff;border:none;font-size:0.8rem;font-weight:600;cursor:pointer}
+
+    .emoji-picker{display:none;position:absolute;bottom:36px;left:0;background:var(--color-bg-surface);border:1px solid var(--color-border);border-radius:12px;box-shadow:var(--shadow-lg);padding:8px;z-index:30;width:220px;max-height:180px;overflow-y:auto}
+    .emoji-picker.open{display:flex;flex-wrap:wrap;gap:4px}
+    .emoji-picker button{font-size:1.1rem;padding:4px;border:none;background:transparent;cursor:pointer;border-radius:6px;line-height:1}
+    .emoji-picker button:hover{background:var(--color-bg-hover)}
+    .saved-picker{display:none;position:absolute;bottom:36px;left:38px;background:var(--color-bg-surface);border:1px solid var(--color-border);border-radius:12px;box-shadow:var(--shadow-lg);padding:8px;z-index:30;width:220px;max-height:180px;overflow-y:auto}
+    .saved-picker.open{display:block}
+    .saved-item{display:flex;align-items:center;gap:8px;padding:6px;cursor:pointer;border-radius:6px;font-size:.75rem}
+    .saved-item:hover{background:var(--color-bg-hover)}
+    .saved-item img{width:32px;height:32px;object-fit:cover;border-radius:4px;flex-shrink:0}
+    .cmt-preview{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+    .cmt-preview img,.cmt-preview video{width:50px;height:50px;object-fit:cover;border-radius:6px}
+    .preview-item{position:relative;display:inline-block}
+    .remove-preview{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--color-danger);color:#fff;border:none;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center}
+    input.hidden-input{display:none}
+    .post-vk-comments{display:none;border-top:1px solid var(--color-border-light);background:var(--color-bg-elevated);padding:12px 18px}
+    .post-vk-comments.expanded{display:block}
+    .comments-inner .cmt-card{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--color-border-light)}
+    .comments-inner .cmt-card:last-child{border-bottom:none}
+    .comments-inner .cmt-avatar{width:28px;height:28px;border-radius:50%;overflow:hidden;flex-shrink:0}
+    .comments-inner .cmt-avatar img{width:100%;height:100%;object-fit:cover}
+    .share-dropdown{position:relative}
+    .share-menu{display:none;position:absolute;bottom:100%;right:0;margin-bottom:6px;background:var(--color-bg-surface);border:1px solid var(--color-border);border-radius:12px;box-shadow:var(--shadow-lg);min-width:200px;z-index:30;padding:4px}
+    .share-menu.active{display:block}
+    .share-menu button{display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;border:none;background:transparent;font-size:0.85rem;color:var(--color-text);cursor:pointer;border-radius:8px;text-align:left}
+    .share-menu button:hover{background:var(--color-bg-elevated)}
+
+    .post-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:200;display:none;align-items:center;justify-content:center;overflow-y:auto;padding:20px}
+    .post-modal-overlay.open{display:flex}
+    .post-modal{background:var(--color-bg-surface);border-radius:16px;max-width:650px;width:100%;max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+    .post-modal-close{position:sticky;top:8px;right:8px;float:right;z-index:10;width:36px;height:36px;border-radius:50%;background:var(--color-bg-elevated);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;margin:8px 8px 0 0}
+    .post-modal-close:hover{background:var(--color-bg-hover)}
+    .post-modal-content{padding:0 20px 20px;clear:both}
+
+    .empty-feed{text-align:center;padding:60px 20px;background:var(--color-bg-surface);border-radius:12px;border:1px solid var(--color-border-light)}
+    .pagination-wrapper{display:flex;justify-content:center;align-items:center;gap:8px;padding:28px 0}
+    .pagination-pages{display:flex;gap:4px}
+
+    @media(max-width:768px){
+        .home-container{max-width:100%}
+        .post-card-vk,.create-post-card{border-radius:0;border-left:none;border-right:none}
+        .post-vk-media--video{margin:0 12px 8px}
+        .post-modal{border-radius:0;max-height:100vh}
+    }
+</style>
+
 <div class="home-container">
-    <div class="posts-feed-container">
-        <!-- Создание поста (для авторизованных) -->
-        {% if user.is_authenticated and not category and not tag %}
-        <div class="create-post-card">
-            <div class="create-post-header">
-                <div class="user-avatar-mini">
-                    {% if user.profile.avatar %}
-                    <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}">
-                    {% else %}
-                    <div class="avatar-placeholder">{{ user.username|make_list|first|upper }}</div>
-                    {% endif %}
-                </div>
-                <a href="{% url 'posts:post_create' %}" class="create-post-input">
-                    Поделитесь чем-нибудь...
-                </a>
+    {% if user.is_authenticated and not category and not tag %}
+    <div class="create-post-card">
+        <div class="create-post-header">
+            <div class="user-avatar-mini">{% if user.profile.avatar %}<img src="{{ user.profile.avatar.url }}" alt="">{% else %}<div class="av-ph">{{ user.username|first|upper }}</div>{% endif %}</div>
+            <a href="{% url 'posts:post_create' %}" class="create-post-input">Поделитесь чем-нибудь...</a>
+        </div>
+        <div class="create-post-actions">
+            <button onclick="location.href='{% url 'posts:post_create' %}?type=image'"><i data-feather="image"></i> Фото</button>
+            <button onclick="location.href='{% url 'posts:post_create' %}?type=video'"><i data-feather="video"></i> Видео</button>
+            <button onclick="location.href='{% url 'posts:post_create' %}?type=link'"><i data-feather="link"></i> Ссылка</button>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="posts-toolbar">
+        <div class="sort-group">
+            <span class="sort-label">Сортировка</span>
+            <div class="sort-buttons">
+                <button class="sort-btn {% if current_sort == 'new' or not current_sort %}active{% endif %}" data-sort="new">Новые</button>
+                <button class="sort-btn {% if current_sort == 'top' %}active{% endif %}" data-sort="top">Лучшие</button>
+                <button class="sort-btn {% if current_sort == 'hot' %}active{% endif %}" data-sort="hot">Обсуждаемые</button>
             </div>
-            <div class="create-post-actions">
-                <button onclick="location.href='{% url 'posts:post_create' %}?type=image'">
-                    <i data-feather="image"></i>
-                    <span>Фото</span>
-                </button>
-                <button onclick="location.href='{% url 'posts:post_create' %}?type=video'">
-                    <i data-feather="video"></i>
-                    <span>Видео</span>
-                </button>
-                <button onclick="location.href='{% url 'posts:post_create' %}?type=link'">
-                    <i data-feather="link"></i>
-                    <span>Ссылка</span>
-                </button>
+        </div>
+    </div>
+
+    {% for post in posts %}
+    <article class="post-card-vk" data-post-id="{{ post.id }}">
+        <div class="post-vk-header">
+            <a href="{% url 'accounts:profile_by_username' username=post.author.username %}" class="post-vk-avatar">{% if post.author.profile.avatar %}<img src="{{ post.author.profile.avatar.url }}" alt="">{% else %}<div class="av-ph">{{ post.author.username|first|upper }}</div>{% endif %}</a>
+            <div class="post-vk-header-info">
+                <a href="{% url 'accounts:profile_by_username' username=post.author.username %}" class="post-vk-author">{{ post.author.get_full_name|default:post.author.username }}</a>
+                <div class="post-vk-meta"><span>{{ post.created_at|date:'d M в H:i' }}</span>{% if post.community %}<span>·</span><a href="{% url 'communities:community_detail' slug=post.community.slug %}" class="post-vk-community">{{ post.community.name }}</a>{% endif %}</div>
+            </div>
+            {% if user.is_authenticated and post.author != user %}
+            <button class="post-vk-subscribe {% if user in post.author.profile.followers.all %}subscribed{% endif %}" data-author-id="{{ post.author.id }}">
+                {% if user in post.author.profile.followers.all %}Вы подписаны{% else %}Подписаться{% endif %}
+            </button>
+            {% endif %}
+        </div>
+
+        <!-- ЗАГОЛОВОК — КЛИК ОТКРЫВАЕТ МОДАЛКУ -->
+        <h3 class="post-vk-title" onclick="openPostModal({{ post.id }})">{{ post.title }}</h3>
+
+        <div class="post-vk-text">
+            {{ post.content|truncatechars:80 }}
+            {% if post.content|length > 80 %}<button class="show-more-btn" onclick="event.stopPropagation();openPostModal({{ post.id }})">Показать ещё</button>{% endif %}
+        </div>
+
+        {% if post.image %}<div class="post-vk-media"><img src="{{ post.image.url }}" class="post-vk-img" loading="lazy" onclick="event.stopPropagation();openPostModal({{ post.id }})"></div>{% endif %}
+        {% if post.video %}
+        <div class="post-vk-media--video" onclick="event.stopPropagation();openPostModal({{ post.id }})">
+            <div class="vk-video-player">
+                <video class="vk-video-player__video" preload="metadata" playsinline><source src="{{ post.video.url }}"></video>
+                <div class="vk-video-player__overlay"><button class="vk-video-player__play-btn"><svg width="48" height="48"><circle cx="24" cy="24" r="22" fill="rgba(0,0,0,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/><path d="M19 14L31 24L19 34V14Z" fill="white"/></svg></button></div>
             </div>
         </div>
         {% endif %}
 
-        <!-- Сортировка -->
-        <div class="posts-toolbar">
-            <div class="sort-options">
-                <select class="sort-select" id="sortSelect">
-                    <option value="new" {% if current_sort == 'new' %}selected{% endif %}>Новые</option>
-                    <option value="top" {% if current_sort == 'top' %}selected{% endif %}>Лучшие за день</option>
-                    <option value="hot" {% if current_sort == 'hot' %}selected{% endif %}>Обсуждаемые</option>
-                </select>
+        <div class="post-vk-footer">
+            <div class="post-vk-footer-left">
+                <button class="post-vk-stat like-btn-vk {% if post.id in liked_post_ids %}liked{% endif %}" data-post-id="{{ post.id }}">
+                    <svg width="22" height="20" viewBox="0 0 22 20"><path d="M11 19C11 19 1 13.5 1 6.5C1 3.5 3.5 1 6.5 1C8.5 1 10 2 11 3.5C12 2 13.5 1 15.5 1C18.5 1 21 3.5 21 6.5C21 13.5 11 19 11 19Z" stroke="currentColor" stroke-width="1.8"/></svg>
+                    <span>{{ post.likes_count }}</span>
+                </button>
+                <span class="post-vk-stat" style="cursor:default"><i data-feather="message-circle"></i> <span>{{ post.comments_count }}</span></span>
             </div>
-            <div class="view-options">
-                <button class="view-btn {% if current_view == 'card' %}active{% endif %}" data-view="card">
-                    <i data-feather="grid"></i>
-                </button>
-                <button class="view-btn {% if current_view == 'list' %}active{% endif %}" data-view="list">
-                    <i data-feather="list"></i>
-                </button>
+            <div class="post-vk-footer-right">
+                <div class="share-dropdown">
+                    <button class="post-vk-stat" onclick="event.stopPropagation();toggleShareMenu(this)"><i data-feather="share-2"></i></button>
+                    <div class="share-menu">
+                        <button onclick="event.stopPropagation();shareTo('messages')"><i data-feather="send"></i> Отправить в ЛС</button>
+                        <button onclick="event.stopPropagation();shareTo('community')"><i data-feather="users"></i> В сообщество</button>
+                        <button onclick="event.stopPropagation();copyLink({{ post.id }})"><i data-feather="link"></i> Скопировать ссылку</button>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Лента постов -->
-        <div class="posts-feed {% if current_view == 'card' %}posts-feed--card{% endif %}">
-            {% for post in posts %}
-            <article class="post-item" data-post-id="{{ post.id }}">
-                <!-- Голосование -->
-                <div class="post-vote">
-                    <button class="vote-btn upvote {% if user in post.upvoted_by.all %}active{% endif %}" data-post-id="{{ post.id }}">
-                        <i data-feather="arrow-up"></i>
-                    </button>
-                    <span class="vote-count">{{ post.score|default:0 }}</span>
-                    <button class="vote-btn downvote {% if user in post.downvoted_by.all %}active{% endif %}" data-post-id="{{ post.id }}">
-                        <i data-feather="arrow-down"></i>
-                    </button>
+        {% if user.is_authenticated %}
+        <div class="comment-inline-form" onclick="event.stopPropagation()">
+            <div class="comment-inline-avatar">{% if user.profile.avatar %}<img src="{{ user.profile.avatar.url }}" alt="">{% else %}<div class="av-ph" style="font-size:0.65rem">{{ user.username|first|upper }}</div>{% endif %}</div>
+            <div class="comment-inline-body">
+                <textarea class="comment-inline-input" placeholder="Написать комментарий..." rows="1" data-post-id="{{ post.id }}"></textarea>
+                <div class="cmt-preview" id="preview-inline-{{ post.id }}"></div>
+                <div class="comment-inline-foot">
+                    <div class="comment-inline-tools">
+                        <button type="button" class="comment-inline-tool" onclick="this.nextElementSibling.click()" title="Фото/Видео"><i data-feather="image"></i></button>
+                        <input type="file" accept="image/*,video/*" class="hidden-input" onchange="previewFilesInline(this, 'preview-inline-{{ post.id }}')" multiple>
+                        <button type="button" class="comment-inline-tool" onclick="toggleSavedPickerInline(this)" title="Закладки"><i data-feather="bookmark"></i></button>
+                        <div class="saved-picker"></div>
+                        <button type="button" class="comment-inline-tool" onclick="toggleEmojiInline(this)" title="Эмодзи"><i data-feather="smile"></i></button>
+                        <div class="emoji-picker"></div>
+                    </div>
+                    <button class="comment-inline-send" data-post-id="{{ post.id }}">Отправить</button>
                 </div>
-
-                <!-- Контент -->
-                <div class="post-content-wrapper">
-                    <div class="post-meta-top">
-                        {% if post.community %}
-                        <a href="{% url 'communities:community_detail' slug=post.community.slug %}" class="post-community">
-                            {% if post.community.avatar %}
-                            <img src="{{ post.community.avatar.url }}" alt="{{ post.community.name }}">
-                            {% endif %}
-                            <span>c/{{ post.community.name }}</span>
-                        </a>
-                        <span class="meta-dot">·</span>
-                        {% endif %}
-
-                        <span class="post-author">
-                            <a href="{% url 'accounts:profile_by_username' username=post.author.username %}">
-                                u/{{ post.author.username }}
-                            </a>
-                        </span>
-                        <span class="meta-dot">·</span>
-                        <span class="post-time" title="{{ post.created_at|date:'d.m.Y H:i' }}">
-                            {{ post.created_at|timesince }} назад
-                        </span>
-
-                        {% if post.is_nsfw %}
-                        <span class="nsfw-tag">NSFW</span>
-                        {% endif %}
-                    </div>
-
-                    <h3 class="post-title">
-                        <a href="{% url 'posts:post_detail' pk=post.id %}">{{ post.title }}</a>
-                    </h3>
-
-                    {% if post.image %}
-                    <div class="post-media">
-                        <a href="{% url 'posts:post_detail' pk=post.id %}">
-                            <img src="{{ post.image.url }}" alt="{{ post.title }}" loading="lazy">
-                        </a>
-                    </div>
-                    {% elif post.video %}
-                    <div class="post-media post-media--video">
-                        <video controls preload="metadata">
-                            <source src="{{ post.video.url }}" type="video/mp4">
-                        </video>
-                    </div>
-                    {% endif %}
-
-                    <div class="post-text">
-                        {{ post.content|truncatewords:50|linebreaks }}
-                        {% if post.content|wordcount > 50 %}
-                        <a href="{% url 'posts:post_detail' pk=post.id %}" class="read-more">Читать дальше</a>
-                        {% endif %}
-                    </div>
-
-                    <div class="post-footer">
-                        <a href="{% url 'posts:post_detail' pk=post.id %}#comments" class="post-action">
-                            <i data-feather="message-circle"></i>
-                            <span>{{ post.comments_count|default:0 }}</span>
-                        </a>
-                        <button class="post-action share-btn" data-post-id="{{ post.id }}">
-                            <i data-feather="share-2"></i>
-                            <span>Поделиться</span>
-                        </button>
-                        <button class="post-action bookmark-btn {% if post in user.bookmarks.all %}active{% endif %}" data-post-id="{{ post.id }}">
-                            <i data-feather="bookmark"></i>
-                        </button>
-                    </div>
-                </div>
-            </article>
-            {% empty %}
-            <div class="empty-feed">
-                <div class="empty-icon">
-                    <i data-feather="inbox"></i>
-                </div>
-                <h3>Лента пуста</h3>
-                <p>
-                    {% if current_feed == 'following' %}
-                    Подпишитесь на пользователей или сообщества, чтобы видеть их посты
-                    {% else %}
-                    Здесь пока нет постов. Создайте первый!
-                    {% endif %}
-                </p>
-                {% if user.is_authenticated %}
-                <a href="{% url 'posts:post_create' %}" class="btn btn--primary">Создать пост</a>
-                {% endif %}
             </div>
-            {% endfor %}
         </div>
+        {% endif %}
 
-        <!-- Пагинация -->
-        {% include 'includes/pagination.html' with page_obj=page_obj %}
+        <div class="post-vk-comments" id="comments-{{ post.id }}" onclick="event.stopPropagation()">
+            <div class="comments-inner"></div>
+        </div>
+    </article>
+    {% empty %}
+    <div class="empty-feed"><h3>Лента пуста</h3><p>Подпишитесь на пользователей или создайте пост</p></div>
+    {% endfor %}
+
+    {% if is_paginated %}
+    <div class="pagination-wrapper">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="btn btn--outline btn--sm">← Назад</a>{% endif %}
+        <div class="pagination-pages">{% for n in page_obj.paginator.page_range %}{% if n == page_obj.number %}<span class="btn btn--primary btn--sm">{{ n }}</span>{% elif n > page_obj.number|add:'-3' and n < page_obj.number|add:'3' %}<a href="?page={{ n }}" class="btn btn--outline btn--sm">{{ n }}</a>{% endif %}{% endfor %}</div>
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="btn btn--outline btn--sm">Далее →</a>{% endif %}
     </div>
-
-    <!-- Правая колонка -->
-    <aside class="home-sidebar">
-        {% include 'includes/sidebar_widgets.html' %}
-    </aside>
+    {% endif %}
 </div>
-{% endblock %}
 
-{% block extra_css %}
-<style>
-    .home-container {
-        display: grid;
-        grid-template-columns: 1fr 320px;
-        gap: 1.5rem;
-        max-width: 1200px;
-        margin: 0 auto;
-    }
-
-    .feed-header-actions {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        flex-wrap: wrap;
-    }
-
-    .feed-tabs {
-        display: flex;
-        gap: 0.25rem;
-        background: var(--color-bg-surface);
-        padding: 0.25rem;
-        border-radius: 12px;
-        border: 1px solid var(--color-border-light);
-    }
-
-    .feed-tab {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
-        color: var(--color-text-secondary);
-        text-decoration: none;
-        font-weight: 500;
-        font-size: 0.9375rem;
-        transition: all 0.2s;
-    }
-
-    .feed-tab:hover {
-        background: var(--color-bg-elevated);
-    }
-
-    .feed-tab.active {
-        background: var(--color-primary);
-        color: white;
-    }
-
-    /* Карточка создания поста */
-    .create-post-card {
-        background: var(--color-bg-surface);
-        border-radius: 16px;
-        padding: 1rem;
-        border: 1px solid var(--color-border-light);
-        margin-bottom: 1rem;
-    }
-
-    .create-post-header {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        margin-bottom: 0.75rem;
-    }
-
-    .user-avatar-mini {
-        width: 2.5rem;
-        height: 2.5rem;
-        border-radius: 50%;
-        overflow: hidden;
-    }
-
-    .user-avatar-mini img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .avatar-placeholder {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: var(--color-primary-light);
-        color: var(--color-primary);
-        font-weight: 600;
-    }
-
-    .create-post-input {
-        flex: 1;
-        padding: 0.625rem 1rem;
-        background: var(--color-bg-elevated);
-        border-radius: 24px;
-        color: var(--color-text-tertiary);
-        text-decoration: none;
-        font-size: 0.9375rem;
-    }
-
-    .create-post-input:hover {
-        background: var(--color-border-light);
-    }
-
-    .create-post-actions {
-        display: flex;
-        gap: 0.5rem;
-        padding-left: 3.25rem;
-    }
-
-    .create-post-actions button {
-        display: flex;
-        align-items: center;
-        gap: 0.375rem;
-        padding: 0.5rem 0.75rem;
-        background: transparent;
-        border: none;
-        border-radius: 8px;
-        color: var(--color-text-secondary);
-        font-size: 0.875rem;
-        cursor: pointer;
-        transition: background 0.2s;
-    }
-
-    .create-post-actions button:hover {
-        background: var(--color-bg-elevated);
-        color: var(--color-primary);
-    }
-
-    /* Тулбар */
-    .posts-toolbar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 1rem;
-        padding: 0.5rem;
-        background: var(--color-bg-surface);
-        border-radius: 12px;
-        border: 1px solid var(--color-border-light);
-    }
-
-    .sort-select {
-        padding: 0.5rem 2rem 0.5rem 1rem;
-        border: 1px solid var(--color-border);
-        border-radius: 8px;
-        background: var(--color-bg-surface);
-        font-size: 0.875rem;
-        cursor: pointer;
-    }
-
-    .view-options {
-        display: flex;
-        gap: 0.25rem;
-    }
-
-    .view-btn {
-        padding: 0.5rem;
-        border-radius: 8px;
-        color: var(--color-text-tertiary);
-        transition: all 0.2s;
-    }
-
-    .view-btn:hover {
-        background: var(--color-bg-elevated);
-    }
-
-    .view-btn.active {
-        background: var(--color-primary-light);
-        color: var(--color-primary);
-    }
-
-    /* Пост */
-    .post-item {
-        display: flex;
-        gap: 1rem;
-        padding: 1.25rem;
-        background: var(--color-bg-surface);
-        border-radius: 16px;
-        border: 1px solid var(--color-border-light);
-        margin-bottom: 1rem;
-        transition: all 0.2s;
-    }
-
-    .post-item:hover {
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        border-color: var(--color-border);
-    }
-
-    .post-vote {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.25rem;
-        min-width: 2rem;
-    }
-
-    .vote-btn {
-        padding: 0.25rem;
-        border-radius: 4px;
-        color: var(--color-text-tertiary);
-        transition: all 0.2s;
-    }
-
-    .vote-btn:hover {
-        background: var(--color-bg-elevated);
-    }
-
-    .vote-btn.upvote.active {
-        color: var(--color-success);
-    }
-
-    .vote-btn.downvote.active {
-        color: var(--color-danger);
-    }
-
-    .vote-count {
-        font-weight: 600;
-        font-size: 0.875rem;
-    }
-
-    .post-content-wrapper {
-        flex: 1;
-    }
-
-    .post-meta-top {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 0.25rem 0.5rem;
-        font-size: 0.8125rem;
-        color: var(--color-text-tertiary);
-        margin-bottom: 0.5rem;
-    }
-
-    .post-community {
-        display: flex;
-        align-items: center;
-        gap: 0.375rem;
-        color: var(--color-text-primary);
-        text-decoration: none;
-        font-weight: 500;
-    }
-
-    .post-community img {
-        width: 1.25rem;
-        height: 1.25rem;
-        border-radius: 50%;
-    }
-
-    .post-author a {
-        color: var(--color-text-secondary);
-        text-decoration: none;
-    }
-
-    .post-author a:hover {
-        color: var(--color-primary);
-        text-decoration: underline;
-    }
-
-    .meta-dot {
-        color: var(--color-border);
-    }
-
-    .nsfw-tag {
-        padding: 0.125rem 0.375rem;
-        background: var(--color-danger);
-        color: white;
-        border-radius: 4px;
-        font-size: 0.6875rem;
-        font-weight: 600;
-    }
-
-    .post-title {
-        font-size: 1.125rem;
-        font-weight: 600;
-        margin-bottom: 0.75rem;
-    }
-
-    .post-title a {
-        color: var(--color-text-primary);
-        text-decoration: none;
-    }
-
-    .post-title a:hover {
-        color: var(--color-primary);
-    }
-
-    .post-media {
-        margin: 0.75rem 0;
-        border-radius: 12px;
-        overflow: hidden;
-        max-height: 400px;
-    }
-
-    .post-media img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .post-media--video video {
-        width: 100%;
-        max-height: 400px;
-    }
-
-    .post-text {
-        color: var(--color-text-secondary);
-        line-height: 1.6;
-        font-size: 0.9375rem;
-    }
-
-    .read-more {
-        color: var(--color-primary);
-        text-decoration: none;
-        font-size: 0.875rem;
-    }
-
-    .post-footer {
-        display: flex;
-        align-items: center;
-        gap: 1.5rem;
-        margin-top: 0.75rem;
-        padding-top: 0.75rem;
-        border-top: 1px solid var(--color-border-light);
-    }
-
-    .post-action {
-        display: flex;
-        align-items: center;
-        gap: 0.375rem;
-        color: var(--color-text-tertiary);
-        text-decoration: none;
-        transition: color 0.2s;
-    }
-
-    .post-action:hover {
-        color: var(--color-primary);
-    }
-
-    .post-action.active {
-        color: var(--color-primary);
-    }
-
-    .post-action i {
-        width: 1.125rem;
-        height: 1.125rem;
-    }
-
-    /* Пустая лента */
-    .empty-feed {
-        text-align: center;
-        padding: 3rem;
-        background: var(--color-bg-surface);
-        border-radius: 16px;
-        border: 1px solid var(--color-border-light);
-    }
-
-    .empty-icon {
-        width: 4rem;
-        height: 4rem;
-        border-radius: 50%;
-        background: var(--color-bg-elevated);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 1rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .empty-icon i {
-        width: 2rem;
-        height: 2rem;
-    }
-
-    /* Адаптивность */
-    @media (max-width: 1024px) {
-        .home-container {
-            grid-template-columns: 1fr;
-        }
-
-        .home-sidebar {
-            display: none;
-        }
-    }
-
-    @media (max-width: 600px) {
-        .feed-tabs span {
-            display: none;
-        }
-
-        .post-item {
-            padding: 1rem;
-        }
-
-        .post-footer {
-            gap: 1rem;
-        }
-
-        .post-action span {
-            display: none;
-        }
-    }
-</style>
+<div class="post-modal-overlay" id="postModalOverlay">
+    <div class="post-modal" id="postModal">
+        <button class="post-modal-close" onclick="closePostModal()"><i data-feather="x"></i></button>
+        <div class="post-modal-content" id="postModalContent"></div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Сортировка
-        const sortSelect = document.getElementById('sortSelect');
-        sortSelect?.addEventListener('change', function() {
-            const url = new URL(window.location);
-            url.searchParams.set('sort', this.value);
-            window.location = url;
+feather.replace();
+const EMOJIS=['😂','❤️','😍','😢','😡','👍','🔥','🎉','💯','👏','💀','😭','🤔','😎','🙏','💪','🤗','😅'];
+
+function getCookie(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
+function showToast(m){const t=document.createElement('div');t.style.cssText='position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:10px;font-size:0.8rem;font-weight:600;color:#fff;z-index:9999;background:#7c3aed;box-shadow:0 8px 24px rgba(0,0,0,0.2);animation:toastIn 0.25s';t.textContent=m;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='all 0.3s';setTimeout(()=>t.remove(),300)},2000)}
+
+// Сортировка
+document.querySelectorAll('.sort-btn').forEach(b=>b.addEventListener('click',function(){const u=new URL(location);u.searchParams.set('sort',this.dataset.sort);location=u}));
+
+// ===== ЛАЙК =====
+document.querySelectorAll('.like-btn-vk').forEach(btn=>btn.addEventListener('click',async function(e){e.stopPropagation();
+    const pid=this.dataset.postId,cnt=this.querySelector('span');
+    const r=await fetch('/like/toggle/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`content_type=post&object_id=${pid}&like_type=like`});
+    const d=await r.json();this.classList.toggle('liked',d.action==='added');cnt.textContent=d.likes_count;
+}));
+
+// ===== ПОДПИСАТЬСЯ =====
+document.querySelectorAll('.post-vk-subscribe').forEach(btn=>btn.addEventListener('click',async function(e){e.stopPropagation();
+    const r=await fetch(`/accounts/follow/${this.dataset.authorId}/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken')}});
+    if(r.ok){this.classList.toggle('subscribed');this.textContent=this.classList.contains('subscribed')?'Вы подписаны':'Подписаться';}
+}));
+
+// ===== ШЕРИНГ =====
+window.toggleShareMenu = function(btn) {
+    const menu = btn.parentElement.querySelector('.share-menu');
+    document.querySelectorAll('.share-menu.active').forEach(m => m !== menu && m.classList.remove('active'));
+    menu.classList.toggle('active');
+};
+window.shareTo = function(type) {
+    const postId = document.querySelector('.share-menu.active')?.closest('.post-card-vk')?.dataset.postId;
+    if (!postId) return;
+    if (type === 'messages') window.open(`${location.origin}/messenger/?share=${postId}`, '_blank');
+    else if (type === 'community') window.open(`${location.origin}/communities/create-post/?share=${postId}`, '_blank');
+    document.querySelectorAll('.share-menu.active').forEach(m => m.classList.remove('active'));
+};
+window.copyLink = function(postId) {
+    navigator.clipboard.writeText(`${location.origin}/post/${postId}/`).then(() => showToast('Ссылка скопирована'));
+    document.querySelectorAll('.share-menu.active').forEach(m => m.classList.remove('active'));
+};
+document.addEventListener('click', () => document.querySelectorAll('.share-menu.active').forEach(m => m.classList.remove('active')));
+
+// ===== ЭМОДЗИ =====
+window.toggleEmojiInline = function(btn) {
+    const picker = btn.parentElement.querySelector('.emoji-picker');
+    if (!picker.dataset.filled) {
+        picker.innerHTML = EMOJIS.map(e => `<button>${e}</button>`).join('');
+        picker.dataset.filled = '1';
+        picker.querySelectorAll('button').forEach(b => b.addEventListener('click', function() {
+            const ta = btn.closest('.comment-inline-body')?.querySelector('textarea') || btn.closest('.cmt-form-body')?.querySelector('textarea');
+            if (ta) { ta.value += this.textContent; ta.focus(); }
+            picker.classList.remove('open');
+        }));
+    }
+    picker.classList.toggle('open');
+};
+
+// ===== ЗАКЛАДКИ — МОДАЛЬНОЕ ОКНО =====
+window._toggleSavedPicker = async function(btn) {
+    const postId = btn.closest('.post-card-vk')?.dataset.postId ||
+                   btn.closest('.comment-inline-form')?.querySelector('.comment-inline-send')?.dataset.postId ||
+                   btn.closest('.cmt-form')?.dataset.postId;
+    let modal = document.getElementById('savedMediaModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'savedMediaModal';
+        modal.className = 'saved-media-modal';
+        modal.innerHTML = `
+            <div class="saved-media-modal-overlay" onclick="closeSavedMediaModal()"></div>
+            <div class="saved-media-modal-content">
+                <div class="saved-media-modal-header"><h3>Мои закладки</h3><button onclick="closeSavedMediaModal()"><i data-feather="x"></i></button></div>
+                <div class="saved-media-tabs">
+                    <button class="saved-media-tab active" data-tab="photos">🖼️ Фото</button>
+                    <button class="saved-media-tab" data-tab="videos">🎬 Видео</button>
+                </div>
+                <div class="saved-media-grid" id="savedMediaGrid"><div style="text-align:center;padding:20px;color:var(--color-text-tertiary)">Загрузка...</div></div>
+            </div>`;
+        document.body.appendChild(modal);
+        const style = document.createElement('style');
+        style.textContent = '.saved-media-modal{position:fixed;inset:0;z-index:300;display:none;align-items:center;justify-content:center}.saved-media-modal.open{display:flex}.saved-media-modal-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.6)}.saved-media-modal-content{position:relative;background:var(--color-bg-surface);border-radius:16px;width:500px;max-width:95vw;max-height:80vh;overflow-y:auto;z-index:1}.saved-media-modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--color-border)}.saved-media-modal-header h3{font-size:1.1rem;font-weight:700}.saved-media-modal-header button{background:none;border:none;cursor:pointer;color:var(--color-text-tertiary)}.saved-media-tabs{display:flex;border-bottom:1px solid var(--color-border)}.saved-media-tab{flex:1;padding:12px;text-align:center;background:none;border:none;cursor:pointer;font-size:0.9rem;font-weight:500;color:var(--color-text-secondary);border-bottom:2px solid transparent}.saved-media-tab.active{color:var(--color-primary);border-bottom-color:var(--color-primary)}.saved-media-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:16px}.saved-media-grid img,.saved-media-grid video{width:100%;height:120px;object-fit:cover;border-radius:8px;cursor:pointer}.saved-media-grid img:hover,.saved-media-grid video:hover{opacity:0.8;transform:scale(1.02)}.saved-media-empty{grid-column:span 3;text-align:center;padding:40px;color:var(--color-text-tertiary)}';
+        document.head.appendChild(style);
+    }
+    modal.classList.add('open');
+    modal.dataset.postId = postId;
+    modal.dataset.target = btn.closest('.comment-inline-body') ? 'inline' : 'modal';
+    loadSavedMedia('photos');
+    modal.querySelectorAll('.saved-media-tab').forEach(tab => tab.onclick = function() {
+        modal.querySelectorAll('.saved-media-tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        loadSavedMedia(this.dataset.tab);
+    });
+};
+window.toggleSavedPickerInline = window._toggleSavedPicker;
+window.closeSavedMediaModal = function() { document.getElementById('savedMediaModal')?.classList.remove('open'); };
+
+async function loadSavedMedia(type) {
+    const grid = document.getElementById('savedMediaGrid');
+    grid.innerHTML = '<div style="text-align:center;padding:20px;color:var(--color-text-tertiary)">Загрузка...</div>';
+    try {
+        const r = await fetch('/bookmarks/'); const html = await r.text();
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const items = doc.querySelectorAll('.bookmark-item'); const media = [];
+        items.forEach(item => {
+            const img = item.querySelector('img'); const src = img?.src || '';
+            if (type === 'photos' && img && src) media.push({ type: 'photo', src });
+            else if (type === 'videos' && src && (src.includes('.mp4')||src.includes('.webm')||src.includes('.mov'))) media.push({ type: 'video', src });
         });
+        if (media.length > 0) {
+            grid.innerHTML = media.slice(0, 12).map((item, i) => `
+                <div onclick="selectSavedMedia('${item.src.replace(/'/g, "\\'")}', '${item.type}')" style="cursor:pointer">
+                    ${item.type === 'photo' ? `<img src="${item.src}" alt="">` : `<video src="${item.src}" muted></video>`}
+                </div>`).join('');
+            grid.querySelectorAll('video').forEach(v => { v.addEventListener('mouseenter',()=>v.play()); v.addEventListener('mouseleave',()=>{v.pause();v.currentTime=0}); });
+        } else grid.innerHTML = '<div class="saved-media-empty">Нет сохранённых ' + (type==='photos'?'фото':'видео') + '</div>';
+    } catch(e) { grid.innerHTML = '<div class="saved-media-empty">Ошибка загрузки</div>'; }
+}
+window.selectSavedMedia = function(src, type) {
+    const modal = document.getElementById('savedMediaModal');
+    const target = modal?.dataset.target; const postId = modal?.dataset.postId;
+    const body = target === 'inline'
+        ? document.querySelector(`.comment-inline-send[data-post-id="${postId}"]`)?.closest('.comment-inline-body')
+        : document.querySelector('#postModal .cmt-form-body') || document.querySelector('.cmt-form-body');
+    if (body) { const ta = body.querySelector('textarea'); if (ta) { ta.value += (ta.value ? '\n' : '') + src; ta.focus(); } }
+    closeSavedMediaModal();
+};
 
-        // Переключение вида
-        const viewBtns = document.querySelectorAll('.view-btn');
-        viewBtns.forEach(btn => {
-            btn.addEventListener('click', function() {
-                const url = new URL(window.location);
-                url.searchParams.set('view', this.dataset.view);
-                window.location = url;
-            });
-        });
+// ===== ПРЕВЬЮ =====
+window.previewFilesInline = function(input, previewId) {
+    const pv = document.getElementById(previewId); pv.innerHTML = '';
+    [...input.files].forEach(f => {
+        const url = URL.createObjectURL(f), wrap = document.createElement('span'); wrap.className = 'preview-item';
+        if (f.type.startsWith('image/')) { const img = document.createElement('img'); img.src = url; wrap.appendChild(img); }
+        else { const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.autoplay = true; vid.loop = true; wrap.appendChild(vid); }
+        const rmv = document.createElement('button'); rmv.className = 'remove-preview'; rmv.innerHTML = '×';
+        rmv.onclick = e => { e.stopPropagation(); wrap.remove(); }; wrap.appendChild(rmv); pv.appendChild(wrap);
+    });
+};
 
-        // Голосование
-        document.querySelectorAll('.vote-btn').forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const postId = this.dataset.postId;
-                const isUpvote = this.classList.contains('upvote');
-                const postItem = this.closest('.post-item');
-                const upvoteBtn = postItem.querySelector('.upvote');
-                const downvoteBtn = postItem.querySelector('.downvote');
-                const countSpan = postItem.querySelector('.vote-count');
+// ===== ОТПРАВКА КОММЕНТАРИЯ =====
+document.querySelectorAll('.comment-inline-send').forEach(btn => btn.addEventListener('click', async function() {
+    const pid = this.dataset.postId, body = this.closest('.comment-inline-body'), ta = body.querySelector('textarea');
+    const content = ta.value.trim(), files = body.querySelector('input[type="file"]').files;
+    if (!content && files.length === 0) return;
+    const fd = new FormData(); fd.append('content', content);
+    for (let f of files) fd.append(f.type.startsWith('image/') ? 'image' : 'video', f);
+    const r = await fetch(`/post/${pid}/comment/`, { method:'POST', headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'}, body:fd });
+    if (r.ok) { ta.value = ''; document.getElementById('preview-inline-' + pid).innerHTML = ''; loadComments(pid, 10); }
+}));
+document.querySelectorAll('.comment-inline-input').forEach(ta => ta.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.closest('.comment-inline-body').querySelector('.comment-inline-send').click(); }
+}));
 
-                try {
-                    const response = await fetch('/like/toggle/', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': getCookie('csrftoken')
-                        },
-                        body: JSON.stringify({
-                            post_id: postId,
-                            vote_type: isUpvote ? 'up' : 'down'
-                        })
-                    });
-
-                    const data = await response.json();
-                    countSpan.textContent = data.score;
-                    upvoteBtn.classList.toggle('active', data.user_vote === 'up');
-                    downvoteBtn.classList.toggle('active', data.user_vote === 'down');
-                } catch (error) {
-                    console.error('Error:', error);
-                }
-            });
-        });
-
-        // Закладки
-        document.querySelectorAll('.bookmark-btn').forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const postId = this.dataset.postId;
-
-                try {
-                    const response = await fetch(`/bookmark/${postId}/toggle/`, {
-                        method: 'POST',
-                        headers: { 'X-CSRFToken': getCookie('csrftoken') }
-                    });
-
-                    const data = await response.json();
-                    this.classList.toggle('active', data.bookmarked);
-
-                    showToast({
-                        type: 'success',
-                        message: data.bookmarked ? 'Добавлено в закладки' : 'Удалено из закладок'
-                    });
-                } catch (error) {
-                    console.error('Error:', error);
-                }
-            });
-        });
-
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
+// ===== ЗАГРУЗКА КОММЕНТАРИЕВ =====
+window.loadComments = async function(pid, limit = null) {
+    const blk = document.getElementById('comments-' + pid);
+    if (!blk) return;
+    const inner = blk.querySelector('.comments-inner');
+    if (!blk.classList.contains('expanded')) blk.classList.add('expanded');
+    inner.innerHTML = '<div style="padding:12px;text-align:center;color:var(--color-text-tertiary)">Загрузка...</div>';
+    try {
+        const r = await fetch(`/post/${pid}/`); const html = await r.text();
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const allComments = doc.querySelectorAll('.cmt-list .cmt-card');
+        if (allComments.length > 0) {
+            let h = ''; const max = limit ? Math.min(limit, allComments.length) : allComments.length;
+            for (let i = 0; i < max; i++) h += allComments[i].outerHTML;
+            inner.innerHTML = h;
+            if (limit && allComments.length > limit) {
+                inner.insertAdjacentHTML('beforeend', `<div style="text-align:center;padding:10px"><button class="show-more-comments" style="color:var(--color-primary);background:none;border:none;cursor:pointer;font-size:0.85rem;font-weight:500">Показать ещё (${allComments.length - limit})</button></div>`);
+                inner.querySelector('.show-more-comments').addEventListener('click', function() {
+                    let all = ''; allComments.forEach(c => all += c.outerHTML); inner.innerHTML = all;
+                });
             }
-            return cookieValue;
+        } else inner.innerHTML = '<div style="padding:12px;text-align:center;color:var(--color-text-tertiary)">Пока нет комментариев</div>';
+    } catch(e) { inner.innerHTML = '<div style="padding:12px;color:var(--color-danger)">Ошибка</div>'; }
+};
+// Автозагрузка комментариев
+document.querySelectorAll('.post-vk-comments').forEach(blk => { loadComments(blk.id.replace('comments-', ''), 10); });
+
+// Лайк комментария (глобально, для загруженных комментариев)
+window.likeComment = async function(id, btn) {
+    const cnt = btn.querySelector('span');
+    const r = await fetch('/like/toggle/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+        body: `content_type=comment&object_id=${id}&like_type=like`
+    });
+    const d = await r.json();
+    btn.classList.toggle('active', d.action === 'added');
+    if (cnt) cnt.textContent = d.likes_count;
+};
+window.showReplyForm = function(id) {
+    const form = document.getElementById('replyForm-' + id);
+    if (form) form.style.display = 'block';
+};
+window.hideReplyForm = function(id) {
+    const form = document.getElementById('replyForm-' + id);
+    if (form) form.style.display = 'none';
+};
+window.sendReply = async function(cid, pid) {
+    const form = document.getElementById('replyForm-' + cid);
+    const text = form.querySelector('textarea').value.trim();
+    if (!text) return;
+    const r = await fetch(`/post/${pid}/comment/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken'), 'X-Requested-With': 'XMLHttpRequest' },
+        body: `content=${encodeURIComponent(text)}&parent_id=${cid}`
+    });
+    if (r.ok) loadComments(pid, 10);
+}
+
+// ===== МОДАЛКА ПОСТА =====
+window.openPostModal = async function(postId) {
+    document.getElementById('postModalOverlay').classList.add('open');
+    document.getElementById('postModalContent').innerHTML = '<div style="padding:40px;text-align:center;color:var(--color-text-tertiary)">Загрузка...</div>';
+    try {
+        const r = await fetch(`/post/${postId}/`);
+        const html = await r.text();
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const content = doc.querySelector('.pd-wrap');
+
+        // Собираем все стили из post_detail
+        const styles = doc.querySelectorAll('style');
+        let allStyles = '';
+        styles.forEach(s => allStyles += s.outerHTML);
+
+        document.getElementById('postModalContent').innerHTML = allStyles + (content?.outerHTML || 'Пост не найден');
+        document.getElementById('postModal').scrollTop = 0;
+        feather.replace();
+        initModalHandlers();
+    } catch(e) {
+        document.getElementById('postModalContent').innerHTML = '<div style="padding:40px;text-align:center;color:var(--color-danger)">Ошибка загрузки</div>';
+    }
+};
+window.closePostModal = function() { document.getElementById('postModalOverlay').classList.remove('open'); };
+document.getElementById('postModalOverlay').addEventListener('click', function(e) { if (e.target === this) closePostModal(); });
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closePostModal(); });
+
+function initModalHandlers() {
+    // Подписаться
+    document.querySelector('#postModal .pd-subscribe')?.addEventListener('click', async function() {
+        const r = await fetch(`/accounts/follow/${this.dataset.authorId}/`, { method:'POST', headers:{'X-CSRFToken':getCookie('csrftoken')} });
+        if (r.ok) { this.classList.toggle('subscribed'); this.textContent = this.classList.contains('subscribed') ? 'Вы подписаны' : 'Подписаться'; }
+    });
+
+    // Лайк поста
+    document.querySelector('#postModal .like-btn-vk')?.addEventListener('click', async function() {
+        const pid = this.dataset.postId, cnt = this.querySelector('span');
+        const r = await fetch('/like/toggle/', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')}, body:`content_type=post&object_id=${pid}&like_type=like` });
+        const d = await r.json(); this.classList.toggle('liked', d.action === 'added'); cnt.textContent = d.likes_count;
+    });
+
+    // Закладка
+    document.querySelector('#postModal .bookmark-btn-vk')?.addEventListener('click', async function() {
+        const r = await fetch(`/bookmark/${this.dataset.postId}/toggle/`, { method:'POST', headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'} });
+        const d = await r.json(); this.classList.toggle('bookmarked', d.action === 'added');
+    });
+
+    // Отправка комментария
+    document.querySelector('#postModal .comment-inline-send')?.addEventListener('click', async function() {
+        const pid = this.dataset.postId, body = this.closest('.comment-inline-body'), ta = body.querySelector('textarea');
+        const content = ta.value.trim(), files = body.querySelector('input[type="file"]').files;
+        if (!content && files.length === 0) return;
+        const fd = new FormData(); fd.append('content', content);
+        for (let f of files) fd.append(f.type.startsWith('image/') ? 'image' : 'video', f);
+        const r = await fetch(`/post/${pid}/comment/`, { method:'POST', headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'}, body:fd });
+        if (r.ok) closePostModal();
+    });
+
+    // Инструменты комментария
+    document.querySelectorAll('#postModal .comment-inline-tool').forEach(btn => {
+        if (btn.querySelector('[data-feather="smile"]')) btn.onclick = function() { toggleEmojiInline(this); };
+        if (btn.querySelector('[data-feather="bookmark"]')) btn.onclick = function() { window._toggleSavedPicker(this); };
+        if (btn.querySelector('[data-feather="image"]')) btn.onclick = function() { this.nextElementSibling?.click(); };
+    });
+
+    // Превью файлов
+    document.querySelectorAll('#postModal input[type="file"]').forEach(inp => {
+        inp.addEventListener('change', function() {
+            previewFilesInline(this, 'preview-inline-' + this.closest('.comment-inline-form')?.querySelector('.comment-inline-send')?.dataset.postId);
+        });
+    });
+
+    // Лайк комментария в модалке
+    document.querySelectorAll('#postModal .cmt-like').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const id = this.dataset.commentId;
+            const cnt = this.querySelector('span');
+            const r = await fetch('/like/toggle/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+                body: `content_type=comment&object_id=${id}&like_type=like`
+            });
+            const d = await r.json();
+            this.classList.toggle('active', d.action === 'added');
+            if (cnt) cnt.textContent = d.likes_count;
+        });
+    });
+
+    // Ответ на комментарий в модалке
+    document.querySelectorAll('#postModal .cmt-reply').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.dataset.commentId || this.getAttribute('onclick')?.match(/\d+/)?.[0];
+            if (id) document.getElementById('replyForm-' + id).style.display = 'block';
+        });
+    });
+
+    // Отправка ответа в модалке
+    document.querySelectorAll('#postModal .send-reply').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const cid = this.dataset.commentId || this.getAttribute('onclick')?.match(/\d+/)?.[0];
+            const form = document.getElementById('replyForm-' + cid);
+            const text = form.querySelector('textarea').value.trim();
+            if (!text) return;
+            const pid = document.querySelector('#postModal .cmt-form')?.dataset.postId ||
+                        document.querySelector('#postModal .comment-inline-send')?.dataset.postId;
+            const r = await fetch(`/post/${pid}/comment/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken'), 'X-Requested-With': 'XMLHttpRequest' },
+                body: `content=${encodeURIComponent(text)}&parent_id=${cid}`
+            });
+            if (r.ok) closePostModal();
+        });
+    });
+
+    // Enter в поле комментария модалки
+    document.querySelector('#postModal .comment-inline-input')?.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            this.closest('.comment-inline-body').querySelector('.comment-inline-send').click();
         }
     });
+}
+
+// ===== ВИДЕО =====
+document.querySelectorAll('.vk-video-player').forEach(p => {
+    const v = p.querySelector('video'), ov = p.querySelector('.vk-video-player__overlay'), pb = p.querySelector('.vk-video-player__play-btn');
+    function toggle() { if (v.paused) { v.play(); ov.style.display = 'none'; } else { v.pause(); ov.style.display = 'flex'; } }
+    pb?.addEventListener('click', e => { e.stopPropagation(); toggle(); });
+    v?.addEventListener('ended', () => ov.style.display = 'flex');
+    p.addEventListener('click', e => { if (!e.target.closest('.vk-video-player__play-btn')) toggle(); });
+});
+
+document.addEventListener('click', e => { if (!e.target.closest('.comment-inline-tools') && !e.target.closest('.cmt-tools')) { document.querySelectorAll('.emoji-picker.open,.saved-picker.open').forEach(p => p.classList.remove('open')); } });
 </script>
 {% endblock %}

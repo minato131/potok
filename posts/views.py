@@ -203,12 +203,29 @@ def post_detail(request, pk):
             post=post
         ).exists()
 
+    # Проверка подписки на автора
+    is_subscribed = False
+    if request.user.is_authenticated:
+        is_subscribed = request.user.profile.following.filter(id=post.author.id).exists()
+
+    # ID лайкнутых комментариев
+    liked_comment_ids = set()
+    if request.user.is_authenticated:
+        comment_ids = list(comments.values_list('id', flat=True))
+        liked_comment_ids = set(Like.objects.filter(
+            user=request.user,
+            content_type='comment',
+            object_id__in=comment_ids
+        ).values_list('object_id', flat=True))
+
     context = {
         'post': post,
         'comments': comments,
         'comment_form': comment_form,
         'user_like': user_like,
         'is_bookmarked': is_bookmarked,
+        'is_subscribed': is_subscribed,
+        'liked_comment_ids': liked_comment_ids,
     }
     return render(request, 'posts/post_detail.html', context)
 
@@ -304,11 +321,17 @@ def comment_create(request, post_pk):
     post = get_object_or_404(Post, pk=post_pk)
     parent_id = request.POST.get('parent_id')
 
-    form = CommentForm(request.POST)
+    form = CommentForm(request.POST, request.FILES)
     if form.is_valid():
         comment = form.save(commit=False)
         comment.author = request.user
         comment.post = post
+
+        # Обработка загруженных файлов
+        if request.FILES.get('image'):
+            comment.image = request.FILES['image']
+        if request.FILES.get('video'):
+            comment.video = request.FILES['video']
 
         if parent_id:
             parent = get_object_or_404(Comment, pk=parent_id)
@@ -362,7 +385,15 @@ def comment_create(request, post_pk):
         post.comments_count = post.comments.filter(is_deleted=False).count()
         post.save(update_fields=['comments_count'])
 
+        # Если AJAX — вернуть JSON
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': True, 'comment_id': comment.id})
+
         messages.success(request, 'Комментарий добавлен')
+    else:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            errors = {k: v[0] for k, v in form.errors.items()}
+            return JsonResponse({'success': False, 'errors': errors}, status=400)
 
     return redirect('posts:post_detail', pk=post_pk)
 
@@ -479,13 +510,45 @@ def bookmarks_list(request):
     """
     bookmarks = Bookmark.objects.filter(
         user=request.user
-    ).select_related('post', 'post__author').order_by('-created_at')
+    ).select_related('post', 'post__author', 'post__author__profile')
 
+    # Сортировка
+    sort = request.GET.get('sort', 'new')
+    if sort == 'old':
+        bookmarks = bookmarks.order_by('created_at')
+    else:
+        bookmarks = bookmarks.order_by('-created_at')
+
+    # Пагинация
     paginator = Paginator(bookmarks, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    return render(request, 'posts/bookmarks.html', {'page_obj': page_obj})
+    return render(request, 'posts/bookmarks.html', {
+        'page_obj': page_obj,
+        'is_paginated': page_obj.has_other_pages(),
+    })
+
+
+@login_required
+@require_POST
+def bookmark_remove(request, bookmark_id):
+    """
+    Удаление одной закладки
+    """
+    bookmark = get_object_or_404(Bookmark, id=bookmark_id, user=request.user)
+    bookmark.delete()
+    return JsonResponse({'success': True})
+
+
+@login_required
+@require_POST
+def bookmarks_clear(request):
+    """
+    Очистка всех закладок пользователя
+    """
+    Bookmark.objects.filter(user=request.user).delete()
+    return JsonResponse({'success': True})
 
 
 def category_list(request):
@@ -686,13 +749,9 @@ def tag_detail(request, slug):
     """Детальная страница тега с постами"""
     tag = get_object_or_404(Tag, slug=slug)
     posts = tag.posts.filter(status='published').order_by('-created_at')
-    is_following = False
-    if request.user.is_authenticated:
-        is_following = request.user.followed_tags.filter(id=tag.id).exists()
     return render(request, 'posts/tag_detail.html', {
         'tag': tag,
         'posts': posts,
-        'is_following': is_following,
     })
 
 

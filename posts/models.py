@@ -281,6 +281,8 @@ class Comment(models.Model):
         auto_now=True,
         verbose_name='Дата обновления'
     )
+    image = models.ImageField(upload_to='comments/images/%Y/%m/%d/', blank=True, null=True, verbose_name='Изображение')
+    video = models.FileField(upload_to='comments/videos/%Y/%m/%d/', blank=True, null=True, verbose_name='Видео')
 
     class Meta:
         verbose_name = 'Комментарий'
