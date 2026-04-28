@@ -120,6 +120,20 @@ def post_list(request):
         post_count=Count('posts')
     ).order_by('-post_count')[:10]
 
+    liked_post_ids = set()
+    bookmarked_post_ids = set()
+
+    if request.user.is_authenticated:
+        liked_post_ids = set(Like.objects.filter(
+            user=request.user, content_type='post',
+            object_id__in=posts.values_list('id', flat=True)
+        ).values_list('object_id', flat=True))
+
+        bookmarked_post_ids = set(Bookmark.objects.filter(
+            user=request.user,
+            post_id__in=posts.values_list('id', flat=True)
+        ).values_list('post_id', flat=True))
+
     context = {
         'posts': posts_page,
         'is_paginated': posts_page.has_other_pages(),
@@ -128,6 +142,8 @@ def post_list(request):
         'tag': tag,
         'popular_communities': popular_communities,
         'popular_tags': popular_tags,
+        'liked_post_ids': liked_post_ids,
+        'bookmarked_post_ids': bookmarked_post_ids,
     }
 
     return render(request, 'posts/post_list.html', context)
