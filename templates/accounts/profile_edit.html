@@ -14,72 +14,48 @@
         <div class="edit-section">
             <h2 class="section-title">
                 <i data-feather="image"></i>
-                Изображения профиля
+                Изображения
             </h2>
 
-            <div class="images-edit-row">
-                <!-- Аватар -->
-                <div class="avatar-edit-block">
-                    <label class="block-label">Аватар</label>
-                    <div class="avatar-edit-preview" id="avatarPreviewContainer">
-                        <div class="avatar-image-wrapper">
-                            {% if user.profile.avatar %}
-                            <img src="{{ user.profile.avatar.url }}" alt="Аватар" id="avatarPreview">
-                            {% else %}
-                            <div class="avatar-placeholder" id="avatarPreview">
-                                {{ user.username|make_list|first|upper }}
-                            </div>
-                            {% endif %}
-                        </div>
-                        <div class="avatar-actions">
-                            <button type="button" class="btn btn--outline btn--sm" id="uploadAvatarBtn">
-                                <i data-feather="upload"></i>
-                                Загрузить
-                            </button>
-                            {% if user.profile.avatar %}
-                            <button type="button" class="btn btn--outline btn--sm" id="removeAvatarBtn">
-                                <i data-feather="trash-2"></i>
-                                Удалить
-                            </button>
-                            {% endif %}
-                        </div>
-                        <p class="field-hint">Рекомендуемый размер: 400x400 пикселей</p>
+            <div class="avatar-upload">
+                <label class="upload-label">Аватар</label>
+                <div class="image-preview avatar-preview" id="avatarPreview">
+                    {% if user.profile.avatar %}
+                    <img src="{{ user.profile.avatar.url }}" alt="Текущий аватар" id="avatarImg">
+                    {% else %}
+                    <div class="preview-placeholder" id="avatarImg">
+                        <i data-feather="camera"></i>
+                        <span>Загрузить аватар</span>
+                    </div>
+                    {% endif %}
+                    <div class="image-overlay">
+                        <i data-feather="camera"></i>
+                        <span>Изменить</span>
                     </div>
                     {{ form.avatar }}
-                    {% if form.avatar.errors %}
-                    <div class="form-error">{{ form.avatar.errors.0 }}</div>
-                    {% endif %}
                 </div>
+                {% if form.avatar.errors %}
+                <div class="form-error">{{ form.avatar.errors.0 }}</div>
+                {% endif %}
+            </div>
 
-                <!-- Обложка -->
-                <div class="cover-edit-block">
-                    <label class="block-label">Обложка</label>
-                    <div class="cover-edit-preview" id="coverPreviewContainer">
-                        <div class="cover-image-wrapper">
-                            {% if user.profile.cover_image %}
-                            <img src="{{ user.profile.cover_image.url }}" alt="Обложка" id="coverPreview">
-                            {% else %}
-                            <div class="cover-placeholder" id="coverPreview">
-                                <i data-feather="image"></i>
-                                <span>Нет обложки</span>
-                            </div>
-                            {% endif %}
+                <div class="cover-upload">
+                    <label class="upload-label">Обложка</label>
+                    <div class="image-preview cover-preview">
+                        {% if user.profile.cover_image %}
+                        <img src="{{ user.profile.cover_image.url }}" alt="Текущая обложка" id="coverPreview">
+                        {% else %}
+                        <div class="cover-placeholder" id="coverPreview">
+                            <i data-feather="image"></i>
+                            <span>Добавить обложку</span>
                         </div>
-                        <div class="cover-actions">
-                            <button type="button" class="btn btn--outline btn--sm" id="uploadCoverBtn">
-                                <i data-feather="upload"></i>
-                                Загрузить
-                            </button>
-                            {% if user.profile.cover_image %}
-                            <button type="button" class="btn btn--outline btn--sm" id="removeCoverBtn">
-                                <i data-feather="trash-2"></i>
-                                Удалить
-                            </button>
-                            {% endif %}
+                        {% endif %}
+                        <div class="image-overlay">
+                            <i data-feather="camera"></i>
+                            <span>Изменить</span>
                         </div>
-                        <p class="field-hint">Рекомендуемый размер: 1200x400 пикселей</p>
+                        {{ form.cover_image }}
                     </div>
-                    {{ form.cover_image }}
                     {% if form.cover_image.errors %}
                     <div class="form-error">{{ form.cover_image.errors.0 }}</div>
                     {% endif %}
@@ -113,20 +89,10 @@
             </div>
 
             <div class="form-group">
-                <label for="{{ form.email.id_for_label }}" class="form-label">Email</label>
-                {{ form.email }}
-                {% if form.email.errors %}
-                <div class="form-error">{{ form.email.errors.0 }}</div>
-                {% endif %}
-            </div>
-
-            <div class="form-group">
                 <label for="{{ form.bio.id_for_label }}" class="form-label">О себе</label>
                 {{ form.bio }}
-                <div class="field-hint">
-                    <span class="char-counter">
-                        <span id="bioCounter">0</span>/500
-                    </span>
+                <div class="char-counter">
+                    <span id="bioCounter">0</span>/500
                 </div>
                 {% if form.bio.errors %}
                 <div class="form-error">{{ form.bio.errors.0 }}</div>
@@ -134,7 +100,7 @@
             </div>
         </div>
 
-        <!-- Контакты -->
+        <!-- Контактная информация -->
         <div class="edit-section">
             <h2 class="section-title">
                 <i data-feather="link"></i>
@@ -164,7 +130,7 @@
             </div>
         </div>
 
-        <!-- Приватность -->
+        <!-- Настройки приватности -->
         <div class="edit-section">
             <h2 class="section-title">
                 <i data-feather="lock"></i>
@@ -205,15 +171,47 @@
 
     <!-- Опасная зона -->
     <div class="danger-zone">
-        <h3 class="danger-zone__title">
-            <i data-feather="alert-triangle"></i>
-            Опасная зона
-        </h3>
+        <h3 class="danger-zone__title">Опасная зона</h3>
         <div class="danger-actions">
             <a href="{% url 'accounts:password_change' %}" class="btn btn--outline">
                 <i data-feather="key"></i>
                 Изменить пароль
             </a>
+            <button class="btn btn--danger" id="deleteAccountBtn">
+                <i data-feather="trash-2"></i>
+                Удалить аккаунт
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно подтверждения удаления -->
+<div class="modal-overlay" id="deleteModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3 class="modal-title">Удаление аккаунта</h3>
+            <button class="modal-close" id="closeModal">
+                <i data-feather="x"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="warning-message">
+                <i data-feather="alert-triangle"></i>
+                <p>Вы уверены, что хотите удалить аккаунт? Это действие необратимо!</p>
+            </div>
+            <p>Все ваши данные, включая посты, комментарии и подписки будут безвозвратно удалены.</p>
+
+            <form method="post" action="{% url 'accounts:delete_account' %}" id="deleteForm">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="passwordConfirm" class="form-label">Введите пароль для подтверждения</label>
+                    <input type="password" name="password" id="passwordConfirm" class="form-input" required>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn--outline" id="cancelDelete">Отмена</button>
+            <button class="btn btn--danger" id="confirmDelete">Удалить навсегда</button>
         </div>
     </div>
 </div>
@@ -224,15 +222,14 @@
     .profile-edit-container {
         max-width: 700px;
         margin: 0 auto;
-        padding: 1.5rem 1rem;
     }
 
     .profile-edit-form {
         background: var(--color-bg-surface);
-        border-radius: 24px;
+        border-radius: var(--radius-xl);
         padding: 2rem;
         border: 1px solid var(--color-border-light);
-        margin-bottom: 1.5rem;
+        margin-bottom: 2rem;
     }
 
     .edit-section {
@@ -252,112 +249,111 @@
         align-items: center;
         gap: 0.5rem;
         font-size: 1.125rem;
-        font-weight: 600;
         margin-bottom: 1.5rem;
         color: var(--color-text-primary);
     }
 
     .section-title i {
         color: var(--color-primary);
-        width: 1.25rem;
-        height: 1.25rem;
     }
 
-    /* Изображения */
-    .images-edit-row {
+    .image-upload-group {
         display: grid;
         grid-template-columns: 1fr 2fr;
-        gap: 2rem;
+        gap: 1.5rem;
     }
 
-    .block-label {
-        display: block;
+    .avatar-upload,
+    .cover-upload {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .upload-label {
         font-weight: 500;
-        margin-bottom: 0.75rem;
-        color: var(--color-text-primary);
+        margin-bottom: 0.5rem;
+        color: var(--color-text-secondary);
     }
 
-    .avatar-edit-block input[type="file"],
-    .cover-edit-block input[type="file"] {
-        display: none;
+    .image-preview {
+        position: relative;
+        cursor: pointer;
+        overflow: hidden;
+        border-radius: var(--radius-lg);
+        border: 2px dashed var(--color-border);
+        transition: border-color var(--transition-base);
     }
 
-    .avatar-image-wrapper {
+    .image-preview:hover {
+        border-color: var(--color-primary);
+    }
+
+    .avatar-preview {
         width: 150px;
         height: 150px;
         border-radius: 50%;
-        overflow: hidden;
-        border: 3px solid var(--color-border-light);
-        margin-bottom: 1rem;
     }
 
-    .avatar-image-wrapper img {
+    .cover-preview {
+        width: 100%;
+        height: 120px;
+    }
+
+    .image-preview img {
         width: 100%;
         height: 100%;
         object-fit: cover;
     }
 
-    .avatar-placeholder {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: var(--color-primary-light);
-        color: var(--color-primary);
-        font-size: 3rem;
-        font-weight: 600;
-    }
-
-    .cover-image-wrapper {
-        width: 100%;
-        height: 100px;
-        border-radius: 12px;
-        overflow: hidden;
-        border: 1px solid var(--color-border-light);
-        margin-bottom: 1rem;
-    }
-
-    .cover-image-wrapper img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
+    .avatar-placeholder,
     .cover-placeholder {
         width: 100%;
         height: 100%;
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
         background: var(--color-bg-elevated);
         color: var(--color-text-tertiary);
-        gap: 0.25rem;
     }
 
-    .cover-placeholder i {
-        width: 1.5rem;
-        height: 1.5rem;
+    .avatar-placeholder {
+        font-size: 3rem;
+        font-weight: 600;
     }
 
-    .cover-placeholder span {
-        font-size: 0.875rem;
-    }
-
-    .avatar-actions,
-    .cover-actions {
-        display: flex;
+    .cover-placeholder {
+        flex-direction: column;
         gap: 0.5rem;
-        margin-bottom: 0.5rem;
     }
 
-    .field-hint {
-        font-size: 0.75rem;
-        color: var(--color-text-tertiary);
+    .image-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        opacity: 0;
+        transition: opacity var(--transition-base);
     }
 
-    /* Формы */
+    .image-preview:hover .image-overlay {
+        opacity: 1;
+    }
+
+    .image-preview input[type="file"] {
+        position: absolute;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+    }
+
     .form-row-2 {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -369,61 +365,45 @@
     }
 
     .form-label {
-        display: flex;
-        align-items: center;
-        gap: 0.375rem;
+        display: block;
         margin-bottom: 0.5rem;
         font-weight: 500;
         color: var(--color-text-primary);
-        font-size: 0.9375rem;
     }
 
-    .form-label i {
-        width: 1rem;
-        height: 1rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .form-group input,
-    .form-group textarea,
-    .form-group select {
+    .form-input,
+    .form-textarea {
         width: 100%;
         padding: 0.75rem 1rem;
-        border: 1.5px solid var(--color-border);
-        border-radius: 12px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
         font-size: 0.9375rem;
-        background: var(--color-bg-surface);
-        transition: all 0.2s ease;
+        transition: border-color var(--transition-base), box-shadow var(--transition-base);
     }
 
-    .form-group input:focus,
-    .form-group textarea:focus,
-    .form-group select:focus {
+    .form-textarea {
+        resize: vertical;
+        min-height: 100px;
+    }
+
+    .form-input:focus,
+    .form-textarea:focus {
         outline: none;
         border-color: var(--color-primary);
         box-shadow: 0 0 0 3px var(--color-primary-light);
     }
 
-    .form-group textarea {
-        resize: vertical;
-        min-height: 100px;
-    }
-
     .char-counter {
-        font-family: monospace;
-    }
-
-    .form-error {
-        color: var(--color-danger);
+        text-align: right;
         font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
         margin-top: 0.25rem;
     }
 
-    /* Настройки */
     .settings-group {
         display: flex;
         flex-direction: column;
-        gap: 1.25rem;
+        gap: 1.5rem;
     }
 
     .setting-item {
@@ -439,11 +419,11 @@
     .setting-label {
         display: block;
         font-weight: 500;
-        margin-bottom: 0.125rem;
+        margin-bottom: 0.25rem;
     }
 
     .setting-description {
-        font-size: 0.8125rem;
+        font-size: 0.875rem;
         color: var(--color-text-tertiary);
     }
 
@@ -468,7 +448,7 @@
         right: 0;
         bottom: 0;
         background-color: var(--color-border);
-        transition: 0.2s;
+        transition: .3s;
         border-radius: 24px;
     }
 
@@ -480,7 +460,7 @@
         left: 2px;
         bottom: 2px;
         background-color: white;
-        transition: 0.2s;
+        transition: .3s;
         border-radius: 50%;
     }
 
@@ -492,7 +472,6 @@
         transform: translateX(24px);
     }
 
-    /* Кнопки действий */
     .form-actions {
         display: flex;
         gap: 1rem;
@@ -502,38 +481,60 @@
         border-top: 1px solid var(--color-border-light);
     }
 
-    /* Опасная зона */
     .danger-zone {
         background: var(--color-bg-surface);
-        border-radius: 16px;
+        border-radius: var(--radius-xl);
         padding: 1.5rem;
-        border: 1px solid var(--color-danger-light, #fecaca);
+        border: 1px solid var(--color-danger);
     }
 
     .danger-zone__title {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 1rem;
-        font-weight: 600;
-        margin-bottom: 1rem;
         color: var(--color-danger);
+        font-size: 1rem;
+        margin-bottom: 1rem;
     }
 
     .danger-actions {
         display: flex;
         gap: 1rem;
+        flex-wrap: wrap;
     }
 
-    /* Адаптивность */
-    @media (max-width: 600px) {
+    .warning-message {
+        display: flex;
+        gap: 1rem;
+        padding: 1rem;
+        background: #fef3c7;
+        border-radius: var(--radius-lg);
+        margin-bottom: 1rem;
+    }
+
+    .warning-message i {
+        color: #d97706;
+        flex-shrink: 0;
+    }
+
+    .warning-message p {
+        color: #92400e;
+        font-weight: 500;
+    }
+
+    .modal-footer {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: flex-end;
+        margin-top: 1.5rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--color-border-light);
+    }
+
+    @media (max-width: 768px) {
         .profile-edit-form {
             padding: 1.5rem;
         }
 
-        .images-edit-row {
+        .image-upload-group {
             grid-template-columns: 1fr;
-            gap: 1.5rem;
         }
 
         .form-row-2 {
@@ -544,18 +545,14 @@
             flex-direction: column;
         }
 
-        .form-actions .btn {
-            width: 100%;
+        .danger-actions {
+            flex-direction: column;
         }
 
         .setting-item {
             flex-direction: column;
             align-items: flex-start;
-            gap: 0.75rem;
-        }
-
-        .danger-actions {
-            flex-direction: column;
+            gap: 1rem;
         }
     }
 </style>
@@ -563,126 +560,92 @@
 
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // ========== АВАТАР ==========
-        const avatarInput = document.querySelector('input[name="avatar"]');
-        const avatarPreview = document.getElementById('avatarPreview');
-        const avatarContainer = document.getElementById('avatarPreviewContainer');
-        const uploadAvatarBtn = document.getElementById('uploadAvatarBtn');
-        const removeAvatarBtn = document.getElementById('removeAvatarBtn');
+document.addEventListener('DOMContentLoaded', function() {
+    // Загрузка аватара
+    const avatarInput = document.querySelector('input[name="avatar"]');
+    const avatarPreview = document.getElementById('avatarPreview');
+    const avatarContainer = document.querySelector('.avatar-preview');
 
-        if (uploadAvatarBtn) {
-            uploadAvatarBtn.addEventListener('click', function() {
-                avatarInput.click();
-            });
-        }
+    if (avatarInput && avatarContainer) {
+        // Клик по контейнеру открывает выбор файла
+        avatarContainer.addEventListener('click', function() {
+            avatarInput.click();
+        });
 
-        if (avatarInput) {
-            avatarInput.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        const wrapper = document.querySelector('.avatar-image-wrapper');
-                        const img = document.createElement('img');
-                        img.src = e.target.result;
-                        img.alt = 'Аватар';
-                        img.id = 'avatarPreview';
-                        wrapper.innerHTML = '';
-                        wrapper.appendChild(img);
-
-                        // Показываем кнопку удаления
-                        if (removeAvatarBtn) {
-                            removeAvatarBtn.style.display = 'inline-flex';
+        avatarInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    // Заменяем содержимое превью
+                    if (avatarPreview) {
+                        if (avatarPreview.tagName === 'IMG') {
+                            avatarPreview.src = e.target.result;
+                        } else {
+                            const img = document.createElement('img');
+                            img.src = e.target.result;
+                            img.alt = 'Аватар';
+                            img.id = 'avatarPreview';
+                            avatarPreview.parentNode.replaceChild(img, avatarPreview);
                         }
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-        }
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
 
-        if (removeAvatarBtn) {
-            removeAvatarBtn.addEventListener('click', function() {
-                avatarInput.value = '';
-                const wrapper = document.querySelector('.avatar-image-wrapper');
-                wrapper.innerHTML = `
-                    <div class="avatar-placeholder" id="avatarPreview">
-                        {{ user.username|make_list|first|upper }}
-                    </div>
-                `;
-                removeAvatarBtn.style.display = 'none';
-            });
-        }
+    // Загрузка обложки
+    const coverInput = document.querySelector('input[name="cover_image"]');
+    const coverPreview = document.getElementById('coverPreview');
+    const coverContainer = document.querySelector('.cover-preview');
 
-        // ========== ОБЛОЖКА ==========
-        const coverInput = document.querySelector('input[name="cover_image"]');
-        const coverPreview = document.getElementById('coverPreview');
-        const uploadCoverBtn = document.getElementById('uploadCoverBtn');
-        const removeCoverBtn = document.getElementById('removeCoverBtn');
+    if (coverInput && coverContainer) {
+        coverContainer.addEventListener('click', function() {
+            coverInput.click();
+        });
 
-        if (uploadCoverBtn) {
-            uploadCoverBtn.addEventListener('click', function() {
-                coverInput.click();
-            });
-        }
-
-        if (coverInput) {
-            coverInput.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        const wrapper = document.querySelector('.cover-image-wrapper');
-                        const img = document.createElement('img');
-                        img.src = e.target.result;
-                        img.alt = 'Обложка';
-                        img.id = 'coverPreview';
-                        wrapper.innerHTML = '';
-                        wrapper.appendChild(img);
-
-                        if (removeCoverBtn) {
-                            removeCoverBtn.style.display = 'inline-flex';
+        coverInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    if (coverPreview) {
+                        if (coverPreview.tagName === 'IMG') {
+                            coverPreview.src = e.target.result;
+                        } else {
+                            const img = document.createElement('img');
+                            img.src = e.target.result;
+                            img.alt = 'Обложка';
+                            img.id = 'coverPreview';
+                            coverPreview.parentNode.replaceChild(img, coverPreview);
                         }
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-        }
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
 
-        if (removeCoverBtn) {
-            removeCoverBtn.addEventListener('click', function() {
-                coverInput.value = '';
-                const wrapper = document.querySelector('.cover-image-wrapper');
-                wrapper.innerHTML = `
-                    <div class="cover-placeholder" id="coverPreview">
-                        <i data-feather="image"></i>
-                        <span>Нет обложки</span>
-                    </div>
-                `;
-                feather.replace();
-                removeCoverBtn.style.display = 'none';
-            });
-        }
+    // Счетчик символов для bio
+    const bioInput = document.querySelector('textarea[name="bio"]');
+    const bioCounter = document.getElementById('bioCounter');
 
-        // ========== СЧЕТЧИК BIO ==========
-        const bioInput = document.querySelector('textarea[name="bio"]');
-        const bioCounter = document.getElementById('bioCounter');
+    if (bioInput && bioCounter) {
+        const updateCounter = () => {
+            bioCounter.textContent = bioInput.value.length;
+        };
+        bioInput.addEventListener('input', updateCounter);
+        updateCounter();
+    }
 
-        if (bioInput && bioCounter) {
-            const updateCounter = () => {
-                bioCounter.textContent = bioInput.value.length;
-            };
-            bioInput.addEventListener('input', updateCounter);
-            updateCounter();
-        }
-
-        // ========== СКРЫТЬ КНОПКИ УДАЛЕНИЯ ЕСЛИ НЕТ ИЗОБРАЖЕНИЯ ==========
-        if (removeAvatarBtn && !document.querySelector('.avatar-image-wrapper img')) {
-            removeAvatarBtn.style.display = 'none';
-        }
-        if (removeCoverBtn && !document.querySelector('.cover-image-wrapper img')) {
-            removeCoverBtn.style.display = 'none';
-        }
+    // Переключатели (toggle switches)
+    const toggles = document.querySelectorAll('.toggle-switch input');
+    toggles.forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            // Ничего не делаем, просто для визуального эффекта
+        });
     });
+});
 </script>
 {% endblock %}

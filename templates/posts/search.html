@@ -2,26 +2,21 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Поиск{% if query %}: {{ query }}{% endif %} · Поток{% endblock %}
-{% block page_title %}Поиск{% endblock %}
+{% block title %}Поиск: {{ query }} · Поток{% endblock %}
+{% block page_title %}Результаты поиска{% endblock %}
 
 {% block content %}
-<div class="search-page">
-    <!-- Поисковая строка -->
+<div class="search-container">
+    <!-- Форма поиска -->
     <div class="search-header">
-        <form method="get" class="search-main-form">
+        <form method="get" class="search-form">
             <div class="search-input-wrapper">
                 <i data-feather="search"></i>
                 <input type="text" name="q" value="{{ query }}"
                        placeholder="Поиск постов, сообществ, пользователей..."
-                       class="search-input-large" autofocus autocomplete="off">
-                <button type="submit" class="search-submit-btn">
-                    <span>Найти</span>
-                    <i data-feather="arrow-right"></i>
-                </button>
+                       class="search-input-large" autofocus>
+                <button type="submit" class="search-submit">Найти</button>
             </div>
-
-            <input type="hidden" name="type" id="searchTypeInput" value="{{ type }}">
         </form>
     </div>
 
@@ -30,259 +25,183 @@
         <a href="?q={{ query }}&type=posts" class="search-tab {% if type == 'posts' %}active{% endif %}">
             <i data-feather="file-text"></i>
             <span>Посты</span>
-            <span class="count">{{ posts_count|default:0 }}</span>
+            <span class="tab-count">{{ posts_count }}</span>
         </a>
         <a href="?q={{ query }}&type=communities" class="search-tab {% if type == 'communities' %}active{% endif %}">
             <i data-feather="users"></i>
             <span>Сообщества</span>
-            <span class="count">{{ communities_count|default:0 }}</span>
+            <span class="tab-count">{{ communities_count }}</span>
         </a>
         <a href="?q={{ query }}&type=users" class="search-tab {% if type == 'users' %}active{% endif %}">
             <i data-feather="user"></i>
             <span>Пользователи</span>
-            <span class="count">{{ users_count|default:0 }}</span>
+            <span class="tab-count">{{ users_count }}</span>
         </a>
         <a href="?q={{ query }}&type=tags" class="search-tab {% if type == 'tags' %}active{% endif %}">
             <i data-feather="tag"></i>
             <span>Теги</span>
-            <span class="count">{{ tags_count|default:0 }}</span>
+            <span class="tab-count">{{ tags_count }}</span>
         </a>
-    </div>
-
-    <!-- Фильтры -->
-    <div class="search-filters">
-        <div class="filter-row">
-            <div class="filter-group">
-                <label><i data-feather="arrow-up-down"></i> Сортировка</label>
-                <select name="sort" class="filter-select" id="sortFilter">
-                    <option value="relevance" {% if sort == 'relevance' %}selected{% endif %}>По релевантности</option>
-                    <option value="new" {% if sort == 'new' %}selected{% endif %}>Сначала новые</option>
-                    <option value="top" {% if sort == 'top' %}selected{% endif %}>Лучшие</option>
-                    {% if type == 'communities' %}
-                    <option value="popular" {% if sort == 'popular' %}selected{% endif %}>По популярности</option>
-                    {% elif type == 'users' %}
-                    <option value="followers" {% if sort == 'followers' %}selected{% endif %}>По подписчикам</option>
-                    {% elif type == 'posts' %}
-                    <option value="comments" {% if sort == 'comments' %}selected{% endif %}>По комментариям</option>
-                    {% endif %}
-                </select>
-            </div>
-
-            {% if type == 'posts' %}
-            <div class="filter-group">
-                <label><i data-feather="calendar"></i> Дата</label>
-                <select name="date" class="filter-select" id="dateFilter">
-                    <option value="all" {% if date_filter == 'all' %}selected{% endif %}>За всё время</option>
-                    <option value="day" {% if date_filter == 'day' %}selected{% endif %}>За 24 часа</option>
-                    <option value="week" {% if date_filter == 'week' %}selected{% endif %}>За неделю</option>
-                    <option value="month" {% if date_filter == 'month' %}selected{% endif %}>За месяц</option>
-                </select>
-            </div>
-
-            <div class="filter-group">
-                <label><i data-feather="users"></i> Сообщество</label>
-                <select name="community" class="filter-select" id="communityFilter">
-                    <option value="">Все сообщества</option>
-                    {% for community in communities %}
-                    <option value="{{ community.slug }}" {% if community_filter == community.slug %}selected{% endif %}>
-                        c/{{ community.name }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="filter-group">
-                <label><i data-feather="folder"></i> Категория</label>
-                <select name="category" class="filter-select" id="categoryFilter">
-                    <option value="">Все категории</option>
-                    {% for category in categories %}
-                    <option value="{{ category.slug }}" {% if category_filter == category.slug %}selected{% endif %}>
-                        {{ category.name }}
-                    </option>
-                    {% endfor %}
-                </select>
-            </div>
-            {% endif %}
-
-            <button type="button" class="btn btn--outline btn--sm" id="applyFilters">
-                <i data-feather="check"></i>
-                Применить
-            </button>
-
-            {% if query %}
-            <a href="?q={{ query }}&type={{ type }}" class="btn btn--outline btn--sm">
-                <i data-feather="x"></i>
-                Сбросить
-            </a>
-            {% endif %}
-        </div>
-
-        <!-- Активные фильтры -->
-        <div class="active-filters">
-            {% if date_filter and date_filter != 'all' %}
-            <span class="filter-tag">
-                Дата:
-                {% if date_filter == 'day' %}24 часа
-                {% elif date_filter == 'week' %}Неделя
-                {% elif date_filter == 'month' %}Месяц
-                {% endif %}
-                <button data-remove="date"><i data-feather="x"></i></button>
-            </span>
-            {% endif %}
-            {% if community_filter %}
-            <span class="filter-tag">
-                Сообщество: {{ community_filter }}
-                <button data-remove="community"><i data-feather="x"></i></button>
-            </span>
-            {% endif %}
-            {% if category_filter %}
-            <span class="filter-tag">
-                Категория: {{ category_filter }}
-                <button data-remove="category"><i data-feather="x"></i></button>
-            </span>
-            {% endif %}
-        </div>
     </div>
 
     <!-- Результаты -->
     <div class="search-results">
-        {% if query %}
-            {% if type == 'posts' %}
-                {% for post in results %}
-                <article class="search-result-post">
-                    <div class="result-meta">
-                        {% if post.community %}
-                        <a href="{% url 'communities:community_detail' slug=post.community.slug %}" class="result-community">
-                            c/{{ post.community.name }}
-                        </a>
-                        <span>·</span>
-                        {% endif %}
-                        <a href="{% url 'accounts:profile_by_username' username=post.author.username %}" class="result-author">
+        {% if type == 'posts' %}
+            {% for post in results %}
+            <article class="search-result-post">
+                <div class="result-meta">
+                    {% if post.community %}
+                    <a href="{% url 'communities:community_detail' slug=post.community.slug %}" class="result-community">
+                        c/{{ post.community.name }}
+                    </a>
+                    <span>·</span>
+                    {% endif %}
+                    <span class="result-author">
+                        <a href="{% url 'accounts:profile_by_username' username=post.author.username %}">
                             u/{{ post.author.username }}
                         </a>
-                        <span>·</span>
-                        <span class="result-time">{{ post.created_at|timesince }} назад</span>
+                    </span>
+                    <span>·</span>
+                    <span class="result-time">{{ post.created_at|timesince }} назад</span>
+                </div>
+                <h3 class="result-title">
+                    <a href="{% url 'posts:post_detail' pk=post.id %}">{{ post.title }}</a>
+                </h3>
+                <p class="result-excerpt">{{ post.content|truncatewords:30 }}</p>
+                <div class="result-stats">
+                    <span><i data-feather="arrow-up"></i> {{ post.score }}</span>
+                    <span><i data-feather="message-circle"></i> {{ post.comments.count }}</span>
+                </div>
+            </article>
+            {% empty %}
+            <div class="empty-state">
+                <i data-feather="search"></i>
+                <h3>Ничего не найдено</h3>
+                <p>Попробуйте изменить поисковый запрос</p>
+            </div>
+            {% endfor %}
+
+        {% elif type == 'communities' %}
+            <div class="communities-grid">
+                {% for community in results %}
+                <a href="{% url 'communities:community_detail' slug=community.slug %}" class="community-result">
+                    <div class="community-avatar">
+                        {% if community.avatar %}
+                        <img src="{{ community.avatar.url }}" alt="{{ community.name }}">
+                        {% else %}
+                        <span>{{ community.name|make_list|first|upper }}</span>
+                        {% endif %}
                     </div>
-                    <h3 class="result-title">
-                        <a href="{% url 'posts:post_detail' pk=post.id %}">{{ post.title }}</a>
-                    </h3>
-                    <p class="result-excerpt">{{ post.content|truncatewords:30 }}</p>
-                    <div class="result-stats">
-                        <span><i data-feather="arrow-up"></i> {{ post.likes_count|default:0 }}</span>
-                        <span><i data-feather="message-circle"></i> {{ post.comments_count|default:0 }}</span>
+                    <div class="community-info">
+                        <h4>c/{{ community.name }}</h4>
+                        <p>{{ community.description|truncatewords:15 }}</p>
+                        <span class="community-members">{{ community.members.count }} участников</span>
                     </div>
-                </article>
+                </a>
                 {% empty %}
-                <div class="empty-results">
-                    <i data-feather="search"></i>
-                    <h3>Ничего не найдено</h3>
-                    <p>Попробуйте изменить поисковый запрос или фильтры</p>
+                <div class="empty-state">
+                    <i data-feather="users"></i>
+                    <h3>Сообщества не найдены</h3>
+                    <p>Попробуйте другой поисковый запрос</p>
                 </div>
                 {% endfor %}
+            </div>
 
-            {% elif type == 'communities' %}
-                <div class="communities-results">
-                    {% for community in results %}
-                    <a href="{% url 'communities:community_detail' slug=community.slug %}" class="community-result">
-                        <div class="community-avatar">
-                            {% if community.avatar %}
-                            <img src="{{ community.avatar.url }}" alt="{{ community.name }}">
+        {% elif type == 'users' %}
+            <div class="users-list">
+                {% for user_result in results %}
+                <div class="user-result">
+                    <div class="user-avatar">
+                        <a href="{% url 'accounts:profile_by_username' username=user_result.username %}">
+                            {% if user_result.profile.avatar %}
+                            <img src="{{ user_result.profile.avatar.url }}" alt="{{ user_result.username }}">
                             {% else %}
-                            <span>{{ community.name|first|upper }}</span>
+                            <span>{{ user_result.username|make_list|first|upper }}</span>
                             {% endif %}
-                        </div>
-                        <div class="community-info">
-                            <h4>c/{{ community.name }}</h4>
-                            <p>{{ community.description|truncatewords:15 }}</p>
-                            <span>{{ community.members_count }} участников</span>
-                        </div>
-                    </a>
-                    {% empty %}
-                    <div class="empty-results">
-                        <i data-feather="users"></i>
-                        <h3>Сообщества не найдены</h3>
+                        </a>
                     </div>
-                    {% endfor %}
-                </div>
-
-            {% elif type == 'users' %}
-                <div class="users-results">
-                    {% for user_result in results %}
-                    <div class="user-result">
-                        <div class="user-avatar">
-                            <a href="{% url 'accounts:profile_by_username' username=user_result.username %}">
-                                {% if user_result.profile.avatar %}
-                                <img src="{{ user_result.profile.avatar.url }}" alt="{{ user_result.username }}">
-                                {% else %}
-                                <span>{{ user_result.username|first|upper }}</span>
-                                {% endif %}
-                            </a>
-                        </div>
-                        <div class="user-info">
-                            <a href="{% url 'accounts:profile_by_username' username=user_result.username %}" class="user-name">
-                                {{ user_result.get_full_name|default:user_result.username }}
-                            </a>
-                            <span class="user-username">@{{ user_result.username }}</span>
-                            {% if user_result.profile.bio %}
-                            <p class="user-bio">{{ user_result.profile.bio|truncatewords:10 }}</p>
-                            {% endif %}
-                        </div>
-                        {% if user.is_authenticated and user != user_result %}
-                        <button class="btn btn--outline btn--sm follow-btn" data-user-id="{{ user_result.id }}">
-                            {% if user_result in user.profile.following.all %}
-                            Отписаться
-                            {% else %}
-                            Подписаться
-                            {% endif %}
-                        </button>
+                    <div class="user-info">
+                        <a href="{% url 'accounts:profile_by_username' username=user_result.username %}" class="user-name">
+                            {{ user_result.get_full_name|default:user_result.username }}
+                        </a>
+                        <span class="user-username">@{{ user_result.username }}</span>
+                        {% if user_result.profile.bio %}
+                        <p class="user-bio">{{ user_result.profile.bio|truncatewords:15 }}</p>
                         {% endif %}
                     </div>
-                    {% empty %}
-                    <div class="empty-results">
-                        <i data-feather="user"></i>
-                        <h3>Пользователи не найдены</h3>
-                    </div>
-                    {% endfor %}
-                </div>
-
-            {% elif type == 'tags' %}
-                <div class="tags-results">
-                    {% for tag in results %}
-                    <a href="{% url 'posts:tag_detail' slug=tag.slug %}" class="tag-result">
-                        <span class="tag-name">#{{ tag.name }}</span>
-                        <span class="tag-posts">{{ tag.posts_count }} постов</span>
-                        {% if tag.description %}
-                        <p class="tag-description">{{ tag.description|truncatewords:10 }}</p>
+                    {% if user.is_authenticated and user != user_result %}
+                    <button class="btn btn--outline btn--sm follow-user-btn" data-user-id="{{ user_result.id }}">
+                        {% if user_result in user.profile.following.all %}
+                        Отписаться
+                        {% else %}
+                        Подписаться
                         {% endif %}
-                    </a>
-                    {% empty %}
-                    <div class="empty-results">
-                        <i data-feather="tag"></i>
-                        <h3>Теги не найдены</h3>
-                    </div>
-                    {% endfor %}
+                    </button>
+                    {% endif %}
                 </div>
-            {% endif %}
+                {% empty %}
+                <div class="empty-state">
+                    <i data-feather="user"></i>
+                    <h3>Пользователи не найдены</h3>
+                    <p>Попробуйте другой поисковый запрос</p>
+                </div>
+                {% endfor %}
+            </div>
 
-            <!-- Пагинация -->
-            {% if is_paginated %}
-            {% include 'includes/pagination.html' with page_obj=page_obj %}
-            {% endif %}
-        {% else %}
-            <div class="empty-search">
-                <i data-feather="search"></i>
-                <h3>Введите поисковый запрос</h3>
-                <p>Найдите посты, сообщества, пользователей или теги</p>
+        {% elif type == 'tags' %}
+            <div class="tags-cloud-large">
+                {% for tag in results %}
+                <a href="{% url 'posts:tag_detail' slug=tag.slug %}" class="tag-result"
+                   style="color: {{ tag.color|default:'var(--color-primary)' }};">
+                    #{{ tag.name }}
+                    <span class="tag-posts">{{ tag.posts_count }} постов</span>
+                </a>
+                {% empty %}
+                <div class="empty-state">
+                    <i data-feather="tag"></i>
+                    <h3>Теги не найдены</h3>
+                    <p>Попробуйте другой поисковый запрос</p>
+                </div>
+                {% endfor %}
             </div>
         {% endif %}
     </div>
+
+    <!-- Пагинация -->
+    {% if is_paginated %}
+    <div class="pagination-wrapper">
+        <div class="pagination">
+            {% if page_obj.has_previous %}
+            <a href="?q={{ query }}&type={{ type }}&page={{ page_obj.previous_page_number }}" class="pagination-btn">
+                <i data-feather="chevron-left"></i>
+            </a>
+            {% endif %}
+
+            <div class="pagination-pages">
+                {% for num in page_obj.paginator.page_range %}
+                    {% if num == page_obj.number %}
+                    <span class="pagination-btn active">{{ num }}</span>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <a href="?q={{ query }}&type={{ type }}&page={{ num }}" class="pagination-btn">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            {% if page_obj.has_next %}
+            <a href="?q={{ query }}&type={{ type }}&page={{ page_obj.next_page_number }}" class="pagination-btn">
+                <i data-feather="chevron-right"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-    .search-page {
-        max-width: 900px;
+    .search-container {
+        max-width: 800px;
         margin: 0 auto;
     }
 
@@ -293,28 +212,26 @@
     .search-input-wrapper {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem;
+        gap: 0.75rem;
+        padding: 0.5rem 0.5rem 0.5rem 1rem;
         background: var(--color-bg-surface);
-        border-radius: 60px;
-        border: 1.5px solid var(--color-border);
-        transition: all 0.2s;
+        border-radius: var(--radius-full);
+        border: 1px solid var(--color-border);
     }
 
     .search-input-wrapper:focus-within {
         border-color: var(--color-primary);
-        box-shadow: 0 0 0 4px var(--color-primary-light);
+        box-shadow: 0 0 0 3px var(--color-primary-light);
     }
 
     .search-input-wrapper i {
-        margin-left: 1rem;
         color: var(--color-text-tertiary);
     }
 
     .search-input-large {
         flex: 1;
         border: none;
-        padding: 0.875rem 0;
+        padding: 0.625rem 0;
         font-size: 1rem;
         background: transparent;
     }
@@ -323,41 +240,38 @@
         outline: none;
     }
 
-    .search-submit-btn {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.75rem 1.5rem;
+    .search-submit {
+        padding: 0.625rem 1.5rem;
         background: var(--color-primary);
         color: white;
-        border: none;
-        border-radius: 40px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background 0.2s;
+        border-radius: var(--radius-full);
+        font-weight: 500;
+        transition: background var(--transition-base);
     }
 
-    .search-submit-btn:hover {
+    .search-submit:hover {
         background: var(--color-primary-hover);
     }
 
-    /* Табы */
     .search-tabs {
         display: flex;
-        gap: 0.25rem;
+        gap: 0.5rem;
         margin-bottom: 1.5rem;
         border-bottom: 1px solid var(--color-border);
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .search-tab {
         display: flex;
         align-items: center;
         gap: 0.5rem;
-        padding: 0.75rem 1.25rem;
+        padding: 0.75rem 1rem;
         color: var(--color-text-secondary);
         text-decoration: none;
         border-bottom: 2px solid transparent;
-        transition: all 0.2s;
+        transition: all var(--transition-base);
+        white-space: nowrap;
     }
 
     .search-tab:hover {
@@ -369,87 +283,22 @@
         border-bottom-color: var(--color-primary);
     }
 
-    .search-tab .count {
+    .tab-count {
         background: var(--color-bg-elevated);
         padding: 0.125rem 0.5rem;
-        border-radius: 20px;
+        border-radius: var(--radius-full);
         font-size: 0.75rem;
+        font-weight: 600;
     }
 
-    /* Фильтры */
-    .search-filters {
-        background: var(--color-bg-surface);
-        border-radius: 16px;
-        padding: 1.25rem;
-        border: 1px solid var(--color-border-light);
-        margin-bottom: 1.5rem;
-    }
-
-    .filter-row {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: flex-end;
-        gap: 1rem;
-    }
-
-    .filter-group {
-        flex: 1;
-        min-width: 150px;
-    }
-
-    .filter-group label {
-        display: flex;
-        align-items: center;
-        gap: 0.375rem;
-        margin-bottom: 0.375rem;
-        font-size: 0.8125rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .filter-select {
-        width: 100%;
-        padding: 0.625rem 1rem;
-        border: 1px solid var(--color-border);
-        border-radius: 10px;
-        background: var(--color-bg-surface);
-        font-size: 0.875rem;
-        cursor: pointer;
-    }
-
-    .active-filters {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        margin-top: 1rem;
-        padding-top: 1rem;
-        border-top: 1px solid var(--color-border-light);
-    }
-
-    .filter-tag {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.375rem 0.75rem;
-        background: var(--color-primary-light);
-        color: var(--color-primary);
-        border-radius: 20px;
-        font-size: 0.8125rem;
-    }
-
-    .filter-tag button {
-        padding: 0.125rem;
-        color: currentColor;
-    }
-
-    /* Результаты */
     .search-results {
         min-height: 300px;
     }
 
     .search-result-post {
-        padding: 1.5rem;
+        padding: 1.25rem;
         background: var(--color-bg-surface);
-        border-radius: 16px;
+        border-radius: var(--radius-lg);
         border: 1px solid var(--color-border-light);
         margin-bottom: 1rem;
     }
@@ -464,13 +313,13 @@
     }
 
     .result-community,
-    .result-author {
+    .result-author a {
         color: var(--color-text-secondary);
         text-decoration: none;
     }
 
     .result-community:hover,
-    .result-author:hover {
+    .result-author a:hover {
         color: var(--color-primary);
     }
 
@@ -490,7 +339,7 @@
 
     .result-excerpt {
         color: var(--color-text-secondary);
-        font-size: 0.9375rem;
+        font-size: 0.875rem;
         line-height: 1.6;
         margin-bottom: 0.75rem;
     }
@@ -508,23 +357,32 @@
         gap: 0.25rem;
     }
 
-    /* Сообщества */
+    .communities-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
     .community-result {
         display: flex;
         align-items: center;
         gap: 1rem;
         padding: 1rem;
         background: var(--color-bg-surface);
-        border-radius: 16px;
+        border-radius: var(--radius-lg);
         border: 1px solid var(--color-border-light);
-        margin-bottom: 0.75rem;
         text-decoration: none;
+        transition: all var(--transition-base);
+    }
+
+    .community-result:hover {
+        box-shadow: var(--shadow-md);
     }
 
     .community-avatar {
         width: 3rem;
         height: 3rem;
-        border-radius: 12px;
+        border-radius: 50%;
         overflow: hidden;
         background: var(--color-primary-light);
         display: flex;
@@ -532,12 +390,17 @@
         justify-content: center;
         color: var(--color-primary);
         font-weight: 600;
+        flex-shrink: 0;
     }
 
     .community-avatar img {
         width: 100%;
         height: 100%;
         object-fit: cover;
+    }
+
+    .community-info {
+        flex: 1;
     }
 
     .community-info h4 {
@@ -547,19 +410,29 @@
 
     .community-info p {
         color: var(--color-text-secondary);
-        font-size: 0.8125rem;
+        font-size: 0.875rem;
+        margin-bottom: 0.25rem;
     }
 
-    /* Пользователи */
+    .community-members {
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .users-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
     .user-result {
         display: flex;
         align-items: center;
         gap: 1rem;
         padding: 1rem;
         background: var(--color-bg-surface);
-        border-radius: 16px;
+        border-radius: var(--radius-lg);
         border: 1px solid var(--color-border-light);
-        margin-bottom: 0.75rem;
     }
 
     .user-avatar {
@@ -573,6 +446,7 @@
         justify-content: center;
         color: var(--color-primary);
         font-weight: 600;
+        flex-shrink: 0;
     }
 
     .user-avatar img {
@@ -581,15 +455,24 @@
         object-fit: cover;
     }
 
+    .user-info {
+        flex: 1;
+    }
+
     .user-name {
         font-weight: 600;
         color: var(--color-text-primary);
         text-decoration: none;
     }
 
+    .user-name:hover {
+        color: var(--color-primary);
+    }
+
     .user-username {
         font-size: 0.8125rem;
         color: var(--color-text-tertiary);
+        display: block;
     }
 
     .user-bio {
@@ -598,113 +481,168 @@
         margin-top: 0.25rem;
     }
 
-    /* Теги */
-    .tag-result {
-        display: block;
-        padding: 1rem;
+    .tags-cloud-large {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        padding: 1.5rem;
         background: var(--color-bg-surface);
-        border-radius: 16px;
-        border: 1px solid var(--color-border-light);
-        margin-bottom: 0.75rem;
-        text-decoration: none;
+        border-radius: var(--radius-lg);
     }
 
-    .tag-name {
-        font-size: 1.125rem;
+    .tag-result {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        text-decoration: none;
         font-weight: 600;
-        color: var(--color-primary);
+        font-size: 1.25rem;
     }
 
     .tag-posts {
         font-size: 0.75rem;
-        color: var(--color-text-tertiary);
-        margin-left: 0.5rem;
+        opacity: 0.7;
+        font-weight: 400;
     }
 
-    .tag-description {
-        margin-top: 0.5rem;
-        color: var(--color-text-secondary);
-        font-size: 0.875rem;
-    }
-
-    /* Пустые состояния */
-    .empty-results,
-    .empty-search {
+    .empty-state {
         text-align: center;
         padding: 3rem;
         background: var(--color-bg-surface);
-        border-radius: 16px;
-        border: 1px solid var(--color-border-light);
+        border-radius: var(--radius-lg);
     }
 
-    .empty-results i,
-    .empty-search i {
+    .empty-state i {
         width: 3rem;
         height: 3rem;
         color: var(--color-text-tertiary);
         margin-bottom: 1rem;
     }
 
-    @media (max-width: 600px) {
-        .search-tabs span:not(.count) {
-            display: none;
+    .empty-state h3 {
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-state p {
+        color: var(--color-text-secondary);
+    }
+
+    .pagination-wrapper {
+        display: flex;
+        justify-content: center;
+        margin-top: 2rem;
+    }
+
+    .pagination {
+        display: flex;
+        gap: 0.25rem;
+    }
+
+    .pagination-btn {
+        min-width: 2.25rem;
+        height: 2.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-md);
+        background: var(--color-bg-surface);
+        border: 1px solid var(--color-border);
+        color: var(--color-text-primary);
+        text-decoration: none;
+        font-size: 0.875rem;
+    }
+
+    .pagination-btn:hover {
+        background: var(--color-bg-elevated);
+    }
+
+    .pagination-btn.active {
+        background: var(--color-primary);
+        color: white;
+        border-color: var(--color-primary);
+    }
+
+    @media (max-width: 768px) {
+        .search-input-wrapper {
+            flex-wrap: wrap;
         }
 
-        .filter-row {
-            flex-direction: column;
+        .search-submit {
+            width: 100%;
         }
 
-        .filter-group {
+        .user-result {
+            flex-wrap: wrap;
+        }
+
+        .user-result .btn {
             width: 100%;
         }
     }
 </style>
-{% endblock %}
-
-{% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const searchForm = document.querySelector('.search-main-form');
-        const typeInput = document.getElementById('searchTypeInput');
+document.addEventListener('DOMContentLoaded', function() {
+    // Сохраняем query в localStorage для быстрого доступа
+    const query = '{{ query|escapejs }}';
+    if (query) {
+        localStorage.setItem('lastSearch', query);
+    }
 
-        // Применение фильтров
-        function applyFilters() {
-            const url = new URL(window.location);
-            const sort = document.getElementById('sortFilter')?.value;
-            const date = document.getElementById('dateFilter')?.value;
-            const community = document.getElementById('communityFilter')?.value;
-            const category = document.getElementById('categoryFilter')?.value;
+    // Подсветка найденного текста
+    function highlightText(element, query) {
+        if (!query || !element) return;
 
-            if (sort) url.searchParams.set('sort', sort);
-            if (date && date !== 'all') url.searchParams.set('date', date);
-            if (community) url.searchParams.set('community', community);
-            if (category) url.searchParams.set('category', category);
+        const regex = new RegExp(`(${query})`, 'gi');
+        const walker = document.createTreeWalker(
+            element,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode: function(node) {
+                    if (node.parentElement.tagName === 'A' ||
+                        node.parentElement.tagName === 'BUTTON' ||
+                        node.parentElement.classList.contains('no-highlight')) {
+                        return NodeFilter.FILTER_REJECT;
+                    }
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+            }
+        );
 
-            window.location = url;
+        const nodesToReplace = [];
+        let node;
+
+        while (node = walker.nextNode()) {
+            if (regex.test(node.textContent)) {
+                nodesToReplace.push(node);
+            }
         }
 
-        document.getElementById('applyFilters')?.addEventListener('click', applyFilters);
-
-        // Изменение типа поиска
-        document.querySelectorAll('.search-tab').forEach(tab => {
-            tab.addEventListener('click', function(e) {
-                e.preventDefault();
-                const url = new URL(this.href);
-                const sort = document.getElementById('sortFilter')?.value;
-                if (sort) url.searchParams.set('sort', sort);
-                window.location = url;
-            });
+        nodesToReplace.forEach(node => {
+            const span = document.createElement('span');
+            span.innerHTML = node.textContent.replace(regex, '<mark>$1</mark>');
+            node.parentNode.replaceChild(span, node);
         });
+    }
 
-        // Удаление фильтров
-        document.querySelectorAll('[data-remove]').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const filter = this.closest('[data-remove]').dataset.remove;
-                const url = new URL(window.location);
-                url.searchParams.delete(filter);
-                window.location = url;
-            });
+    // Применяем подсветку
+    if (query) {
+        const resultsContainer = document.querySelector('.search-results');
+        if (resultsContainer) {
+            highlightText(resultsContainer, query);
+        }
+    }
+
+    // Фильтрация результатов на клиенте (дополнительно)
+    const filterInput = document.getElementById('clientFilter');
+    filterInput?.addEventListener('input', function() {
+        const filterText = this.value.toLowerCase();
+        const items = document.querySelectorAll('.search-result-post, .community-result, .user-result, .tag-result');
+
+        items.forEach(item => {
+            const text = item.textContent.toLowerCase();
+            item.style.display = text.includes(filterText) ? '' : 'none';
         });
     });
+});
 </script>
 {% endblock %}

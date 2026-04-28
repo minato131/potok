@@ -3,95 +3,92 @@
 {% load static %}
 
 {% block title %}Вход · Поток{% endblock %}
+{% block page_title %}Вход в аккаунт{% endblock %}
 
 {% block content %}
-<div class="auth-page">
+<div class="auth-container">
     <div class="auth-card">
-        <div class="auth-card-header">
+        <div class="auth-card__header">
             <div class="auth-logo">
-                <span class="logo-icon">🌊</span>
-                <span class="logo-text">Поток</span>
+                <span class="auth-logo__icon">🌊</span>
+                <span class="auth-logo__text">Поток</span>
             </div>
-            <h1 class="auth-title">Вход в аккаунт</h1>
-            <p class="auth-subtitle">Войдите, чтобы продолжить общение</p>
+            <p class="auth-card__subtitle">Войдите, чтобы присоединиться к обсуждениям</p>
         </div>
 
-        {% if form.errors %}
-        <div class="auth-alert auth-alert--error">
-            <i data-feather="alert-circle"></i>
-            <span>Неверное имя пользователя или пароль</span>
-        </div>
-        {% endif %}
-
-        {% if messages %}
-            {% for message in messages %}
-            <div class="auth-alert auth-alert--{{ message.tags }}">
-                {{ message }}
-            </div>
-            {% endfor %}
-        {% endif %}
-
-        <form method="post" class="auth-form">
+        <form method="post" class="auth-form" novalidate>
             {% csrf_token %}
 
-            <div class="form-field">
-                <label for="{{ form.username.id_for_label }}" class="field-label">
-                    <i data-feather="user"></i>
-                    <span>Имя пользователя или Email</span>
+            {% if form.non_field_errors %}
+            <div class="alert alert--error">
+                {% for error in form.non_field_errors %}
+                    {{ error }}
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label for="{{ form.username.id_for_label }}" class="form-label">
+                    <i data-feather="user" class="form-label__icon"></i>
+                    Имя пользователя или Email
                 </label>
-                <div class="field-input-wrapper">
-                    {{ form.username }}
-                </div>
+                {{ form.username }}
+                {% if form.username.errors %}
+                <div class="form-error">{{ form.username.errors.0 }}</div>
+                {% endif %}
             </div>
 
-            <div class="form-field">
-                <label for="{{ form.password.id_for_label }}" class="field-label">
-                    <i data-feather="lock"></i>
-                    <span>Пароль</span>
+            <div class="form-group">
+                <label for="{{ form.password.id_for_label }}" class="form-label">
+                    <i data-feather="lock" class="form-label__icon"></i>
+                    Пароль
                 </label>
-                <div class="field-input-wrapper field-input-wrapper--password">
+                <div class="password-input-wrapper">
                     {{ form.password }}
-                    <button type="button" class="password-toggle-btn" data-target="{{ form.password.id_for_label }}">
+                    <button type="button" class="password-toggle" data-target="{{ form.password.id_for_label }}">
                         <i data-feather="eye"></i>
                     </button>
                 </div>
+                {% if form.password.errors %}
+                <div class="form-error">{{ form.password.errors.0 }}</div>
+                {% endif %}
             </div>
 
-            <div class="form-options">
-                <label class="remember-checkbox">
+            <div class="form-group form-group--checkbox">
+                <label class="checkbox-label">
                     <input type="checkbox" name="remember_me">
                     <span class="checkbox-custom"></span>
-                    <span>Запомнить меня</span>
+                    <span class="checkbox-text">Запомнить меня</span>
                 </label>
-                <a href="{% url 'accounts:password_reset' %}" class="forgot-link">Забыли пароль?</a>
+                <a href="#" class="forgot-password">Забыли пароль?</a>
             </div>
 
-            <button type="submit" class="auth-submit-btn">
-                <span>Войти в аккаунт</span>
+            <button type="submit" class="btn btn--primary btn--block btn--lg">
+                <span>Войти</span>
                 <i data-feather="arrow-right"></i>
             </button>
         </form>
 
-        <div class="auth-footer">
-            <p>Нет аккаунта? <a href="{% url 'accounts:register' %}">Зарегистрироваться</a></p>
+        <div class="auth-card__footer">
+            <p>Нет аккаунта? <a href="{% url 'accounts:register' %}" class="auth-link">Зарегистрироваться</a></p>
         </div>
     </div>
 
-    <!-- Описание снизу -->
-    <div class="auth-info">
-        <div class="info-features">
-            <div class="info-feature">
-                <i data-feather="users"></i>
-                <span>Сообщества по интересам</span>
-            </div>
-            <div class="info-feature">
-                <i data-feather="message-circle"></i>
-                <span>Общение в реальном времени</span>
-            </div>
-            <div class="info-feature">
-                <i data-feather="bookmark"></i>
-                <span>Закладки и сохранения</span>
-            </div>
+    <div class="auth-features">
+        <div class="feature-item">
+            <i data-feather="users"></i>
+            <h3>Сообщества</h3>
+            <p>Присоединяйтесь к сообществам по интересам</p>
+        </div>
+        <div class="feature-item">
+            <i data-feather="message-circle"></i>
+            <h3>Общение</h3>
+            <p>Общайтесь в реальном времени</p>
+        </div>
+        <div class="feature-item">
+            <i data-feather="share-2"></i>
+            <h3>Делитесь</h3>
+            <p>Публикуйте свои мысли и идеи</p>
         </div>
     </div>
 </div>
@@ -99,30 +96,25 @@
 
 {% block extra_css %}
 <style>
-    /* Контейнер страницы */
-    .auth-page {
-        min-height: calc(100vh - 80px);
-        display: flex;
-        flex-direction: column;
+    .auth-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 3rem;
+        max-width: 1100px;
+        margin: 0 auto;
         align-items: center;
-        justify-content: center;
-        padding: 2rem 1.5rem;
+        min-height: calc(100vh - 200px);
     }
 
-    /* Карточка формы */
     .auth-card {
-        width: 100%;
-        max-width: 520px;
         background: var(--color-bg-surface);
-        border-radius: 32px;
+        border-radius: var(--radius-xl);
         padding: 2.5rem;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+        box-shadow: var(--shadow-lg);
         border: 1px solid var(--color-border-light);
-        margin-bottom: 2rem;
     }
 
-    /* Заголовок */
-    .auth-card-header {
+    .auth-card__header {
         text-align: center;
         margin-bottom: 2rem;
     }
@@ -132,141 +124,75 @@
         align-items: center;
         justify-content: center;
         gap: 0.5rem;
-        margin-bottom: 1.5rem;
+        margin-bottom: 0.5rem;
     }
 
-    .logo-icon {
+    .auth-logo__icon {
+        font-size: 2.5rem;
+    }
+
+    .auth-logo__text {
         font-size: 2rem;
-    }
-
-    .logo-text {
-        font-size: 1.75rem;
         font-weight: 700;
         color: var(--color-primary);
     }
 
-    .auth-title {
-        font-size: 1.75rem;
-        font-weight: 700;
-        color: var(--color-text-primary);
-        margin-bottom: 0.5rem;
-    }
-
-    .auth-subtitle {
+    .auth-card__subtitle {
         color: var(--color-text-secondary);
-        font-size: 1rem;
-    }
-
-    /* Алерты */
-    .auth-alert {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 1rem 1.25rem;
-        border-radius: 16px;
-        margin-bottom: 1.5rem;
         font-size: 0.9375rem;
     }
 
-    .auth-alert--error {
-        background: #fee2e2;
-        color: #991b1b;
-    }
-
-    .auth-alert i {
-        width: 1.25rem;
-        height: 1.25rem;
-    }
-
-    /* Форма */
     .auth-form {
         margin-bottom: 1.5rem;
     }
 
-    .form-field {
-        margin-bottom: 1.5rem;
-    }
-
-    .field-label {
+    .form-label {
         display: flex;
         align-items: center;
         gap: 0.5rem;
         margin-bottom: 0.5rem;
         font-weight: 500;
         color: var(--color-text-primary);
-        font-size: 0.9375rem;
     }
 
-    .field-label i {
-        width: 1.125rem;
-        height: 1.125rem;
+    .form-label__icon {
+        width: 1rem;
+        height: 1rem;
         color: var(--color-text-tertiary);
     }
 
-    .field-input-wrapper {
+    .password-input-wrapper {
         position: relative;
     }
 
-    .field-input-wrapper input {
-        width: 100%;
-        padding: 1rem 1.25rem;
-        border: 1.5px solid var(--color-border);
-        border-radius: 16px;
-        font-size: 1rem;
-        background: var(--color-bg-surface);
-        transition: all 0.2s ease;
-    }
-
-    .field-input-wrapper input:focus {
-        outline: none;
-        border-color: var(--color-primary);
-        box-shadow: 0 0 0 4px var(--color-primary-light);
-    }
-
-    .field-input-wrapper--password input {
-        padding-right: 3.5rem;
-    }
-
-    .password-toggle-btn {
+    .password-toggle {
         position: absolute;
         right: 0.75rem;
         top: 50%;
         transform: translateY(-50%);
-        padding: 0.5rem;
+        padding: 0.25rem;
         color: var(--color-text-tertiary);
-        background: none;
-        border: none;
-        cursor: pointer;
-        border-radius: 12px;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        transition: color var(--transition-base);
     }
 
-    .password-toggle-btn:hover {
-        background: var(--color-bg-elevated);
+    .password-toggle:hover {
         color: var(--color-text-primary);
     }
 
-    /* Опции */
-    .form-options {
+    .form-group--checkbox {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 1.5rem;
     }
 
-    .remember-checkbox {
+    .checkbox-label {
         display: flex;
         align-items: center;
         gap: 0.5rem;
         cursor: pointer;
-        font-size: 0.9375rem;
-        color: var(--color-text-secondary);
     }
 
-    .remember-checkbox input {
+    .checkbox-label input[type="checkbox"] {
         display: none;
     }
 
@@ -274,132 +200,120 @@
         width: 1.25rem;
         height: 1.25rem;
         border: 2px solid var(--color-border);
-        border-radius: 6px;
-        transition: all 0.2s ease;
+        border-radius: var(--radius-sm);
+        transition: all var(--transition-base);
     }
 
-    .remember-checkbox input:checked + .checkbox-custom {
-        background: var(--color-primary);
+    .checkbox-label input[type="checkbox"]:checked + .checkbox-custom {
+        background-color: var(--color-primary);
         border-color: var(--color-primary);
         position: relative;
     }
 
-    .remember-checkbox input:checked + .checkbox-custom::after {
+    .checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after {
         content: '';
         position: absolute;
         left: 5px;
         top: 2px;
-        width: 5px;
-        height: 10px;
+        width: 4px;
+        height: 8px;
         border: solid white;
         border-width: 0 2px 2px 0;
         transform: rotate(45deg);
     }
 
-    .forgot-link {
-        color: var(--color-primary);
-        text-decoration: none;
+    .checkbox-text {
         font-size: 0.9375rem;
-        font-weight: 500;
-    }
-
-    .forgot-link:hover {
-        text-decoration: underline;
-    }
-
-    /* Кнопка отправки */
-    .auth-submit-btn {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.75rem;
-        padding: 1rem 1.5rem;
-        background: var(--color-primary);
-        color: white;
-        border: none;
-        border-radius: 16px;
-        font-size: 1.0625rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-
-    .auth-submit-btn:hover {
-        background: var(--color-primary-hover);
-        transform: translateY(-1px);
-        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.2);
-    }
-
-    .auth-submit-btn i {
-        width: 1.25rem;
-        height: 1.25rem;
-    }
-
-    /* Футер */
-    .auth-footer {
-        text-align: center;
         color: var(--color-text-secondary);
-        font-size: 0.9375rem;
     }
 
-    .auth-footer a {
+    .forgot-password {
+        font-size: 0.875rem;
         color: var(--color-primary);
         text-decoration: none;
-        font-weight: 600;
     }
 
-    .auth-footer a:hover {
+    .forgot-password:hover {
         text-decoration: underline;
     }
 
-    /* Информация снизу */
-    .auth-info {
-        max-width: 520px;
-        width: 100%;
+    .btn--lg {
+        padding: 0.875rem 1.5rem;
+        font-size: 1rem;
+    }
+
+    .auth-card__footer {
         text-align: center;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--color-border-light);
+        color: var(--color-text-secondary);
     }
 
-    .info-features {
+    .auth-link {
+        color: var(--color-primary);
+        font-weight: 500;
+        text-decoration: none;
+    }
+
+    .auth-link:hover {
+        text-decoration: underline;
+    }
+
+    .auth-features {
         display: flex;
-        justify-content: center;
+        flex-direction: column;
         gap: 2rem;
-        flex-wrap: wrap;
     }
 
-    .info-feature {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
+    .feature-item {
+        text-align: center;
+        padding: 1.5rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
+        transition: transform var(--transition-base), box-shadow var(--transition-base);
+    }
+
+    .feature-item:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .feature-item i {
+        width: 2.5rem;
+        height: 2.5rem;
+        color: var(--color-primary);
+        margin-bottom: 1rem;
+    }
+
+    .feature-item h3 {
+        font-size: 1.125rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .feature-item p {
         color: var(--color-text-secondary);
         font-size: 0.875rem;
     }
 
-    .info-feature i {
-        width: 1rem;
-        height: 1rem;
-        color: var(--color-primary);
+    .form-error {
+        color: var(--color-danger);
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
     }
 
-    /* Адаптивность */
-    @media (max-width: 600px) {
+    @media (max-width: 768px) {
+        .auth-container {
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+
         .auth-card {
-            padding: 2rem 1.5rem;
+            padding: 1.5rem;
         }
 
-        .auth-title {
-            font-size: 1.5rem;
-        }
-
-        .form-options {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.75rem;
-        }
-
-        .info-features {
-            flex-direction: column;
-            gap: 0.75rem;
+        .auth-features {
+            display: none;
         }
     }
 </style>
@@ -408,7 +322,8 @@
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const passwordToggles = document.querySelectorAll('.password-toggle-btn');
+        // Показать/скрыть пароль
+        const passwordToggles = document.querySelectorAll('.password-toggle');
         passwordToggles.forEach(toggle => {
             toggle.addEventListener('click', function() {
                 const targetId = this.dataset.target;
@@ -425,6 +340,17 @@
                 feather.replace();
             });
         });
+
+        // Анимация появления формы
+        const authCard = document.querySelector('.auth-card');
+        authCard.style.opacity = '0';
+        authCard.style.transform = 'translateY(20px)';
+
+        setTimeout(() => {
+            authCard.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+            authCard.style.opacity = '1';
+            authCard.style.transform = 'translateY(0)';
+        }, 100);
     });
 </script>
 {% endblock %}
