@@ -163,8 +163,8 @@
 
                     <div class="post-footer">
                         <button class="post-action like-btn" data-post-id="{{ post.id }}">
-                            <i data-feather="heart" {% if user in post.likes.all %}class="liked"{% endif %}></i>
-                            <span>{{ post.likes.count }}</span>
+                            <i data-feather="heart" {% if post.id in liked_post_ids %}class="liked"{% endif %}></i>
+                            <span>{{ post.likes_count }}</span>
                         </button>
                         <a href="{% url 'posts:post_detail' pk=post.id %}" class="post-action">
                             <i data-feather="message-square"></i>
@@ -514,6 +514,24 @@
             }
             return cookieValue;
         }
+    });
+    document.querySelectorAll('.like-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const postId = this.dataset.postId;
+            const icon = this.querySelector('i');
+            const count = this.querySelector('span');
+            const r = await fetch('/like/toggle/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: `content_type=post&object_id=${postId}&like_type=like`
+            });
+            const d = await r.json();
+            icon.classList.toggle('liked', d.action === 'added');
+            count.textContent = d.likes_count;
+        });
     });
 </script>
 {% endblock %}

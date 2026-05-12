@@ -160,6 +160,14 @@ def profile_view(request, username=None):
             following=user
         ).exists()
 
+    liked_post_ids = set()
+    if request.user.is_authenticated:
+        from posts.models import Like
+        post_ids = [p.id for p in user_posts]
+        liked_post_ids = set(Like.objects.filter(
+            user=request.user, content_type='post', object_id__in=post_ids
+        ).values_list('object_id', flat=True))
+
     # Друзья и сообщества
     from accounts.models import Friendship
     from communities.models import Community
@@ -173,12 +181,13 @@ def profile_view(request, username=None):
         'followers_count': followers_count,
         'following_count': following_count,
         'is_following': is_following,
-        'user_posts': user_posts,
+        'posts': user_posts,
         'user_comments': user_comments,
         'user_communities': user_communities,
         'user_bookmarks': user_bookmarks,
         'friends_count': friends_count,
         'communities_count': communities_count,
+        'liked_post_ids': liked_post_ids,
     }
     return render(request, 'accounts/profile.html', context)
 

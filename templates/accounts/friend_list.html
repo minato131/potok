@@ -2,7 +2,7 @@
 {% load static %}
 
 {% block title %}Друзья {{ profile_user.username }} · Поток{% endblock %}
-{% block page_title %}👥 Друзья {{ profile_user.get_full_name|default:profile_user.username }}{% endblock %}
+{% block page_title %}Друзья {{ profile_user.get_full_name|default:profile_user.username }}{% endblock %}
 
 {% block content %}
 <style>
