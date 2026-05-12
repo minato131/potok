@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Друзья {{ profile_user.username }} · Поток{% endblock %}
+{% block page_title %}👥 Друзья {{ profile_user.get_full_name|default:profile_user.username }}{% endblock %}
+
+{% block content %}
+<style>
+    .list-page { max-width: 700px; margin: 0 auto; }
+    .list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; flex-wrap: wrap; gap: 10px; }
+    .list-count { font-size: 0.95rem; color: var(--color-text-secondary); }
+    .list-count strong { color: var(--color-text); }
+    .list-search { position: relative; }
+    .list-search input { padding: 9px 40px 9px 16px; border: 1px solid var(--color-border); border-radius: 24px; font-size: 0.9rem; outline: none; width: 240px; background: var(--color-bg-surface); color: var(--color-text); }
+    .list-search input:focus { border-color: var(--color-primary); }
+    .list-search button { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--color-text-tertiary); cursor: pointer; padding: 4px; }
+
+    .friend-card { display: flex; align-items: center; gap: 14px; padding: 14px; background: var(--color-bg-surface); border-radius: 12px; border: 1px solid var(--color-border-light); margin-bottom: 8px; transition: box-shadow 0.2s; }
+    .friend-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.05); }
+    .friend-avatar { width: 52px; height: 52px; border-radius: 50%; overflow: hidden; flex-shrink: 0; display: block; }
+    .friend-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .av-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--color-primary-light); color: var(--color-primary); font-weight: 700; font-size: 1.2rem; border-radius: 50%; }
+    .friend-info { flex: 1; min-width: 0; }
+    .friend-name { font-weight: 600; font-size: 0.95rem; color: var(--color-text); text-decoration: none; display: block; }
+    .friend-name:hover { color: var(--color-primary); }
+    .friend-username { font-size: 0.8rem; color: var(--color-text-tertiary); }
+    .friend-actions { flex-shrink: 0; }
+    .friend-actions .btn { padding: 7px 16px; border-radius: 20px; font-size: 0.82rem; }
+
+    .empty-state { text-align: center; padding: 60px 20px; }
+    @media (max-width: 500px) { .list-search input { width: 100%; } }
+</style>
+
+<div class="list-page">
+    <div class="list-header">
+        <div class="list-count"><strong>{{ total_count }}</strong> {{ total_count|pluralize:'друг,друзей' }}</div>
+        <form class="list-search" method="get">
+            <input type="text" name="q" placeholder="Поиск друзей..." value="{{ query }}">
+            <button type="submit"><i data-feather="search"></i></button>
+        </form>
+    </div>
+
+    {% for friendship in friendships %}
+    <div class="friend-card">
+        <a href="{% url 'accounts:profile_by_username' username=friendship.friend.username %}" class="friend-avatar">
+            {% if friendship.friend.profile.avatar %}
+            <img src="{{ friendship.friend.profile.avatar.url }}" alt="">
+            {% else %}
+            <div class="av-placeholder">{{ friendship.friend.username|first|upper }}</div>
+            {% endif %}
+        </a>
+        <div class="friend-info">
+            <a href="{% url 'accounts:profile_by_username' username=friendship.friend.username %}" class="friend-name">{{ friendship.friend.get_full_name|default:friendship.friend.username }}</a>
+            <span class="friend-username">@{{ friendship.friend.username }}</span>
+        </div>
+        <div class="friend-actions">
+            <button class="btn btn--outline btn--sm friend-toggle" data-friend-id="{{ friendship.friend.id }}">Друг</button>
+        </div>
+    </div>
+    {% empty %}
+    <div class="empty-state"><p style="color:var(--color-text-tertiary)">Друзей не найдено</p></div>
+    {% endfor %}
+
+    {% if is_paginated %}
+    <div style="display:flex;justify-content:center;gap:8px;padding:24px 0">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_number }}" class="btn btn--outline btn--sm">←</a>{% endif %}
+        {% for n in page_obj.paginator.page_range %}{% if n == page_obj.number %}<span class="btn btn--primary btn--sm">{{ n }}</span>{% elif n > page_obj.number|add:'-3' and n < page_obj.number|add:'3' %}<a href="?page={{ n }}" class="btn btn--outline btn--sm">{{ n }}</a>{% endif %}{% endfor %}
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="btn btn--outline btn--sm">→</a>{% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function getCookie(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
+document.querySelectorAll('.friend-toggle').forEach(btn => btn.addEventListener('click', async function() {
+    const r = await fetch(`/accounts/friend/${this.dataset.friendId}/toggle/`, { method:'POST', headers:{'X-CSRFToken':getCookie('csrftoken')} });
+    const d = await r.json();
+    this.textContent = d.action === 'added' ? 'Друг' : '+ Друг';
+    this.classList.toggle('btn--outline', d.action !== 'added');
+    this.classList.toggle('btn--primary', d.action === 'added');
+}));
+</script>
+{% endblock %}

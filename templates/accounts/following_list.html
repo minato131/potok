@@ -6,92 +6,118 @@
 {% block page_title %}Подписки{% endblock %}
 
 {% block content %}
-<div class="followers-container">
-    <!-- Шапка с информацией -->
-    <div class="followers-header">
-        <a href="{% url 'accounts:profile_by_username' username=profile_user.username %}" class="back-link">
-            <i data-feather="arrow-left"></i>
-            <span>Вернуться к профилю</span>
-        </a>
-        <div class="user-info-mini">
-            <div class="user-avatar-small">
+<style>
+    .list-page { max-width: 700px; margin: 0 auto; }
+    .back-link { display: inline-flex; align-items: center; gap: 6px; color: var(--color-text-secondary); text-decoration: none; font-size: 0.9rem; margin-bottom: 16px; }
+    .back-link:hover { color: var(--color-primary); }
+    .list-header { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+    .user-mini { display: flex; align-items: center; gap: 10px; flex: 1; }
+    .user-mini-avatar { width: 44px; height: 44px; border-radius: 50%; overflow: hidden; }
+    .user-mini-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .av-ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--color-primary-light); color: var(--color-primary); font-weight: 700; border-radius: 50%; font-size: 1rem; }
+    .user-mini-name { font-weight: 600; font-size: 0.95rem; }
+    .user-mini-username { font-size: 0.8rem; color: var(--color-text-tertiary); }
+    .list-count { font-size: 0.9rem; color: var(--color-text-secondary); }
+    .list-count strong { color: var(--color-text); font-weight: 700; }
+
+    .tabs { display: flex; gap: 0; background: var(--color-bg-surface); border-radius: 10px; border: 1px solid var(--color-border-light); margin-bottom: 16px; overflow: hidden; }
+    .tab { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px; font-size: 0.85rem; font-weight: 500; color: var(--color-text-secondary); text-decoration: none; transition: all 0.2s; }
+    .tab:hover { background: var(--color-bg-elevated); }
+    .tab.active { background: var(--color-primary); color: #fff; }
+    .tab-count { font-size: 0.75rem; opacity: 0.8; }
+
+    .search-wrap { position: relative; margin-bottom: 16px; }
+    .search-wrap input { width: 100%; padding: 10px 16px 10px 42px; border: 1px solid var(--color-border); border-radius: 24px; font-size: 0.9rem; outline: none; background: var(--color-bg-surface); color: var(--color-text); }
+    .search-wrap input:focus { border-color: var(--color-primary); }
+    .search-wrap svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: var(--color-text-tertiary); }
+
+    .card { display: flex; align-items: center; gap: 14px; padding: 14px; background: var(--color-bg-surface); border-radius: 12px; border: 1px solid var(--color-border-light); margin-bottom: 8px; transition: box-shadow 0.2s; }
+    .card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.05); }
+    .card-avatar { width: 52px; height: 52px; border-radius: 50%; overflow: hidden; flex-shrink: 0; display: block; }
+    .card-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .card-info { flex: 1; min-width: 0; }
+    .card-name { font-weight: 600; font-size: 0.95rem; color: var(--color-text); text-decoration: none; display: block; }
+    .card-name:hover { color: var(--color-primary); }
+    .card-username { font-size: 0.8rem; color: var(--color-text-tertiary); }
+    .card-bio { font-size: 0.82rem; color: var(--color-text-secondary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-actions { flex-shrink: 0; }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--color-text-tertiary); }
+    .empty-state svg { width: 40px; height: 40px; margin-bottom: 12px; }
+    .empty-state h3 { font-size: 1.1rem; color: var(--color-text); }
+    .empty-state p { margin-bottom: 14px; font-size: 0.9rem; }
+
+    @media (max-width: 500px) {
+        .card { flex-wrap: wrap; }
+        .card-actions { width: 100%; margin-top: 8px; }
+        .card-actions .btn { width: 100%; }
+    }
+</style>
+
+<div class="list-page">
+    <a href="{% url 'accounts:profile_by_username' username=profile_user.username %}" class="back-link">
+        <i data-feather="arrow-left"></i> Вернуться к профилю
+    </a>
+
+    <div class="list-header">
+        <div class="user-mini">
+            <div class="user-mini-avatar">
                 {% if profile_user.profile.avatar %}
-                <img src="{{ profile_user.profile.avatar.url }}" alt="{{ profile_user.username }}">
+                <img src="{{ profile_user.profile.avatar.url }}" alt="">
                 {% else %}
-                <div class="avatar-placeholder">{{ profile_user.username|make_list|first|upper }}</div>
+                <div class="av-ph">{{ profile_user.username|first|upper }}</div>
                 {% endif %}
             </div>
             <div>
-                <h2 class="user-name">{{ profile_user.get_full_name|default:profile_user.username }}</h2>
-                <p class="user-username">@{{ profile_user.username }}</p>
+                <div class="user-mini-name">{{ profile_user.get_full_name|default:profile_user.username }}</div>
+                <div class="user-mini-username">@{{ profile_user.username }}</div>
             </div>
         </div>
+        <div class="list-count"><strong>{{ following_count }}</strong> подписок</div>
     </div>
 
-    <!-- Табы -->
-    <div class="followers-tabs">
+    <div class="tabs">
         <a href="{% url 'accounts:followers' username=profile_user.username %}" class="tab">
-            <i data-feather="users"></i>
-            <span>Подписчики</span>
-            <span class="tab-count">{{ followers_count }}</span>
+            <i data-feather="users"></i> Подписчики <span class="tab-count">{{ followers_count }}</span>
         </a>
-        <a href="{% url 'accounts:following' username=profile_user.username %}" class="tab active">
-            <i data-feather="user-check"></i>
-            <span>Подписки</span>
-            <span class="tab-count">{{ following_count }}</span>
-        </a>
+        <span class="tab active">
+            <i data-feather="user-check"></i> Подписки <span class="tab-count">{{ following_count }}</span>
+        </span>
     </div>
 
-    <!-- Поиск -->
-    <div class="search-wrapper">
+    <div class="search-wrap">
         <i data-feather="search"></i>
-        <input type="text" id="followingSearch" placeholder="Поиск подписок..." class="search-input">
+        <input type="text" id="searchInput" placeholder="Поиск подписок...">
     </div>
 
-    <!-- Список подписок -->
-    <div class="followers-list">
+    <div id="cardList">
         {% for following_user in following %}
-        <div class="follower-card" data-username="{{ following_user.username }}">
-            <div class="follower-avatar">
-                <a href="{% url 'accounts:profile_by_username' username=following_user.username %}">
-                    {% if following_user.profile.avatar %}
-                    <img src="{{ following_user.profile.avatar.url }}" alt="{{ following_user.username }}">
-                    {% else %}
-                    <div class="avatar-placeholder">{{ following_user.username|make_list|first|upper }}</div>
-                    {% endif %}
-                </a>
-            </div>
-
-            <div class="follower-info">
-                <a href="{% url 'accounts:profile_by_username' username=following_user.username %}" class="follower-name">
-                    {{ following_user.get_full_name|default:following_user.username }}
-                </a>
-                <span class="follower-username">@{{ following_user.username }}</span>
-                {% if following_user.profile.bio %}
-                <p class="follower-bio">{{ following_user.profile.bio|truncatewords:15 }}</p>
+        <div class="card" data-username="{{ following_user.username }}">
+            <a href="{% url 'accounts:profile_by_username' username=following_user.username %}" class="card-avatar">
+                {% if following_user.profile.avatar %}
+                <img src="{{ following_user.profile.avatar.url }}" alt="">
+                {% else %}
+                <div class="av-ph">{{ following_user.username|first|upper }}</div>
                 {% endif %}
+            </a>
+            <div class="card-info">
+                <a href="{% url 'accounts:profile_by_username' username=following_user.username %}" class="card-name">{{ following_user.get_full_name|default:following_user.username }}</a>
+                <span class="card-username">@{{ following_user.username }}</span>
+                {% if following_user.profile.bio %}<div class="card-bio">{{ following_user.profile.bio }}</div>{% endif %}
             </div>
-
-            <div class="follower-actions">
+            <div class="card-actions">
                 {% if user == profile_user %}
-                <button class="btn btn--outline unfollow-btn" data-user-id="{{ following_user.id }}">
-                    <i data-feather="user-minus"></i>
-                    <span>Отписаться</span>
+                <button class="btn btn--outline btn--sm unfollow-btn" data-user-id="{{ following_user.id }}">
+                    <i data-feather="user-minus"></i> Отписаться
                 </button>
                 {% elif user != following_user %}
                     {% if following_user in user.profile.following.all %}
-                    <button class="btn btn--outline follow-btn"
-                            data-user-id="{{ user.id }}"
-                            data-action="unfollow">
-                        <i data-feather="user-check"></i>
-                        <span>Отписаться</span>
+                    <button class="btn btn--outline btn--sm follow-btn" data-user-id="{{ following_user.id }}" data-action="unfollow">
+                        <i data-feather="user-check"></i> Отписаться
                     </button>
                     {% else %}
-                    <button class="btn btn--primary follow-btn"
-                            data-user-id="{{ user.id }}"
-                            data-action="follow">
-                        <i data-feather="user-plus"></i>
-                        <span>Подписаться</span>
+                    <button class="btn btn--primary btn--sm follow-btn" data-user-id="{{ following_user.id }}" data-action="follow">
+                        <i data-feather="user-plus"></i> Подписаться
                     </button>
                     {% endif %}
                 {% endif %}
@@ -101,140 +127,53 @@
         <div class="empty-state">
             <i data-feather="user-plus"></i>
             <h3>Нет подписок</h3>
-            <p>
-                {% if user == profile_user %}
-                Вы пока ни на кого не подписались
-                {% else %}
-                {{ profile_user.username }} пока ни на кого не подписан
-                {% endif %}
-            </p>
-            {% if user == profile_user %}
-            <a href="{% url 'accounts:user_list' %}" class="btn btn--primary">Найти людей</a>
-            {% endif %}
+            <p>{% if user == profile_user %}Вы пока ни на кого не подписались{% else %}{{ profile_user.username }} пока ни на кого не подписан{% endif %}</p>
+            {% if user == profile_user %}<a href="{% url 'accounts:user_list' %}" class="btn btn--primary">Найти людей</a>{% endif %}
         </div>
         {% endfor %}
     </div>
 
-    <!-- Пагинация -->
     {% if is_paginated %}
-    <div class="pagination-container">
-        <div class="pagination">
-            {% if page_obj.has_previous %}
-            <a href="?page={{ page_obj.previous_page_number }}" class="pagination-btn">
-                <i data-feather="chevron-left"></i>
-            </a>
-            {% endif %}
-
-            {% for num in page_obj.paginator.page_range %}
-            {% if num == page_obj.number %}
-            <span class="pagination-btn active">{{ num }}</span>
-            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-            <a href="?page={{ num }}" class="pagination-btn">{{ num }}</a>
-            {% endif %}
-            {% endfor %}
-
-            {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}" class="pagination-btn">
-                <i data-feather="chevron-right"></i>
-            </a>
-            {% endif %}
-        </div>
+    <div style="display:flex;justify-content:center;gap:8px;padding:24px 0">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="btn btn--outline btn--sm">←</a>{% endif %}
+        {% for n in page_obj.paginator.page_range %}{% if n == page_obj.number %}<span class="btn btn--primary btn--sm">{{ n }}</span>{% elif n > page_obj.number|add:'-3' and n < page_obj.number|add:'3' %}<a href="?page={{ n }}" class="btn btn--outline btn--sm">{{ n }}</a>{% endif %}{% endfor %}
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="btn btn--outline btn--sm">→</a>{% endif %}
     </div>
     {% endif %}
 </div>
-{% endblock %}
 
-{% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Поиск
-        const searchInput = document.getElementById('followingSearch');
-        const cards = document.querySelectorAll('.follower-card');
+feather.replace();
+function getCookie(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
+function showToast(m){const t=document.createElement('div');t.style.cssText='position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:10px;font-size:0.8rem;font-weight:600;color:#fff;z-index:9999;background:#7c3aed;box-shadow:0 8px 24px rgba(0,0,0,0.2);animation:toastIn 0.25s';t.textContent=m;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='all 0.3s';setTimeout(()=>t.remove(),300)},2000)}
 
-        searchInput?.addEventListener('input', function() {
-            const query = this.value.toLowerCase();
-
-            cards.forEach(card => {
-                const username = card.dataset.username.toLowerCase();
-                const name = card.querySelector('.follower-name')?.textContent.toLowerCase() || '';
-
-                if (username.includes(query) || name.includes(query)) {
-                    card.style.display = '';
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-        });
-
-        // Отписка (для владельца профиля)
-        const unfollowBtns = document.querySelectorAll('.unfollow-btn');
-        unfollowBtns.forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const userId = this.dataset.userId;
-
-                if (confirm('Вы уверены, что хотите отписаться?')) {
-                    try {
-                        const response = await fetch(`/accounts/follow/${userId}/`, {
-                            method: 'POST',
-                            headers: {
-                                'X-CSRFToken': getCookie('csrftoken')
-                            }
-                        });
-
-                        if (response.ok) {
-                            const card = this.closest('.follower-card');
-                            card.style.transition = 'opacity 0.3s ease';
-                            card.style.opacity = '0';
-                            setTimeout(() => card.remove(), 300);
-
-                            showToast({
-                                type: 'success',
-                                message: 'Вы отписались'
-                            });
-                        }
-                    } catch (error) {
-                        console.error('Error:', error);
-                    }
-                }
-            });
-        });
-
-        // Подписка/отписка для других пользователей
-        const followBtns = document.querySelectorAll('.follow-btn');
-        followBtns.forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const userId = this.dataset.userId;
-                const action = this.dataset.action;
-
-                try {
-                    const response = await fetch(`/accounts/follow/${userId}/`, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': getCookie('csrftoken')
-                        }
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-
-                        if (data.status === 'followed') {
-                            this.classList.remove('btn--primary');
-                            this.classList.add('btn--outline');
-                            this.dataset.action = 'unfollow';
-                            this.innerHTML = '<i data-feather="user-check"></i><span>Отписаться</span>';
-                        } else {
-                            this.classList.remove('btn--outline');
-                            this.classList.add('btn--primary');
-                            this.dataset.action = 'follow';
-                            this.innerHTML = '<i data-feather="user-plus"></i><span>Подписаться</span>';
-                        }
-                        feather.replace();
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                }
-            });
-        });
+// Поиск
+document.getElementById('searchInput').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('#cardList .card').forEach(c => {
+        c.style.display = (c.dataset.username+' '+c.querySelector('.card-name')?.textContent||'').toLowerCase().includes(q) ? '' : 'none';
     });
+});
+
+// Отписка
+document.querySelectorAll('.unfollow-btn').forEach(btn => btn.addEventListener('click', async function() {
+    if (!confirm('Отписаться?')) return;
+    const r = await fetch(`/accounts/follow/${this.dataset.userId}/`, { method:'POST', headers:{'X-CSRFToken':getCookie('csrftoken')} });
+    if (r.ok) { this.closest('.card').style.opacity='0'; setTimeout(()=>this.closest('.card').remove(),300); showToast('Вы отписались'); }
+}));
+
+// Подписка/отписка
+document.querySelectorAll('.follow-btn').forEach(btn => btn.addEventListener('click', async function() {
+    const r = await fetch(`/accounts/follow/${this.dataset.userId}/`, { method:'POST', headers:{'X-CSRFToken':getCookie('csrftoken')} });
+    const d = await r.json();
+    if (d.status === 'followed') {
+        this.classList.remove('btn--primary'); this.classList.add('btn--outline');
+        this.dataset.action = 'unfollow'; this.innerHTML = '<i data-feather="user-check"></i> Отписаться';
+    } else {
+        this.classList.remove('btn--outline'); this.classList.add('btn--primary');
+        this.dataset.action = 'follow'; this.innerHTML = '<i data-feather="user-plus"></i> Подписаться';
+    }
+    feather.replace();
+}));
 </script>
 {% endblock %}

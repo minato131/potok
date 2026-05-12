@@ -20,6 +20,7 @@
     <div class="profile-header">
         <div class="profile-cover">
             {% if profile_user.profile.cover_image %}
+            <img src="{{ profile_user.profile.cover_image.url }}" alt="Обложка">
             {% else %}
             <div class="profile-cover-placeholder"></div>
             {% endif %}
@@ -92,6 +93,14 @@
                     <a href="{% url 'accounts:followers' username=profile_user.username %}" class="stat-item">
                         <span class="stat-value">{{ followers_count }}</span>
                         <span class="stat-label">Подписчики</span>
+                    </a>
+                    <a href="{% url 'accounts:friend_list' username=profile_user.username %}" class="stat-item">
+                        <span class="stat-value">{{ friends_count }}</span>
+                        <span class="stat-label">Друзья</span>
+                    </a>
+                    <a href="{% url 'accounts:community_list' username=profile_user.username %}" class="stat-item">
+                        <span class="stat-value">{{ communities_count }}</span>
+                        <span class="stat-label">Сообщества</span>
                     </a>
                     <div class="stat-item">
                         <span class="stat-value">{{ posts_count }}</span>
@@ -412,6 +421,11 @@
     .liked {
         fill: var(--color-danger);
         color: var(--color-danger);
+    }
+    .profile-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
     }
 
     @media (max-width: 768px) {

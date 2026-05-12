@@ -6,42 +6,92 @@
 
 {% block content %}
 <style>
-    .media-page { max-width: 1100px; margin: 0 auto; }
-    .media-count { font-size: 0.95rem; color: var(--color-text-secondary); margin-bottom: 16px; }
-    .media-count strong { color: var(--color-text); }
-    .media-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-    .media-card { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; cursor: pointer; background: var(--color-bg-elevated); }
-    .media-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .media-card .del { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 50%; background: rgba(0,0,0,0.55); color: #fff; border: none; cursor: pointer; font-size: 14px; display: none; align-items: center; justify-content: center; z-index: 2; }
-    .media-card:hover .del { display: flex; }
-    .empty { text-align: center; padding: 80px 20px; grid-column: span 4; }
-    .empty .icon { font-size: 3rem; margin-bottom: 12px; }
-    .empty h3 { font-size: 1.1rem; margin-bottom: 4px; }
-    .empty p { color: var(--color-text-tertiary); font-size: 0.85rem; }
-    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.96); z-index: 1000; align-items: center; justify-content: center; }
+    .media-page { max-width: 1300px; margin: 0 auto; }
+    .media-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .media-count { font-size: 0.95rem; color: var(--color-text-secondary); }
+    .media-count strong { color: var(--color-text); font-size: 1.4rem; }
+
+    .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+
+    .photo-card { background: var(--color-bg-surface); border-radius: 14px; overflow: hidden; border: 1px solid var(--color-border-light); transition: box-shadow 0.2s; }
+    .photo-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+
+    .photo-card-image { position: relative; aspect-ratio: 16/10; overflow: hidden; cursor: pointer; background: var(--color-bg-elevated); }
+    .photo-card-image img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.35s; }
+    .photo-card:hover .photo-card-image img { transform: scale(1.04); }
+
+    .photo-card-image .delete-btn { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); color: #fff; border: none; cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; z-index: 2; }
+    .photo-card:hover .photo-card-image .delete-btn { opacity: 1; }
+
+    .photo-card-info { padding: 12px 14px; }
+    .photo-card-date { font-size: 0.78rem; color: var(--color-text-tertiary); margin-bottom: 4px; }
+    .photo-card-source { font-size: 0.85rem; color: var(--color-text-secondary); margin-bottom: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .photo-card-source a { color: var(--color-primary); text-decoration: none; }
+    .photo-card-source a:hover { text-decoration: underline; }
+    .photo-card-actions { display: flex; gap: 8px; }
+    .photo-card-actions .btn { flex: 1; padding: 8px 12px; border-radius: 8px; font-size: 0.82rem; font-weight: 500; cursor: pointer; text-align: center; text-decoration: none; display: inline-block; border: none; }
+    .btn-view { background: var(--color-primary); color: #fff; }
+    .btn-view:hover { background: var(--color-primary-hover); }
+    .btn-source { background: var(--color-bg-elevated); color: var(--color-text); border: 1px solid var(--color-border); }
+    .btn-source:hover { background: var(--color-bg-hover); }
+
+    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.97); z-index: 1000; align-items: center; justify-content: center; flex-direction: column; }
     .lightbox.on { display: flex; }
-    .lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 6px; }
-    .lightbox .close { position: absolute; top: 20px; right: 20px; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.12); color: #fff; border: none; cursor: pointer; font-size: 1.2rem; }
-    .lightbox .prev, .lightbox .next { position: absolute; top: 50%; transform: translateY(-50%); width: 42px; height: 42px; border-radius: 50%; background: rgba(255,255,255,0.1); color: #fff; border: none; cursor: pointer; font-size: 1.3rem; }
-    .lightbox .prev { left: 20px; } .lightbox .next { right: 20px; }
-    @media (max-width: 768px) { .media-grid { grid-template-columns: repeat(3, 1fr); } }
-    @media (max-width: 480px) { .media-grid { grid-template-columns: repeat(2, 1fr); } }
+    .lightbox-img { max-width: 92vw; max-height: 82vh; border-radius: 8px; object-fit: contain; }
+    .lightbox-close { position: absolute; top: 16px; right: 16px; width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.1); color: #fff; border: none; cursor: pointer; font-size: 1.4rem; display: flex; align-items: center; justify-content: center; z-index: 10; }
+    .lightbox-close:hover { background: rgba(255,255,255,0.2); }
+    .lightbox-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 48px; height: 48px; border-radius: 50%; background: rgba(255,255,255,0.08); color: #fff; border: none; cursor: pointer; font-size: 1.6rem; display: flex; align-items: center; justify-content: center; }
+    .lightbox-nav:hover { background: rgba(255,255,255,0.18); }
+    .lightbox-prev { left: 20px; } .lightbox-next { right: 20px; }
+    .lightbox-info { color: rgba(255,255,255,0.7); font-size: 0.85rem; margin-top: 12px; }
+
+    .empty-state { grid-column: span 3; text-align: center; padding: 100px 20px; }
+    .empty-icon { font-size: 4rem; margin-bottom: 12px; }
+    .empty-state h3 { font-size: 1.2rem; margin-bottom: 6px; }
+    .empty-state p { color: var(--color-text-tertiary); font-size: 0.9rem; }
+
+    @media (max-width: 900px) { .photo-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 500px) { .photo-grid { grid-template-columns: 1fr; } }
 </style>
 
 <div class="media-page">
-    <div class="media-count"><strong>{{ page_obj.paginator.count }}</strong> фото</div>
-    <div class="media-grid">
+    <div class="media-header">
+        <div class="media-count"><strong>{{ page_obj.paginator.count }}</strong> фото</div>
+        <button class="btn btn--primary btn--sm" onclick="document.getElementById('photoUpload').click()">
+            <i data-feather="upload"></i> Загрузить фото
+        </button>
+        <input type="file" id="photoUpload" accept="image/*" multiple style="display:none" onchange="uploadPhotos(this)">
+    </div>
+
+    <div class="photo-grid">
         {% for photo in photos %}
-        <div class="media-card" data-src="{{ photo.image.url }}">
-            <img src="{{ photo.image.url }}" loading="lazy" alt="">
-            <button class="del" onclick="event.stopPropagation();del('photo',{{ photo.id }},this)">×</button>
+        <div class="photo-card" data-src="{{ photo.image.url }}" data-id="{{ photo.id }}">
+            <div class="photo-card-image" onclick="lbOpen('{{ photo.image.url }}')">
+                <img src="{{ photo.image.url }}" loading="lazy" alt="">
+                <button class="delete-btn" onclick="event.stopPropagation();delPhoto({{ photo.id }}, this)" title="Удалить">✕</button>
+            </div>
+            <div class="photo-card-info">
+                <div class="photo-card-date">📅 {{ photo.created_at|date:'d.m.Y в H:i' }}</div>
+                {% if photo.post %}
+                <div class="photo-card-source">📌 <a href="{% url 'posts:post_detail' pk=photo.post.id %}">{{ photo.post.title|truncatechars:40 }}</a></div>
+                {% else %}
+                <div class="photo-card-source" style="color:var(--color-text-tertiary)">Загружено с устройства</div>
+                {% endif %}
+                <div class="photo-card-actions">
+                    <button class="btn btn-view" onclick="lbOpen('{{ photo.image.url }}')">🔍 Открыть</button>
+                    {% if photo.post %}
+                    <a href="{% url 'posts:post_detail' pk=photo.post.id %}" class="btn btn-source">📌 К посту</a>
+                    {% endif %}
+                </div>
+            </div>
         </div>
         {% empty %}
-        <div class="empty"><div class="icon">🖼️</div><h3>Нет фото</h3><p>Сохраняйте фото из постов через меню ⋮</p></div>
+        <div class="empty-state"><div class="empty-icon">🖼️</div><h3>Нет сохранённых фото</h3><p>Сохраняйте фото из постов через меню ⋮ или загружайте с устройства</p></div>
         {% endfor %}
     </div>
+
     {% if is_paginated %}
-    <div style="display:flex;justify-content:center;gap:8px;padding:24px 0">
+    <div style="display:flex;justify-content:center;gap:8px;padding:28px 0">
         {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="btn btn--outline btn--sm">←</a>{% endif %}
         {% for n in page_obj.paginator.page_range %}{% if n == page_obj.number %}<span class="btn btn--primary btn--sm">{{ n }}</span>{% elif n > page_obj.number|add:'-3' and n < page_obj.number|add:'3' %}<a href="?page={{ n }}" class="btn btn--outline btn--sm">{{ n }}</a>{% endif %}{% endfor %}
         {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="btn btn--outline btn--sm">→</a>{% endif %}
@@ -50,21 +100,41 @@
 </div>
 
 <div class="lightbox" id="lb">
-    <button class="close" onclick="lbClose()">✕</button>
-    <button class="prev" onclick="lbNav(-1)">‹</button>
-    <button class="next" onclick="lbNav(1)">›</button>
-    <img src="" id="lbImg">
+    <button class="lightbox-close" onclick="lbClose()">✕</button>
+    <button class="lightbox-nav lightbox-prev" onclick="lbNav(-1)">‹</button>
+    <button class="lightbox-nav lightbox-next" onclick="lbNav(1)">›</button>
+    <img class="lightbox-img" id="lbImg" src="">
+    <div class="lightbox-info" id="lbInfo"></div>
 </div>
 
 <script>
 function getCookie(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
-const items = [...document.querySelectorAll('.media-card[data-src]')].map(c => c.dataset.src);
+const photos = [...document.querySelectorAll('.photo-card[data-src]')].map(c => ({src: c.dataset.src, id: c.dataset.id}));
 let idx = 0;
-window.lbOpen = function(src) { document.getElementById('lb').classList.add('on'); document.getElementById('lbImg').src = src; idx = items.indexOf(src); };
+
+window.lbOpen = function(src) {
+    document.getElementById('lb').classList.add('on');
+    document.getElementById('lbImg').src = src;
+    idx = photos.findIndex(p => p.src === src);
+    document.getElementById('lbInfo').textContent = `${idx+1} / ${photos.length}`;
+};
 window.lbClose = function() { document.getElementById('lb').classList.remove('on'); };
-window.lbNav = function(d) { idx = (idx + d + items.length) % items.length; document.getElementById('lbImg').src = items[idx]; };
-document.querySelectorAll('.media-card').forEach(c => c.addEventListener('click', function() { lbOpen(this.dataset.src); }));
+window.lbNav = function(d) { idx = (idx + d + photos.length) % photos.length; document.getElementById('lbImg').src = photos[idx].src; document.getElementById('lbInfo').textContent = `${idx+1} / ${photos.length}`; };
 document.addEventListener('keydown', e => { if (e.key === 'Escape') lbClose(); if (e.key === 'ArrowLeft') lbNav(-1); if (e.key === 'ArrowRight') lbNav(1); });
-window.del = async function(type, id, btn) { if (!confirm('Удалить?')) return; await fetch(`/media-storage/${type}/${id}/delete/`, { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } }); btn.closest('.media-card').remove(); };
+
+window.delPhoto = async function(id, btn) {
+    if (!confirm('Удалить фото?')) return;
+    const r = await fetch(`/media-storage/photo/${id}/delete/`, { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } });
+    if (r.ok) { const card = btn.closest('.photo-card'); card.style.transition = 'all 0.3s'; card.style.opacity = '0'; card.style.transform = 'scale(0.95)'; setTimeout(() => card.remove(), 300); }
+};
+
+window.uploadPhotos = async function(input) {
+    for (let file of input.files) {
+        const fd = new FormData();
+        fd.append('file', file);
+        const r = await fetch('/media-storage/photo/upload/', { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }, body: fd });
+        if (r.ok) { location.reload(); }
+    }
+};
 </script>
 {% endblock %}

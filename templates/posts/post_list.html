@@ -286,14 +286,10 @@
                         <i data-feather="flag"></i> Пожаловаться
                     </button>
                     {% if post.image %}
-                    <button class="menu-item" onclick="event.stopPropagation();savePhoto('{{ post.image.url }}', {{ post.id }})">
-                        <i data-feather="image"></i> Сохранить фото
-                    </button>
+                    <button class="menu-item" onclick="savePhoto({{ post.id }})"><i data-feather="image"></i> Сохранить фото</button>
                     {% endif %}
                     {% if post.video %}
-                    <button class="menu-item" onclick="event.stopPropagation();saveVideo('{{ post.video.url }}', {{ post.id }})">
-                        <i data-feather="video"></i> Сохранить видео
-                    </button>
+                    <button class="menu-item" onclick="saveVideo({{ post.id }})"><i data-feather="video"></i> Сохранить видео</button>
                     {% endif %}
                 </div>
             </div>
@@ -807,26 +803,24 @@ document.querySelectorAll('.post-vk-friend').forEach(btn => btn.addEventListener
     this.textContent = d.action === 'added' ? 'Друг' : '+ Друг';
 }));
 
-window.savePhoto = async function(url, postId) {
-    const fullUrl = url.startsWith('http') ? url : location.origin + url;
-    const r = await fetch('/media-storage/photo/save/', {
+window.savePhoto = async function(postId) {
+    const r = await fetch('/media-storage/save-from-post/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
-        body: `url=${encodeURIComponent(fullUrl)}&post_id=${postId}`
+        body: `post_id=${postId}&media_type=photo`
     });
     const d = await r.json();
-    showToast(d.success ? 'Фото сохранено' : 'Ошибка: ' + (d.error || ''));
+    showToast(d.success ? 'Фото сохранено' : 'Ошибка');
 };
 
-window.saveVideo = async function(url, postId) {
-    const fullUrl = url.startsWith('http') ? url : location.origin + url;
-    const r = await fetch('/media-storage/video/save/', {
+window.saveVideo = async function(postId) {
+    const r = await fetch('/media-storage/save-from-post/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
-        body: `url=${encodeURIComponent(fullUrl)}&post_id=${postId}`
+        body: `post_id=${postId}&media_type=video`
     });
     const d = await r.json();
-    showToast(d.success ? 'Видео сохранено' : 'Ошибка: ' + (d.error || ''));
+    showToast(d.success ? 'Видео сохранено' : 'Ошибка');
 };
 
 document.addEventListener('click', e => { if (!e.target.closest('.comment-inline-tools') && !e.target.closest('.cmt-tools')) { document.querySelectorAll('.emoji-picker.open,.saved-picker.open').forEach(p => p.classList.remove('open')); } });

@@ -1,5 +1,7 @@
 from django.utils import timezone
 from datetime import timedelta
+
+from communities.models import Community
 from .utils import generate_verification_code, send_verification_email, mask_email, send_welcome_email
 from .forms import EmailVerificationForm, ResendCodeForm
 from django.shortcuts import render, redirect, get_object_or_404
@@ -11,7 +13,7 @@ from django.db.models import Q, Count
 from django.contrib.auth.forms import AuthenticationForm
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from .models import Notification
+from .models import Notification, Friendship
 from .models import Profile
 
 from .forms import CustomUserCreationForm, CustomUserChangeForm, CustomPasswordChangeForm
@@ -158,6 +160,13 @@ def profile_view(request, username=None):
             following=user
         ).exists()
 
+    # Друзья и сообщества
+    from accounts.models import Friendship
+    from communities.models import Community
+
+    friends_count = Friendship.objects.filter(user=user).count()
+    communities_count = Community.objects.filter(members=user).count()
+
     context = {
         'profile_user': user,
         'posts_count': posts_count,
@@ -168,6 +177,8 @@ def profile_view(request, username=None):
         'user_comments': user_comments,
         'user_communities': user_communities,
         'user_bookmarks': user_bookmarks,
+        'friends_count': friends_count,
+        'communities_count': communities_count,
     }
     return render(request, 'accounts/profile.html', context)
 
@@ -608,3 +619,55 @@ def toggle_friend(request, user_id):
     else:
         Friendship.objects.create(user=request.user, friend=target)
         return JsonResponse({'action': 'added'})
+
+
+def friend_list(request, username):
+    """Список друзей пользователя"""
+    profile_user = get_object_or_404(User.objects.select_related('profile'), username=username)
+    friendships = Friendship.objects.filter(user=profile_user).select_related('friend', 'friend__profile')
+
+    query = request.GET.get('q', '')
+    if query:
+        friendships = friendships.filter(
+            Q(friend__username__icontains=query) |
+            Q(friend__first_name__icontains=query) |
+            Q(friend__last_name__icontains=query)
+        )
+
+    paginator = Paginator(friendships, 20)
+    page = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page)
+
+    return render(request, 'accounts/friend_list.html', {
+        'profile_user': profile_user,
+        'friendships': page_obj,
+        'page_obj': page_obj,
+        'is_paginated': page_obj.has_other_pages(),
+        'query': query,
+        'total_count': friendships.count(),
+    })
+
+
+def community_list(request, username):
+    """Список сообществ пользователя"""
+    profile_user = get_object_or_404(User.objects.select_related('profile'), username=username)
+    communities = Community.objects.filter(members=profile_user)
+
+    query = request.GET.get('q', '')
+    if query:
+        communities = communities.filter(
+            Q(name__icontains=query) | Q(description__icontains=query)
+        )
+
+    paginator = Paginator(communities, 20)
+    page = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page)
+
+    return render(request, 'accounts/community_list.html', {
+        'profile_user': profile_user,
+        'communities': page_obj,
+        'page_obj': page_obj,
+        'is_paginated': page_obj.has_other_pages(),
+        'query': query,
+        'total_count': communities.count(),
+    })

@@ -81,4 +81,6 @@ urlpatterns = [
 
 
     path('friend/<int:user_id>/toggle/', views.toggle_friend, name='toggle_friend'),
+    path('<str:username>/friends/', views.friend_list, name='friend_list'),
+    path('<str:username>/communities/', views.community_list, name='community_list'),
 ]

@@ -13,6 +13,7 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth import get_user_model
 from unicodedata import category
 import json
+from accounts.models import Friendship
 from accounts.models import Notification
 from communities.models import Community, CommunityPost
 from .models import Post, Comment, Like, Category, Tag, Bookmark, PostView
@@ -87,11 +88,12 @@ def post_list(request):
     # === ФИД: РЕКОМЕНДАЦИИ ===
     elif feed == 'recommended' and request.user.is_authenticated:
         # Теги, которые пользователь часто лайкал/комментировал
-        user_liked_posts = Post.objects.filter(
-            likes__user=request.user
-        ).values_list('id', flat=True)[:50]
-        user_tags = Tag.objects.filter(posts__id__in=user_liked_posts).distinct()[:10]
-        user_categories = Category.objects.filter(posts__id__in=user_liked_posts).distinct()[:5]
+        liked_comment_ids = Like.objects.filter(
+            user=request.user, content_type='post'
+        ).values_list('object_id', flat=True)[:50]
+
+        user_tags = Tag.objects.filter(posts__id__in=liked_comment_ids).distinct()[:10]
+        user_categories = Category.objects.filter(posts__id__in=liked_comment_ids).distinct()[:5]
 
         posts = posts.filter(
             Q(tags__in=user_tags) | Q(category__in=user_categories)
@@ -138,7 +140,6 @@ def post_list(request):
 
     friend_ids = set()
     if request.user.is_authenticated:
-        from accounts.models import Friendship
         friend_ids = set(Friendship.objects.filter(user=request.user).values_list('friend_id', flat=True))
 
     context = {
@@ -225,7 +226,6 @@ def post_detail(request, pk):
 
     friend_ids = set()
     if request.user.is_authenticated:
-        from accounts.models import Friendship
         friend_ids = set(Friendship.objects.filter(user=request.user).values_list('friend_id', flat=True))
 
     context = {
