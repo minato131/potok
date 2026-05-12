@@ -1,0 +1,429 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Музыка · Поток{% endblock %}
+{% block page_title %}🎵 Музыка{% endblock %}
+
+{% block content %}
+<style>
+    .music-page { max-width: 1200px; margin: 0 auto; }
+    .music-tabs { display: flex; gap: 4px; margin-bottom: 16px; background: var(--color-bg-surface); padding: 4px; border-radius: 12px; border: 1px solid var(--color-border-light); width: fit-content; }
+    .music-tab { padding: 10px 20px; border-radius: 10px; font-size: 0.9rem; font-weight: 600; cursor: pointer; border: none; background: transparent; color: var(--color-text-secondary); }
+    .music-tab:hover { background: var(--color-bg-elevated); }
+    .music-tab.active { background: var(--color-primary); color: #fff; }
+    .music-content { display: none; }
+    .music-content.active { display: block; }
+
+    /* ПЛЕЕР */
+    .player-section { background: var(--color-bg-surface); border-radius: 16px; border: 1px solid var(--color-border-light); overflow: hidden; }
+    .player-now { display: flex; align-items: center; gap: 24px; padding: 24px; }
+    .player-cover { width: 200px; height: 200px; border-radius: 16px; overflow: hidden; flex-shrink: 0; background: var(--color-bg-elevated); box-shadow: 0 8px 30px rgba(0,0,0,0.12); cursor: pointer; position: relative; }
+    .player-cover img { width: 100%; height: 100%; object-fit: cover; }
+    .player-cover .cover-ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg,#1a1a2e,#16213e); color: #fff; font-size: 3rem; }
+    .player-cover .fullscreen-hint { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
+    .player-cover:hover .fullscreen-hint { opacity: 1; }
+    .player-info { flex: 1; min-width: 0; }
+    .player-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 2px; }
+    .player-artist { font-size: 1rem; color: var(--color-text-secondary); margin-bottom: 4px; }
+    .player-album { font-size: 0.85rem; color: var(--color-text-tertiary); margin-bottom: 16px; }
+
+    .player-actions-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .player-action { padding: 8px 16px; border-radius: 20px; border: 1px solid var(--color-border); background: transparent; cursor: pointer; font-size: 0.83rem; font-weight: 500; color: var(--color-text-secondary); display: flex; align-items: center; gap: 6px; }
+    .player-action:hover { background: var(--color-bg-elevated); border-color: var(--color-primary); color: var(--color-primary); }
+    .player-action.liked { background: #fce4e4; border-color: #e74c3c; color: #e74c3c; }
+    .player-action svg { width: 16px; height: 16px; }
+
+    .player-controls { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
+    .ctrl-btn { width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--color-bg-elevated); cursor: pointer; color: var(--color-text); font-size: 1.2rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+    .ctrl-btn:hover { background: var(--color-primary-light); color: var(--color-primary); }
+    .ctrl-btn.play { width: 56px; height: 56px; background: var(--color-primary); color: #fff; }
+    .ctrl-btn.play:hover { background: var(--color-primary-hover); }
+    .ctrl-btn.active { color: var(--color-primary); background: var(--color-primary-light); }
+
+    .progress-row { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+    .progress-bar { flex: 1; height: 5px; background: var(--color-border); border-radius: 3px; cursor: pointer; position: relative; }
+    .progress-filled { height: 100%; background: var(--color-primary); border-radius: 3px; width: 0%; }
+    .progress-thumb { position: absolute; top: 50%; transform: translate(-50%,-50%); width: 12px; height: 12px; background: var(--color-primary); border-radius: 50%; left: 0%; opacity: 0; }
+    .progress-bar:hover .progress-thumb { opacity: 1; }
+    .progress-row span { font-size: 0.78rem; color: var(--color-text-tertiary); font-variant-numeric: tabular-nums; min-width: 42px; }
+
+    .volume-row { display: flex; align-items: center; gap: 8px; }
+    .volume-row svg { width: 18px; height: 18px; color: var(--color-text-tertiary); cursor: pointer; }
+    .volume-row input { flex: 1; max-width: 130px; accent-color: var(--color-primary); }
+    .volume-row span { font-size: 0.78rem; color: var(--color-text-tertiary); min-width: 36px; }
+
+    /* Очередь и плейлисты */
+    .queue-playlist-section { border-top: 1px solid var(--color-border-light); padding: 16px 24px; display: none; }
+    .queue-playlist-section.open { display: block; }
+    .qp-header { display: flex; gap: 8px; margin-bottom: 12px; }
+    .qp-tab { padding: 6px 14px; border-radius: 16px; border: 1px solid var(--color-border); background: transparent; cursor: pointer; font-size: 0.82rem; }
+    .qp-tab.active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+    .qp-list { max-height: 250px; overflow-y: auto; }
+    .qp-item { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
+    .qp-item:hover { background: var(--color-bg-elevated); }
+    .qp-item .rm { margin-left: auto; cursor: pointer; color: var(--color-text-tertiary); background: none; border: none; font-size: 1rem; }
+    .qp-item .rm:hover { color: var(--color-danger); }
+    .create-pl { display: flex; gap: 8px; margin-top: 10px; }
+    .create-pl input { flex: 1; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 0.85rem; }
+    .create-pl button { padding: 8px 14px; background: var(--color-primary); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
+
+    /* Текст */
+    .lyrics-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 500; align-items: center; justify-content: center; }
+    .lyrics-modal.open { display: flex; }
+    .lyrics-content { background: var(--color-bg-surface); border-radius: 16px; padding: 24px; max-width: 500px; width: 90%; max-height: 70vh; overflow-y: auto; }
+    .lyrics-content h3 { margin-bottom: 14px; }
+    .lyrics-content pre { white-space: pre-wrap; font-family: inherit; font-size: 0.9rem; line-height: 1.8; color: var(--color-text-secondary); }
+    .lyrics-close { float: right; background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--color-text-tertiary); }
+
+    /* Поиск + Моя волна */
+    .search-section { max-width: 900px; margin: 0 auto; }
+    .search-box { display: flex; gap: 8px; margin-bottom: 16px; }
+    .search-box input { flex: 1; padding: 14px 20px; border: 2px solid var(--color-border); border-radius: 16px; font-size: 1rem; outline: none; background: var(--color-bg-surface); color: var(--color-text); }
+    .search-box input:focus { border-color: var(--color-primary); }
+    .search-box button { padding: 14px 24px; background: var(--color-primary); color: #fff; border: none; border-radius: 16px; font-weight: 600; cursor: pointer; font-size: 1rem; }
+    .wave-btn { margin-bottom: 16px; padding: 12px 24px; background: linear-gradient(135deg,#7c3aed,#4f46e5); color: #fff; border: none; border-radius: 16px; font-weight: 700; font-size: 1rem; cursor: pointer; width: 100%; }
+    .wave-btn:hover { opacity: 0.9; }
+    .results-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .result-card { background: var(--color-bg-surface); border-radius: 14px; padding: 14px; border: 1px solid var(--color-border-light); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 14px; }
+    .result-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); border-color: var(--color-primary); }
+    .result-cover { width: 56px; height: 56px; border-radius: 10px; overflow: hidden; flex-shrink: 0; background: var(--color-bg-elevated); }
+    .result-cover img { width: 100%; height: 100%; object-fit: cover; }
+    .result-cover .cover-ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg,#ede9fe,#e0e7ff); color: #7c3aed; font-size: 1.3rem; }
+    .result-info { flex: 1; min-width: 0; }
+    .result-title { font-weight: 600; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .result-artist { font-size: 0.8rem; color: var(--color-text-tertiary); }
+    .result-add { width: 36px; height: 36px; border-radius: 50%; border: none; background: var(--color-bg-elevated); cursor: pointer; font-size: 1.1rem; color: var(--color-text-tertiary); flex-shrink: 0; }
+    .result-add:hover { background: var(--color-primary-light); color: var(--color-primary); }
+
+    .saved-section { max-width: 900px; margin: 0 auto; }
+    .saved-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .saved-card { background: var(--color-bg-surface); border-radius: 14px; overflow: hidden; border: 1px solid var(--color-border-light); cursor: pointer; transition: all 0.2s; }
+    .saved-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+    .saved-cover { width: 100%; aspect-ratio: 1; overflow: hidden; background: var(--color-bg-elevated); }
+    .saved-cover img { width: 100%; height: 100%; object-fit: cover; }
+    .saved-cover .cover-ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg,#1a1a2e,#16213e); color: #fff; font-size: 2rem; }
+    .saved-info { padding: 10px 12px; }
+    .saved-title { font-weight: 600; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .saved-artist { font-size: 0.75rem; color: var(--color-text-tertiary); }
+
+    .empty-state { text-align: center; padding: 60px; color: var(--color-text-tertiary); }
+    .empty-state svg { width: 48px; height: 48px; opacity: 0.3; }
+
+    /* МИНИ-ПЛЕЕР (как в ЯМ) */
+    .mini-player { position: fixed; bottom: 0; left: 0; right: 0; background: var(--color-bg-surface); border-top: 1px solid var(--color-border); display: none; align-items: center; gap: 12px; padding: 8px 20px; z-index: 200; box-shadow: 0 -4px 20px rgba(0,0,0,0.08); }
+    .mini-player.show { display: flex; }
+    .mini-progress-line { position: absolute; top: 0; left: 0; height: 3px; background: var(--color-primary); transition: width 0.1s linear; }
+    .mini-cover { width: 48px; height: 48px; border-radius: 10px; overflow: hidden; flex-shrink: 0; }
+    .mini-cover img { width: 100%; height: 100%; object-fit: cover; }
+    .mini-cover .cover-ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg,#1a1a2e,#16213e); color: #fff; font-size: 1.2rem; }
+    .mini-info { flex: 1; min-width: 0; }
+    .mini-title { font-weight: 600; font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mini-artist { font-size: 0.76rem; color: var(--color-text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mini-controls { display: flex; align-items: center; gap: 12px; }
+    .mini-btn { width: 38px; height: 38px; border-radius: 50%; border: none; background: var(--color-bg-elevated); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .mini-btn:hover { background: var(--color-primary-light); }
+    .mini-btn svg { width: 18px; height: 18px; }
+    .mini-volume { display: flex; align-items: center; gap: 6px; }
+    .mini-volume input { width: 60px; accent-color: var(--color-primary); }
+
+    @media (max-width: 768px) {
+        .player-now { flex-direction: column; text-align: center; }
+        .player-cover { width: 150px; height: 150px; }
+        .results-grid { grid-template-columns: 1fr; }
+        .saved-grid { grid-template-columns: repeat(2, 1fr); }
+        .mini-player { padding: 8px 12px; }
+    }
+</style>
+
+<div class="music-page">
+    <div class="music-tabs">
+        <button class="music-tab active" data-tab="player">▶ Плеер</button>
+        <button class="music-tab" data-tab="search">🔍 Поиск</button>
+        <button class="music-tab" data-tab="saved">💾 Моё ({{ saved_count }})</button>
+    </div>
+
+    <!-- Плеер -->
+    <div class="music-content active" id="tab-player">
+        <div class="player-section">
+            <div class="player-now">
+                <div class="player-cover" id="playerCover" onclick="openFullscreen()">
+                    <div class="cover-ph">🎵</div>
+                    <div class="fullscreen-hint"><span>⛶</span></div>
+                </div>
+                <div class="player-info">
+                    <div class="player-title" id="playerTitle">Выберите трек</div>
+                    <div class="player-artist" id="playerArtist"></div>
+                    <div class="player-album" id="playerAlbum"></div>
+                    <div class="player-actions-row">
+                        <button class="player-action" id="btnLike" onclick="toggleLike()"><i data-feather="heart"></i> Нравится</button>
+                        <button class="player-action" onclick="shareTrack()"><i data-feather="share-2"></i> Поделиться</button>
+                        <button class="player-action" onclick="toggleQueuePanel()"><i data-feather="list"></i> Очередь</button>
+                        <button class="player-action" onclick="openLyrics()"><i data-feather="align-left"></i> Текст</button>
+                    </div>
+                    <div class="player-controls">
+                        <button class="ctrl-btn" onclick="toggleShuffle()" id="btnShuffle"><i data-feather="shuffle"></i></button>
+                        <button class="ctrl-btn" onclick="prevTrack()"><i data-feather="skip-back"></i></button>
+                        <button class="ctrl-btn play" id="btnPlay" onclick="togglePlay()"><i data-feather="play"></i></button>
+                        <button class="ctrl-btn" onclick="nextTrack()"><i data-feather="skip-forward"></i></button>
+                        <button class="ctrl-btn" onclick="toggleRepeat()" id="btnRepeat"><i data-feather="repeat"></i></button>
+                    </div>
+                    <div class="progress-row">
+                        <span id="timeCurrent">0:00</span>
+                        <div class="progress-bar" id="progressBar" onclick="seek(event)">
+                            <div class="progress-filled" id="progressFilled"></div>
+                            <div class="progress-thumb" id="progressThumb"></div>
+                        </div>
+                        <span id="timeDuration">0:00</span>
+                    </div>
+                    <div class="volume-row">
+                        <i data-feather="volume-2" id="volIcon" onclick="toggleMute()"></i>
+                        <input type="range" min="0" max="100" value="80" id="volumeSlider" oninput="setVolume(this.value)">
+                        <span id="volValue">80%</span>
+                    </div>
+                </div>
+            </div>
+            <!-- Очередь + плейлисты -->
+            <div class="queue-playlist-section" id="qpSection">
+                <div class="qp-header">
+                    <button class="qp-tab active" data-qp="queue">Очередь</button>
+                    <button class="qp-tab" data-qp="playlists">Плейлисты</button>
+                </div>
+                <div class="qp-list" id="qpList"></div>
+                <div class="create-pl" id="createPlForm" style="display:none">
+                    <input type="text" placeholder="Название плейлиста" id="newPlName">
+                    <button onclick="createPlaylist()">Создать</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Поиск -->
+    <div class="music-content" id="tab-search">
+        <div class="search-section">
+            <button class="wave-btn" onclick="loadMyWave()">🌊 Моя волна</button>
+            <div class="search-box">
+                <input type="text" id="musicSearch" placeholder="Поиск треков...">
+                <button onclick="doSearch()">Найти</button>
+            </div>
+            <div class="results-grid" id="resultsGrid"><div class="empty-state"><i data-feather="search"></i><br>Введите запрос</div></div>
+        </div>
+    </div>
+
+    <!-- Моё -->
+    <div class="music-content" id="tab-saved">
+        <div class="saved-section">
+            <div class="saved-grid" id="savedGrid">
+                {% for track in saved_tracks %}
+                <div class="saved-card" onclick="playSaved('{{ track.track_id }}','{{ track.title|escapejs }}','{{ track.artist|escapejs }}',{% if track.cover_url %}'{{ track.cover_url }}'{% else %}''{% endif %})">
+                    <div class="saved-cover">{% if track.cover_url %}<img src="{{ track.cover_url }}" alt="">{% else %}<div class="cover-ph">🎵</div>{% endif %}</div>
+                    <div class="saved-info"><div class="saved-title">{{ track.title }}</div><div class="saved-artist">{{ track.artist }}</div></div>
+                </div>
+                {% empty %}
+                <div class="empty-state" style="grid-column:span 4"><i data-feather="music"></i><br>Нет сохранённых треков</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Текст -->
+<div class="lyrics-modal" id="lyricsModal">
+    <div class="lyrics-content">
+        <button class="lyrics-close" onclick="closeLyrics()">✕</button>
+        <h3>📝 Текст песни</h3>
+        <pre id="lyricsText">Загрузка...</pre>
+    </div>
+</div>
+
+<!-- Мини-плеер -->
+<div class="mini-player" id="miniPlayer">
+    <div class="mini-progress-line" id="miniProgressLine"></div>
+    <div class="mini-cover" id="miniCover"><div class="cover-ph">🎵</div></div>
+    <div class="mini-info">
+        <div class="mini-title" id="miniTitle">Выберите трек</div>
+        <div class="mini-artist" id="miniArtist"></div>
+    </div>
+    <div class="mini-controls">
+        <button class="mini-btn" onclick="togglePlay()"><i data-feather="play" id="miniPlayIcon"></i></button>
+        <button class="mini-btn" onclick="nextTrack()"><i data-feather="skip-forward"></i></button>
+        <div class="mini-volume">
+            <i data-feather="volume-2" style="width:16px;height:16px;color:var(--color-text-tertiary);cursor:pointer" onclick="toggleMute()"></i>
+            <input type="range" min="0" max="100" value="80" oninput="setVolume(this.value)">
+        </div>
+    </div>
+</div>
+
+<audio id="audioPlayer" style="display:none"></audio>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+feather.replace();
+function getCookie(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
+function showToast(m){const t=document.createElement('div');t.style.cssText='position:fixed;bottom:80px;right:24px;padding:10px 20px;border-radius:10px;font-size:.8rem;font-weight:600;color:#fff;z-index:9999;background:#7c3aed;box-shadow:0 8px 24px rgba(0,0,0,.2);animation:toastIn .25s';t.textContent=m;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='all .3s';setTimeout(()=>t.remove(),300)},2000)}
+function fmt(t){if(!t||t===Infinity)return'0:00';const m=Math.floor(t/60),s=Math.floor(t%60).toString().padStart(2,'0');return m+':'+s}
+
+const audio=document.getElementById('audioPlayer');
+let isPlaying=false,shuffle=false,repeat=false,queue=[],currentIndex=-1,currentTrack=null,playlists={},qpMode='queue';
+
+audio.addEventListener('timeupdate',()=>{
+    if(!audio.duration)return;
+    const pct=(audio.currentTime/audio.duration)*100;
+    document.getElementById('progressFilled').style.width=pct+'%';
+    document.getElementById('progressThumb').style.left=pct+'%';
+    document.getElementById('timeCurrent').textContent=fmt(audio.currentTime);
+    document.getElementById('miniProgressLine').style.width=pct+'%';
+});
+audio.addEventListener('loadedmetadata',()=>{document.getElementById('timeDuration').textContent=fmt(audio.duration)});
+audio.addEventListener('ended',()=>{if(repeat){audio.currentTime=0;audio.play()}else nextTrack()});
+audio.volume=0.8;
+
+function updateUI(){
+    document.getElementById('btnPlay').innerHTML=isPlaying?'<i data-feather="pause"></i>':'<i data-feather="play"></i>';
+    document.getElementById('miniPlayIcon').setAttribute('data-feather',isPlaying?'pause':'play');
+    feather.replace();
+    document.getElementById('miniPlayer').classList.toggle('show',!!currentTrack);
+    document.getElementById('btnShuffle').classList.toggle('active',shuffle);
+    document.getElementById('btnRepeat').classList.toggle('active',repeat);
+    renderQP();
+}
+
+window.togglePlay=()=>{if(!audio.src)return;isPlaying?audio.pause():audio.play();isPlaying=!isPlaying;updateUI()};
+window.setVolume=(v)=>{audio.volume=v/100;document.getElementById('volValue').textContent=v+'%';document.querySelectorAll('.mini-volume input').forEach(i=>i.value=v)};
+window.toggleMute=()=>{
+    const s=document.getElementById('volumeSlider');
+    if(audio.volume>0){s.dataset.prev=audio.volume*100;audio.volume=0;s.value=0;document.getElementById('volValue').textContent='0%'}
+    else{const p=s.dataset.prev||80;audio.volume=p/100;s.value=p;document.getElementById('volValue').textContent=p+'%'}
+    feather.replace();
+};
+window.seek=(e)=>{if(!audio.duration)return;const pct=(e.offsetX/e.target.offsetWidth)*100;audio.currentTime=(pct/100)*audio.duration};
+window.toggleShuffle=()=>{shuffle=!shuffle;updateUI();showToast(shuffle?'🔀 Случайный порядок':'➡️ По порядку')};
+window.toggleRepeat=()=>{repeat=!repeat;updateUI();showToast(repeat?'🔁 Повтор':'➡️ Без повтора')};
+
+window.playTrack=async function(id,title,artist,cover){
+    currentTrack={id,title,artist,cover};
+    document.getElementById('playerTitle').textContent=title;
+    document.getElementById('playerArtist').textContent=artist;
+    document.getElementById('playerCover').innerHTML=cover?`<img src="${cover}"><div class="fullscreen-hint"><span>⛶</span></div>`:'<div class="cover-ph">🎵</div>';
+    document.getElementById('miniCover').innerHTML=cover?`<img src="${cover}">`:'<div class="cover-ph">🎵</div>';
+    document.getElementById('miniTitle').textContent=title;
+    document.getElementById('miniArtist').textContent=artist;
+    const r=await fetch(`/music/audio-url/?track_id=${id}`);const d=await r.json();
+    if(d.url){audio.src=d.url;audio.play().catch(()=>{});isPlaying=true;updateUI()}
+    switchTab('player');
+    if(!queue.find(t=>t.id===id)){queue.push(currentTrack);currentIndex=queue.length-1;renderQP()}
+};
+window.playSaved=function(id,title,artist,cover){playTrack(id,title,artist,cover)};
+
+// Очередь + Плейлисты
+function renderQP(){
+    const el=document.getElementById('qpList');
+    if(qpMode==='queue'){
+        if(!queue.length){el.innerHTML='<div style="color:var(--color-text-tertiary);padding:12px">Очередь пуста</div>';return}
+        el.innerHTML=queue.map((t,i)=>`<div class="qp-item"><span>🎵</span><span>${t.title} — ${t.artist}</span>${i===currentIndex?'<span style="color:var(--color-primary);font-size:0.7rem">▶</span>':''}<button class="rm" onclick="event.stopPropagation();removeFromQueue(${i})">✕</button></div>`).join('');
+    }else{
+        const names=Object.keys(playlists);
+        if(!names.length){el.innerHTML='<div style="color:var(--color-text-tertiary);padding:12px">Нет плейлистов</div>';return}
+        el.innerHTML=names.map(n=>`<div class="qp-item" onclick="loadPlaylist('${n}')"><span>📁</span><span>${n}</span><span style="color:var(--color-text-tertiary);font-size:0.75rem">${playlists[n].length} треков</span><button class="rm" onclick="event.stopPropagation();deletePlaylist('${n}')">✕</button></div>`).join('');
+    }
+}
+window.toggleQueuePanel=()=>{document.getElementById('qpSection').classList.toggle('open');renderQP()};
+window.removeFromQueue=function(i){queue.splice(i,1);if(currentIndex===i)currentIndex=-1;renderQP()};
+document.querySelectorAll('.qp-tab').forEach(t=>t.addEventListener('click',function(){
+    document.querySelectorAll('.qp-tab').forEach(x=>x.classList.remove('active'));
+    this.classList.add('active');
+    qpMode=this.dataset.qp;
+    document.getElementById('createPlForm').style.display=qpMode==='playlists'?'flex':'none';
+    renderQP();
+}));
+window.createPlaylist=function(){
+    const name=document.getElementById('newPlName').value.trim();
+    if(!name||playlists[name])return;
+    playlists[name]=[];
+    document.getElementById('newPlName').value='';
+    renderQP();showToast('Плейлист создан');
+};
+window.deletePlaylist=function(name){delete playlists[name];renderQP();showToast('Плейлист удалён')};
+window.loadPlaylist=function(name){
+    queue=[...playlists[name]];
+    if(queue.length){currentIndex=0;const t=queue[0];playTrack(t.id,t.title,t.artist,t.cover)}
+    showToast(`Загружен плейлист «${name}»`);
+};
+
+window.prevTrack=function(){if(queue.length<2)return;currentIndex=shuffle?Math.floor(Math.random()*queue.length):Math.max(0,currentIndex-1);const t=queue[currentIndex];playTrack(t.id,t.title,t.artist,t.cover)};
+window.nextTrack=function(){if(queue.length<2)return;currentIndex=shuffle?Math.floor(Math.random()*queue.length):Math.min(queue.length-1,currentIndex+1);const t=queue[currentIndex];playTrack(t.id,t.title,t.artist,t.cover)};
+
+window.toggleLike=function(){document.getElementById('btnLike').classList.toggle('liked')};
+
+// Текст (Lyrics.ovh + fallback)
+window.openLyrics=function(){
+    if(!currentTrack)return;
+    document.getElementById('lyricsModal').classList.add('open');
+    document.getElementById('lyricsText').textContent='Загрузка...';
+    const artist=currentTrack.artist||'Unknown',title=currentTrack.title||'';
+    fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`)
+    .then(r=>r.json()).then(d=>{
+        document.getElementById('lyricsText').textContent=d.lyrics||d.error||'Текст не найден';
+    }).catch(()=>{
+        // Fallback на другой API
+        fetch(`https://some-lyrics-api.com/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`)
+        .then(r=>r.json()).then(d=>{
+            document.getElementById('lyricsText').textContent=d.lyrics||'Текст не найден';
+        }).catch(()=>{document.getElementById('lyricsText').textContent='Текст не найден'});
+    });
+};
+window.closeLyrics=()=>{document.getElementById('lyricsModal').classList.remove('open')};
+window.openFullscreen=function(){const el=document.querySelector('.player-section');if(el.requestFullscreen)el.requestFullscreen()};
+window.shareTrack=function(){if(!currentTrack)return;navigator.clipboard.writeText(`https://music.yandex.ru/track/${currentTrack.id}`).then(()=>showToast('🔗 Ссылка скопирована'))};
+
+function switchTab(name){
+    document.querySelectorAll('.music-tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.music-content').forEach(x=>x.classList.remove('active'));
+    const tab=document.querySelector(`[data-tab="${name}"]`);if(tab)tab.classList.add('active');
+    const cnt=document.getElementById('tab-'+name);if(cnt)cnt.classList.add('active');
+}
+document.querySelectorAll('.music-tab').forEach(t=>t.addEventListener('click',function(){switchTab(this.dataset.tab)}));
+
+// Поиск
+window.doSearch=async function(){
+    const q=document.getElementById('musicSearch').value.trim();if(q.length<2)return;
+    document.getElementById('resultsGrid').innerHTML='<div class="empty-state">Загрузка...</div>';
+    const r=await fetch(`/music/search/?q=${encodeURIComponent(q)}`);const d=await r.json();
+    document.getElementById('resultsGrid').innerHTML=d.tracks.length?d.tracks.map(t=>`
+        <div class="result-card" onclick="playTrack('${t.id}','${t.title.replace(/'/g,"\\'")}','${t.artist.replace(/'/g,"\\'")}','${t.cover_url}')">
+            <div class="result-cover">${t.cover_url?`<img src="${t.cover_url}">`:'<div class="cover-ph">🎵</div>'}</div>
+            <div class="result-info"><div class="result-title">${t.title}</div><div class="result-artist">${t.artist}</div></div>
+            <button class="result-add" onclick="event.stopPropagation();addToQueueOrPlaylist('${t.id}','${t.title.replace(/'/g,"\\'")}','${t.artist.replace(/'/g,"\\'")}','${t.cover_url}')">+</button>
+        </div>`).join(''):'<div class="empty-state">Ничего не найдено</div>';
+};
+document.getElementById('musicSearch').addEventListener('keydown',function(e){if(e.key==='Enter')doSearch()});
+
+// Моя волна
+window.loadMyWave=async function(){
+    document.getElementById('resultsGrid').innerHTML='<div class="empty-state">Загрузка...</div>';
+    const r=await fetch('/music/wave/');const d=await r.json();
+    if(d.tracks.length){
+        queue=d.tracks.map(t=>({id:t.id,title:t.title,artist:t.artist,cover:t.cover_url}));
+        currentIndex=0;playTrack(d.tracks[0].id,d.tracks[0].title,d.tracks[0].artist,d.tracks[0].cover_url);
+        switchTab('player');
+        showToast('🌊 Моя волна загружена');
+    }
+};
+
+window.addToQueueOrPlaylist=function(id,title,artist,cover){
+    if(qpMode==='playlists'){
+        const names=Object.keys(playlists);
+        if(!names.length){showToast('Создайте плейлист');return}
+        const name=prompt('В какой плейлист добавить?\n'+names.join(', '));
+        if(name&&playlists[name]){playlists[name].push({id,title,artist,cover});showToast(`Добавлено в «${name}»`)}
+    }else{
+        queue.push({id,title,artist,cover});showToast('Добавлено в очередь');
+    }
+};
+
+// Сохранение
+async function saveTrackDirect(id,title,artist,cover,album,dur){const r=await fetch('/music/save/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`track_id=${id}&title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}&cover_url=${encodeURIComponent(cover)}&album=${encodeURIComponent(album)}&duration=${dur}`});const d=await r.json();if(d.success)showToast(d.created?'✅ Сохранено':'Уже в сохранённых')}
+
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeLyrics()});
+</script>
+{% endblock %}

@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'moderation',
     'markdown',
     'media_storage',
+    'music_app',
 
 ]
 
@@ -162,3 +163,7 @@ LOGGING = {
 
 EMAIL_HOST_USER = 'tinton220221@gmail.com'
 EMAIL_HOST_PASSWORD = 'scdo iesb jidf rzqa'
+
+VK_SERVICE_KEY = os.environ.get('VK_SERVICE_KEY', '6d30af076d30af076d30af07996e7059cb66d306d30af070733bcb87f6802776c76defa')
+
+YANDEX_MUSIC_TOKEN = os.environ.get('YANDEX_MUSIC_TOKEN', 'y0__wgBEIax8ZQEGN74BiDM5d2yFwfk4z3DCxsQ_J3ydRLNLFoQC7-Z')

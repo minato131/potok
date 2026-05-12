@@ -88,6 +88,12 @@
                         {% endif %}
                     </li>
                     <li class="nav-menu__item">
+                        <a href="{% url 'music:player' %}" class="nav-link {% if 'music' in request.resolver_match.namespace %}nav-link--active{% endif %}">
+                            <i data-feather="music"></i>
+                            <span>Музыка</span>
+                        </a>
+                    </li>
+                    <li class="nav-menu__item">
                         <a href="{% url 'posts:bookmarks' %}" class="nav-link {% if request.resolver_match.url_name == 'bookmarks' %}nav-link--active{% endif %}">
                             <i data-feather="bookmark"></i>
                             <span>Закладки</span>
