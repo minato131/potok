@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Безопасность · Поток{% endblock %}
+{% block page_title %}Безопасность{% endblock %}
+
+{% block content %}
+<style>
+    .settings-page { max-width: 650px; margin: 0 auto; }
+    .settings-card { background: var(--color-bg-surface); border-radius: 14px; border: 1px solid var(--color-border-light); padding: 20px 24px; margin-bottom: 16px; }
+    .settings-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 16px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-weight: 500; font-size: 0.88rem; margin-bottom: 6px; }
+    .form-group input { width: 100%; padding: 10px 14px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 0.9rem; outline: none; background: var(--color-bg-surface); }
+    .form-group input:focus { border-color: var(--color-primary); }
+    .btn-save { padding: 12px 28px; background: var(--color-primary); color: #fff; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+    .info-text { font-size: 0.82rem; color: var(--color-text-tertiary); margin-top: 4px; }
+</style>
+
+<div class="settings-page">
+    <div class="settings-card">
+        <h3>Смена пароля</h3>
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Текущий пароль</label>
+                {{ password_form.old_password }}
+            </div>
+            <div class="form-group">
+                <label>Новый пароль</label>
+                {{ password_form.new_password1 }}
+            </div>
+            <div class="form-group">
+                <label>Подтверждение пароля</label>
+                {{ password_form.new_password2 }}
+            </div>
+            <button type="submit" name="change_password" class="btn-save">Сменить пароль</button>
+        </form>
+    </div>
+
+    <div class="settings-card">
+        <h3>Телефон</h3>
+        <p class="info-text" style="margin-bottom:12px">Для восстановления доступа и уведомлений</p>
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Номер телефона</label>
+                <input type="text" name="phone" value="{{ profile.phone }}" placeholder="+7 (999) 123-45-67">
+            </div>
+            <button type="submit" name="add_phone" class="btn-save">Сохранить</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

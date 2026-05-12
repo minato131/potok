@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Чёрный список · Поток{% endblock %}
+{% block page_title %}Чёрный список{% endblock %}
+
+{% block content %}
+<style>
+    .settings-page { max-width: 650px; margin: 0 auto; }
+    .settings-card { background: var(--color-bg-surface); border-radius: 14px; border: 1px solid var(--color-border-light); padding: 20px 24px; margin-bottom: 16px; }
+    .settings-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 16px; }
+    .add-block { display: flex; gap: 8px; margin-bottom: 16px; }
+    .add-block input { flex: 1; padding: 10px 14px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 0.9rem; outline: none; }
+    .add-block button { padding: 10px 18px; background: var(--color-danger); color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+    .blocked-item { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 8px; border-bottom: 1px solid var(--color-border-light); }
+    .blocked-item:last-child { border-bottom: none; }
+    .blocked-avatar { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
+    .blocked-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .blocked-name { flex: 1; font-weight: 500; }
+    .btn-unblock { padding: 6px 14px; background: transparent; border: 1px solid var(--color-border); border-radius: 6px; cursor: pointer; font-size: 0.82rem; }
+</style>
+
+<div class="settings-page">
+    <div class="settings-card">
+        <h3>Добавить в чёрный список</h3>
+        <form method="post" class="add-block">
+            {% csrf_token %}
+            <input type="text" name="username" placeholder="Имя пользователя">
+            <button type="submit" name="block_user">Заблокировать</button>
+        </form>
+    </div>
+    <div class="settings-card">
+        <h3>Заблокированные пользователи ({{ blocked.count }})</h3>
+        {% for u in blocked %}
+        <div class="blocked-item">
+            <div class="blocked-avatar">
+                {% if u.profile.avatar %}<img src="{{ u.profile.avatar.url }}">{% else %}<div class="avatar-placeholder" style="width:40px;height:40px;font-size:0.9rem">{{ u.username|first|upper }}</div>{% endif %}
+            </div>
+            <div class="blocked-name">{{ u.get_full_name|default:u.username }}</div>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="user_id" value="{{ u.id }}">
+                <button type="submit" name="unblock_user" class="btn-unblock">Разблокировать</button>
+            </form>
+        </div>
+        {% empty %}
+        <p style="color:var(--color-text-tertiary);text-align:center;padding:20px">Список пуст</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

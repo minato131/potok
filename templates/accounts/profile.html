@@ -7,10 +7,22 @@
 
 {% block header_actions %}
 {% if user == profile_user %}
-<a href="{% url 'accounts:profile_edit' %}" class="btn btn--outline">
-    <i data-feather="edit"></i>
-    <span>Редактировать</span>
-</a>
+<div style="position:relative">
+    <button class="btn btn--outline" onclick="toggleAccountMenu(this)">
+        <i data-feather="settings"></i> Управление
+    </button>
+    <div class="account-menu-dropdown" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--color-bg-surface);border:1px solid var(--color-border);border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.12);z-index:50;min-width:200px;padding:4px">
+        <a href="{% url 'accounts:profile_edit' %}" class="acc-menu-item"><i data-feather="user"></i> Редактировать профиль</a>
+        <a href="{% url 'accounts:privacy_settings' %}" class="acc-menu-item"><i data-feather="lock"></i> Приватность</a>
+        <a href="{% url 'accounts:security_settings' %}" class="acc-menu-item"><i data-feather="shield"></i> Безопасность</a>
+        <a href="{% url 'accounts:notification_settings' %}" class="acc-menu-item"><i data-feather="bell"></i> Уведомления</a>
+        <a href="{% url 'accounts:blocked_users' %}" class="acc-menu-item"><i data-feather="slash"></i> Чёрный список</a>
+        <a href="{% url 'accounts:sessions' %}" class="acc-menu-item"><i data-feather="monitor"></i> Сеансы</a>
+        <a href="{% url 'accounts:export_data' %}" class="acc-menu-item"><i data-feather="download"></i> Экспорт данных</a>
+        <div style="border-top:1px solid var(--color-border);margin:4px 0"></div>
+        <a href="{% url 'accounts:delete_account' %}" class="acc-menu-item" style="color:#ef4444"><i data-feather="trash-2"></i> Удалить аккаунт</a>
+    </div>
+</div>
 {% endif %}
 {% endblock %}
 
@@ -134,7 +146,7 @@
         <!-- Таб с постами -->
         <div class="tab-content active" id="tab-posts">
             <div class="posts-grid">
-                {% for post in posts %}
+                {% for post in user_posts %}
                 <article class="post-card">
                     <div class="post-header">
                         <div class="user-card__avatar" style="width: 2.5rem; height: 2.5rem;">
@@ -185,282 +197,175 @@
             </div>
         </div>
 
-        <!-- Другие табы... -->
+        <!-- Таб Понравилось -->
+        <div class="tab-content" id="tab-likes">
+            <div class="posts-grid">
+                {% for post in liked_posts %}
+                <article class="post-card">
+                    <div class="post-header">
+                        <div class="user-card__avatar" style="width: 2.5rem; height: 2.5rem;">
+                            {% if post.author.profile.avatar %}
+                            <img src="{{ post.author.profile.avatar.url }}" alt="{{ post.author.username }}">
+                            {% else %}
+                            <div class="avatar-placeholder">{{ post.author.username|make_list|first|upper }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="user-card__info">
+                            <a href="{% url 'accounts:profile_by_username' username=post.author.username %}" class="user-card__name">
+                                {{ post.author.get_full_name|default:post.author.username }}
+                            </a>
+                            <span class="user-card__username">@{{ post.author.username }} · {{ post.created_at|timesince }} назад</span>
+                        </div>
+                    </div>
+                    <div class="post-content">
+                        <p>{{ post.content|linebreaksbr }}</p>
+                        {% if post.image %}
+                        <div class="post-media"><img src="{{ post.image.url }}" class="post-image"></div>
+                        {% endif %}
+                    </div>
+                    <div class="post-footer">
+                        <button class="post-action like-btn" data-post-id="{{ post.id }}">
+                            <i data-feather="heart" {% if post.id in liked_post_ids %}class="liked"{% endif %}></i>
+                            <span>{{ post.likes_count }}</span>
+                        </button>
+                        <a href="{% url 'posts:post_detail' pk=post.id %}" class="post-action">
+                            <i data-feather="message-square"></i>
+                            <span>{{ post.comments.count }}</span>
+                        </a>
+                    </div>
+                </article>
+                {% empty %}
+                <div class="empty-state">
+                    <i data-feather="heart"></i>
+                    <h3>Нет понравившихся постов</h3>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Таб Закладки -->
+        {% if user == profile_user %}
+        <div class="tab-content" id="tab-bookmarks">
+            <div class="posts-grid">
+                {% for bookmark in user_bookmarks %}
+                <article class="post-card">
+                    <div class="post-header">
+                        <div class="user-card__avatar" style="width: 2.5rem; height: 2.5rem;">
+                            {% if bookmark.post.author.profile.avatar %}
+                            <img src="{{ bookmark.post.author.profile.avatar.url }}" alt="{{ bookmark.post.author.username }}">
+                            {% else %}
+                            <div class="avatar-placeholder">{{ bookmark.post.author.username|make_list|first|upper }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="user-card__info">
+                            <a href="{% url 'accounts:profile_by_username' username=bookmark.post.author.username %}" class="user-card__name">
+                                {{ bookmark.post.author.get_full_name|default:bookmark.post.author.username }}
+                            </a>
+                            <span class="user-card__username">@{{ bookmark.post.author.username }} · {{ bookmark.post.created_at|timesince }} назад</span>
+                        </div>
+                    </div>
+                    <div class="post-content">
+                        <p>{{ bookmark.post.content|linebreaksbr }}</p>
+                        {% if bookmark.post.image %}
+                        <div class="post-media"><img src="{{ bookmark.post.image.url }}" class="post-image"></div>
+                        {% endif %}
+                    </div>
+                    <div class="post-footer">
+                        <button class="post-action like-btn" data-post-id="{{ bookmark.post.id }}">
+                            <i data-feather="heart" {% if bookmark.post.id in liked_post_ids %}class="liked"{% endif %}></i>
+                            <span>{{ bookmark.post.likes_count }}</span>
+                        </button>
+                        <a href="{% url 'posts:post_detail' pk=bookmark.post.id %}" class="post-action">
+                            <i data-feather="message-square"></i>
+                            <span>{{ bookmark.post.comments.count }}</span>
+                        </a>
+                    </div>
+                </article>
+                {% empty %}
+                <div class="empty-state">
+                    <i data-feather="bookmark"></i>
+                    <h3>Нет закладок</h3>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-    .profile-container {
-        max-width: 800px;
-        margin: 0 auto;
-    }
-
-    .profile-header {
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-xl);
-        overflow: hidden;
-        margin-bottom: 1.5rem;
-        border: 1px solid var(--color-border-light);
-    }
-
-    .profile-cover {
-        height: 200px;
-        background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
-    }
-
-    .profile-cover img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .profile-cover-placeholder {
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
-
-    .profile-info {
-        padding: 0 1.5rem 1.5rem;
-    }
-
-    .profile-avatar-wrapper {
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-between;
-        margin-top: -50px;
-        margin-bottom: 1rem;
-    }
-
-    .profile-avatar {
-        width: 120px;
-        height: 120px;
-        border-radius: 50%;
-        border: 4px solid var(--color-bg-surface);
-        overflow: hidden;
-        background: var(--color-bg-surface);
-        box-shadow: var(--shadow-md);
-    }
-
-    .profile-avatar img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .avatar-placeholder-lg {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: var(--color-primary-light);
-        color: var(--color-primary);
-        font-size: 3rem;
-        font-weight: 600;
-    }
-
-    .profile-details {
-        margin-top: 0.5rem;
-    }
-
-    .profile-name {
-        font-size: 1.5rem;
-        font-weight: 700;
-        margin-bottom: 0.25rem;
-    }
-
-    .profile-username {
-        color: var(--color-text-tertiary);
-        margin-bottom: 1rem;
-    }
-
-    .profile-bio {
-        margin-bottom: 1rem;
-        line-height: 1.6;
-    }
-
-    .profile-meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1rem;
-        margin-bottom: 1rem;
-    }
-
-    .meta-item {
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-        color: var(--color-text-tertiary);
-        font-size: 0.875rem;
-    }
-
-    .meta-item i {
-        width: 1rem;
-        height: 1rem;
-    }
-
-    .meta-item a {
-        color: var(--color-primary);
-        text-decoration: none;
-    }
-
-    .meta-item a:hover {
-        text-decoration: underline;
-    }
-
-    .profile-stats {
-        display: flex;
-        gap: 2rem;
-        padding: 1rem 0;
-        border-top: 1px solid var(--color-border-light);
-    }
-
-    .stat-item {
-        display: flex;
-        flex-direction: column;
-        text-decoration: none;
-        color: inherit;
-        transition: color var(--transition-base);
-    }
-
-    .stat-item:hover {
-        color: var(--color-primary);
-    }
-
-    .stat-value {
-        font-size: 1.25rem;
-        font-weight: 700;
-    }
-
-    .stat-label {
-        font-size: 0.875rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .profile-tabs {
-        display: flex;
-        gap: 0.5rem;
-        margin-bottom: 1.5rem;
-        background: var(--color-bg-surface);
-        padding: 0.5rem;
-        border-radius: var(--radius-lg);
-        border: 1px solid var(--color-border-light);
-    }
-
-    .tab-btn {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        padding: 0.75rem;
-        border-radius: var(--radius-md);
-        font-weight: 500;
-        color: var(--color-text-secondary);
-        transition: all var(--transition-base);
-    }
-
-    .tab-btn:hover {
-        background: var(--color-bg-elevated);
-    }
-
-    .tab-btn.active {
-        background: var(--color-primary);
-        color: white;
-    }
-
-    .tab-content {
-        display: none;
-    }
-
-    .tab-content.active {
-        display: block;
-    }
-
-    .posts-grid {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .post-image {
-        max-width: 100%;
-        border-radius: var(--radius-lg);
-        margin-top: 1rem;
-    }
-
-    .empty-state {
-        text-align: center;
-        padding: 3rem;
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-lg);
-    }
-
-    .empty-state i {
-        width: 3rem;
-        height: 3rem;
-        color: var(--color-text-tertiary);
-        margin-bottom: 1rem;
-    }
-
-    .empty-state h3 {
-        margin-bottom: 0.5rem;
-    }
-
-    .empty-state p {
-        color: var(--color-text-secondary);
-    }
-
-    .follow-btn {
-        margin-bottom: 0.5rem;
-    }
-
-    .liked {
-        fill: var(--color-danger);
-        color: var(--color-danger);
-    }
-    .profile-cover img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    }
-
+    .profile-container { max-width: 800px; margin: 0 auto; }
+    .profile-header { background: var(--color-bg-surface); border-radius: var(--radius-xl); overflow: hidden; margin-bottom: 1.5rem; border: 1px solid var(--color-border-light); }
+    .profile-cover { height: 200px; background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%); }
+    .profile-cover img { width: 100%; height: 100%; object-fit: cover; }
+    .profile-cover-placeholder { width: 100%; height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    .profile-info { padding: 0 1.5rem 1.5rem; }
+    .profile-avatar-wrapper { display: flex; align-items: flex-end; justify-content: space-between; margin-top: -50px; margin-bottom: 1rem; }
+    .profile-avatar { width: 120px; height: 120px; border-radius: 50%; border: 4px solid var(--color-bg-surface); overflow: hidden; background: var(--color-bg-surface); box-shadow: var(--shadow-md); }
+    .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .avatar-placeholder-lg { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--color-primary-light); color: var(--color-primary); font-size: 3rem; font-weight: 600; }
+    .avatar-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--color-primary-light); color: var(--color-primary); font-weight: 600; border-radius: 50%; }
+    .profile-details { margin-top: 0.5rem; }
+    .profile-name { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem; }
+    .profile-username { color: var(--color-text-tertiary); margin-bottom: 1rem; }
+    .profile-bio { margin-bottom: 1rem; line-height: 1.6; }
+    .profile-meta { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem; }
+    .meta-item { display: flex; align-items: center; gap: 0.25rem; color: var(--color-text-tertiary); font-size: 0.875rem; }
+    .meta-item i { width: 1rem; height: 1rem; }
+    .meta-item a { color: var(--color-primary); text-decoration: none; }
+    .meta-item a:hover { text-decoration: underline; }
+    .profile-stats { display: flex; flex-wrap: wrap; gap: 1.5rem; padding: 1rem 0; border-top: 1px solid var(--color-border-light); }
+    .stat-item { display: flex; flex-direction: column; text-decoration: none; color: inherit; transition: color var(--transition-base); }
+    .stat-item:hover { color: var(--color-primary); }
+    .stat-value { font-size: 1.25rem; font-weight: 700; }
+    .stat-label { font-size: 0.875rem; color: var(--color-text-tertiary); }
+    .profile-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; background: var(--color-bg-surface); padding: 0.5rem; border-radius: var(--radius-lg); border: 1px solid var(--color-border-light); }
+    .tab-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.75rem; border-radius: var(--radius-md); font-weight: 500; color: var(--color-text-secondary); cursor: pointer; background: none; border: none; transition: all var(--transition-base); }
+    .tab-btn:hover { background: var(--color-bg-elevated); }
+    .tab-btn.active { background: var(--color-primary); color: white; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .posts-grid { display: flex; flex-direction: column; gap: 1rem; }
+    .post-card { background: var(--color-bg-surface); border-radius: var(--radius-lg); padding: 1.25rem; border: 1px solid var(--color-border-light); }
+    .post-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }
+    .post-content { margin-bottom: 1rem; }
+    .post-image { max-width: 100%; border-radius: var(--radius-lg); margin-top: 1rem; }
+    .post-footer { display: flex; gap: 1.5rem; padding-top: 0.75rem; border-top: 1px solid var(--color-border-light); }
+    .post-action { display: flex; align-items: center; gap: 0.375rem; color: var(--color-text-tertiary); text-decoration: none; cursor: pointer; background: none; border: none; font-size: 0.9rem; }
+    .post-action:hover { color: var(--color-primary); }
+    .empty-state { text-align: center; padding: 3rem; background: var(--color-bg-surface); border-radius: var(--radius-lg); }
+    .empty-state i { width: 3rem; height: 3rem; color: var(--color-text-tertiary); margin-bottom: 1rem; }
+    .empty-state h3 { margin-bottom: 0.5rem; }
+    .empty-state p { color: var(--color-text-secondary); }
+    .liked { fill: #ef4444; color: #ef4444; }
+    .account-menu-dropdown { animation: fadeIn 0.15s ease; }
+    .acc-menu-item { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-size: 0.85rem; color: var(--color-text); text-decoration: none; border-radius: 8px; transition: background 0.15s; }
+    .acc-menu-item:hover { background: var(--color-bg-elevated); }
+    .acc-menu-item svg { width: 16px; height: 16px; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
     @media (max-width: 768px) {
-        .profile-avatar-wrapper {
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            gap: 1rem;
-        }
-
-        .profile-stats {
-            justify-content: space-around;
-        }
-
-        .profile-meta {
-            justify-content: center;
-        }
+        .profile-avatar-wrapper { flex-direction: column; align-items: center; text-align: center; gap: 1rem; }
+        .profile-stats { justify-content: space-around; }
+        .profile-meta { justify-content: center; }
     }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Переключение табов
-        const tabBtns = document.querySelectorAll('.tab-btn');
-        const tabContents = document.querySelectorAll('.tab-content');
+    function G(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
 
-        tabBtns.forEach(btn => {
+    document.addEventListener('DOMContentLoaded', function() {
+        feather.replace();
+
+        // Табы
+        document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const tabId = this.dataset.tab;
-
-                tabBtns.forEach(b => b.classList.remove('active'));
-                tabContents.forEach(c => c.classList.remove('active'));
-
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                 this.classList.add('active');
                 document.getElementById(`tab-${tabId}`).classList.add('active');
             });
@@ -471,67 +376,44 @@
         if (followBtn) {
             followBtn.addEventListener('click', async function() {
                 const userId = this.dataset.userId;
-
-                try {
-                    const response = await fetch(`/accounts/follow/${userId}/`, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': getCookie('csrftoken')
-                        }
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-
-                        if (data.status === 'followed') {
-                            this.innerHTML = '<i data-feather="user-check"></i><span>Отписаться</span>';
-                        } else {
-                            this.innerHTML = '<i data-feather="user-plus"></i><span>Подписаться</span>';
-                        }
-                        feather.replace();
-
-                        // Обновить счетчик подписчиков
-                        location.reload();
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
+                const r = await fetch(`/accounts/follow/${userId}/`, { method: 'POST', headers: { 'X-CSRFToken': G('csrftoken') } });
+                if (r.ok) {
+                    const d = await r.json();
+                    this.innerHTML = d.status === 'followed' ? '<i data-feather="user-check"></i><span>Отписаться</span>' : '<i data-feather="user-plus"></i><span>Подписаться</span>';
+                    feather.replace();
+                    location.reload();
                 }
             });
         }
 
-        // Функция получения CSRF токена
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
-        }
-    });
-    document.querySelectorAll('.like-btn').forEach(btn => {
-        btn.addEventListener('click', async function() {
-            const postId = this.dataset.postId;
-            const icon = this.querySelector('i');
-            const count = this.querySelector('span');
-            const r = await fetch('/like/toggle/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: `content_type=post&object_id=${postId}&like_type=like`
+        // Лайк
+        document.querySelectorAll('.like-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const postId = this.dataset.postId;
+                const icon = this.querySelector('i');
+                const count = this.querySelector('span');
+                const r = await fetch('/like/toggle/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': G('csrftoken') },
+                    body: `content_type=post&object_id=${postId}&like_type=like`
+                });
+                const d = await r.json();
+                icon.classList.toggle('liked', d.action === 'added');
+                count.textContent = d.likes_count;
             });
-            const d = await r.json();
-            icon.classList.toggle('liked', d.action === 'added');
-            count.textContent = d.likes_count;
         });
+    });
+
+    // Меню управления
+    window.toggleAccountMenu = function(btn) {
+        const dd = btn.parentElement.querySelector('.account-menu-dropdown');
+        document.querySelectorAll('.account-menu-dropdown').forEach(d => { if (d !== dd) d.style.display = 'none'; });
+        dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+    };
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.account-menu-dropdown') && !e.target.closest('[onclick*="toggleAccountMenu"]')) {
+            document.querySelectorAll('.account-menu-dropdown').forEach(d => d.style.display = 'none');
+        }
     });
 </script>
 {% endblock %}

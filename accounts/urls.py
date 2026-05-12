@@ -83,4 +83,12 @@ urlpatterns = [
     path('friend/<int:user_id>/toggle/', views.toggle_friend, name='toggle_friend'),
     path('<str:username>/friends/', views.friend_list, name='friend_list'),
     path('<str:username>/communities/', views.community_list, name='community_list'),
+
+    path('privacy/', views.privacy_settings, name='privacy_settings'),
+    path('security/', views.security_settings, name='security_settings'),
+    path('notifications/settings/', views.notification_settings, name='notification_settings'),
+    path('blocked/', views.blocked_users, name='blocked_users'),
+    path('sessions/', views.sessions, name='sessions'),
+    path('export/', views.export_data, name='export_data'),
+    path('delete/', views.delete_account, name='delete_account'),
 ]

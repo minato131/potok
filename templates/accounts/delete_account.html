@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Удаление аккаунта · Поток{% endblock %}
+{% block page_title %}Удаление аккаунта{% endblock %}
+
+{% block content %}
+<style>
+    .settings-page { max-width: 500px; margin: 0 auto; }
+    .danger-card { background: #fef2f2; border-radius: 14px; border: 1px solid #fecaca; padding: 24px; text-align: center; }
+    .danger-card h3 { color: #dc2626; font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
+    .danger-card p { color: #991b1b; margin-bottom: 20px; font-size: 0.9rem; }
+    .danger-card input { width: 100%; padding: 12px; border: 1px solid #fecaca; border-radius: 8px; font-size: 0.9rem; outline: none; margin-bottom: 14px; text-align: center; letter-spacing: 4px; font-size: 1.2rem; }
+    .btn-danger { width: 100%; padding: 12px; background: #dc2626; color: #fff; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+    .btn-cancel { margin-top: 8px; width: 100%; padding: 10px; background: transparent; border: none; color: var(--color-text-tertiary); cursor: pointer; }
+    .warning-list { text-align: left; color: #991b1b; font-size: 0.85rem; margin-bottom: 16px; line-height: 1.6; }
+    .warning-list li { margin-bottom: 4px; }
+</style>
+
+<div class="settings-page">
+    <div class="danger-card">
+        {% if step == '1' %}
+        <h3>Удалить аккаунт навсегда</h3>
+        <ul class="warning-list">
+            <li>❌ Все ваши посты будут удалены</li>
+            <li>❌ Все комментарии будут удалены</li>
+            <li>❌ Все закладки и лайки будут удалены</li>
+            <li>❌ Восстановление невозможно</li>
+        </ul>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="1">
+            <button type="submit" class="btn-danger">Получить код подтверждения</button>
+        </form>
+        <a href="{% url 'accounts:profile' %}" class="btn-cancel">Отмена</a>
+
+        {% elif step == '2' %}
+        <h3>Подтвердите удаление</h3>
+        <p>Код отправлен на вашу почту. Введите его ниже:</p>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="2">
+            <input type="text" name="code" placeholder="Введите код" maxlength="6" autofocus>
+            <button type="submit" class="btn-danger">Подтвердить</button>
+        </form>
+        <a href="{% url 'accounts:profile' %}" class="btn-cancel">Отмена</a>
+
+        {% elif step == '3' %}
+        <h3>Последний шаг</h3>
+        <p style="color:#dc2626;font-weight:600">Введите пароль для удаления</p>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="step" value="3">
+            <input type="password" name="password" placeholder="Ваш пароль">
+            <button type="submit" class="btn-danger">Удалить навсегда</button>
+        </form>
+        <a href="{% url 'accounts:profile' %}" class="btn-cancel">Отмена</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

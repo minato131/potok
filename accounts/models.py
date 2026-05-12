@@ -286,6 +286,21 @@ class Profile(models.Model):
     # Настройки приватности
     is_private = models.BooleanField(default=False)
     show_email = models.BooleanField(default=False)
+    allow_messages = models.CharField(max_length=20, default='everyone', verbose_name='Кто может писать')
+    allow_comments = models.CharField(max_length=20, default='everyone', verbose_name='Кто может комментировать')
+
+    # Уведомления
+    notify_likes = models.BooleanField(default=True, verbose_name='Лайки')
+    notify_comments = models.BooleanField(default=True, verbose_name='Комментарии')
+    notify_follows = models.BooleanField(default=True, verbose_name='Подписки')
+    notify_messages = models.BooleanField(default=True, verbose_name='Сообщения')
+    notify_email = models.BooleanField(default=False, verbose_name='Email-уведомления')
+
+    # Безопасность
+    phone = models.CharField(max_length=20, blank=True, verbose_name='Телефон')
+
+    # Чёрный список
+    blocked_users = models.ManyToManyField(User, blank=True, related_name='blocked_by', verbose_name='Заблокированные')
 
     # Статус
     is_online = models.BooleanField(default=False)

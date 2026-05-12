@@ -2,6 +2,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 from communities.models import Community
+from posts.models import Post, Like, Bookmark, Comment
 from .utils import generate_verification_code, send_verification_email, mask_email, send_welcome_email
 from .forms import EmailVerificationForm, ResendCodeForm
 from django.shortcuts import render, redirect, get_object_or_404
@@ -15,7 +16,15 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from .models import Notification, Friendship
 from .models import Profile
-
+import csv
+import json
+from io import StringIO, BytesIO
+from django.http import HttpResponse
+from django.core.mail import send_mail
+from django.conf import settings
+from django.contrib.sessions.models import Session
+from django.utils import timezone
+import random
 from .forms import CustomUserCreationForm, CustomUserChangeForm, CustomPasswordChangeForm
 from .models import User, Follow, Notification
 from .utils import create_notification
@@ -35,6 +44,9 @@ from django.contrib.auth import authenticate
 from django.shortcuts import redirect, render
 from django.contrib import messages
 from .forms import ProfileEditForm
+from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.forms import PasswordChangeForm
+from django.contrib import messages
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +162,7 @@ def profile_view(request, username=None):
         from posts.models import Bookmark
         user_bookmarks = Bookmark.objects.filter(
             user=user
-        ).select_related('post').order_by('-created_at')[:10]
+        ).select_related('post', 'post__author', 'post__author__profile').order_by('-created_at')[:10]
 
     # Проверка подписки
     is_following = False
@@ -160,6 +172,7 @@ def profile_view(request, username=None):
             following=user
         ).exists()
 
+    # Лайки
     liked_post_ids = set()
     if request.user.is_authenticated:
         from posts.models import Like
@@ -167,6 +180,15 @@ def profile_view(request, username=None):
         liked_post_ids = set(Like.objects.filter(
             user=request.user, content_type='post', object_id__in=post_ids
         ).values_list('object_id', flat=True))
+
+    # Понравившиеся посты
+    from posts.models import Like
+    liked_post_ids_full = Like.objects.filter(
+        user=user, content_type='post'
+    ).values_list('object_id', flat=True)
+    liked_posts = Post.objects.filter(
+        id__in=liked_post_ids_full, status='published'
+    ).select_related('author', 'author__profile').order_by('-created_at')[:10]
 
     # Друзья и сообщества
     from accounts.models import Friendship
@@ -181,7 +203,8 @@ def profile_view(request, username=None):
         'followers_count': followers_count,
         'following_count': following_count,
         'is_following': is_following,
-        'posts': user_posts,
+        'user_posts': user_posts,
+        'liked_posts': liked_posts,
         'user_comments': user_comments,
         'user_communities': user_communities,
         'user_bookmarks': user_bookmarks,
@@ -190,6 +213,541 @@ def profile_view(request, username=None):
         'liked_post_ids': liked_post_ids,
     }
     return render(request, 'accounts/profile.html', context)
+
+
+@login_required
+def privacy_settings(request):
+    """Настройки приватности"""
+    if request.method == 'POST':
+        profile = request.user.profile
+        profile.is_private = request.POST.get('is_private') == 'on'
+        profile.show_email = request.POST.get('show_email') == 'on'
+        profile.allow_messages = request.POST.get('allow_messages', 'everyone')
+        profile.allow_comments = request.POST.get('allow_comments', 'everyone')
+        profile.save()
+        messages.success(request, 'Настройки приватности сохранены')
+        return redirect('accounts:privacy_settings')
+
+    return render(request, 'accounts/privacy_settings.html', {
+        'profile': request.user.profile,
+    })
+
+
+@login_required
+def security_settings(request):
+    """Безопасность: смена пароля, телефон, 2FA"""
+    password_form = PasswordChangeForm(request.user)
+
+    if request.method == 'POST':
+        if 'change_password' in request.POST:
+            password_form = PasswordChangeForm(request.user, request.POST)
+            if password_form.is_valid():
+                user = password_form.save()
+                update_session_auth_hash(request, user)
+                messages.success(request, 'Пароль изменён')
+                return redirect('accounts:security_settings')
+
+        if 'add_phone' in request.POST:
+            phone = request.POST.get('phone', '')
+            request.user.profile.phone = phone
+            request.user.profile.save()
+            messages.success(request, 'Телефон добавлен')
+            return redirect('accounts:security_settings')
+
+    return render(request, 'accounts/security_settings.html', {
+        'password_form': password_form,
+        'profile': request.user.profile,
+    })
+
+
+@login_required
+def notification_settings(request):
+    """Настройки уведомлений"""
+    if request.method == 'POST':
+        profile = request.user.profile
+        profile.notify_likes = request.POST.get('notify_likes') == 'on'
+        profile.notify_comments = request.POST.get('notify_comments') == 'on'
+        profile.notify_follows = request.POST.get('notify_follows') == 'on'
+        profile.notify_messages = request.POST.get('notify_messages') == 'on'
+        profile.notify_email = request.POST.get('notify_email') == 'on'
+        profile.save()
+        messages.success(request, 'Настройки уведомлений сохранены')
+        return redirect('accounts:notification_settings')
+
+    return render(request, 'accounts/notification_settings.html', {
+        'profile': request.user.profile,
+    })
+
+
+@login_required
+def blocked_users(request):
+    """Чёрный список"""
+    blocked = request.user.profile.blocked_users.all()
+
+    if request.method == 'POST':
+        if 'block_user' in request.POST:
+            username = request.POST.get('username', '')
+            user_to_block = User.objects.filter(username=username).first()
+            if user_to_block and user_to_block != request.user:
+                request.user.profile.blocked_users.add(user_to_block)
+                messages.success(request, f'{username} заблокирован')
+            else:
+                messages.error(request, 'Пользователь не найден')
+            return redirect('accounts:blocked_users')
+
+        if 'unblock_user' in request.POST:
+            user_id = request.POST.get('user_id')
+            user_to_unblock = User.objects.filter(id=user_id).first()
+            if user_to_unblock:
+                request.user.profile.blocked_users.remove(user_to_unblock)
+                messages.success(request, f'{user_to_unblock.username} разблокирован')
+            return redirect('accounts:blocked_users')
+
+    return render(request, 'accounts/blocked_users.html', {
+        'blocked': blocked,
+    })
+
+
+@login_required
+def sessions(request):
+    """Активные сеансы с полной информацией"""
+    from django.contrib.sessions.models import Session
+    from django.utils import timezone
+
+    all_sessions = Session.objects.filter(expire_date__gte=timezone.now())
+    user_sessions = []
+
+    for session in all_sessions:
+        data = session.get_decoded()
+        if data.get('_auth_user_id') == str(request.user.id):
+            ip = data.get('ip', '127.0.0.1')
+            user_agent = data.get('user_agent', '')
+
+            # Определяем устройство
+            if 'Mobile' in user_agent or 'Android' in user_agent or 'iPhone' in user_agent:
+                device = '📱 Телефон'
+            elif 'iPad' in user_agent or 'Tablet' in user_agent:
+                device = '📱 Планшет'
+            else:
+                device = '💻 Компьютер'
+
+            # Определяем браузер
+            if 'Edg' in user_agent:
+                browser = 'Edge'
+            elif 'Chrome' in user_agent and 'Safari' in user_agent:
+                browser = 'Chrome'
+            elif 'Firefox' in user_agent:
+                browser = 'Firefox'
+            elif 'Safari' in user_agent:
+                browser = 'Safari'
+            elif 'Opera' in user_agent or 'OPR' in user_agent:
+                browser = 'Opera'
+            else:
+                browser = 'Неизвестный браузер'
+
+            # Определяем ОС
+            if 'Windows' in user_agent:
+                os = 'Windows'
+            elif 'Mac OS' in user_agent:
+                os = 'macOS'
+            elif 'Linux' in user_agent and 'Android' not in user_agent:
+                os = 'Linux'
+            elif 'Android' in user_agent:
+                os = 'Android'
+            elif 'iPhone' in user_agent or 'iPad' in user_agent:
+                os = 'iOS'
+            else:
+                os = 'Неизвестная ОС'
+
+            # Геолокация (кешируем в сессии)
+            location = data.get('geo_location', '')
+            if not location and ip and ip != '127.0.0.1':
+                try:
+                    import requests as req
+                    geo = req.get(f'http://ip-api.com/json/{ip}?fields=city,country', timeout=2).json()
+                    location = f"{geo.get('city', '')}, {geo.get('country', '')}"
+                    # Сохраняем в сессию для будущих запросов
+                    data['geo_location'] = location
+                    session.session_data = data
+                except:
+                    location = 'Местоположение неизвестно'
+
+            last_activity = data.get('last_activity', '')
+            if last_activity:
+                last_activity = timezone.datetime.fromisoformat(last_activity)
+            else:
+                last_activity = session.expire_date - timezone.timedelta(
+                    seconds=settings.SESSION_COOKIE_AGE
+                )
+
+            user_sessions.append({
+                'session_key': session.session_key,
+                'ip': ip,
+                'device': device,
+                'browser': browser,
+                'os': os,
+                'location': location or 'Неизвестно',
+                'last_activity': last_activity,
+                'is_current': session.session_key == request.session.session_key,
+            })
+
+    if request.method == 'POST' and 'logout_session' in request.POST:
+        session_key = request.POST.get('session_key')
+        if session_key != request.session.session_key:
+            Session.objects.filter(session_key=session_key).delete()
+            messages.success(request, 'Сеанс завершён')
+        return redirect('accounts:sessions')
+
+    if request.method == 'POST' and 'logout_all' in request.POST:
+        Session.objects.filter(expire_date__gte=timezone.now()).exclude(
+            session_key=request.session.session_key
+        ).delete()
+        messages.success(request, 'Все сеансы кроме текущего завершены')
+        return redirect('accounts:sessions')
+
+    return render(request, 'accounts/sessions.html', {'sessions': user_sessions})
+
+
+@login_required
+def export_data(request):
+    if request.method == 'POST':
+        export_type = request.POST.get('type', 'json')
+
+        # Собираем ВСЕ данные
+        posts = list(request.user.posts.filter(status='published').values('title', 'content', 'created_at'))
+        posts_count = len(posts)
+        comments = list(Comment.objects.filter(author=request.user).values('content', 'created_at', 'post__title'))
+
+        data = {
+            'username': request.user.username,
+            'email': request.user.email,
+            'first_name': request.user.first_name,
+            'last_name': request.user.last_name,
+            'date_joined': request.user.date_joined.isoformat(),
+            'posts_count': posts_count,
+            'posts': posts,
+            'comments_count': len(comments),
+            'comments': comments,
+        }
+
+        if export_type == 'json':
+            # Собираем полные данные
+            from posts.models import Bookmark, Like
+            from communities.models import Community
+            from accounts.models import Friendship
+
+            full_data = {
+                'exported_at': timezone.now().isoformat(),
+                'profile': {
+                    'username': request.user.username,
+                    'email': request.user.email,
+                    'first_name': request.user.first_name,
+                    'last_name': request.user.last_name,
+                    'full_name': request.user.get_full_name(),
+                    'date_joined': request.user.date_joined.isoformat(),
+                    'bio': request.user.profile.bio,
+                    'location': request.user.profile.location,
+                    'website': request.user.profile.website,
+                    'phone': request.user.profile.phone,
+                },
+                'stats': {
+                    'posts_count': posts_count,
+                    'followers_count': request.user.profile_followers.count(),
+                    'following_count': request.user.profile.following.count(),
+                    'friends_count': Friendship.objects.filter(user=request.user).count(),
+                    'bookmarks_count': Bookmark.objects.filter(user=request.user).count(),
+                    'likes_count': Like.objects.filter(user=request.user, content_type='post').count(),
+                    'comments_count': len(comments),
+                },
+                'posts': list(request.user.posts.filter(status='published').values(
+                    'id', 'title', 'content', 'created_at', 'updated_at', 'likes_count', 'views_count'
+                )),
+                'comments': list(Comment.objects.filter(author=request.user).values(
+                    'id', 'content', 'created_at', 'post__title'
+                )),
+                'bookmarks': list(Bookmark.objects.filter(user=request.user).select_related('post').values(
+                    'post__id', 'post__title', 'created_at'
+                )),
+                'liked_posts': list(Post.objects.filter(
+                    id__in=Like.objects.filter(user=request.user, content_type='post').values_list('object_id',
+                                                                                                   flat=True)
+                ).values('id', 'title', 'created_at')),
+                'communities': list(Community.objects.filter(members=request.user).values('id', 'name', 'slug')),
+            }
+
+            # Музыка
+            try:
+                from music_app.models import SavedTrack
+                full_data['saved_tracks'] = list(SavedTrack.objects.filter(user=request.user).values(
+                    'track_id', 'title', 'artist', 'created_at'
+                ))
+            except ImportError:
+                full_data['saved_tracks'] = []
+
+            response = HttpResponse(
+                json.dumps(full_data, indent=2, ensure_ascii=False, default=str),
+                content_type='application/json'
+            )
+            response['Content-Disposition'] = f'attachment; filename="potok_data_{request.user.username}.json"'
+            return response
+
+        elif export_type == 'pdf':
+            try:
+                from reportlab.lib.pagesizes import A4
+                from reportlab.pdfgen import canvas
+                from reportlab.pdfbase import pdfmetrics
+                from reportlab.pdfbase.ttfonts import TTFont
+                from django.conf import settings
+                import os
+
+                buffer = BytesIO()
+                p = canvas.Canvas(buffer, pagesize=A4)
+
+                font_path = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'DejaVuSans.ttf')
+                if os.path.exists(font_path):
+                    pdfmetrics.registerFont(TTFont('DejaVu', font_path))
+                    font_name = 'DejaVu'
+                else:
+                    font_name = 'Helvetica'
+
+                y = 820
+
+                # Заголовок
+                p.setFont(font_name, 20)
+                p.drawString(50, y, "Архив данных • Поток")
+                y -= 30
+                p.setFont(font_name, 16)
+                p.drawString(50, y, f"Пользователь: @{request.user.username}")
+                y -= 30
+
+                # Основная информация
+                p.setFont(font_name, 14)
+                p.drawString(50, y, "Основная информация")
+                y -= 22
+                p.setFont(font_name, 11)
+                info_lines = [
+                    f"Имя: {request.user.get_full_name() or 'Не указано'}",
+                    f"Email: {request.user.email}",
+                    f"Дата регистрации: {request.user.date_joined.strftime('%d.%m.%Y')}",
+                    f"Биография: {request.user.profile.bio or 'Не указана'}",
+                    f"Местоположение: {request.user.profile.location or 'Не указано'}",
+                    f"Веб-сайт: {request.user.profile.website or 'Не указан'}",
+                    f"Телефон: {request.user.profile.phone or 'Не указан'}",
+                ]
+                for line in info_lines:
+                    if y < 60:
+                        p.showPage()
+                        y = 820
+                        p.setFont(font_name, 11)
+                    p.drawString(60, y, line)
+                    y -= 18
+                y -= 10
+
+                # Статистика
+                p.setFont(font_name, 14)
+                p.drawString(50, y, "Статистика")
+                y -= 22
+                p.setFont(font_name, 11)
+                stats = [
+                    f"Постов: {posts_count}",
+                    f"Подписчиков: {request.user.profile_followers.count()}",
+                    f"Подписок: {request.user.profile.following.count()}",
+                    f"Друзей: {Friendship.objects.filter(user=request.user).count()}",
+                ]
+                for s in stats:
+                    if y < 60:
+                        p.showPage()
+                        y = 820
+                        p.setFont(font_name, 11)
+                    p.drawString(60, y, s)
+                    y -= 18
+                y -= 10
+
+                # Посты
+                p.setFont(font_name, 14)
+                p.drawString(50, y, f"Посты ({len(posts)})")
+                y -= 22
+                p.setFont(font_name, 11)
+                for i, post in enumerate(posts, 1):
+                    if y < 80:
+                        p.showPage()
+                        y = 820
+                        p.setFont(font_name, 11)
+                    p.setFont(font_name, 12)
+                    p.drawString(60, y, f"{i}. {post['title'][:90]}")
+                    y -= 18
+                    p.setFont(font_name, 10)
+                    content = post['content'][:200].replace('\n', ' ')
+                    p.drawString(70, y, f"{content}")
+                    y -= 16
+                    p.drawString(70, y, f"Опубликовано: {str(post['created_at'])[:19]}")
+                    y -= 22
+                y -= 10
+
+                # Комментарии
+                p.setFont(font_name, 14)
+                p.drawString(50, y, f"Комментарии ({len(comments)})")
+                y -= 22
+                p.setFont(font_name, 10)
+                for i, comment in enumerate(comments[:30], 1):
+                    if y < 60:
+                        p.showPage()
+                        y = 820
+                        p.setFont(font_name, 10)
+                    p.drawString(60, y, f"{i}. [{str(comment['created_at'])[:19]}] {comment['content'][:150]}")
+                    y -= 16
+                y -= 10
+
+                # Закладки
+                from posts.models import Bookmark
+                bookmarks = Bookmark.objects.filter(user=request.user).select_related('post')[:20]
+                p.setFont(font_name, 14)
+                p.drawString(50, y, f"Закладки ({bookmarks.count()})")
+                y -= 22
+                p.setFont(font_name, 10)
+                for i, bm in enumerate(bookmarks, 1):
+                    if y < 60:
+                        p.showPage()
+                        y = 820
+                        p.setFont(font_name, 10)
+                    p.drawString(60, y, f"{i}. {bm.post.title[:90]} — {str(bm.created_at)[:19]}")
+                    y -= 16
+                y -= 10
+
+                # Лайки
+                from posts.models import Like
+                liked_ids = Like.objects.filter(
+                    user=request.user, content_type='post'
+                ).values_list('object_id', flat=True)[:20]
+                liked_posts = Post.objects.filter(id__in=liked_ids)
+                liked_count = Like.objects.filter(user=request.user, content_type='post').count()
+                p.setFont(font_name, 14)
+                p.drawString(50, y, f"Понравившиеся посты ({liked_count})")
+                y -= 22
+                p.setFont(font_name, 10)
+                for i, post in enumerate(liked_posts, 1):
+                    if y < 60:
+                        p.showPage()
+                        y = 820
+                        p.setFont(font_name, 10)
+                    p.drawString(60, y, f"{i}. {post.title[:90]}")
+                    y -= 16
+                y -= 10
+
+                # Сообщества
+                from communities.models import Community
+                communities = Community.objects.filter(members=request.user)[:20]
+                p.setFont(font_name, 14)
+                p.drawString(50, y, f"Сообщества ({communities.count()})")
+                y -= 22
+                p.setFont(font_name, 10)
+                for i, c in enumerate(communities, 1):
+                    if y < 60:
+                        p.showPage()
+                        y = 820
+                        p.setFont(font_name, 10)
+                    p.drawString(60, y, f"{i}. c/{c.name}")
+                    y -= 16
+                y -= 10
+
+                # Музыка
+                try:
+                    from music_app.models import SavedTrack
+                    tracks = SavedTrack.objects.filter(user=request.user)[:20]
+                    if tracks.exists():
+                        p.setFont(font_name, 14)
+                        p.drawString(50, y, f"Сохранённые треки ({tracks.count()})")
+                        y -= 22
+                        p.setFont(font_name, 10)
+                        for i, t in enumerate(tracks, 1):
+                            if y < 60:
+                                p.showPage()
+                                y = 820
+                                p.setFont(font_name, 10)
+                            p.drawString(60, y, f"{i}. {t.title} — {t.artist}")
+                            y -= 16
+                except ImportError:
+                    pass
+
+                # Футер
+                y -= 10
+                p.setFont(font_name, 8)
+                p.drawString(50, 30, f"Экспортировано: {timezone.now().strftime('%d.%m.%Y %H:%M')} • Поток")
+
+                p.save()
+                buffer.seek(0)
+                response = HttpResponse(buffer, content_type='application/pdf')
+                response['Content-Disposition'] = f'attachment; filename="potok_data_{request.user.username}.pdf"'
+                return response
+
+            except ImportError:
+                messages.error(request, 'PDF-экспорт недоступен. pip install reportlab')
+                return redirect('accounts:export_data')
+
+    return render(request, 'accounts/export_data.html')
+
+
+@login_required
+def delete_account(request):
+    """Удаление аккаунта с подтверждением по коду"""
+    if request.method == 'POST':
+        step = request.POST.get('step', '1')
+
+        if step == '1':
+            # Генерируем код и отправляем на почту
+            code = str(random.randint(100000, 999999))
+            request.session['delete_code'] = code
+            request.session['delete_code_time'] = timezone.now().isoformat()
+
+            try:
+                send_mail(
+                    'Подтверждение удаления аккаунта Поток',
+                    f'Код для удаления аккаунта: {code}\n\n'
+                    f'Если вы не запрашивали удаление — проигнорируйте это письмо.',
+                    settings.DEFAULT_FROM_EMAIL,
+                    [request.user.email],
+                    fail_silently=False,
+                )
+                messages.info(request, f'Код подтверждения отправлен на {request.user.email}')
+            except Exception as e:
+                # Если почта не работает — показываем код на странице
+                messages.info(request, f'Код подтверждения: {code} (отправка на почту недоступна)')
+
+            return render(request, 'accounts/delete_account.html', {'step': '2'})
+
+        elif step == '2':
+            entered_code = request.POST.get('code', '')
+            stored_code = request.session.get('delete_code', '')
+            code_time = request.session.get('delete_code_time', '')
+
+            # Проверяем что код не истёк (10 минут)
+            if code_time:
+                code_time = timezone.datetime.fromisoformat(code_time)
+                if timezone.now() - code_time > timezone.timedelta(minutes=10):
+                    messages.error(request, 'Код истёк. Запросите новый')
+                    return redirect('accounts:delete_account')
+
+            if entered_code == stored_code:
+                # Показываем финальное подтверждение
+                return render(request, 'accounts/delete_account.html', {'step': '3'})
+            else:
+                messages.error(request, 'Неверный код')
+                return render(request, 'accounts/delete_account.html', {'step': '2'})
+
+        elif step == '3':
+            password = request.POST.get('password', '')
+            if request.user.check_password(password):
+                user = request.user
+                # Очищаем сессию
+                request.session.flush()
+                user.delete()
+                messages.success(request, 'Аккаунт удалён')
+                return redirect('posts:post_list')
+            else:
+                messages.error(request, 'Неверный пароль')
+                return render(request, 'accounts/delete_account.html', {'step': '3'})
+
+    return render(request, 'accounts/delete_account.html', {'step': '1'})
 
 
 @login_required
@@ -585,23 +1143,6 @@ def confirm_email(request):
 
     return JsonResponse({'status': 'error', 'message': 'Метод не поддерживается'}, status=405)
 
-
-@login_required
-def delete_account(request):
-    if request.method == 'POST':
-        password = request.POST.get('password')
-        user = authenticate(username=request.user.username, password=password)
-
-        if user is not None:
-            # Удаляем пользователя
-            user.delete()
-            messages.success(request, 'Ваш аккаунт успешно удален.')
-            return redirect('posts:post_list')
-        else:
-            messages.error(request, 'Неверный пароль.')
-            return redirect('accounts:profile_edit')
-
-    return redirect('accounts:profile_edit')
 
 
 def terms_view(request):

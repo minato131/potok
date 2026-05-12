@@ -50,6 +50,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'accounts.middleware.LastActivityMiddleware',
+    'accounts.middleware.SessionInfoMiddleware',
 ]
 
 ROOT_URLCONF = 'potok.urls'

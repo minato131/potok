@@ -605,7 +605,7 @@ def search(request):
             results = Post.objects.filter(
                 Q(title__icontains=query) | Q(content__icontains=query),
                 status='published'
-            ).select_related('author', 'community').prefetch_related('tags')
+            ).select_related('author').prefetch_related('tags')
 
             # Фильтр по дате
             if date_filter == 'day':
@@ -626,7 +626,7 @@ def search(request):
 
             # Фильтр по сообществу
             if community_filter:
-                results = results.filter(community__slug=community_filter)
+                results = results.filter(community_post__community__slug=community_filter)
 
             # Фильтр по категории
             if category_filter:
@@ -649,7 +649,7 @@ def search(request):
             results = Community.objects.filter(
                 Q(name__icontains=query) | Q(description__icontains=query),
                 status='active'
-            ).annotate(members_count=Count('members'))
+            )
 
             if sort == 'popular':
                 results = results.order_by('-members_count')
@@ -678,9 +678,10 @@ def search(request):
             total_count = results.count()
             context['users_count'] = total_count
 
+
         elif search_type == 'tags':
             results = Tag.objects.filter(
-                Q(name__icontains=query) | Q(description__icontains=query)
+                Q(name__icontains=query)
             ).annotate(posts_count=Count('posts'))
 
             if sort == 'popular':

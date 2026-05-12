@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Сеансы · Поток{% endblock %}
+{% block page_title %}Активные сеансы{% endblock %}
+
+{% block content %}
+<style>
+    .settings-page { max-width: 700px; margin: 0 auto; }
+    .settings-card { background: var(--color-bg-surface); border-radius: 14px; border: 1px solid var(--color-border-light); padding: 20px 24px; margin-bottom: 16px; }
+    .session-item { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--color-border-light); }
+    .session-item:last-child { border-bottom: none; }
+    .session-icon { font-size: 2rem; width: 50px; text-align: center; flex-shrink: 0; }
+    .session-info { flex: 1; }
+    .session-device { font-weight: 600; font-size: 0.9rem; }
+    .session-details { font-size: 0.78rem; color: var(--color-text-tertiary); margin-top: 2px; }
+    .session-location { font-size: 0.76rem; color: var(--color-text-tertiary); margin-top: 1px; }
+    .session-current { font-size: 0.72rem; background: #d1fae5; color: #065f46; padding: 3px 10px; border-radius: 12px; font-weight: 600; white-space: nowrap; }
+    .btn-logout { padding: 6px 14px; border: 1px solid var(--color-danger); border-radius: 6px; cursor: pointer; color: var(--color-danger); background: transparent; font-size: 0.82rem; white-space: nowrap; }
+    .btn-logout-all { width: 100%; padding: 10px; background: transparent; border: 1px solid var(--color-danger); border-radius: 8px; cursor: pointer; color: var(--color-danger); font-weight: 500; margin-top: 12px; }
+</style>
+
+<div class="settings-page">
+    <div class="settings-card">
+        <h3 style="font-weight:700;margin-bottom:16px">Активные сеансы ({{ sessions|length }})</h3>
+        {% for s in sessions %}
+        <div class="session-item">
+            <div class="session-icon">{{ s.device|slice:":2" }}</div>
+            <div class="session-info">
+                <div class="session-device">{{ s.browser }} на {{ s.os }}</div>
+                <div class="session-details">IP: {{ s.ip }}</div>
+                <div class="session-location">📍 {{ s.location }} · {{ s.last_activity|date:"d.m.Y в H:i" }}</div>
+            </div>
+            {% if s.is_current %}
+            <span class="session-current">Текущий</span>
+            {% else %}
+            <form method="post" style="margin:0">
+                {% csrf_token %}
+                <input type="hidden" name="session_key" value="{{ s.session_key }}">
+                <button type="submit" name="logout_session" class="btn-logout">Завершить</button>
+            </form>
+            {% endif %}
+        </div>
+        {% empty %}
+        <p style="color:var(--color-text-tertiary);text-align:center;padding:20px">Нет активных сеансов</p>
+        {% endfor %}
+
+        {% if sessions|length > 1 %}
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" name="logout_all" class="btn-logout-all">Завершить все кроме текущего</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

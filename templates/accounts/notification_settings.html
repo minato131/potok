@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Уведомления · Поток{% endblock %}
+{% block page_title %}Уведомления{% endblock %}
+
+{% block content %}
+<style>
+    .settings-page { max-width: 650px; margin: 0 auto; }
+    .settings-card { background: var(--color-bg-surface); border-radius: 14px; border: 1px solid var(--color-border-light); padding: 20px 24px; margin-bottom: 16px; }
+    .settings-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 16px; }
+    .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--color-border-light); }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-label { font-weight: 500; font-size: 0.9rem; }
+    .setting-desc { font-size: 0.78rem; color: var(--color-text-tertiary); margin-top: 2px; }
+    .toggle-switch { position: relative; display: inline-block; width: 48px; height: 26px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: var(--color-border); border-radius: 26px; transition: 0.2s; }
+    .toggle-slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
+    input:checked + .toggle-slider { background: var(--color-primary); }
+    input:checked + .toggle-slider:before { transform: translateX(22px); }
+    .btn-save { padding: 12px 28px; background: var(--color-primary); color: #fff; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+</style>
+
+<div class="settings-page">
+    <form method="post">
+        {% csrf_token %}
+        <div class="settings-card">
+            <h3>Push-уведомления</h3>
+            <div class="setting-row">
+                <div><div class="setting-label">Лайки</div><div class="setting-desc">Кто-то лайкнул ваш пост</div></div>
+                <label class="toggle-switch"><input type="checkbox" name="notify_likes" {% if profile.notify_likes %}checked{% endif %}><span class="toggle-slider"></span></label>
+            </div>
+            <div class="setting-row">
+                <div><div class="setting-label">Комментарии</div><div class="setting-desc">Новый комментарий к посту</div></div>
+                <label class="toggle-switch"><input type="checkbox" name="notify_comments" {% if profile.notify_comments %}checked{% endif %}><span class="toggle-slider"></span></label>
+            </div>
+            <div class="setting-row">
+                <div><div class="setting-label">Подписки</div><div class="setting-desc">Кто-то подписался на вас</div></div>
+                <label class="toggle-switch"><input type="checkbox" name="notify_follows" {% if profile.notify_follows %}checked{% endif %}><span class="toggle-slider"></span></label>
+            </div>
+            <div class="setting-row">
+                <div><div class="setting-label">Сообщения</div><div class="setting-desc">Новое личное сообщение</div></div>
+                <label class="toggle-switch"><input type="checkbox" name="notify_messages" {% if profile.notify_messages %}checked{% endif %}><span class="toggle-slider"></span></label>
+            </div>
+        </div>
+        <div class="settings-card">
+            <h3>Email-уведомления</h3>
+            <div class="setting-row">
+                <div><div class="setting-label">Получать уведомления на почту</div></div>
+                <label class="toggle-switch"><input type="checkbox" name="notify_email" {% if profile.notify_email %}checked{% endif %}><span class="toggle-slider"></span></label>
+            </div>
+        </div>
+        <button type="submit" class="btn-save">Сохранить</button>
+    </form>
+</div>
+{% endblock %}

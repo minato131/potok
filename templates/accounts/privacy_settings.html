@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Приватность · Поток{% endblock %}
+{% block page_title %}🔒 Приватность{% endblock %}
+
+{% block content %}
+<style>
+    .settings-page { max-width: 650px; margin: 0 auto; }
+    .settings-card { background: var(--color-bg-surface); border-radius: 14px; border: 1px solid var(--color-border-light); padding: 20px 24px; margin-bottom: 16px; }
+    .settings-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 16px; }
+    .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--color-border-light); }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-label { font-weight: 500; font-size: 0.9rem; }
+    .setting-desc { font-size: 0.78rem; color: var(--color-text-tertiary); margin-top: 2px; }
+    .toggle-switch { position: relative; display: inline-block; width: 48px; height: 26px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: var(--color-border); border-radius: 26px; transition: 0.2s; }
+    .toggle-slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
+    input:checked + .toggle-slider { background: var(--color-primary); }
+    input:checked + .toggle-slider:before { transform: translateX(22px); }
+    .settings-card select { padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 0.85rem; background: var(--color-bg-surface); }
+    .btn-save { padding: 12px 28px; background: var(--color-primary); color: #fff; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+</style>
+
+<div class="settings-page">
+    <form method="post">
+        {% csrf_token %}
+        <div class="settings-card">
+            <h3>Видимость профиля</h3>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">Приватный профиль</div>
+                    <div class="setting-desc">Только подписчики видят ваши посты</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" name="is_private" {% if profile.is_private %}checked{% endif %}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="setting-row">
+                <div>
+                    <div class="setting-label">Показывать email</div>
+                    <div class="setting-desc">Отображать email в профиле</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" name="show_email" {% if profile.show_email %}checked{% endif %}>
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="settings-card">
+            <h3>Кто может взаимодействовать</h3>
+            <div class="setting-row">
+                <div class="setting-label">Писать сообщения</div>
+                <select name="allow_messages">
+                    <option value="everyone" {% if profile.allow_messages == 'everyone' %}selected{% endif %}>Все</option>
+                    <option value="friends" {% if profile.allow_messages == 'friends' %}selected{% endif %}>Друзья</option>
+                    <option value="nobody" {% if profile.allow_messages == 'nobody' %}selected{% endif %}>Никто</option>
+                </select>
+            </div>
+            <div class="setting-row">
+                <div class="setting-label">Комментировать посты</div>
+                <select name="allow_comments">
+                    <option value="everyone" {% if profile.allow_comments == 'everyone' %}selected{% endif %}>Все</option>
+                    <option value="friends" {% if profile.allow_comments == 'friends' %}selected{% endif %}>Друзья</option>
+                    <option value="nobody" {% if profile.allow_comments == 'nobody' %}selected{% endif %}>Никто</option>
+                </select>
+            </div>
+        </div>
+
+        <button type="submit" class="btn-save">Сохранить</button>
+    </form>
+</div>
+{% endblock %}
