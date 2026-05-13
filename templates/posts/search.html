@@ -20,8 +20,7 @@
                     <i data-feather="arrow-right"></i>
                 </button>
             </div>
-
-            <input type="hidden" name="type" id="searchTypeInput" value="{{ type }}">
+            <input type="hidden" name="type" value="{{ type }}">
         </form>
     </div>
 
@@ -32,15 +31,15 @@
             <span>Посты</span>
             <span class="count">{{ posts_count|default:0 }}</span>
         </a>
+        <a href="?q={{ query }}&type=users" class="search-tab {% if type == 'users' %}active{% endif %}">
+            <i data-feather="user"></i>
+            <span>Люди</span>
+            <span class="count">{{ users_count|default:0 }}</span>
+        </a>
         <a href="?q={{ query }}&type=communities" class="search-tab {% if type == 'communities' %}active{% endif %}">
             <i data-feather="users"></i>
             <span>Сообщества</span>
             <span class="count">{{ communities_count|default:0 }}</span>
-        </a>
-        <a href="?q={{ query }}&type=users" class="search-tab {% if type == 'users' %}active{% endif %}">
-            <i data-feather="user"></i>
-            <span>Пользователи</span>
-            <span class="count">{{ users_count|default:0 }}</span>
         </a>
         <a href="?q={{ query }}&type=tags" class="search-tab {% if type == 'tags' %}active{% endif %}">
             <i data-feather="tag"></i>
@@ -105,41 +104,13 @@
             {% endif %}
 
             <button type="button" class="btn btn--outline btn--sm" id="applyFilters">
-                <i data-feather="check"></i>
-                Применить
+                <i data-feather="check"></i> Применить
             </button>
 
             {% if query %}
             <a href="?q={{ query }}&type={{ type }}" class="btn btn--outline btn--sm">
-                <i data-feather="x"></i>
-                Сбросить
+                <i data-feather="x"></i> Сбросить
             </a>
-            {% endif %}
-        </div>
-
-        <!-- Активные фильтры -->
-        <div class="active-filters">
-            {% if date_filter and date_filter != 'all' %}
-            <span class="filter-tag">
-                Дата:
-                {% if date_filter == 'day' %}24 часа
-                {% elif date_filter == 'week' %}Неделя
-                {% elif date_filter == 'month' %}Месяц
-                {% endif %}
-                <button data-remove="date"><i data-feather="x"></i></button>
-            </span>
-            {% endif %}
-            {% if community_filter %}
-            <span class="filter-tag">
-                Сообщество: {{ community_filter }}
-                <button data-remove="community"><i data-feather="x"></i></button>
-            </span>
-            {% endif %}
-            {% if category_filter %}
-            <span class="filter-tag">
-                Категория: {{ category_filter }}
-                <button data-remove="category"><i data-feather="x"></i></button>
-            </span>
             {% endif %}
         </div>
     </div>
@@ -152,121 +123,72 @@
                 <article class="search-result-post">
                     <div class="result-meta">
                         {% if post.community %}
-                        <a href="{% url 'communities:community_detail' slug=post.community.slug %}" class="result-community">
-                            c/{{ post.community.name }}
-                        </a>
+                        <a href="{% url 'communities:community_detail' slug=post.community.slug %}" class="result-community">c/{{ post.community.name }}</a>
                         <span>·</span>
                         {% endif %}
-                        <a href="{% url 'accounts:profile_by_username' username=post.author.username %}" class="result-author">
-                            u/{{ post.author.username }}
-                        </a>
+                        <a href="{% url 'accounts:profile_by_username' username=post.author.username %}" class="result-author">u/{{ post.author.username }}</a>
                         <span>·</span>
                         <span class="result-time">{{ post.created_at|timesince }} назад</span>
                     </div>
-                    <h3 class="result-title">
-                        <a href="{% url 'posts:post_detail' pk=post.id %}">{{ post.title }}</a>
-                    </h3>
+                    <h3 class="result-title"><a href="{% url 'posts:post_detail' pk=post.id %}">{{ post.title }}</a></h3>
                     <p class="result-excerpt">{{ post.content|truncatewords:30 }}</p>
                     <div class="result-stats">
-                        <span><i data-feather="arrow-up"></i> {{ post.likes_count|default:0 }}</span>
+                        <span><i data-feather="heart"></i> {{ post.likes_count|default:0 }}</span>
                         <span><i data-feather="message-circle"></i> {{ post.comments_count|default:0 }}</span>
                     </div>
                 </article>
-                {% empty %}
-                <div class="empty-results">
-                    <i data-feather="search"></i>
-                    <h3>Ничего не найдено</h3>
-                    <p>Попробуйте изменить поисковый запрос или фильтры</p>
-                </div>
-                {% endfor %}
-
-            {% elif type == 'communities' %}
-                <div class="communities-results">
-                    {% for community in results %}
-                    <a href="{% url 'communities:community_detail' slug=community.slug %}" class="community-result">
-                        <div class="community-avatar">
-                            {% if community.avatar %}
-                            <img src="{{ community.avatar.url }}" alt="{{ community.name }}">
-                            {% else %}
-                            <span>{{ community.name|first|upper }}</span>
-                            {% endif %}
-                        </div>
-                        <div class="community-info">
-                            <h4>c/{{ community.name }}</h4>
-                            <p>{{ community.description|truncatewords:15 }}</p>
-                            <span>{{ community.members_count }} участников</span>
-                        </div>
-                    </a>
-                    {% empty %}
-                    <div class="empty-results">
-                        <i data-feather="users"></i>
-                        <h3>Сообщества не найдены</h3>
-                    </div>
-                    {% endfor %}
-                </div>
+                {% empty %}<div class="empty-results"><i data-feather="search"></i><h3>Ничего не найдено</h3></div>{% endfor %}
 
             {% elif type == 'users' %}
-                <div class="users-results">
-                    {% for user_result in results %}
-                    <div class="user-result">
-                        <div class="user-avatar">
-                            <a href="{% url 'accounts:profile_by_username' username=user_result.username %}">
-                                {% if user_result.profile.avatar %}
-                                <img src="{{ user_result.profile.avatar.url }}" alt="{{ user_result.username }}">
-                                {% else %}
-                                <span>{{ user_result.username|first|upper }}</span>
-                                {% endif %}
-                            </a>
-                        </div>
-                        <div class="user-info">
-                            <a href="{% url 'accounts:profile_by_username' username=user_result.username %}" class="user-name">
-                                {{ user_result.get_full_name|default:user_result.username }}
-                            </a>
-                            <span class="user-username">@{{ user_result.username }}</span>
-                            {% if user_result.profile.bio %}
-                            <p class="user-bio">{{ user_result.profile.bio|truncatewords:10 }}</p>
-                            {% endif %}
-                        </div>
-                        {% if user.is_authenticated and user != user_result %}
-                        <button class="btn btn--outline btn--sm follow-btn" data-user-id="{{ user_result.id }}">
-                            {% if user_result in user.profile.following.all %}
-                            Отписаться
-                            {% else %}
-                            Подписаться
-                            {% endif %}
-                        </button>
-                        {% endif %}
+                {% for u in results %}
+                <div class="user-result">
+                    <div class="user-avatar">
+                        <a href="{% url 'accounts:profile_by_username' username=u.username %}">
+                            {% if u.profile.avatar %}<img src="{{ u.profile.avatar.url }}" alt="">{% else %}<span>{{ u.username|first|upper }}</span>{% endif %}
+                        </a>
                     </div>
-                    {% empty %}
-                    <div class="empty-results">
-                        <i data-feather="user"></i>
-                        <h3>Пользователи не найдены</h3>
+                    <div class="user-info">
+                        <a href="{% url 'accounts:profile_by_username' username=u.username %}" class="user-name">{{ u.get_full_name|default:u.username }}</a>
+                        <span class="user-username">@{{ u.username }}</span>
+                        {% if u.profile.bio %}<p class="user-bio">{{ u.profile.bio|truncatewords:10 }}</p>{% endif %}
                     </div>
-                    {% endfor %}
+                    {% if user.is_authenticated and user != u %}
+                    <button class="btn btn--outline btn--sm follow-btn" data-user-id="{{ u.id }}">
+                        {% if u in user.profile.following.all %}Отписаться{% else %}Подписаться{% endif %}
+                    </button>
+                    {% endif %}
                 </div>
+                {% empty %}<div class="empty-results"><i data-feather="user"></i><h3>Пользователи не найдены</h3></div>{% endfor %}
+
+            {% elif type == 'communities' %}
+                {% for c in results %}
+                <a href="{% url 'communities:community_detail' slug=c.slug %}" class="community-result">
+                    <div class="community-avatar">
+                        {% if c.avatar %}<img src="{{ c.avatar.url }}" alt="">{% else %}<span>{{ c.name|first|upper }}</span>{% endif %}
+                    </div>
+                    <div class="community-info">
+                        <h4>c/{{ c.name }}</h4>
+                        <p>{{ c.description|truncatewords:15 }}</p>
+                        <span>{{ c.members_count }} участников</span>
+                    </div>
+                </a>
+                {% empty %}<div class="empty-results"><i data-feather="users"></i><h3>Сообщества не найдены</h3></div>{% endfor %}
 
             {% elif type == 'tags' %}
-                <div class="tags-results">
-                    {% for tag in results %}
-                    <a href="{% url 'posts:tag_detail' slug=tag.slug %}" class="tag-result">
-                        <span class="tag-name">#{{ tag.name }}</span>
-                        <span class="tag-posts">{{ tag.posts_count }} постов</span>
-                        {% if tag.description %}
-                        <p class="tag-description">{{ tag.description|truncatewords:10 }}</p>
-                        {% endif %}
-                    </a>
-                    {% empty %}
-                    <div class="empty-results">
-                        <i data-feather="tag"></i>
-                        <h3>Теги не найдены</h3>
-                    </div>
-                    {% endfor %}
-                </div>
+                {% for t in results %}
+                <a href="{% url 'posts:tag_detail' slug=t.slug %}" class="tag-result">
+                    <span class="tag-name">#{{ t.name }}</span>
+                    <span class="tag-posts">{{ t.posts_count }} постов</span>
+                </a>
+                {% empty %}<div class="empty-results"><i data-feather="tag"></i><h3>Теги не найдены</h3></div>{% endfor %}
             {% endif %}
 
-            <!-- Пагинация -->
             {% if is_paginated %}
-            {% include 'includes/pagination.html' with page_obj=page_obj %}
+            <div style="display:flex;justify-content:center;gap:8px;padding:24px 0">
+                {% if page_obj.has_previous %}<a href="?q={{ query }}&type={{ type }}&page={{ page_obj.previous_page_number }}" class="btn btn--outline btn--sm">←</a>{% endif %}
+                {% for n in page_obj.paginator.page_range %}{% if n == page_obj.number %}<span class="btn btn--primary btn--sm">{{ n }}</span>{% elif n > page_obj.number|add:'-3' and n < page_obj.number|add:'3' %}<a href="?q={{ query }}&type={{ type }}&page={{ n }}" class="btn btn--outline btn--sm">{{ n }}</a>{% endif %}{% endfor %}
+                {% if page_obj.has_next %}<a href="?q={{ query }}&type={{ type }}&page={{ page_obj.next_page_number }}" class="btn btn--outline btn--sm">→</a>{% endif %}
+            </div>
             {% endif %}
         {% else %}
             <div class="empty-search">
@@ -281,430 +203,70 @@
 
 {% block extra_css %}
 <style>
-    .search-page {
-        max-width: 900px;
-        margin: 0 auto;
-    }
-
-    .search-header {
-        margin-bottom: 1.5rem;
-    }
-
-    .search-input-wrapper {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem;
-        background: var(--color-bg-surface);
-        border-radius: 60px;
-        border: 1.5px solid var(--color-border);
-        transition: all 0.2s;
-    }
-
-    .search-input-wrapper:focus-within {
-        border-color: var(--color-primary);
-        box-shadow: 0 0 0 4px var(--color-primary-light);
-    }
-
-    .search-input-wrapper i {
-        margin-left: 1rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .search-input-large {
-        flex: 1;
-        border: none;
-        padding: 0.875rem 0;
-        font-size: 1rem;
-        background: transparent;
-    }
-
-    .search-input-large:focus {
-        outline: none;
-    }
-
-    .search-submit-btn {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.75rem 1.5rem;
-        background: var(--color-primary);
-        color: white;
-        border: none;
-        border-radius: 40px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: background 0.2s;
-    }
-
-    .search-submit-btn:hover {
-        background: var(--color-primary-hover);
-    }
-
-    /* Табы */
-    .search-tabs {
-        display: flex;
-        gap: 0.25rem;
-        margin-bottom: 1.5rem;
-        border-bottom: 1px solid var(--color-border);
-    }
-
-    .search-tab {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.75rem 1.25rem;
-        color: var(--color-text-secondary);
-        text-decoration: none;
-        border-bottom: 2px solid transparent;
-        transition: all 0.2s;
-    }
-
-    .search-tab:hover {
-        color: var(--color-text-primary);
-    }
-
-    .search-tab.active {
-        color: var(--color-primary);
-        border-bottom-color: var(--color-primary);
-    }
-
-    .search-tab .count {
-        background: var(--color-bg-elevated);
-        padding: 0.125rem 0.5rem;
-        border-radius: 20px;
-        font-size: 0.75rem;
-    }
-
-    /* Фильтры */
-    .search-filters {
-        background: var(--color-bg-surface);
-        border-radius: 16px;
-        padding: 1.25rem;
-        border: 1px solid var(--color-border-light);
-        margin-bottom: 1.5rem;
-    }
-
-    .filter-row {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: flex-end;
-        gap: 1rem;
-    }
-
-    .filter-group {
-        flex: 1;
-        min-width: 150px;
-    }
-
-    .filter-group label {
-        display: flex;
-        align-items: center;
-        gap: 0.375rem;
-        margin-bottom: 0.375rem;
-        font-size: 0.8125rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .filter-select {
-        width: 100%;
-        padding: 0.625rem 1rem;
-        border: 1px solid var(--color-border);
-        border-radius: 10px;
-        background: var(--color-bg-surface);
-        font-size: 0.875rem;
-        cursor: pointer;
-    }
-
-    .active-filters {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        margin-top: 1rem;
-        padding-top: 1rem;
-        border-top: 1px solid var(--color-border-light);
-    }
-
-    .filter-tag {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.375rem 0.75rem;
-        background: var(--color-primary-light);
-        color: var(--color-primary);
-        border-radius: 20px;
-        font-size: 0.8125rem;
-    }
-
-    .filter-tag button {
-        padding: 0.125rem;
-        color: currentColor;
-    }
-
-    /* Результаты */
-    .search-results {
-        min-height: 300px;
-    }
-
-    .search-result-post {
-        padding: 1.5rem;
-        background: var(--color-bg-surface);
-        border-radius: 16px;
-        border: 1px solid var(--color-border-light);
-        margin-bottom: 1rem;
-    }
-
-    .result-meta {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 0.8125rem;
-        color: var(--color-text-tertiary);
-        margin-bottom: 0.5rem;
-    }
-
-    .result-community,
-    .result-author {
-        color: var(--color-text-secondary);
-        text-decoration: none;
-    }
-
-    .result-community:hover,
-    .result-author:hover {
-        color: var(--color-primary);
-    }
-
-    .result-title {
-        font-size: 1.125rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .result-title a {
-        color: var(--color-text-primary);
-        text-decoration: none;
-    }
-
-    .result-title a:hover {
-        color: var(--color-primary);
-    }
-
-    .result-excerpt {
-        color: var(--color-text-secondary);
-        font-size: 0.9375rem;
-        line-height: 1.6;
-        margin-bottom: 0.75rem;
-    }
-
-    .result-stats {
-        display: flex;
-        gap: 1rem;
-        font-size: 0.8125rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .result-stats span {
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-    }
-
-    /* Сообщества */
-    .community-result {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        padding: 1rem;
-        background: var(--color-bg-surface);
-        border-radius: 16px;
-        border: 1px solid var(--color-border-light);
-        margin-bottom: 0.75rem;
-        text-decoration: none;
-    }
-
-    .community-avatar {
-        width: 3rem;
-        height: 3rem;
-        border-radius: 12px;
-        overflow: hidden;
-        background: var(--color-primary-light);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--color-primary);
-        font-weight: 600;
-    }
-
-    .community-avatar img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .community-info h4 {
-        margin-bottom: 0.25rem;
-        color: var(--color-text-primary);
-    }
-
-    .community-info p {
-        color: var(--color-text-secondary);
-        font-size: 0.8125rem;
-    }
-
-    /* Пользователи */
-    .user-result {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        padding: 1rem;
-        background: var(--color-bg-surface);
-        border-radius: 16px;
-        border: 1px solid var(--color-border-light);
-        margin-bottom: 0.75rem;
-    }
-
-    .user-avatar {
-        width: 3rem;
-        height: 3rem;
-        border-radius: 50%;
-        overflow: hidden;
-        background: var(--color-primary-light);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--color-primary);
-        font-weight: 600;
-    }
-
-    .user-avatar img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .user-name {
-        font-weight: 600;
-        color: var(--color-text-primary);
-        text-decoration: none;
-    }
-
-    .user-username {
-        font-size: 0.8125rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .user-bio {
-        font-size: 0.8125rem;
-        color: var(--color-text-secondary);
-        margin-top: 0.25rem;
-    }
-
-    /* Теги */
-    .tag-result {
-        display: block;
-        padding: 1rem;
-        background: var(--color-bg-surface);
-        border-radius: 16px;
-        border: 1px solid var(--color-border-light);
-        margin-bottom: 0.75rem;
-        text-decoration: none;
-    }
-
-    .tag-name {
-        font-size: 1.125rem;
-        font-weight: 600;
-        color: var(--color-primary);
-    }
-
-    .tag-posts {
-        font-size: 0.75rem;
-        color: var(--color-text-tertiary);
-        margin-left: 0.5rem;
-    }
-
-    .tag-description {
-        margin-top: 0.5rem;
-        color: var(--color-text-secondary);
-        font-size: 0.875rem;
-    }
-
-    /* Пустые состояния */
-    .empty-results,
-    .empty-search {
-        text-align: center;
-        padding: 3rem;
-        background: var(--color-bg-surface);
-        border-radius: 16px;
-        border: 1px solid var(--color-border-light);
-    }
-
-    .empty-results i,
-    .empty-search i {
-        width: 3rem;
-        height: 3rem;
-        color: var(--color-text-tertiary);
-        margin-bottom: 1rem;
-    }
-
-    @media (max-width: 600px) {
-        .search-tabs span:not(.count) {
-            display: none;
-        }
-
-        .filter-row {
-            flex-direction: column;
-        }
-
-        .filter-group {
-            width: 100%;
-        }
-    }
+    .search-page { max-width: 900px; margin: 0 auto; }
+    .search-header { margin-bottom: 1.5rem; }
+    .search-input-wrapper { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: var(--color-bg-surface); border-radius: 60px; border: 1.5px solid var(--color-border); transition: all 0.2s; }
+    .search-input-wrapper:focus-within { border-color: var(--color-primary); box-shadow: 0 0 0 4px var(--color-primary-light); }
+    .search-input-wrapper i { margin-left: 1rem; color: var(--color-text-tertiary); }
+    .search-input-large { flex: 1; border: none; padding: 0.875rem 0; font-size: 1rem; background: transparent; }
+    .search-input-large:focus { outline: none; }
+    .search-submit-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; background: var(--color-primary); color: white; border: none; border-radius: 40px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    .search-submit-btn:hover { background: var(--color-primary-hover); }
+    .search-tabs { display: flex; gap: 0.25rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--color-border); }
+    .search-tab { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; color: var(--color-text-secondary); text-decoration: none; border-bottom: 2px solid transparent; transition: all 0.2s; }
+    .search-tab:hover { color: var(--color-text-primary); }
+    .search-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+    .search-tab .count { background: var(--color-bg-elevated); padding: 0.125rem 0.5rem; border-radius: 20px; font-size: 0.75rem; }
+    .search-filters { background: var(--color-bg-surface); border-radius: 16px; padding: 1.25rem; border: 1px solid var(--color-border-light); margin-bottom: 1.5rem; }
+    .filter-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 1rem; }
+    .filter-group { flex: 1; min-width: 150px; }
+    .filter-group label { display: flex; align-items: center; gap: 0.375rem; margin-bottom: 0.375rem; font-size: 0.8125rem; color: var(--color-text-tertiary); }
+    .filter-select { width: 100%; padding: 0.625rem 1rem; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-bg-surface); font-size: 0.875rem; cursor: pointer; }
+    .search-results { min-height: 300px; }
+    .search-result-post { padding: 1.5rem; background: var(--color-bg-surface); border-radius: 16px; border: 1px solid var(--color-border-light); margin-bottom: 1rem; }
+    .result-meta { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; color: var(--color-text-tertiary); margin-bottom: 0.5rem; }
+    .result-community, .result-author { color: var(--color-text-secondary); text-decoration: none; }
+    .result-title { font-size: 1.125rem; margin-bottom: 0.5rem; }
+    .result-title a { color: var(--color-text-primary); text-decoration: none; }
+    .result-excerpt { color: var(--color-text-secondary); font-size: 0.9375rem; line-height: 1.6; margin-bottom: 0.75rem; }
+    .result-stats { display: flex; gap: 1rem; font-size: 0.8125rem; color: var(--color-text-tertiary); }
+    .result-stats span { display: flex; align-items: center; gap: 0.25rem; }
+    .user-result { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: var(--color-bg-surface); border-radius: 16px; border: 1px solid var(--color-border-light); margin-bottom: 0.75rem; }
+    .user-avatar { width: 3rem; height: 3rem; border-radius: 50%; overflow: hidden; background: var(--color-primary-light); display: flex; align-items: center; justify-content: center; color: var(--color-primary); font-weight: 600; }
+    .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .user-name { font-weight: 600; color: var(--color-text-primary); text-decoration: none; }
+    .user-username { font-size: 0.8125rem; color: var(--color-text-tertiary); }
+    .user-bio { font-size: 0.8125rem; color: var(--color-text-secondary); margin-top: 0.25rem; }
+    .community-result { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: var(--color-bg-surface); border-radius: 16px; border: 1px solid var(--color-border-light); margin-bottom: 0.75rem; text-decoration: none; }
+    .community-avatar { width: 3rem; height: 3rem; border-radius: 12px; overflow: hidden; background: var(--color-primary-light); display: flex; align-items: center; justify-content: center; color: var(--color-primary); font-weight: 600; }
+    .community-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .community-info h4 { margin-bottom: 0.25rem; color: var(--color-text-primary); }
+    .community-info p { color: var(--color-text-secondary); font-size: 0.8125rem; }
+    .tag-result { display: inline-block; padding: 0.75rem 1.25rem; background: var(--color-primary-light); color: var(--color-primary); border-radius: 20px; text-decoration: none; font-weight: 500; margin: 4px; }
+    .tag-name { font-weight: 600; }
+    .tag-posts { font-size: 0.75rem; opacity: 0.7; margin-left: 6px; }
+    .empty-results, .empty-search { text-align: center; padding: 3rem; background: var(--color-bg-surface); border-radius: 16px; border: 1px solid var(--color-border-light); }
+    .empty-results i, .empty-search i { width: 3rem; height: 3rem; color: var(--color-text-tertiary); margin-bottom: 1rem; }
+    @media (max-width: 600px) { .filter-row { flex-direction: column; } .filter-group { width: 100%; } }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const searchForm = document.querySelector('.search-main-form');
-        const typeInput = document.getElementById('searchTypeInput');
-
-        // Применение фильтров
-        function applyFilters() {
-            const url = new URL(window.location);
-            const sort = document.getElementById('sortFilter')?.value;
-            const date = document.getElementById('dateFilter')?.value;
-            const community = document.getElementById('communityFilter')?.value;
-            const category = document.getElementById('categoryFilter')?.value;
-
-            if (sort) url.searchParams.set('sort', sort);
-            if (date && date !== 'all') url.searchParams.set('date', date);
-            if (community) url.searchParams.set('community', community);
-            if (category) url.searchParams.set('category', category);
-
-            window.location = url;
-        }
-
-        document.getElementById('applyFilters')?.addEventListener('click', applyFilters);
-
-        // Изменение типа поиска
-        document.querySelectorAll('.search-tab').forEach(tab => {
-            tab.addEventListener('click', function(e) {
-                e.preventDefault();
-                const url = new URL(this.href);
-                const sort = document.getElementById('sortFilter')?.value;
-                if (sort) url.searchParams.set('sort', sort);
-                window.location = url;
-            });
-        });
-
-        // Удаление фильтров
-        document.querySelectorAll('[data-remove]').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const filter = this.closest('[data-remove]').dataset.remove;
-                const url = new URL(window.location);
-                url.searchParams.delete(filter);
-                window.location = url;
-            });
-        });
-    });
+document.addEventListener('DOMContentLoaded', function() {
+    function applyFilters() {
+        const url = new URL(window.location);
+        const sort = document.getElementById('sortFilter')?.value;
+        const date = document.getElementById('dateFilter')?.value;
+        const community = document.getElementById('communityFilter')?.value;
+        const category = document.getElementById('categoryFilter')?.value;
+        if (sort) url.searchParams.set('sort', sort);
+        if (date && date !== 'all') url.searchParams.set('date', date);
+        if (community) url.searchParams.set('community', community);
+        if (category) url.searchParams.set('category', category);
+        window.location = url;
+    }
+    document.getElementById('applyFilters')?.addEventListener('click', applyFilters);
+});
 </script>
 {% endblock %}

@@ -68,6 +68,7 @@
     <div class="tab-content active" id="tab-all">
         <div class="members-list">
             <!-- Создатель -->
+            {% if community.creator and community.creator.username %}
             <div class="member-card creator">
                 <div class="member-avatar">
                     <a href="{% url 'accounts:profile_by_username' username=community.creator.username %}">
@@ -89,9 +90,11 @@
                     <span class="member-joined">Создал {{ community.created_at|date:"d.m.Y" }}</span>
                 </div>
             </div>
+            {% endif %}
 
             <!-- Модераторы -->
             {% for moderator in moderators %}
+            {% if moderator.username %}
             <div class="member-card moderator">
                 <div class="member-avatar">
                     <a href="{% url 'accounts:profile_by_username' username=moderator.username %}">
@@ -118,11 +121,12 @@
                     {% endif %}
                 </div>
             </div>
+            {% endif %}
             {% endfor %}
 
             <!-- Обычные участники -->
             {% for member in members %}
-            {% if member != community.creator and member not in moderators %}
+            {% if member != community.creator and member not in moderators and member.username %}
             <div class="member-card" data-username="{{ member.username }}">
                 <div class="member-avatar">
                     <a href="{% url 'accounts:profile_by_username' username=member.username %}">
@@ -167,15 +171,56 @@
     <!-- Таб модераторов -->
     <div class="tab-content" id="tab-moderators">
         <div class="members-list">
-            <!-- Создатель -->
+            {% if community.creator and community.creator.username %}
             <div class="member-card creator">
-                <!-- Аналогично табу "Все" -->
+                <div class="member-avatar">
+                    <a href="{% url 'accounts:profile_by_username' username=community.creator.username %}">
+                        {% if community.creator.profile.avatar %}
+                        <img src="{{ community.creator.profile.avatar.url }}" alt="{{ community.creator.username }}">
+                        {% else %}
+                        <div class="avatar-placeholder">{{ community.creator.username|make_list|first|upper }}</div>
+                        {% endif %}
+                    </a>
+                </div>
+                <div class="member-info">
+                    <a href="{% url 'accounts:profile_by_username' username=community.creator.username %}" class="member-name">
+                        {{ community.creator.get_full_name|default:community.creator.username }}
+                    </a>
+                    <span class="member-username">@{{ community.creator.username }}</span>
+                    <span class="member-badge creator-badge">Создатель</span>
+                </div>
             </div>
+            {% endif %}
 
             {% for moderator in moderators %}
+            {% if moderator.username %}
             <div class="member-card moderator">
-                <!-- Аналогично -->
+                <div class="member-avatar">
+                    <a href="{% url 'accounts:profile_by_username' username=moderator.username %}">
+                        {% if moderator.profile.avatar %}
+                        <img src="{{ moderator.profile.avatar.url }}" alt="{{ moderator.username }}">
+                        {% else %}
+                        <div class="avatar-placeholder">{{ moderator.username|make_list|first|upper }}</div>
+                        {% endif %}
+                    </a>
+                </div>
+                <div class="member-info">
+                    <a href="{% url 'accounts:profile_by_username' username=moderator.username %}" class="member-name">
+                        {{ moderator.get_full_name|default:moderator.username }}
+                    </a>
+                    <span class="member-username">@{{ moderator.username }}</span>
+                    <span class="member-badge moderator-badge">Модератор</span>
+                </div>
+                <div class="member-actions">
+                    {% if user == community.creator %}
+                    <button class="btn btn--outline btn--sm remove-moderator-btn" data-user-id="{{ moderator.id }}">
+                        <i data-feather="user-minus"></i>
+                        Снять
+                    </button>
+                    {% endif %}
+                </div>
             </div>
+            {% endif %}
             {% endfor %}
         </div>
     </div>
@@ -185,6 +230,7 @@
     <div class="tab-content" id="tab-requests">
         <div class="members-list">
             {% for request in pending_requests %}
+            {% if request.user and request.user.username %}
             <div class="member-card request">
                 <div class="member-avatar">
                     <a href="{% url 'accounts:profile_by_username' username=request.user.username %}">
@@ -213,6 +259,7 @@
                     </button>
                 </div>
             </div>
+            {% endif %}
             {% empty %}
             <div class="empty-state">
                 <i data-feather="inbox"></i>
@@ -228,487 +275,87 @@
 
 {% block extra_css %}
 <style>
-    .members-container {
-        max-width: 700px;
-        margin: 0 auto;
-    }
-
-    .members-header {
-        margin-bottom: 1.5rem;
-    }
-
-    .community-info-mini {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-    }
-
-    .community-avatar-small {
-        width: 3rem;
-        height: 3rem;
-        border-radius: var(--radius-md);
-        overflow: hidden;
-    }
-
-    .community-avatar-small img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .community-info-mini h2 {
-        font-size: 1.25rem;
-        margin-bottom: 0.125rem;
-    }
-
-    .community-info-mini p {
-        color: var(--color-text-tertiary);
-        font-size: 0.875rem;
-    }
-
-    .members-tabs {
-        display: flex;
-        gap: 0.5rem;
-        margin-bottom: 1.5rem;
-        border-bottom: 1px solid var(--color-border);
-    }
-
-    .tab-btn {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.75rem 0;
-        color: var(--color-text-secondary);
-        border-bottom: 2px solid transparent;
-        transition: all var(--transition-base);
-    }
-
-    .tab-btn:hover {
-        color: var(--color-text-primary);
-    }
-
-    .tab-btn.active {
-        color: var(--color-primary);
-        border-bottom-color: var(--color-primary);
-    }
-
-    .badge {
-        background: var(--color-bg-elevated);
-        padding: 0.125rem 0.5rem;
-        border-radius: var(--radius-full);
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-
-    .badge--warning {
-        background: #fef3c7;
-        color: #92400e;
-    }
-
-    .search-wrapper {
-        position: relative;
-        margin-bottom: 1.5rem;
-    }
-
-    .search-wrapper i {
-        position: absolute;
-        left: 1rem;
-        top: 50%;
-        transform: translateY(-50%);
-        color: var(--color-text-tertiary);
-    }
-
-    .search-input {
-        width: 100%;
-        padding: 0.75rem 1rem 0.75rem 2.5rem;
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-lg);
-        font-size: 0.9375rem;
-    }
-
-    .search-input:focus {
-        outline: none;
-        border-color: var(--color-primary);
-        box-shadow: 0 0 0 3px var(--color-primary-light);
-    }
-
-    .tab-content {
-        display: none;
-    }
-
-    .tab-content.active {
-        display: block;
-    }
-
-    .members-list {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-
-    .member-card {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        padding: 1rem;
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-lg);
-        border: 1px solid var(--color-border-light);
-        transition: all var(--transition-base);
-    }
-
-    .member-card:hover {
-        box-shadow: var(--shadow-md);
-    }
-
-    .member-avatar {
-        width: 3rem;
-        height: 3rem;
-        border-radius: 50%;
-        overflow: hidden;
-        flex-shrink: 0;
-    }
-
-    .member-avatar img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .member-info {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .member-name {
-        font-weight: 600;
-        color: var(--color-text-primary);
-        text-decoration: none;
-    }
-
-    .member-name:hover {
-        color: var(--color-primary);
-    }
-
-    .member-username {
-        font-size: 0.8125rem;
-        color: var(--color-text-tertiary);
-        display: block;
-    }
-
-    .member-badge {
-        display: inline-block;
-        font-size: 0.6875rem;
-        padding: 0.125rem 0.5rem;
-        border-radius: var(--radius-full);
-        margin-top: 0.25rem;
-    }
-
-    .creator-badge {
-        background: #fef3c7;
-        color: #92400e;
-    }
-
-    .moderator-badge {
-        background: var(--color-primary-light);
-        color: var(--color-primary);
-    }
-
-    .member-actions {
-        flex-shrink: 0;
-    }
-
-    .member-joined {
-        font-size: 0.75rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .member-menu {
-        position: relative;
-    }
-
-    .menu-toggle {
-        padding: 0.25rem;
-        border-radius: var(--radius-md);
-        color: var(--color-text-tertiary);
-    }
-
-    .menu-toggle:hover {
-        background: var(--color-bg-elevated);
-    }
-
-    .menu-dropdown {
-        position: absolute;
-        right: 0;
-        top: 100%;
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-md);
-        box-shadow: var(--shadow-lg);
-        border: 1px solid var(--color-border);
-        min-width: 180px;
-        z-index: 10;
-        display: none;
-    }
-
-    .member-menu:hover .menu-dropdown {
-        display: block;
-    }
-
-    .menu-item {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem 1rem;
-        color: var(--color-text-primary);
-        width: 100%;
-        transition: background var(--transition-base);
-    }
-
-    .menu-item:hover {
-        background: var(--color-bg-elevated);
-    }
-
-    .menu-item--danger {
-        color: var(--color-danger);
-    }
-
-    .menu-item--danger:hover {
-        background: var(--color-danger);
-        color: white;
-    }
-
-    .btn--success {
-        background: var(--color-success);
-        color: white;
-    }
-
-    .btn--success:hover {
-        background: #059669;
-    }
-
-    .request-date {
-        font-size: 0.75rem;
-        color: var(--color-text-tertiary);
-        margin-left: 0.5rem;
-    }
-
-    .empty-state {
-        text-align: center;
-        padding: 3rem;
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-lg);
-    }
-
-    .empty-state i {
-        width: 3rem;
-        height: 3rem;
-        color: var(--color-text-tertiary);
-        margin-bottom: 1rem;
-    }
-
-    .empty-state h3 {
-        margin-bottom: 0.5rem;
-    }
-
-    .empty-state p {
-        color: var(--color-text-secondary);
-    }
-
-    @media (max-width: 768px) {
-        .member-card {
-            flex-wrap: wrap;
-        }
-
-        .member-actions {
-            width: 100%;
-        }
-
-        .members-tabs {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .tab-btn {
-            white-space: nowrap;
-        }
-    }
+    .members-container { max-width: 700px; margin: 0 auto; }
+    .members-header { margin-bottom: 1.5rem; }
+    .community-info-mini { display: flex; align-items: center; gap: 1rem; }
+    .community-avatar-small { width: 3rem; height: 3rem; border-radius: var(--radius-md); overflow: hidden; }
+    .community-avatar-small img { width: 100%; height: 100%; object-fit: cover; }
+    .avatar-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--color-primary-light); color: var(--color-primary); font-weight: 600; }
+    .community-info-mini h2 { font-size: 1.25rem; margin-bottom: 0.125rem; }
+    .community-info-mini p { color: var(--color-text-tertiary); font-size: 0.875rem; }
+    .members-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--color-border); }
+    .tab-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 0; color: var(--color-text-secondary); border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; transition: all var(--transition-base); }
+    .tab-btn:hover { color: var(--color-text-primary); }
+    .tab-btn.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+    .badge { background: var(--color-bg-elevated); padding: 0.125rem 0.5rem; border-radius: var(--radius-full); font-size: 0.75rem; font-weight: 600; }
+    .badge--warning { background: #fef3c7; color: #92400e; }
+    .search-wrapper { position: relative; margin-bottom: 1.5rem; }
+    .search-wrapper i { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--color-text-tertiary); }
+    .search-input { width: 100%; padding: 0.75rem 1rem 0.75rem 2.5rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); font-size: 0.9375rem; }
+    .search-input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-light); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .members-list { display: flex; flex-direction: column; gap: 0.75rem; }
+    .member-card { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: var(--color-bg-surface); border-radius: var(--radius-lg); border: 1px solid var(--color-border-light); transition: all var(--transition-base); }
+    .member-card:hover { box-shadow: var(--shadow-md); }
+    .member-avatar { width: 3rem; height: 3rem; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
+    .member-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .member-info { flex: 1; min-width: 0; }
+    .member-name { font-weight: 600; color: var(--color-text-primary); text-decoration: none; }
+    .member-name:hover { color: var(--color-primary); }
+    .member-username { font-size: 0.8125rem; color: var(--color-text-tertiary); display: block; }
+    .member-badge { display: inline-block; font-size: 0.6875rem; padding: 0.125rem 0.5rem; border-radius: var(--radius-full); margin-top: 0.25rem; }
+    .creator-badge { background: #fef3c7; color: #92400e; }
+    .moderator-badge { background: var(--color-primary-light); color: var(--color-primary); }
+    .member-actions { flex-shrink: 0; }
+    .member-joined { font-size: 0.75rem; color: var(--color-text-tertiary); }
+    .member-menu { position: relative; }
+    .menu-toggle { padding: 0.25rem; border-radius: var(--radius-md); color: var(--color-text-tertiary); background: none; border: none; cursor: pointer; }
+    .menu-toggle:hover { background: var(--color-bg-elevated); }
+    .menu-dropdown { position: absolute; right: 0; top: 100%; background: var(--color-bg-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 1px solid var(--color-border); min-width: 180px; z-index: 10; display: none; }
+    .member-menu:hover .menu-dropdown { display: block; }
+    .menu-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; color: var(--color-text-primary); width: 100%; background: none; border: none; cursor: pointer; font-size: 0.85rem; transition: background var(--transition-base); }
+    .menu-item:hover { background: var(--color-bg-elevated); }
+    .menu-item--danger { color: var(--color-danger); }
+    .menu-item--danger:hover { background: var(--color-danger); color: white; }
+    .btn--success { background: var(--color-success); color: white; }
+    .btn--success:hover { background: #059669; }
+    .btn--danger { background: var(--color-danger); color: white; }
+    .btn--danger:hover { background: #dc2626; }
+    .request-date { font-size: 0.75rem; color: var(--color-text-tertiary); margin-left: 0.5rem; }
+    .empty-state { text-align: center; padding: 3rem; background: var(--color-bg-surface); border-radius: var(--radius-lg); }
+    .empty-state i { width: 3rem; height: 3rem; color: var(--color-text-tertiary); margin-bottom: 1rem; }
+    .empty-state h3 { margin-bottom: 0.5rem; }
+    .empty-state p { color: var(--color-text-secondary); }
+    @media (max-width: 768px) { .member-card { flex-wrap: wrap; } .member-actions { width: 100%; } .members-tabs { overflow-x: auto; } .tab-btn { white-space: nowrap; } }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Переключение табов
-        const tabBtns = document.querySelectorAll('.tab-btn[data-tab]');
-        const tabContents = document.querySelectorAll('.tab-content');
+feather.replace();
+function G(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
+function T(m,t){const d=document.createElement('div');d.style.cssText='position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:10px;font-size:.8rem;font-weight:600;color:#fff;z-index:9999;background:#7c3aed;box-shadow:0 8px 24px rgba(0,0,0,.2);animation:toastIn .25s';d.textContent=m;document.body.appendChild(d);setTimeout(()=>{d.style.opacity='0';d.style.transition='all .3s';setTimeout(()=>d.remove(),300)},2000)}
 
-        tabBtns.forEach(btn => {
-            btn.addEventListener('click', function() {
-                const tabId = this.dataset.tab;
+document.addEventListener('DOMContentLoaded',function(){
+    // Табы
+    document.querySelectorAll('.tab-btn[data-tab]').forEach(b=>b.addEventListener('click',function(){document.querySelectorAll('.tab-btn[data-tab]').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active'));this.classList.add('active');document.getElementById('tab-'+this.dataset.tab).classList.add('active')}));
 
-                tabBtns.forEach(b => b.classList.remove('active'));
-                tabContents.forEach(c => c.classList.remove('active'));
+    // Поиск
+    document.getElementById('memberSearch')?.addEventListener('input',function(){const q=this.value.toLowerCase();document.querySelectorAll('.member-card[data-username]').forEach(c=>{c.style.display=(c.dataset.username+' '+c.querySelector('.member-name')?.textContent).toLowerCase().includes(q)?'':'none'})});
 
-                this.classList.add('active');
-                document.getElementById(`tab-${tabId}`).classList.add('active');
-            });
-        });
+    // Назначить модератора
+    document.querySelectorAll('.make-moderator-btn').forEach(b=>b.addEventListener('click',async function(){const u=this.dataset.userId;const r=await fetch('/communities/{{ community.slug }}/add-moderator/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':G('csrftoken')},body:JSON.stringify({user_id:u})});if(r.ok){T('Модератор назначен');setTimeout(()=>location.reload(),1000)}}));
 
-        // Поиск участников
-        const searchInput = document.getElementById('memberSearch');
-        const memberCards = document.querySelectorAll('.member-card[data-username]');
+    // Снять модератора
+    document.querySelectorAll('.remove-moderator-btn').forEach(b=>b.addEventListener('click',async function(){if(!confirm('Снять модератора?'))return;const u=this.dataset.userId;const r=await fetch('/communities/{{ community.slug }}/remove-moderator/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':G('csrftoken')},body:JSON.stringify({user_id:u})});if(r.ok){T('Модератор снят');setTimeout(()=>location.reload(),1000)}}));
 
-        searchInput?.addEventListener('input', function() {
-            const query = this.value.toLowerCase();
+    // Бан
+    document.querySelectorAll('.ban-member-btn').forEach(b=>b.addEventListener('click',async function(){if(!confirm('Заблокировать?'))return;const u=this.dataset.userId;const r=await fetch('/communities/{{ community.slug }}/ban/'+u+'/',{method:'POST',headers:{'X-CSRFToken':G('csrftoken')}});if(r.ok){this.closest('.member-card').remove();T('Заблокирован')}}));
 
-            memberCards.forEach(card => {
-                const username = card.dataset.username.toLowerCase();
-                const name = card.querySelector('.member-name')?.textContent.toLowerCase() || '';
-
-                if (username.includes(query) || name.includes(query)) {
-                    card.style.display = '';
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-        });
-
-        // Назначение модератора
-        document.querySelectorAll('.make-moderator-btn').forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const userId = this.dataset.userId;
-
-                try {
-                    const response = await fetch(`/communities/{{ community.slug }}/add-moderator/`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': getCookie('csrftoken')
-                        },
-                        body: JSON.stringify({ user_id: userId })
-                    });
-
-                    if (response.ok) {
-                        showToast({
-                            type: 'success',
-                            message: 'Модератор назначен'
-                        });
-                        setTimeout(() => location.reload(), 1000);
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                }
-            });
-        });
-
-        // Снятие модератора
-        document.querySelectorAll('.remove-moderator-btn').forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const userId = this.dataset.userId;
-
-                if (confirm('Снять модератора?')) {
-                    try {
-                        const response = await fetch(`/communities/{{ community.slug }}/remove-moderator/`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRFToken': getCookie('csrftoken')
-                            },
-                            body: JSON.stringify({ user_id: userId })
-                        });
-
-                        if (response.ok) {
-                            showToast({
-                                type: 'success',
-                                message: 'Модератор снят'
-                            });
-                            setTimeout(() => location.reload(), 1000);
-                        }
-                    } catch (error) {
-                        console.error('Error:', error);
-                    }
-                }
-            });
-        });
-
-        // Блокировка участника
-        document.querySelectorAll('.ban-member-btn').forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const userId = this.dataset.userId;
-
-                if (confirm('Заблокировать участника? Он не сможет видеть и публиковать посты в сообществе.')) {
-                    try {
-                        const response = await fetch(`/communities/{{ community.slug }}/ban/${userId}/`, {
-                            method: 'POST',
-                            headers: {
-                                'X-CSRFToken': getCookie('csrftoken')
-                            }
-                        });
-
-                        if (response.ok) {
-                            this.closest('.member-card').remove();
-                            showToast({
-                                type: 'success',
-                                message: 'Участник заблокирован'
-                            });
-                        }
-                    } catch (error) {
-                        console.error('Error:', error);
-                    }
-                }
-            });
-        });
-
-        // Обработка заявок
-        document.querySelectorAll('.approve-request').forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const requestId = this.dataset.requestId;
-
-                try {
-                    const response = await fetch(`/communities/requests/${requestId}/approve/`, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': getCookie('csrftoken')
-                        }
-                    });
-
-                    if (response.ok) {
-                        this.closest('.member-card').remove();
-                        showToast({
-                            type: 'success',
-                            message: 'Заявка одобрена'
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                }
-            });
-        });
-
-        document.querySelectorAll('.reject-request').forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const requestId = this.dataset.requestId;
-
-                try {
-                    const response = await fetch(`/communities/requests/${requestId}/reject/`, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': getCookie('csrftoken')
-                        }
-                    });
-
-                    if (response.ok) {
-                        this.closest('.member-card').remove();
-                        showToast({
-                            type: 'info',
-                            message: 'Заявка отклонена'
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                }
-            });
-        });
-    });
+    // Заявки
+    document.querySelectorAll('.approve-request').forEach(b=>b.addEventListener('click',async function(){const rid=this.dataset.requestId;const r=await fetch('/communities/requests/'+rid+'/approve/',{method:'POST',headers:{'X-CSRFToken':G('csrftoken')}});if(r.ok){this.closest('.member-card').remove();T('Одобрено')}}));
+    document.querySelectorAll('.reject-request').forEach(b=>b.addEventListener('click',async function(){const rid=this.dataset.requestId;const r=await fetch('/communities/requests/'+rid+'/reject/',{method:'POST',headers:{'X-CSRFToken':G('csrftoken')}});if(r.ok){this.closest('.member-card').remove();T('Отклонено')}}));
+});
 </script>
 {% endblock %}

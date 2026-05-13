@@ -324,7 +324,7 @@ class Profile(models.Model):
         return f"{self.user.username}'s profile"
 
     def get_followers_count(self):
-        return self.followers.count()
+        return self.user.profile_followers.count()
 
     def get_following_count(self):
         return self.following.count()

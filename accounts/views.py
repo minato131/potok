@@ -197,6 +197,21 @@ def profile_view(request, username=None):
     friends_count = Friendship.objects.filter(user=user).count()
     communities_count = Community.objects.filter(members=user).count()
 
+    # Собираем все ID постов на странице
+    all_post_ids = set()
+    for p in user_posts:
+        all_post_ids.add(p.id)
+    for p in liked_posts:
+        all_post_ids.add(p.id)
+    for b in user_bookmarks:
+        all_post_ids.add(b.post.id)
+
+    liked_post_ids = set()
+    if request.user.is_authenticated:
+        liked_post_ids = set(Like.objects.filter(
+            user=request.user, content_type='post', object_id__in=all_post_ids
+        ).values_list('object_id', flat=True))
+
     context = {
         'profile_user': user,
         'posts_count': posts_count,
@@ -772,49 +787,28 @@ def profile_edit_view(request):
 @login_required
 @require_POST
 def follow_view(request, user_id):
-    """Подписка/отписка от пользователя"""
     target_user = get_object_or_404(User, id=user_id)
 
     if target_user == request.user:
-        return JsonResponse({
-            'status': 'error',
-            'message': 'Нельзя подписаться на самого себя'
-        }, status=400)
+        return JsonResponse({'status': 'error', 'message': 'Нельзя подписаться на самого себя'}, status=400)
 
-    # Получаем или создаем профиль текущего пользователя
-    current_profile, _ = Profile.objects.get_or_create(user=request.user)
-
-    # Получаем или создаем профиль целевого пользователя
-    target_profile, _ = Profile.objects.get_or_create(user=target_user)
+    current_profile = request.user.profile
 
     if current_profile.following.filter(id=target_user.id).exists():
         current_profile.following.remove(target_user)
         status = 'unfollowed'
-        message = 'Вы отписались'
+        print(f'UNFOLLOWED. Now following: {current_profile.following.count()}')
     else:
         current_profile.following.add(target_user)
         status = 'followed'
-        message = 'Вы подписались'
+        print(f'FOLLOWED. Now following: {current_profile.following.count()}')
 
-        # Создаем уведомление
-        try:
-            from accounts.utils import create_notification
-            create_notification(
-                recipient=target_user,
-                sender=request.user,
-                notification_type='follow',
-                title='Новый подписчик',
-                message=f'@{request.user.username} подписался на вас',
-                link=f'/accounts/profile/{request.user.username}/'
-            )
-        except (ImportError, AttributeError):
-            pass
+    follower_count = target_user.profile_followers.count()
+    print(f'Followers count: {follower_count}')
 
     return JsonResponse({
         'status': status,
-        'message': message,
-        'user_id': user_id,
-        'followers_count': target_profile.followers.count()
+        'followers_count': follower_count,
     })
 
 @login_required
@@ -840,24 +834,23 @@ def followers_list_view(request, username):
 
 @login_required
 def following_list_view(request, username):
-    """
-    Список подписок пользователя
-    """
     user = get_object_or_404(User, username=username)
-    following = Follow.objects.filter(
-        follower=user
-    ).select_related('following').order_by('-created_at')  # Добавил сортировку
+    profile = user.profile
+
+    following = profile.following.all().order_by('username')
 
     paginator = Paginator(following, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
     return render(request, 'accounts/following_list.html', {
+        'following': page_obj,
         'page_obj': page_obj,
         'profile_user': user,
-        'title': 'Подписки'
+        'following_count': following.count(),
+        'followers_count': user.profile_followers.count(),
+        'title': 'Подписки',
     })
-
 
 @login_required
 def user_list_view(request):

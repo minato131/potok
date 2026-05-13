@@ -397,9 +397,21 @@ document.querySelectorAll('.like-btn-vk').forEach(btn=>btn.addEventListener('cli
 }));
 
 // ===== ПОДПИСАТЬСЯ =====
-document.querySelectorAll('.post-vk-subscribe').forEach(btn=>btn.addEventListener('click',async function(e){e.stopPropagation();
-    const r=await fetch(`/accounts/follow/${this.dataset.authorId}/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken')}});
-    if(r.ok){this.classList.toggle('subscribed');this.textContent=this.classList.contains('subscribed')?'Вы подписаны':'Подписаться';}
+document.querySelectorAll('.pd-subscribe').forEach(btn => btn.addEventListener('click', async function(e) {
+    e.stopPropagation();
+    const type = this.dataset.type || 'user';
+    let url;
+    if (type === 'community') {
+        url = `/communities/${this.dataset.communityId}/join/`;
+    } else {
+        url = `/accounts/follow/${this.dataset.authorId}/`;
+    }
+    const r = await fetch(url, { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } });
+    const d = await r.json();
+    if (r.ok) {
+        this.classList.toggle('subscribed');
+        this.textContent = d.status === 'followed' ? 'Вы подписаны' : 'Подписаться';
+    }
 }));
 
 // ===== ШЕРИНГ =====

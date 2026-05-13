@@ -669,7 +669,7 @@ def search(request):
             ).select_related('profile')
 
             if sort == 'followers':
-                results = results.annotate(followers_count=Count('profile__followers')).order_by('-followers_count')
+                results = results.annotate(followers_count=Count('profile_followers')).order_by('-followers_count')
             elif sort == 'new':
                 results = results.order_by('-date_joined')
             else:
@@ -828,14 +828,15 @@ def tag_delete(request, slug):
 def search_ajax(request):
     """AJAX поиск для мгновенных результатов"""
     query = request.GET.get('q', '')
-    search_type = request.GET.get('type', 'posts')
+    search_type = request.GET.get('type', 'all')
 
     if len(query) < 2:
         return JsonResponse({'results': []})
 
     results = []
 
-    if search_type == 'users':
+    # Ищем пользователей
+    if search_type in ['all', 'users']:
         users = User.objects.filter(
             Q(username__icontains=query) |
             Q(first_name__icontains=query) |
@@ -843,15 +844,22 @@ def search_ajax(request):
         )[:10]
 
         for user in users:
+            avatar_url = ''
+            if hasattr(user, 'profile') and user.profile.avatar:
+                avatar_url = user.profile.avatar.url
             results.append({
                 'id': user.id,
-                'username': user.username,
+                'name': user.get_full_name() or user.username,
                 'full_name': user.get_full_name() or user.username,
-                'avatar': user.profile.avatar.url if user.profile.avatar else None,
-                'url': f'/accounts/profile/{user.username}/'
+                'username': user.username,
+                'avatar': avatar_url,
+                'url': f'/accounts/profile/{user.username}/',
+                'type': 'user',
+                'type_display': 'Пользователь',
             })
 
-    elif search_type == 'communities':
+    # Ищем сообщества
+    if search_type in ['all', 'communities']:
         communities = Community.objects.filter(
             Q(name__icontains=query) |
             Q(description__icontains=query)
@@ -861,9 +869,10 @@ def search_ajax(request):
             results.append({
                 'id': community.id,
                 'name': community.name,
-                'description': community.description[:100],
-                'avatar': community.avatar.url if community.avatar else None,
-                'url': f'/communities/{community.slug}/'
+                'avatar': community.avatar.url if community.avatar else '',
+                'url': f'/communities/{community.slug}/',
+                'type': 'community',
+                'type_display': 'Сообщество',
             })
 
     return JsonResponse({'results': results})
