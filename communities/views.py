@@ -221,117 +221,34 @@ def community_edit(request, slug):
 @login_required
 def community_join(request, slug):
     community = get_object_or_404(Community, slug=slug)
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
-    membership = CommunityMembership.objects.filter(
-        user=request.user,
-        community=community
-    ).first()
+    membership = CommunityMembership.objects.filter(user=request.user, community=community).first()
 
     if membership:
         if membership.status == 'banned':
-            messages.error(request, 'Вы заблокированы в этом сообществе')
+            return JsonResponse({'error': 'Заблокированы'}, status=403) if is_ajax else redirect(...)
         elif membership.status == 'active':
-            messages.info(request, 'Вы уже состоите в этом сообществе')
-        return redirect('communities:community_detail', slug=community.slug)
+            return JsonResponse({'error': 'Уже участник'}, status=400) if is_ajax else redirect(...)
 
-    # Для публичных сообществ
+    # Публичное — сразу вступаем
     if community.privacy == 'public':
-        membership = CommunityMembership.objects.create(
-            user=request.user,
-            community=community,
-            role='member',
-            status='active'
-        )
-
-        # Обновляем статистику
+        CommunityMembership.objects.create(user=request.user, community=community, role='member', status='active')
         community.update_stats()
-
-        # Уведомление админам
-        admins = CommunityMembership.objects.filter(
-            community=community,
-            role__in=['admin', 'moderator'],
-            status='active'
-        ).select_related('user')
-
-        from accounts.utils import create_notification
-        for admin in admins:
-            create_notification(
-                recipient=admin.user,
-                sender=request.user,
-                notification_type='community',
-                title='Новый участник',
-                message=f'@{request.user.username} присоединился к сообществу "{community.name}"',
-                link=f'/communities/{community.slug}/'
-            )
-
-        messages.success(request, f'Вы вступили в сообщество "{community.name}"!')
+        if is_ajax: return JsonResponse({'joined': True})
+        messages.success(request, 'Вы вступили!')
         return redirect('communities:community_detail', slug=community.slug)
 
-    # Для закрытых - заявка
-    elif community.privacy in ['private', 'hidden']:
-        # Проверяем, не был ли пользователь забанен
-        banned = CommunityMembership.objects.filter(
-            user=request.user,
-            community=community,
-            status='banned'
-        ).exists()
+    # Закрытое — заявка
+    if request.method == 'POST':
+        message = request.POST.get('message', '')
+        CommunityJoinRequest.objects.filter(community=community, user=request.user, approved=False).delete()
+        CommunityJoinRequest.objects.create(community=community, user=request.user, message=message)
+        if is_ajax: return JsonResponse({'joined': False, 'message': 'Заявка отправлена'})
+        messages.success(request, 'Заявка отправлена!')
+        return redirect('communities:community_detail', slug=community.slug)
 
-        if banned:
-            messages.error(request, 'Вы заблокированы в этом сообществе')
-            return redirect('communities:community_detail', slug=community.slug)
-
-        # Проверяем, нет ли уже активной заявки
-        existing_request = CommunityJoinRequest.objects.filter(
-            community=community,
-            user=request.user,
-            approved__isnull=True
-        ).first()
-
-        if existing_request:
-            messages.info(request, 'Ваша заявка уже рассматривается')
-            return redirect('communities:community_detail', slug=community.slug)
-
-        # Удаляем старые отклоненные заявки
-        CommunityJoinRequest.objects.filter(
-            community=community,
-            user=request.user,
-            approved=False
-        ).delete()
-
-        if request.method == 'POST':
-            message = request.POST.get('message', '')
-
-            join_request = CommunityJoinRequest.objects.create(
-                community=community,
-                user=request.user,
-                message=message
-            )
-
-            # Уведомление админам о новой заявке
-            admins = CommunityMembership.objects.filter(
-                community=community,
-                role__in=['admin', 'moderator'],
-                status='active'
-            ).select_related('user')
-
-            from accounts.utils import create_notification
-            for admin in admins:
-                create_notification(
-                    recipient=admin.user,
-                    sender=request.user,
-                    notification_type='community_request',
-                    title='Новая заявка',
-                    message=f'@{request.user.username} хочет вступить в "{community.name}"',
-                    link=f'/communities/{community.slug}/requests/'
-                )
-
-            messages.success(request, 'Заявка отправлена! Ожидайте решения модераторов.')
-            return redirect('communities:community_detail', slug=community.slug)
-
-        # Если GET запрос - показываем модальное окно с формой
-        return render(request, 'communities/join_request_modal.html', {
-            'community': community
-        })
+    return render(request, 'communities/join_request_modal.html', {'community': community})
 
 
 @login_required
@@ -411,40 +328,28 @@ def community_post_create(request, slug):
         'community': community
     })
 
+
 @login_required
 def community_members(request, slug):
-    """
-    Список участников сообщества
-    """
     community = get_object_or_404(Community, slug=slug)
 
-    members = CommunityMembership.objects.filter(
-        community=community,
-        status='active'
-    ).select_related('user').order_by('-role', 'joined_at')
+    memberships = CommunityMembership.objects.filter(
+        community=community, status='active'
+    ).select_related('user', 'user__profile')
 
-    # Фильтр по роли
-    role = request.GET.get('role')
-    if role in ['admin', 'moderator', 'member']:
-        members = members.filter(role=role)
+    all_members = [m.user for m in memberships]
+    moderators = [m.user for m in memberships if m.role in ['admin', 'moderator'] and m.user != community.creator]
 
-    paginator = Paginator(members, 24)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-
-    # Проверка прав текущего пользователя
-    user_membership = None
-    if request.user.is_authenticated:
-        user_membership = CommunityMembership.objects.filter(
-            user=request.user,
-            community=community
-        ).first()
+    pending_requests = CommunityJoinRequest.objects.filter(
+        community=community, approved__isnull=True
+    ).select_related('user', 'user__profile')
 
     context = {
         'community': community,
-        'page_obj': page_obj,
-        'user_membership': user_membership,
-        'current_role': role,
+        'all_members': all_members,
+        'total_members': len(all_members),
+        'moderators': moderators,
+        'pending_requests': pending_requests,
     }
     return render(request, 'communities/community_members.html', context)
 

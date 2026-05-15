@@ -10,10 +10,15 @@ from posts.models import Post
 from .models import SavedPhoto, SavedVideo
 
 
-
+# media_storage/views.py
 @login_required
 def photo_list(request):
-    photos = SavedPhoto.objects.filter(user=request.user).select_related('post')
+    photos = SavedPhoto.objects.filter(user=request.user).select_related('post').order_by('-created_at')
+
+    total_count = photos.count()
+    saved_count = photos.filter(post__isnull=False).count()
+    uploaded_count = photos.filter(post__isnull=True).count()
+
     paginator = Paginator(photos, 24)
     page = request.GET.get('page', 1)
     page_obj = paginator.get_page(page)
@@ -22,12 +27,21 @@ def photo_list(request):
         'photos': page_obj,
         'is_paginated': page_obj.has_other_pages(),
         'page_obj': page_obj,
+        'total_count': total_count,
+        'saved_count': saved_count,
+        'uploaded_count': uploaded_count,
     })
 
 
 @login_required
 def video_list(request):
-    videos = SavedVideo.objects.filter(user=request.user).select_related('post')
+    videos = SavedVideo.objects.filter(user=request.user).select_related('post').order_by('-created_at')
+
+    # Счётчики для фильтров
+    total_count = videos.count()
+    saved_count = videos.filter(post__isnull=False).count()
+    uploaded_count = videos.filter(post__isnull=True).count()
+
     paginator = Paginator(videos, 24)
     page = request.GET.get('page', 1)
     page_obj = paginator.get_page(page)
@@ -36,8 +50,10 @@ def video_list(request):
         'videos': page_obj,
         'is_paginated': page_obj.has_other_pages(),
         'page_obj': page_obj,
+        'total_count': total_count,
+        'saved_count': saved_count,
+        'uploaded_count': uploaded_count,
     })
-
 
 
 

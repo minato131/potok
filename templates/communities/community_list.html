@@ -28,15 +28,10 @@
             </p>
         </div>
 
-        <!-- Статистика -->
         <div class="header-stats">
             <div class="stat-item">
                 <span class="stat-value">{{ total_count }}</span>
                 <span class="stat-label">сообществ</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-value">{{ popular_count|default:"50" }}+</span>
-                <span class="stat-label">участников</span>
             </div>
         </div>
     </div>
@@ -44,7 +39,6 @@
     <!-- Поиск и фильтры -->
     <div class="communities-filters">
         <form method="get" class="search-form" id="filterForm">
-            <!-- Поиск -->
             <div class="search-wrapper">
                 <i data-feather="search" class="search-icon"></i>
                 <input
@@ -63,10 +57,8 @@
                 {% endif %}
             </div>
 
-            <!-- Скрытое поле для фильтра -->
             <input type="hidden" name="filter" id="filterInput" value="{{ filter_type }}">
 
-            <!-- Табы фильтрации -->
             <div class="filter-tabs">
                 <button type="button" class="filter-btn {% if filter_type == 'all' %}active{% endif %}" data-filter="all">
                     <i data-feather="globe"></i>
@@ -91,7 +83,6 @@
                 </button>
             </div>
 
-            <!-- Дополнительная сортировка -->
             <div class="sort-wrapper">
                 <label for="sortSelect" class="sort-label">
                     <i data-feather="arrow-up-down"></i>
@@ -135,7 +126,6 @@
                 <div class="cover-gradient"></div>
                 {% endif %}
 
-                <!-- Тип сообщества -->
                 {% if community.privacy != 'public' %}
                 <span class="privacy-badge privacy-badge--{{ community.privacy }}" title="{% if community.privacy == 'private' %}Закрытое сообщество{% else %}Скрытое сообщество{% endif %}">
                     <i data-feather="{% if community.privacy == 'private' %}lock{% else %}eye-off{% endif %}"></i>
@@ -149,16 +139,13 @@
                     {% if community.avatar %}
                     <img src="{{ community.avatar.url }}" alt="{{ community.name }}" loading="lazy">
                     {% else %}
-                    <div class="avatar-placeholder" style="background: linear-gradient(135deg, {{ community.color|default:'#2563eb' }}, {{ community.color_hover|default:'#1d4ed8' }});">
-                        {{ community.name|first|upper }}
-                    </div>
+                    <div class="avatar-placeholder">{{ community.name|first|upper }}</div>
                     {% endif %}
                 </a>
             </div>
 
             <!-- Контент -->
             <div class="community-card__content">
-                <!-- Название -->
                 <h3 class="community-name">
                     <a href="{% url 'communities:community_detail' slug=community.slug %}">
                         c/{{ community.name }}
@@ -170,7 +157,6 @@
                     {% endif %}
                 </h3>
 
-                <!-- Описание -->
                 <p class="community-description">
                     {% if community.description %}
                         {{ community.description|truncatewords:20 }}
@@ -179,7 +165,6 @@
                     {% endif %}
                 </p>
 
-                <!-- Статистика -->
                 <div class="community-stats">
                     <div class="stat">
                         <i data-feather="users"></i>
@@ -198,7 +183,6 @@
                     </div>
                 </div>
 
-                <!-- Категории -->
                 {% if community.categories.exists %}
                 <div class="community-categories">
                     {% for category in community.categories.all|slice:":3" %}
@@ -216,36 +200,33 @@
             <!-- Действия -->
             <div class="community-card__footer">
                 {% if user.is_authenticated %}
-                    {% with membership=user.communitymembership_set.filter.first %}
-                        {% if membership %}
-                            {% if membership.status == 'active' %}
-                            <span class="member-badge">
-                                <i data-feather="check"></i>
-                                Вы участник
-                            </span>
-                            <a href="{% url 'communities:community_detail' slug=community.slug %}" class="btn btn--outline btn--sm">
-                                Перейти
-                            </a>
-                            {% elif membership.status == 'pending' %}
-                            <span class="pending-badge">
-                                <i data-feather="clock"></i>
-                                Заявка на рассмотрении
-                            </span>
-                            {% elif membership.status == 'banned' %}
-                            <span class="banned-badge">
-                                <i data-feather="slash"></i>
-                                Доступ ограничен
-                            </span>
-                            {% endif %}
-                        {% else %}
-                            <button class="btn btn--primary btn--sm join-btn" data-community-slug="{{ community.slug }}">
-                                <i data-feather="user-plus"></i>
-                                Вступить
-                            </button>
-                            <a href="{% url 'communities:community_detail' slug=community.slug %}" class="btn btn--outline btn--sm">
-                                Подробнее
-                            </a>
-                        {% endif %}
+                    {% with membership=user.communitymembership_set.all %}
+                        {% with found=membership|dictsort:"community_id" %}
+                            {% for m in found %}
+                                {% if m.community_id == community.id and m.status == 'active' %}
+                                <span class="member-badge">
+                                    <i data-feather="check"></i>
+                                    Вы участник
+                                </span>
+                                <a href="{% url 'communities:community_detail' slug=community.slug %}" class="btn btn--outline btn--sm">
+                                    Перейти
+                                </a>
+                                {% elif m.community_id == community.id and m.status == 'pending' %}
+                                <span class="pending-badge">
+                                    <i data-feather="clock"></i>
+                                    Заявка на рассмотрении
+                                </span>
+                                {% endif %}
+                            {% empty %}
+                                <button class="btn btn--primary btn--sm join-btn" data-community-slug="{{ community.slug }}">
+                                    <i data-feather="user-plus"></i>
+                                    Вступить
+                                </button>
+                                <a href="{% url 'communities:community_detail' slug=community.slug %}" class="btn btn--outline btn--sm">
+                                    Подробнее
+                                </a>
+                            {% endfor %}
+                        {% endwith %}
                     {% endwith %}
                 {% else %}
                     <a href="{% url 'accounts:login' %}?next={% url 'communities:community_detail' slug=community.slug %}" class="btn btn--outline btn--sm">
@@ -342,50 +323,6 @@
         </nav>
     </div>
     {% endif %}
-</div>
-
-<!-- Модальное окно заявки на вступление -->
-<div class="modal-overlay" id="joinRequestModal" style="display: none;">
-    <div class="modal modal--join">
-        <div class="modal-header">
-            <h3 class="modal-title" id="joinModalTitle">Вступить в сообщество</h3>
-            <button class="modal-close" onclick="closeJoinModal()">
-                <i data-feather="x"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <div class="community-preview" id="communityPreview"></div>
-            <form id="joinRequestForm">
-                {% csrf_token %}
-                <input type="hidden" name="community_slug" id="communitySlug">
-                <div class="form-group">
-                    <label for="joinMessage" class="form-label">
-                        Сообщение модераторам (необязательно)
-                    </label>
-                    <textarea
-                        name="message"
-                        id="joinMessage"
-                        class="form-textarea"
-                        placeholder="Расскажите, почему хотите вступить..."
-                        rows="3"
-                        maxlength="500"
-                    ></textarea>
-                    <div class="field-hint">
-                        <span class="char-counter">
-                            <span id="messageCounter">0</span>/500
-                        </span>
-                    </div>
-                </div>
-            </form>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn--outline" onclick="closeJoinModal()">Отмена</button>
-            <button class="btn btn--primary" onclick="submitJoinRequest()">
-                <i data-feather="send"></i>
-                Отправить заявку
-            </button>
-        </div>
-    </div>
 </div>
 {% endblock %}
 
@@ -505,6 +442,9 @@
         border-radius: var(--radius-md);
         color: var(--color-text-tertiary);
         transition: all var(--transition-base);
+        background: none;
+        border: none;
+        cursor: pointer;
     }
 
     .clear-search:hover {
@@ -531,6 +471,8 @@
         background: var(--color-bg-elevated);
         border: 1px solid transparent;
         transition: all var(--transition-base);
+        cursor: pointer;
+        font-family: inherit;
     }
 
     .filter-btn:hover {
@@ -564,6 +506,7 @@
         background: var(--color-bg-surface);
         font-size: 0.875rem;
         cursor: pointer;
+        font-family: inherit;
     }
 
     /* Результаты поиска */
@@ -685,6 +628,7 @@
         color: white;
         font-size: 2rem;
         font-weight: 700;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     }
 
     .community-card__content {
@@ -930,118 +874,6 @@
         color: var(--color-text-tertiary);
     }
 
-    /* Модальное окно */
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-        backdrop-filter: blur(4px);
-    }
-
-    .modal {
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-xl);
-        width: 90%;
-        max-width: 450px;
-        max-height: 90vh;
-        overflow: hidden;
-        box-shadow: var(--shadow-xl);
-        animation: modalSlideIn 0.3s ease;
-    }
-
-    @keyframes modalSlideIn {
-        from {
-            opacity: 0;
-            transform: translateY(-20px) scale(0.95);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-        }
-    }
-
-    .modal-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 1.25rem 1.5rem;
-        border-bottom: 1px solid var(--color-border-light);
-    }
-
-    .modal-title {
-        font-size: 1.125rem;
-        font-weight: 600;
-    }
-
-    .modal-close {
-        padding: 0.375rem;
-        border-radius: var(--radius-md);
-        color: var(--color-text-tertiary);
-        transition: all var(--transition-base);
-    }
-
-    .modal-close:hover {
-        background: var(--color-bg-elevated);
-        color: var(--color-text-primary);
-    }
-
-    .modal-body {
-        padding: 1.5rem;
-    }
-
-    .community-preview {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 0.75rem;
-        background: var(--color-bg-elevated);
-        border-radius: var(--radius-md);
-        margin-bottom: 1.25rem;
-    }
-
-    .form-textarea {
-        width: 100%;
-        padding: 0.75rem;
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-lg);
-        resize: vertical;
-        font-family: inherit;
-        font-size: 0.875rem;
-    }
-
-    .form-textarea:focus {
-        outline: none;
-        border-color: var(--color-primary);
-        box-shadow: 0 0 0 3px var(--color-primary-light);
-    }
-
-    .field-hint {
-        display: flex;
-        justify-content: flex-end;
-        margin-top: 0.375rem;
-        font-size: 0.75rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .char-counter {
-        font-family: monospace;
-    }
-
-    .modal-footer {
-        display: flex;
-        gap: 0.75rem;
-        justify-content: flex-end;
-        padding: 1rem 1.5rem 1.5rem;
-        border-top: 1px solid var(--color-border-light);
-    }
-
     /* Адаптивность */
     @media (max-width: 768px) {
         .communities-header {
@@ -1083,153 +915,56 @@
 
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Фильтрация
-        const filterBtns = document.querySelectorAll('.filter-btn');
-        const filterInput = document.getElementById('filterInput');
-        const filterForm = document.getElementById('filterForm');
+document.addEventListener('DOMContentLoaded', function() {
+    function G(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
 
-        filterBtns.forEach(btn => {
-            btn.addEventListener('click', function() {
-                const filter = this.dataset.filter;
-                filterInput.value = filter;
-                filterForm.submit();
-            });
+    // Фильтрация
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.getElementById('filterInput').value = this.dataset.filter;
+            document.getElementById('filterForm').submit();
         });
-
-        // Сортировка
-        const sortSelect = document.getElementById('sortSelect');
-        sortSelect?.addEventListener('change', function() {
-            filterForm.submit();
-        });
-
-        // Поиск с задержкой
-        const searchInput = document.getElementById('searchInput');
-        let searchTimeout;
-
-        searchInput?.addEventListener('input', function() {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                filterForm.submit();
-            }, 500);
-        });
-
-        // Очистка поиска
-        const clearSearch = document.getElementById('clearSearch');
-        clearSearch?.addEventListener('click', function() {
-            searchInput.value = '';
-            filterForm.submit();
-        });
-
-        // Счетчик символов в модалке
-        const joinMessage = document.getElementById('joinMessage');
-        const messageCounter = document.getElementById('messageCounter');
-
-        joinMessage?.addEventListener('input', function() {
-            messageCounter.textContent = this.value.length;
-        });
-
-        // Модальное окно вступления
-        const joinModal = document.getElementById('joinRequestModal');
-        const joinBtns = document.querySelectorAll('.join-btn');
-
-        window.closeJoinModal = function() {
-            joinModal.style.display = 'none';
-            document.body.style.overflow = '';
-        };
-
-        joinBtns.forEach(btn => {
-            btn.addEventListener('click', function() {
-                const slug = this.dataset.communitySlug;
-                const card = this.closest('.community-card');
-                const name = card.querySelector('.community-name a').textContent;
-                const description = card.querySelector('.community-description')?.textContent || '';
-
-                document.getElementById('communitySlug').value = slug;
-                document.getElementById('joinModalTitle').textContent = `Вступить в ${name}`;
-
-                const preview = document.getElementById('communityPreview');
-                preview.innerHTML = `
-                    <div class="community-card__avatar" style="width: 40px; height: 40px; margin: 0;">
-                        ${card.querySelector('.community-card__avatar').innerHTML}
-                    </div>
-                    <div>
-                        <strong>${name}</strong>
-                        <p style="font-size: 0.75rem; color: var(--color-text-tertiary);">${description.substring(0, 50)}...</p>
-                    </div>
-                `;
-
-                joinModal.style.display = 'flex';
-                document.body.style.overflow = 'hidden';
-            });
-        });
-
-        window.submitJoinRequest = async function() {
-            const form = document.getElementById('joinRequestForm');
-            const formData = new FormData(form);
-            const slug = document.getElementById('communitySlug').value;
-
-            try {
-                const response = await fetch(`/communities/${slug}/join/`, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken')
-                    }
-                });
-
-                if (response.ok) {
-                    closeJoinModal();
-                    showToast({
-                        type: 'success',
-                        message: 'Заявка отправлена на рассмотрение'
-                    });
-
-                    // Обновляем кнопку
-                    const btn = document.querySelector(`.join-btn[data-community-slug="${slug}"]`);
-                    if (btn) {
-                        btn.outerHTML = '<span class="pending-badge"><i data-feather="clock"></i>Заявка на рассмотрении</span>';
-                        feather.replace();
-                    }
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                showToast({
-                    type: 'error',
-                    message: 'Произошла ошибка'
-                });
-            }
-        };
-
-        // Закрытие модалки по Escape
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && joinModal.style.display === 'flex') {
-                closeJoinModal();
-            }
-        });
-
-        // Закрытие по клику вне
-        joinModal?.addEventListener('click', function(e) {
-            if (e.target === joinModal) {
-                closeJoinModal();
-            }
-        });
-
-        // CSRF токен
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
-        }
     });
+
+    // Сортировка
+    document.getElementById('sortSelect')?.addEventListener('change', function() {
+        document.getElementById('filterForm').submit();
+    });
+
+    // Поиск с задержкой
+    let searchTimeout;
+    document.getElementById('searchInput')?.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            document.getElementById('filterForm').submit();
+        }, 500);
+    });
+
+    // Очистка поиска
+    document.getElementById('clearSearch')?.addEventListener('click', function() {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('filterForm').submit();
+    });
+
+    // Кнопка "Вступить"
+    document.querySelectorAll('.join-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const slug = this.dataset.communitySlug;
+            const r = await fetch(`/communities/${slug}/join/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': G('csrftoken') }
+            });
+            if (r.ok) {
+                const d = await r.json();
+                if (d.joined) {
+                    this.outerHTML = '<span class="member-badge"><i data-feather="check"></i>Вы участник</span>';
+                } else {
+                    this.outerHTML = '<span class="pending-badge"><i data-feather="clock"></i>Заявка отправлена</span>';
+                }
+                feather.replace();
+            }
+        });
+    });
+});
 </script>
 {% endblock %}

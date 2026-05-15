@@ -1,0 +1,1348 @@
+<!-- templates/messenger/messenger.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Мессенджер · Поток{% endblock %}
+
+{% block page_title %}Мессенджер{% endblock %}
+
+{% block header_actions %}
+<div class="hdr-actions">
+    <div class="hdr-dropdown">
+        <button class="btn btn--primary btn--sm" onclick="toggleNewChatDropdown(event)">
+            <i data-feather="plus"></i> Новый чат
+        </button>
+        <div class="hdr-dropdown-menu" id="newChatDropdown" style="display:none">
+            <a href="{% url 'messenger:create_private_chat' %}">
+                <i data-feather="user-plus"></i> Личный чат
+            </a>
+            <a href="{% url 'messenger:create_group_chat' %}">
+                <i data-feather="users"></i> Групповой чат
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="tg-app" id="tgApp">
+    <!-- === ЛЕВАЯ ПАНЕЛЬ === -->
+    <div class="tg-sidebar" id="tgSidebar">
+        <div class="tg-sidebar-header">
+            <div class="tg-search-box">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9aa7b4" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="chatSearch" placeholder="Поиск чатов..." class="tg-search-input">
+            </div>
+        </div>
+
+        <div class="tg-chats-list" id="chatsList">
+            {% for chat in chats %}
+            <div class="tg-chat-item {% if chat.unread > 0 %}tg-chat-unread{% endif %}"
+                 data-chat-id="{{ chat.id }}"
+                 data-chat-type="{{ chat.chat_type }}"
+                 onclick="openChat({{ chat.id }})">
+                <div class="tg-chat-avatar">
+                    {% if chat.chat_type == 'private' %}
+                        {% for p in chat.participants.all %}{% if p != user %}
+                            {% if p.profile.avatar %}<img src="{{ p.profile.avatar.url }}" alt="">{% else %}<span class="tg-av-placeholder">{{ p.username|first|upper }}</span>{% endif %}
+                        {% endif %}{% endfor %}
+                    {% else %}
+                        <span class="tg-av-placeholder grp">{{ chat.name|first|upper }}</span>
+                    {% endif %}
+                </div>
+                <div class="tg-chat-info">
+                    <div class="tg-chat-top">
+                        <span class="tg-chat-name">
+                            {% if chat.chat_type == 'private' %}
+                                {% for p in chat.participants.all %}{% if p != user %}{{ p.get_full_name|default:p.username }}{% endif %}{% endfor %}
+                            {% else %}{{ chat.name }}{% endif %}
+                        </span>
+                        <span class="tg-chat-time">
+                            {% with lm=chat.get_last_message %}{% if lm %}{{ lm.created_at|time:"H:i" }}{% endif %}{% endwith %}
+                        </span>
+                    </div>
+                    <div class="tg-chat-bottom">
+                        <span class="tg-chat-last">
+                            {% with lm=chat.get_last_message %}
+                                {% if lm %}{% if lm.author == user %}Вы: {% endif %}{{ lm.content|truncatechars:30 }}{% else %}Нет сообщений{% endif %}
+                            {% endwith %}
+                        </span>
+                        {% if chat.unread > 0 %}
+                        <span class="tg-badge">{{ chat.unread }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- === ПРАВАЯ ПАНЕЛЬ === -->
+    <div class="tg-main" id="tgMain">
+        <!-- Заглушка -->
+        <div class="tg-placeholder" id="tgPlaceholder">
+            <div class="tg-placeholder-icon">
+                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <h3>Выберите чат</h3>
+            <p>Или создайте новый</p>
+            <div class="tg-placeholder-btns">
+                <a href="{% url 'messenger:create_private_chat' %}" class="btn btn--primary"><i data-feather="user-plus"></i> Личный чат</a>
+                <a href="{% url 'messenger:create_group_chat' %}" class="btn btn--outline"><i data-feather="users"></i> Группа</a>
+            </div>
+        </div>
+
+        <!-- Активный чат -->
+        <div class="tg-chat-view" id="tgChatView" style="display:none">
+            <!-- Шапка -->
+            <div class="tg-chat-header">
+                <button class="tg-back-btn" onclick="closeChat()">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                </button>
+                <div class="tg-chat-ava-sm" id="tgChatAvatar" onclick="openProfile()" style="cursor:pointer"></div>
+                <div class="tg-chat-title" id="tgChatTitle" onclick="openProfile()" style="cursor:pointer"></div>
+                <div class="tg-chat-header-actions">
+                    <button class="tg-icon-btn" title="Поиск по чату" id="btnSearchChat">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    </button>
+                    <button class="tg-icon-btn" title="Меню" id="btnChatMenu">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Поиск по чату -->
+            <div class="tg-chat-search-bar" id="chatSearchBar" style="display:none">
+                <div class="tg-search-inline-wrap">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9aa7b4" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" id="chatMessageSearch" placeholder="Поиск..." class="tg-search-inline">
+                </div>
+                <button onclick="closeSearchBar()" class="tg-icon-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+                <div class="tg-search-results-dropdown" id="searchResultsDropdown" style="display:none"></div>
+            </div>
+
+            <!-- Сообщения -->
+            <div class="tg-msgs" id="tgMessages"></div>
+
+            <!-- Строка ввода -->
+            <div class="tg-input-bar">
+                <form id="messageForm" class="tg-input-form" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <input type="file" id="fileInput" name="file" accept="image/*,video/*" style="display:none">
+                    <button type="button" class="tg-clip-btn" id="clipBtn">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    </button>
+                    <div class="tg-input-wrap">
+                        <input type="text" id="messageInput" class="tg-input" placeholder="Сообщение" maxlength="2000" autocomplete="off" name="content">
+                        <button type="button" class="tg-emoji-btn" id="emojiBtn">😊</button>
+                    </div>
+                    <button type="submit" class="tg-send-btn" id="sendBtn" disabled>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- === ВСПЛЫВАЮЩИЕ ОКНА === -->
+
+    <!-- Меню трёх точек -->
+    <div class="tg-dropdown-menu" id="chatDropdownMenu" style="display:none">
+        <button onclick="openProfile()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Открыть профиль
+        </button>
+        <button onclick="toggleNotifications()" id="btnToggleNotifications">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+            <span id="notifLabel">Отключить уведомления</span>
+        </button>
+        <button onclick="clearChat()" class="danger">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Очистить историю
+        </button>
+        <button onclick="leaveChat()" class="danger">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Покинуть чат
+        </button>
+    </div>
+
+    <!-- Модалка редактирования сообщения -->
+    <div class="tg-modal-overlay" id="editModal" style="display:none">
+        <div class="tg-modal tg-modal-edit">
+            <div class="tg-modal-header">
+                <h3>Редактировать сообщение</h3>
+                <button onclick="closeEditModal()" class="tg-icon-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="tg-modal-body">
+                <textarea id="editMessageInput" class="tg-edit-textarea" rows="4" maxlength="2000"></textarea>
+                <div class="tg-edit-footer">
+                    <span class="tg-edit-hint">Enter — сохранить, Esc — отмена</span>
+                    <button class="btn btn--primary btn--sm" onclick="saveEditMessage()">Сохранить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Лайтбокс для фото/видео -->
+    <div class="tg-lightbox" id="lightbox" style="display:none">
+        <div class="tg-lightbox-backdrop" onclick="closeLightbox()"></div>
+        <div class="tg-lightbox-content">
+            <button class="tg-lightbox-close" onclick="closeLightbox()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            <div class="tg-lightbox-media" id="lightboxMedia"></div>
+            <div class="tg-lightbox-actions" id="lightboxActions">
+                <button onclick="downloadMediaDirect(lightboxUrl)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Скачать</button>
+                <button onclick="saveMediaAsDirect(lightboxUrl)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg> Сохранить как...</button>
+                <button onclick="copyImageToClipboard(lightboxUrl)" id="btnCopyImage"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Копировать</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Пикер реакций -->
+    <div class="tg-reaction-picker" id="reactionPicker" style="display:none">
+        <button data-emoji="👍">👍</button><button data-emoji="❤️">❤️</button><button data-emoji="😂">😂</button>
+        <button data-emoji="😮">😮</button><button data-emoji="😢">😢</button><button data-emoji="😡">😡</button>
+        <button data-emoji="🔥">🔥</button>
+    </div>
+
+    <!-- Контекстное меню -->
+    <div class="tg-context-menu" id="contextMenu" style="display:none">
+        <button onclick="contextReply()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg> Ответить</button>
+        <button onclick="contextCopy()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Копировать текст</button>
+        <button onclick="contextEdit()" class="ctx-own-only"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Редактировать</button>
+        <button onclick="contextDelete()" class="ctx-own-only ctx-danger"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Удалить</button>
+    </div>
+
+    <!-- Эмодзи пикер -->
+    <div class="tg-emoji-picker" id="emojiPicker" style="display:none">
+        <div class="tg-emoji-grid" id="emojiGrid"></div>
+    </div>
+</div>
+
+<script>
+    window.chatConfig = {
+        currentUserId: {{ user.id }},
+        currentUsername: "{{ user.username|escapejs }}",
+        chatMessagesUrl: "/messenger/api/chat/",
+        sendMessageUrl: "/messenger/chat/",
+        reactionUrl: "/messenger/message/",
+        editUrl: "/messenger/message/",
+        deleteUrl: "/messenger/message/",
+        searchUrl: "/messenger/api/search/",
+        chatInfoUrl: "/messenger/chat/",
+    };
+
+    let currentChatId = null;
+    let currentChatData = null;
+    let contextMessageId = null;
+    let contextMessageContent = null;
+    let editMessageId = null;
+    let lightboxUrl = null;
+    let lightboxType = null;
+    let notificationsMuted = false;
+
+    const EMOJIS = ['😊','😂','❤️','👍','😍','🎉','😢','😡','🤔','🙏','👋','✨','🔥','💯','⭐','😎','🤩','😇','💪','👀','🎁','🏆','🎨','🎵'];
+    document.getElementById('emojiGrid').innerHTML = EMOJIS.map(e => `<button onclick="insertEmoji('${e}')">${e}</button>`).join('');
+
+    // === НАВИГАЦИЯ ===
+    function toggleNewChatDropdown(e) {
+        e.stopPropagation();
+        const dd = document.getElementById('newChatDropdown');
+        dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+        document.addEventListener('click', () => dd.style.display = 'none', { once: true });
+    }
+
+    function openChat(chatId) {
+        currentChatId = chatId;
+        document.getElementById('tgPlaceholder').style.display = 'none';
+        document.getElementById('tgChatView').style.display = 'flex';
+        document.getElementById('tgChatView').classList.add('active');
+        document.querySelectorAll('.tg-chat-item').forEach(el => el.classList.remove('active'));
+        document.querySelector(`.tg-chat-item[data-chat-id="${chatId}"]`)?.classList.add('active');
+        loadMessages(chatId);
+        if (window.innerWidth <= 768) document.getElementById('tgSidebar').classList.add('hidden');
+    }
+
+    function closeChat() {
+        currentChatId = null;
+        document.getElementById('tgChatView').style.display = 'none';
+        document.getElementById('tgChatView').classList.remove('active');
+        document.getElementById('tgPlaceholder').style.display = 'flex';
+        document.getElementById('tgMessages').innerHTML = '';
+        if (window.innerWidth <= 768) document.getElementById('tgSidebar').classList.remove('hidden');
+    }
+
+    function openProfile() {
+        if (currentChatData?.other_user?.username) {
+            window.open('/accounts/profile/' + currentChatData.other_user.username + '/', '_blank');
+        }
+    }
+
+    // === МЕНЮ ТРЁХ ТОЧЕК ===
+    document.getElementById('btnChatMenu').addEventListener('click', function(e) {
+        e.stopPropagation();
+        const menu = document.getElementById('chatDropdownMenu');
+        const rect = this.getBoundingClientRect();
+        menu.style.display = 'block';
+        menu.style.right = (window.innerWidth - rect.right) + 'px';
+        menu.style.top = rect.bottom + 'px';
+        document.addEventListener('click', () => menu.style.display = 'none', { once: true });
+    });
+
+    function toggleNotifications() {
+        notificationsMuted = !notificationsMuted;
+        document.getElementById('notifLabel').textContent = notificationsMuted ? 'Включить уведомления' : 'Отключить уведомления';
+        document.getElementById('chatDropdownMenu').style.display = 'none';
+    }
+
+    function clearChat() {
+        document.getElementById('chatDropdownMenu').style.display = 'none';
+        if (confirm('Очистить историю сообщений?')) document.getElementById('tgMessages').innerHTML = '';
+    }
+
+    function leaveChat() {
+        document.getElementById('chatDropdownMenu').style.display = 'none';
+        if (confirm('Покинуть чат?')) closeChat();
+    }
+
+    // === ПОИСК ПО ЧАТУ ===
+    document.getElementById('btnSearchChat').addEventListener('click', () => {
+        document.getElementById('chatSearchBar').style.display = 'flex';
+        document.getElementById('chatMessageSearch').focus();
+    });
+
+    function closeSearchBar() {
+        document.getElementById('chatSearchBar').style.display = 'none';
+        document.getElementById('searchResultsDropdown').style.display = 'none';
+    }
+
+    document.getElementById('chatMessageSearch').addEventListener('input', function() {
+        const q = this.value.trim();
+        const dd = document.getElementById('searchResultsDropdown');
+        if (q.length < 2) { dd.style.display = 'none'; return; }
+        if (!currentChatId) return;
+        fetch(`${window.chatConfig.searchUrl}${currentChatId}/?q=${encodeURIComponent(q)}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'ok' && data.results.length) {
+                    dd.innerHTML = data.results.map(r => `
+                        <div class="tg-search-result-item" onclick="scrollToMsg(${r.id})">
+                            <strong>${r.author_name}</strong> <small>${r.created_at}</small>
+                            <div>${escapeHtml(r.content).substring(0, 80)}</div>
+                        </div>`).join('');
+                    dd.style.display = 'block';
+                } else {
+                    dd.innerHTML = '<div style="padding:12px;color:#9aa7b4">Ничего не найдено</div>';
+                    dd.style.display = 'block';
+                }
+            });
+    });
+
+    function scrollToMsg(msgId) {
+        closeSearchBar();
+        const el = document.querySelector(`.tg-msg[data-id="${msgId}"]`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // === ЗАГРУЗКА СООБЩЕНИЙ ===
+    async function loadMessages(chatId) {
+        try {
+            const r = await fetch(window.chatConfig.chatMessagesUrl + chatId + '/');
+            const data = await r.json();
+            if (data.status !== 'ok') return;
+            currentChatData = data.chat;
+
+            const ava = document.getElementById('tgChatAvatar');
+            if (data.chat.type === 'private' && data.chat.other_user) {
+                ava.innerHTML = data.chat.other_user.avatar
+                    ? `<img src="${data.chat.other_user.avatar}" alt="">`
+                    : `<span class="tg-av-placeholder">${(data.chat.other_user.full_name || data.chat.other_user.username)[0].toUpperCase()}</span>`;
+                document.getElementById('tgChatTitle').innerHTML = `
+                    <span style="display:block;font-weight:600;font-size:15px">${data.chat.other_user.full_name || data.chat.other_user.username}</span>
+                    <span class="tg-status">${data.chat.other_user.is_online ? 'в сети' : 'не в сети'}</span>`;
+            } else {
+                ava.innerHTML = `<span class="tg-av-placeholder grp">${(data.chat.name || 'Г')[0].toUpperCase()}</span>`;
+                document.getElementById('tgChatTitle').innerHTML = `
+                    <span style="display:block;font-weight:600;font-size:15px">${data.chat.name}</span>
+                    <span class="tg-status">${data.chat.participants_count} участников</span>`;
+            }
+
+            const container = document.getElementById('tgMessages');
+            container.innerHTML = data.messages.map(msg => renderMessage(msg)).join('');
+            container.scrollTop = container.scrollHeight;
+        } catch(err) { console.error(err); }
+    }
+
+    function renderMessage(msg) {
+        const isOwn = msg.is_own;
+        const avaHtml = isOwn ? '' : `<div class="tg-msg-ava">${msg.author_avatar ? `<img src="${msg.author_avatar}" alt="">` : `<span class="tg-msg-ava-alt">${msg.author_name[0].toUpperCase()}</span>`}</div>`;
+
+        let contentHtml = '';
+        if (msg.file_url) {
+            if (msg.file_type === 'image') {
+                contentHtml += `<div class="tg-msg-img" onclick="openLightbox('${msg.file_url}','image',event)" oncontextmenu="showImageContextMenu(event,'${msg.file_url}','image',${msg.id})"><img src="${msg.file_url}" alt="" loading="lazy"></div>`;
+            } else if (msg.file_type === 'video') {
+                contentHtml += `<div class="tg-msg-video" onclick="openLightbox('${msg.file_url}','video',event)" oncontextmenu="showImageContextMenu(event,'${msg.file_url}','video',${msg.id})"><video src="${msg.file_url}" preload="metadata"></video><div class="tg-video-play">▶</div></div>`;
+            } else {
+                contentHtml += `<a href="${msg.file_url}" class="tg-msg-file" download><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Файл</a>`;
+            }
+        }
+        if (msg.content) {
+            contentHtml += `<div class="tg-msg-bubble">${msg.is_deleted ? '<span style="opacity:.5;font-style:italic">Сообщение удалено</span>' : escapeHtml(msg.content)}</div>`;
+        }
+
+        let reactionsHtml = '';
+        if (msg.reactions && Object.keys(msg.reactions).length > 0) {
+            reactionsHtml = `<div class="tg-msg-reactions" id="reactions-${msg.id}">` +
+                Object.entries(msg.reactions).map(([emoji, count]) =>
+                    `<span class="tg-reaction" onclick="toggleReaction(${msg.id},'${emoji}')">${emoji} <small>${count}</small></span>`
+                ).join('') + '</div>';
+        }
+
+        return `<div class="tg-msg ${isOwn ? 'tg-msg-own' : ''}" data-id="${msg.id}" data-content="${escapeHtml(msg.content)}" data-isown="${isOwn}" oncontextmenu="showContextMenu(event, ${msg.id}, '${escapeHtml(msg.content)}', ${isOwn})">
+            ${avaHtml}
+            <div class="tg-msg-content">
+                ${contentHtml}
+                ${reactionsHtml}
+                <div class="tg-msg-meta">
+                    <span class="tg-msg-time">${msg.created_at}</span>
+                    ${isOwn ? (msg.is_read ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="#4fc877"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="#9aa7b4"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>') : ''}
+                </div>
+            </div>
+        </div>`;
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // === ЛАЙТБОКС ===
+    function openLightbox(url, type, event) {
+        if (event) event.stopPropagation();
+        lightboxUrl = url;
+        lightboxType = type;
+        const lb = document.getElementById('lightbox');
+        const media = document.getElementById('lightboxMedia');
+        const btnCopy = document.getElementById('btnCopyImage');
+
+        if (type === 'image') {
+            media.innerHTML = `<img src="${url}" style="max-width:85vw;max-height:75vh;border-radius:12px" oncontextmenu="return false">`;
+            btnCopy.style.display = 'flex';
+        } else {
+            media.innerHTML = `
+                <div class="tg-video-player">
+                    <video id="lightboxVideo" src="${url}" preload="auto" style="max-width:90vw;max-height:65vh;border-radius:12px 12px 0 0"></video>
+                    <div class="tg-video-controls">
+                        <button onclick="togglePlay()" id="btnPlay" style="min-width:32px">▶</button>
+                        <span id="videoTime" style="min-width:100px;font-size:11px;text-align:center">0:00 / 0:00</span>
+                        <input type="range" id="videoSeek" value="0" min="0" max="100" step="0.1" class="seek-bar">
+                        <button onclick="toggleMute()" id="btnMute" style="min-width:28px;font-size:14px">🔊</button>
+                        <input type="range" id="videoVolume" value="100" min="0" max="100" class="volume-bar">
+                        <button onclick="toggleFullscreen()" style="min-width:28px">⛶</button>
+                    </div>
+                </div>`;
+            btnCopy.style.display = 'none';
+
+setTimeout(() => {
+    const video = document.getElementById('lightboxVideo');
+    const seek = document.getElementById('videoSeek');
+    const volume = document.getElementById('videoVolume');
+    const time = document.getElementById('videoTime');
+    const btnPlay = document.getElementById('btnPlay');
+    const btnMute = document.getElementById('btnMute');
+    if (!video) return;
+
+            function setupSeek() {
+                if (video.duration && isFinite(video.duration)) {
+                    seek.max = 100;
+                }
+            }
+
+            video.addEventListener('loadedmetadata', setupSeek);
+            video.addEventListener('durationchange', setupSeek);
+            // Если метаданные уже загружены
+            if (video.readyState >= 1) setupSeek();
+
+            video.addEventListener('timeupdate', () => {
+                if (video.duration && !seek.dragging) {
+                    seek.value = (video.currentTime / video.duration) * 100;
+                }
+                updateTime();
+            });
+
+            let seekDragging = false;
+            seek.addEventListener('mousedown', () => seekDragging = true);
+            seek.addEventListener('mouseup', () => {
+                seekDragging = false;
+                if (video.duration) video.currentTime = (seek.value / 100) * video.duration;
+            });
+            seek.addEventListener('input', () => {
+                if (seekDragging && video.duration) video.currentTime = (seek.value / 100) * video.duration;
+            });
+            seek.addEventListener('change', () => {
+                if (video.duration) video.currentTime = (seek.value / 100) * video.duration;
+            });
+
+            volume.addEventListener('input', () => {
+                video.volume = volume.value / 100;
+                btnMute.textContent = video.muted || video.volume === 0 ? '🔇' : video.volume < 0.5 ? '🔉' : '🔊';
+            });
+
+            window.togglePlay = function() {
+                if (video.paused) { video.play(); btnPlay.textContent = '⏸'; }
+                else { video.pause(); btnPlay.textContent = '▶'; }
+            };
+
+            window.toggleMute = function() {
+                video.muted = !video.muted;
+                btnMute.textContent = video.muted || video.volume === 0 ? '🔇' : video.volume < 0.5 ? '🔉' : '🔊';
+            };
+
+            window.toggleFullscreen = function() {
+                if (video.requestFullscreen) video.requestFullscreen();
+            };
+
+            function updateTime() {
+                const f = s => {
+                    const m = Math.floor(s / 60);
+                    const sec = Math.floor(s % 60);
+                    return m + ':' + sec.toString().padStart(2, '0');
+                };
+                time.textContent = f(video.currentTime) + ' / ' + f(video.duration || 0);
+            }
+
+            video.addEventListener('click', () => togglePlay());
+        }, 100);
+        }
+        lb.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox() {
+        document.getElementById('lightbox').style.display = 'none';
+        document.body.style.overflow = '';
+        lightboxUrl = null;
+    }
+
+    // === МЕНЮ ДЛЯ ИЗОБРАЖЕНИЙ/ВИДЕО (ПКМ) ===
+    function showImageContextMenu(e, url, type, msgId) {
+        e.preventDefault();
+        e.stopPropagation();
+        lightboxUrl = url;
+        lightboxType = type;
+
+        document.querySelectorAll('.tg-image-context-menu').forEach(m => m.remove());
+
+        const menu = document.createElement('div');
+        menu.className = 'tg-context-menu tg-image-context-menu';
+        menu.style.cssText = `position:fixed;left:${Math.min(e.clientX, window.innerWidth-210)}px;top:${Math.min(e.clientY, window.innerHeight-220)}px;z-index:999;display:block;`;
+        menu.innerHTML = `
+            <button onclick="openLightbox('${url}','${type}');this.closest('.tg-context-menu').remove()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Открыть
+            </button>
+            <button onclick="downloadMediaDirect('${url}');this.closest('.tg-context-menu').remove()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Скачать
+            </button>
+            <button onclick="saveMediaAsDirect('${url}');this.closest('.tg-context-menu').remove()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg> Сохранить как...
+            </button>
+            ${type === 'image' ? `
+            <button onclick="copyImageToClipboard('${url}');this.closest('.tg-context-menu').remove()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Копировать изображение
+            </button>` : ''}
+        `;
+        document.body.appendChild(menu);
+        document.addEventListener('click', () => menu.remove(), { once: true });
+    }
+
+async function downloadMediaDirect(url) {
+    try {
+        const filename = url.split('/').pop().split('?')[0] || 'file';
+        const response = await fetch(url);
+        const blob = await response.blob();
+
+        if (window.showSaveFilePicker) {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: filename,
+                types: [{
+                    description: 'Файл',
+                    accept: { 'application/octet-stream': ['.' + (filename.split('.').pop() || 'bin')] }
+                }]
+            });
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+        } else {
+            // Фолбэк для браузеров без File System Access API
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+        }
+    } catch(e) {
+        if (e.name !== 'AbortError') {
+            // Пользователь не отменил — пробуем старый способ
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = url.split('/').pop().split('?')[0] || 'file';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    }
+}
+
+        async function saveMediaAsDirect(url) {
+            try {
+                const oldName = url.split('/').pop().split('?')[0] || 'file';
+                const response = await fetch(url);
+                const blob = await response.blob();
+
+                if (window.showSaveFilePicker) {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: oldName,
+                    });
+                    const writable = await handle.createWritable();
+                    await writable.write(blob);
+                    await writable.close();
+                } else {
+                    const name = prompt('Имя файла:', oldName);
+                    if (name) {
+                        const a = document.createElement('a');
+                        a.href = URL.createObjectURL(blob);
+                        a.download = name;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(a.href);
+                    }
+                }
+            } catch(e) {
+                if (e.name !== 'AbortError') {
+                    const name = prompt('Имя файла:', url.split('/').pop().split('?')[0] || 'file');
+                    if (name) {
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = name;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                    }
+                }
+            }
+        }
+
+    async function copyImageToClipboard(url) {
+        try {
+            const img = document.createElement('img');
+            img.crossOrigin = 'anonymous';
+            img.src = url;
+            await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error()); setTimeout(() => rej(new Error()), 5000); });
+            const c = document.createElement('canvas');
+            c.width = img.naturalWidth;
+            c.height = img.naturalHeight;
+            c.getContext('2d').drawImage(img, 0, 0);
+            const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            alert('Изображение скопировано!');
+        } catch(e) {
+            window.open(url, '_blank');
+        }
+    }
+
+    // === КОНТЕКСТНОЕ МЕНЮ ===
+    function showContextMenu(e, msgId, content, isOwn) {
+        e.preventDefault();
+        contextMessageId = msgId;
+        contextMessageContent = content;
+        editMessageId = msgId;
+
+        const menu = document.getElementById('contextMenu');
+        menu.style.display = 'block';
+        menu.style.left = Math.min(e.clientX, window.innerWidth - 200) + 'px';
+        menu.style.top = Math.min(e.clientY, window.innerHeight - 180) + 'px';
+
+        const rp = document.getElementById('reactionPicker');
+        rp.style.display = 'flex';
+        rp.style.left = Math.min(e.clientX - 40, window.innerWidth - 250) + 'px';
+        rp.style.top = (e.clientY - 60) + 'px';
+        rp.dataset.messageId = msgId;
+
+        document.querySelectorAll('.ctx-own-only').forEach(b => b.style.display = isOwn ? 'flex' : 'none');
+        document.addEventListener('click', closeContexts, { once: true });
+    }
+
+    function closeContexts() {
+        document.getElementById('contextMenu').style.display = 'none';
+        document.getElementById('reactionPicker').style.display = 'none';
+    }
+
+    function contextReply() { const inp = document.getElementById('messageInput'); inp.value = '> ' + contextMessageContent.substring(0, 50) + '\n'; inp.focus(); closeContexts(); }
+    function contextCopy() { navigator.clipboard.writeText(contextMessageContent).catch(() => {}); closeContexts(); }
+    function contextEdit() { closeContexts(); openEditModal(contextMessageId, contextMessageContent); }
+    function contextDelete() { if (confirm('Удалить сообщение?')) { fetch(window.chatConfig.deleteUrl + contextMessageId + '/delete/', { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } }).then(r => { if (r.ok && currentChatId) loadMessages(currentChatId); }); } closeContexts(); }
+
+    // === РЕДАКТИРОВАНИЕ ===
+    function openEditModal(msgId, content) { editMessageId = msgId; document.getElementById('editMessageInput').value = content; document.getElementById('editModal').style.display = 'flex'; document.getElementById('editMessageInput').focus(); }
+    function closeEditModal() { document.getElementById('editModal').style.display = 'none'; editMessageId = null; }
+
+    function saveEditMessage() {
+        const c = document.getElementById('editMessageInput').value.trim();
+        if (c && editMessageId) {
+            fetch(window.chatConfig.editUrl + editMessageId + '/edit/', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') }, body: 'content=' + encodeURIComponent(c) })
+                .then(r => { if (r.ok && currentChatId) loadMessages(currentChatId); });
+        }
+        closeEditModal();
+    }
+
+    document.getElementById('editMessageInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEditMessage(); }
+        if (e.key === 'Escape') closeEditModal();
+    });
+    document.getElementById('editModal').addEventListener('click', function(e) { if (e.target === this) closeEditModal(); });
+
+    // === РЕАКЦИИ ===
+    document.querySelectorAll('#reactionPicker button').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const msgId = document.getElementById('reactionPicker').dataset.messageId;
+            if (msgId) toggleReaction(msgId, this.dataset.emoji);
+            closeContexts();
+        });
+    });
+
+    async function toggleReaction(msgId, emoji) {
+        try {
+            const r = await fetch(window.chatConfig.reactionUrl + msgId + '/reaction/', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') }, body: JSON.stringify({ emoji }) });
+            if (r.ok) {
+                const data = await r.json();
+                const container = document.getElementById('reactions-' + msgId);
+                if (container) {
+                    container.innerHTML = !data.reactions || Object.keys(data.reactions).length === 0 ? '' :
+                        Object.entries(data.reactions).map(([e, c]) => `<span class="tg-reaction" onclick="toggleReaction(${msgId},'${e}')">${e} <small>${c}</small></span>`).join('');
+                }
+            }
+        } catch(err) { console.error(err); }
+    }
+
+    // === ЭМОДЗИ ===
+    function insertEmoji(emoji) { const inp = document.getElementById('messageInput'); inp.value += emoji; inp.focus(); document.getElementById('emojiPicker').style.display = 'none'; document.getElementById('sendBtn').disabled = false; }
+    document.getElementById('emojiBtn').addEventListener('click', function(e) { e.stopPropagation(); const p = document.getElementById('emojiPicker'); p.style.display = p.style.display === 'none' ? 'block' : 'none'; });
+
+    // === ОТПРАВКА ===
+    const messageForm = document.getElementById('messageForm');
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const fileInput = document.getElementById('fileInput');
+    const clipBtn = document.getElementById('clipBtn');
+
+    messageInput.addEventListener('input', () => sendBtn.disabled = !messageInput.value.trim() && !fileInput.files.length);
+    clipBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => sendBtn.disabled = !messageInput.value.trim() && !fileInput.files.length);
+
+    messageInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!sendBtn.disabled) messageForm.dispatchEvent(new Event('submit')); }
+    });
+
+    messageForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        if (!currentChatId) return;
+        const fd = new FormData();
+        fd.append('content', messageInput.value.trim());
+        if (fileInput.files[0]) fd.append('file', fileInput.files[0]);
+        try {
+            const r = await fetch(window.chatConfig.sendMessageUrl + currentChatId + '/send/', { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }, body: fd });
+            if (r.ok) { messageInput.value = ''; fileInput.value = ''; sendBtn.disabled = true; loadMessages(currentChatId); }
+        } catch(err) { console.error(err); }
+    });
+
+    // === ВСТАВКА ИЗОБРАЖЕНИЙ (Ctrl+V) ===
+    document.addEventListener('paste', function(e) {
+        if (!currentChatId) return;
+        if (document.activeElement !== messageInput && document.activeElement !== document.getElementById('editMessageInput')) return;
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        for (let item of items) {
+            if (item.type.startsWith('image/')) {
+                e.preventDefault();
+                const blob = item.getAsFile();
+                const dt = new DataTransfer();
+                dt.items.add(new File([blob], 'paste-image.png', { type: blob.type }));
+                fileInput.files = dt.files;
+                sendBtn.disabled = false;
+                const n = document.createElement('div');
+                n.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 16px;border-radius:20px;font-size:13px;z-index:999;animation:fadeInUp .3s';
+                n.textContent = '📋 Изображение вставлено. Нажмите отправить.';
+                document.body.appendChild(n);
+                setTimeout(() => { n.style.opacity = '0'; n.style.transition = 'opacity .3s'; setTimeout(() => n.remove(), 300); }, 2000);
+                break;
+            }
+        }
+    });
+
+    // Поиск по чатам
+    document.getElementById('chatSearch').addEventListener('input', function() {
+        const q = this.value.toLowerCase();
+        document.querySelectorAll('.tg-chat-item').forEach(item => {
+            item.style.display = (item.querySelector('.tg-chat-name')?.textContent || '').toLowerCase().includes(q) ? '' : 'none';
+        });
+    });
+
+    // Закрытие пикеров
+    document.addEventListener('click', function(e) {
+        const ep = document.getElementById('emojiPicker');
+        if (!ep.contains(e.target) && e.target !== document.getElementById('emojiBtn')) ep.style.display = 'none';
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeLightbox();
+            if (document.getElementById('editModal').style.display === 'flex') closeEditModal();
+        }
+        // Управление видео с клавиатуры
+        if (document.getElementById('lightbox').style.display === 'flex' && lightboxType === 'video') {
+            const v = document.getElementById('lightboxVideo');
+            if (v) {
+                if (e.key === ' ') { e.preventDefault(); window.togglePlay?.(); }
+                if (e.key === 'ArrowLeft') v.currentTime -= 5;
+                if (e.key === 'ArrowRight') v.currentTime += 5;
+            }
+        }
+    });
+
+    // Автооткрытие чата из URL
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('chat')) {
+        openChat(parseInt(urlParams.get('chat')));
+        window.history.replaceState({}, '', '/messenger/');
+    }
+
+    function getCookie(n) { let v = null; document.cookie.split(';').forEach(c => { const [k, val] = c.trim().split('='); if (k === n) v = decodeURIComponent(val); }); return v; }
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* === ПОЛНАЯ ПЕРЕСТРОЙКА ПОД МЕССЕНДЖЕР === */
+    .app {
+        grid-template-columns: var(--sidebar-width) 1fr !important;
+        max-width: 100vw !important;
+        height: 100vh !important;
+        min-height: 100vh !important;
+        overflow: hidden !important;
+    }
+
+    .main-content {
+        padding: 0 !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    .main-content__header {
+        padding: 0 16px !important;
+        margin-bottom: 0 !important;
+        min-height: 48px !important;
+        height: 56px !important;
+        flex-shrink: 0 !important;
+        border-bottom: 1px solid #e5e7eb !important;
+        background: #fff !important;
+    }
+
+    .page-title {
+        font-size: 1.25rem !important;
+    }
+
+    .content-container {
+        flex: 1 !important;
+        padding: 0 !important;
+        max-width: none !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+    }
+
+    .right-sidebar {
+        display: none !important;
+    }
+
+    .hdr-actions { display: flex; gap: 8px; }
+    .hdr-dropdown { position: relative; }
+    .hdr-dropdown-menu {
+        position: absolute; top: 100%; right: 0; margin-top: 4px;
+        background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+        z-index: 100; overflow: hidden; min-width: 200px;
+    }
+    .hdr-dropdown-menu a {
+        display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+        text-decoration: none; color: #111827; font-size: 14px; font-family: inherit;
+    }
+    .hdr-dropdown-menu a:hover { background: #f3f4f6; }
+    .hdr-dropdown-menu a i { width: 18px; height: 18px; }
+
+    /* === САМ МЕССЕНДЖЕР === */
+    .tg-app {
+        display: flex !important;
+        width: 100% !important;
+        height: 100% !important;
+        background: #fff;
+    }
+
+    .tg-sidebar {
+        width: 340px !important;
+        min-width: 340px !important;
+        flex-shrink: 0 !important;
+        height: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        background: #fff !important;
+        border-right: 1px solid #e5e7eb !important;
+    }
+
+    .tg-sidebar-header { padding: 12px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0; }
+
+    .tg-search-box {
+        display: flex; align-items: center; gap: 8px;
+        padding: 8px 12px; background: #f3f4f6; border-radius: 10px;
+    }
+
+    .tg-search-input {
+        flex: 1; border: none; background: transparent;
+        font-size: 14px; font-family: inherit; outline: none; color: #111827;
+    }
+    .tg-search-input::placeholder { color: #9aa7b4; }
+
+    .tg-chats-list { flex: 1; overflow-y: auto; }
+
+    .tg-chat-item {
+        display: flex; align-items: center; gap: 12px;
+        padding: 10px 16px; cursor: pointer; transition: background 0.15s;
+        border-bottom: 1px solid #f3f4f6;
+    }
+    .tg-chat-item:hover { background: #f9fafb; }
+    .tg-chat-item.active { background: #eff6ff; }
+    .tg-chat-unread { background: #f0f7ff; }
+
+    .tg-chat-avatar {
+        width: 48px; height: 48px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+    }
+    .tg-chat-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+    .tg-av-placeholder {
+        width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff;
+        font-weight: 700; font-size: 18px;
+    }
+
+    .tg-chat-info { flex: 1; min-width: 0; }
+    .tg-chat-top { display: flex; justify-content: space-between; margin-bottom: 2px; }
+    .tg-chat-name {
+        font-weight: 600; font-size: 14px; color: #111827;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .tg-chat-time { font-size: 11px; color: #9aa7b4; flex-shrink: 0; margin-left: 8px; }
+    .tg-chat-bottom { display: flex; align-items: center; gap: 6px; }
+    .tg-chat-last {
+        flex: 1; font-size: 13px; color: #6b7280;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .tg-badge {
+        background: #3b82f6; color: #fff; padding: 2px 7px;
+        border-radius: 12px; font-size: 11px; font-weight: 600; flex-shrink: 0;
+    }
+
+    /* === ПРАВАЯ ПАНЕЛЬ === */
+    .tg-main {
+        flex: 1 !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        background: #e8eaed !important;
+    }
+
+    .tg-placeholder {
+        flex: 1; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; color: #9aa7b4;
+    }
+    .tg-placeholder-icon { margin-bottom: 20px; }
+    .tg-placeholder h3 { font-size: 20px; margin-bottom: 6px; color: #6b7280; }
+    .tg-placeholder p { font-size: 14px; margin-bottom: 20px; }
+    .tg-placeholder-btns { display: flex; gap: 10px; }
+
+    .tg-chat-view {
+        flex: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        height: 100% !important;
+        max-width: none !important;
+        width: 100% !important;
+    }
+
+    /* Шапка чата */
+    .tg-chat-header {
+        display: flex; align-items: center; gap: 10px;
+        padding: 8px 16px; background: #e8eaed;
+        border-bottom: 1px solid #d1d5db; height: 54px; flex-shrink: 0;
+    }
+    .tg-back-btn {
+        display: none; width: 36px; height: 36px; border-radius: 50%;
+        border: none; background: none; color: #3b82f6; cursor: pointer;
+        align-items: center; justify-content: center;
+    }
+    .tg-chat-ava-sm {
+        width: 36px; height: 36px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+    }
+    .tg-chat-ava-sm img { width: 100%; height: 100%; object-fit: cover; }
+    .tg-chat-title { flex: 1; min-width: 0; cursor: pointer; }
+    .tg-chat-header-actions { display: flex; gap: 2px; }
+    .tg-icon-btn {
+        width: 36px; height: 36px; border-radius: 50%; border: none;
+        background: none; color: #3b82f6; cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .tg-icon-btn:hover { background: rgba(59,130,246,0.1); }
+    .tg-status { display: block; font-size: 11px; color: #6b7280; font-weight: 400; }
+
+    /* Поиск по чату */
+    .tg-chat-search-bar {
+        display: flex; align-items: center; gap: 8px;
+        padding: 8px 16px; background: #fff;
+        border-bottom: 1px solid #d1d5db; position: relative;
+    }
+    .tg-search-inline-wrap {
+        flex: 1; display: flex; align-items: center; gap: 8px;
+        padding: 6px 12px; background: #f3f4f6; border-radius: 8px;
+    }
+    .tg-search-inline {
+        flex: 1; border: none; background: transparent;
+        font-size: 14px; font-family: inherit; outline: none;
+    }
+    .tg-search-results-dropdown {
+        position: absolute; top: 100%; left: 0; right: 0;
+        background: #fff; border: 1px solid #d1d5db;
+        max-height: 300px; overflow-y: auto; z-index: 50;
+    }
+    .tg-search-result-item {
+        padding: 10px 16px; cursor: pointer; border-bottom: 1px solid #f3f4f6;
+    }
+    .tg-search-result-item:hover { background: #f3f4f6; }
+
+    /* === СООБЩЕНИЯ === */
+    .tg-msgs {
+        flex: 1 !important;
+        width: 100% !important;
+        max-width: none !important;
+        overflow-y: auto;
+        padding: 16px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .tg-msg {
+        display: flex; gap: 8px; max-width: 60%;
+        margin-bottom: 4px; cursor: default;
+    }
+    .tg-msg-own { align-self: flex-start; }
+    .tg-msg:not(.tg-msg-own) { align-self: flex-end; flex-direction: row-reverse; }
+
+    .tg-msg-ava {
+        width: 34px; height: 34px; border-radius: 50%;
+        overflow: hidden; flex-shrink: 0; margin-top: auto;
+    }
+    .tg-msg-ava img { width: 100%; height: 100%; object-fit: cover; }
+    .tg-msg-ava-alt {
+        width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff;
+        font-weight: 700; font-size: 13px;
+    }
+
+    .tg-msg-content { display: flex; flex-direction: column; }
+    .tg-msg-own .tg-msg-content { align-items: flex-start; }
+    .tg-msg:not(.tg-msg-own) .tg-msg-content { align-items: flex-end; }
+
+    .tg-msg-bubble {
+        padding: 8px 12px; font-size: 14px; line-height: 1.4;
+        word-break: break-word; white-space: pre-wrap;
+        border-radius: 18px; width: fit-content; max-width: 100%; text-align: left;
+    }
+    .tg-msg-own .tg-msg-bubble {
+        background: #fff; color: #111827; border-bottom-left-radius: 6px;
+    }
+    .tg-msg:not(.tg-msg-own) .tg-msg-bubble {
+        background: #3b82f6; color: #fff; border-bottom-right-radius: 6px;
+    }
+
+    .tg-msg-img {
+        max-width: 420px; border-radius: 12px; overflow: hidden;
+        margin-bottom: 2px; cursor: pointer;
+    }
+    .tg-msg-img img { width: 100%; height: auto; display: block; }
+
+    .tg-msg-video {
+        max-width: 420px; border-radius: 12px; overflow: hidden;
+        margin-bottom: 2px; position: relative; cursor: pointer;
+    }
+    .tg-msg-video video { width: 100%; height: auto; display: block; }
+    .tg-video-play {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+        width: 48px; height: 48px; border-radius: 50%;
+        background: rgba(0,0,0,0.6); display: flex; align-items: center;
+        justify-content: center; color: #fff; font-size: 20px; pointer-events: none;
+    }
+
+    .tg-msg-meta {
+        display: flex; align-items: center; gap: 4px;
+        margin-top: 2px; padding: 0 4px;
+    }
+    .tg-msg-own .tg-msg-meta { justify-content: flex-start; }
+    .tg-msg:not(.tg-msg-own) .tg-msg-meta { justify-content: flex-end; }
+    .tg-msg-time { font-size: 11px; color: #6b7280; }
+
+    .tg-msg-reactions { display: flex; gap: 3px; margin-top: 2px; flex-wrap: wrap; }
+    .tg-reaction {
+        display: inline-flex; align-items: center; gap: 2px;
+        padding: 2px 8px; background: rgba(255,255,255,0.85);
+        border-radius: 12px; font-size: 14px; cursor: pointer;
+        border: 1px solid #d1d5db;
+    }
+    .tg-reaction small { font-size: 11px; font-weight: 600; color: #6b7280; }
+    .tg-reaction:hover { border-color: #3b82f6; }
+
+    /* === СТРОКА ВВОДА === */
+    .tg-input-bar {
+        padding: 8px 16px; background: #e8eaed;
+        border-top: 1px solid #d1d5db; flex-shrink: 0;
+    }
+    .tg-input-form { display: flex; align-items: flex-end; gap: 6px; }
+
+    .tg-clip-btn, .tg-send-btn {
+        width: 40px; height: 40px; border-radius: 50%; border: none;
+        cursor: pointer; display: flex; align-items: center;
+        justify-content: center; flex-shrink: 0; background: none;
+    }
+    .tg-clip-btn:hover { background: rgba(0,0,0,0.05); }
+    .tg-send-btn { background: #3b82f6; }
+    .tg-send-btn:disabled { background: #d1d5db; cursor: default; }
+
+    .tg-input-wrap {
+        flex: 1; display: flex; align-items: flex-end; background: #fff;
+        border-radius: 22px; border: 1px solid #d1d5db; padding: 2px;
+    }
+    .tg-input-wrap:focus-within { border-color: #3b82f6; }
+
+    .tg-input {
+        flex: 1; border: none; padding: 9px 4px 9px 14px;
+        font-size: 15px; font-family: inherit; background: transparent;
+        color: #111827; outline: none;
+    }
+    .tg-input::placeholder { color: #9aa7b4; }
+
+    .tg-emoji-btn {
+        width: 36px; height: 36px; border-radius: 50%; border: none;
+        background: none; cursor: pointer; font-size: 18px; flex-shrink: 0;
+    }
+
+    /* === ВСПЛЫВАЮЩИЕ ОКНА === */
+    .tg-dropdown-menu {
+        position: fixed; background: #fff; border-radius: 12px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.18); z-index: 999;
+        overflow: hidden; min-width: 220px; padding: 4px;
+    }
+    .tg-dropdown-menu button {
+        display: flex; align-items: center; gap: 10px; width: 100%;
+        padding: 10px 14px; border: none; background: none; cursor: pointer;
+        font-size: 14px; color: #111827; border-radius: 8px; font-family: inherit;
+    }
+    .tg-dropdown-menu button:hover { background: #f3f4f6; }
+    .tg-dropdown-menu button.danger { color: #ef4444; }
+    .tg-dropdown-menu button.danger:hover { background: #fef2f2; }
+
+    /* Модалка */
+    .tg-modal-overlay {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.5); z-index: 999;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .tg-modal {
+        background: #fff; border-radius: 16px;
+        width: 90%; max-width: 480px;
+    }
+    .tg-modal-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 14px 20px; border-bottom: 1px solid #e5e7eb;
+    }
+    .tg-modal-header h3 { font-size: 16px; font-weight: 600; margin: 0; }
+    .tg-modal-body { padding: 16px 20px 20px; }
+
+    .tg-edit-textarea {
+        width: 100%; padding: 12px; border: 1px solid #d1d5db;
+        border-radius: 12px; font-size: 14px; font-family: inherit;
+        resize: vertical; outline: none;
+    }
+    .tg-edit-textarea:focus { border-color: #3b82f6; }
+    .tg-edit-footer {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-top: 12px;
+    }
+    .tg-edit-hint { font-size: 12px; color: #9aa7b4; }
+
+    /* Лайтбокс */
+    .tg-lightbox {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 999;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .tg-lightbox-backdrop {
+        position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.9);
+    }
+    .tg-lightbox-content {
+        position: relative; z-index: 1;
+        display: flex; flex-direction: column; align-items: center;
+    }
+    .tg-lightbox-close {
+        position: absolute; top: -40px; right: 0;
+        background: none; border: none; cursor: pointer; z-index: 2;
+    }
+    .tg-lightbox-media { margin-bottom: 16px; }
+    .tg-lightbox-actions { display: flex; gap: 16px; }
+    .tg-lightbox-actions button {
+        display: flex; align-items: center; gap: 6px;
+        padding: 8px 16px; background: rgba(255,255,255,0.15);
+        border: none; border-radius: 8px; color: #fff;
+        cursor: pointer; font-size: 13px; font-family: inherit;
+    }
+    .tg-lightbox-actions button:hover { background: rgba(255,255,255,0.25); }
+
+    /* Видеоплеер */
+    .tg-video-player {
+        position: relative; border-radius: 12px; overflow: hidden; background: #000;
+    }
+    .tg-video-player video {
+        display: block; width: 100%; cursor: pointer;
+    }
+    .tg-video-controls {
+        display: flex; align-items: center; gap: 6px;
+        padding: 8px 10px; background: rgba(0,0,0,0.85); color: #fff;
+    }
+    .tg-video-controls button {
+        background: none; border: none; color: #fff; cursor: pointer;
+        font-size: 16px; padding: 2px 4px; border-radius: 4px;
+        display: flex; align-items: center; justify-content: center;
+        min-width: 28px;
+    }
+    .tg-video-controls button:hover { background: rgba(255,255,255,0.15); }
+
+    .seek-bar {
+        flex: 1; height: 3px; -webkit-appearance: none;
+        background: rgba(255,255,255,0.25); border-radius: 2px;
+        outline: none; cursor: pointer; min-width: 60px;
+    }
+    .seek-bar::-webkit-slider-thumb {
+        -webkit-appearance: none; width: 12px; height: 12px;
+        border-radius: 50%; background: #3b82f6; cursor: pointer;
+    }
+
+    .volume-bar {
+        width: 60px; height: 3px; -webkit-appearance: none;
+        background: rgba(255,255,255,0.25); border-radius: 2px;
+        outline: none; cursor: pointer; flex-shrink: 0;
+    }
+    .volume-bar::-webkit-slider-thumb {
+        -webkit-appearance: none; width: 12px; height: 12px;
+        border-radius: 50%; background: #fff; cursor: pointer;
+    }
+
+    /* Пикер реакций */
+    .tg-reaction-picker {
+        position: fixed; display: flex; gap: 4px;
+        padding: 8px 10px; background: #fff; border-radius: 24px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.18); z-index: 999;
+    }
+    .tg-reaction-picker button {
+        font-size: 24px; padding: 4px; border: none;
+        background: none; cursor: pointer; border-radius: 8px;
+    }
+    .tg-reaction-picker button:hover { background: #f3f4f6; transform: scale(1.2); }
+
+    /* Контекстное меню */
+    .tg-context-menu {
+        position: fixed; background: #fff; border-radius: 12px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.18); z-index: 999;
+        overflow: hidden; min-width: 180px; padding: 4px;
+    }
+    .tg-context-menu button {
+        display: flex; align-items: center; gap: 10px; width: 100%;
+        padding: 10px 14px; border: none; background: none;
+        cursor: pointer; font-size: 14px; color: #111827;
+        border-radius: 8px; font-family: inherit;
+    }
+    .tg-context-menu button:hover { background: #f3f4f6; }
+    .tg-context-menu .ctx-danger { color: #ef4444; }
+    .tg-context-menu .ctx-danger:hover { background: #fef2f2; }
+
+    /* Эмодзи пикер */
+    .tg-emoji-picker {
+        position: fixed; bottom: 60px; right: 20px; width: 260px;
+        background: #fff; border-radius: 16px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.18); z-index: 999; padding: 8px;
+    }
+    .tg-emoji-grid {
+        display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px;
+    }
+    .tg-emoji-grid button {
+        font-size: 22px; padding: 6px; border: none;
+        background: none; cursor: pointer; border-radius: 8px;
+    }
+    .tg-emoji-grid button:hover { background: #f3f4f6; transform: scale(1.2); }
+
+    /* Анимация */
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+        to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
+    /* Мобильная версия */
+    @media (max-width: 768px) {
+        .tg-sidebar {
+            width: 100% !important; min-width: 100% !important;
+            position: absolute !important; z-index: 10 !important; height: 100% !important;
+        }
+        .tg-sidebar.hidden { display: none !important; }
+        .tg-main { flex: 1 !important; }
+        .tg-back-btn { display: flex !important; }
+        .tg-msg { max-width: 82% !important; }
+        .tg-msg-img, .tg-msg-video { max-width: 260px !important; }
+        .tg-emoji-picker {
+            width: 100% !important; right: 0 !important;
+            bottom: 60px !important; border-radius: 16px 16px 0 0 !important;
+        }
+        .main-content__header { padding: 0 12px !important; }
+    }
+
+    #tgChatView {
+        display: none !important;
+    }
+
+    #tgChatView.active {
+        display: flex !important;
+    }
+
+    #tgPlaceholder {
+        display: flex;
+    }
+
+    #tgChatView:not(.active) {
+        display: none !important;
+    }
+</style>
+{% endblock %}

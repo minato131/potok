@@ -1,25 +1,25 @@
 <!-- templates/messenger/message_item.html -->
 {% load static %}
 
-<div class="message {% if message.sender == user %}message--own{% endif %} {% if message.is_system %}message--system{% endif %}"
+<div class="message {% if message.author == user %}message--own{% endif %} {% if message.is_system %}message--system{% endif %}"
      data-message-id="{{ message.id }}"
      {% if message.reply_to %}data-reply-to="{{ message.reply_to.id }}"{% endif %}>
 
     {% if not message.is_system %}
     <div class="message-avatar">
-        {% if message.sender == user %}
+        {% if message.author == user %}
             {% if user.profile.avatar %}
             <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}">
             {% else %}
             <div class="avatar-placeholder">{{ user.username|make_list|first|upper }}</div>
             {% endif %}
         {% else %}
-            {% if message.sender and message.sender.username %}
-            <a href="{% url 'accounts:profile_by_username' username=message.sender.username %}">
-                {% if message.sender.profile.avatar %}
-                <img src="{{ message.sender.profile.avatar.url }}" alt="{{ message.sender.username }}">
+            {% if message.author %}
+            <a href="{% url 'accounts:profile_by_username' username=message.author.username %}">
+                {% if message.author.profile.avatar %}
+                <img src="{{ message.author.profile.avatar.url }}" alt="{{ message.author.username }}">
                 {% else %}
-                <div class="avatar-placeholder">{{ message.sender.username|make_list|first|upper }}</div>
+                <div class="avatar-placeholder">{{ message.author.username|make_list|first|upper }}</div>
                 {% endif %}
             </a>
             {% else %}
@@ -30,11 +30,11 @@
     {% endif %}
 
     <div class="message-content-wrapper">
-        {% if not message.is_system and message.sender != user %}
+        {% if not message.is_system and message.author != user %}
         <div class="message-header">
-            {% if message.sender and message.sender.username %}
-            <a href="{% url 'accounts:profile_by_username' username=message.sender.username %}" class="message-sender">
-                {{ message.sender.get_full_name|default:message.sender.username }}
+            {% if message.author %}
+            <a href="{% url 'accounts:profile_by_username' username=message.author.username %}" class="message-sender">
+                {{ message.author.get_full_name|default:message.author.username }}
             </a>
             {% else %}
             <span class="message-sender">Неизвестный пользователь</span>
@@ -49,73 +49,41 @@
         <div class="message-reply">
             <i data-feather="corner-up-left"></i>
             <div class="reply-content">
-                <span class="reply-author">{{ message.reply_to.sender.username|default:"Пользователь" }}</span>
+                <span class="reply-author">{{ message.reply_to.author.username|default:"Пользователь" }}</span>
                 <span class="reply-text">
-                    {% if message.reply_to.message_type == 'text' %}
-                        {{ message.reply_to.content|truncatechars:50 }}
-                    {% elif message.reply_to.message_type == 'image' %}
-                        <i data-feather="image"></i> Изображение
-                    {% elif message.reply_to.message_type == 'file' %}
-                        <i data-feather="file"></i> Файл
-                    {% endif %}
+                    {{ message.reply_to.content|truncatechars:50 }}
                 </span>
             </div>
         </div>
         {% endif %}
 
         <div class="message-bubble {% if message.is_system %}message-bubble--system{% endif %}">
-            {% if message.message_type == 'text' %}
+            {% if not message.is_deleted %}
                 {{ message.content|linebreaksbr }}
-            {% elif message.message_type == 'image' %}
-                <div class="message-image">
-                    <img src="{{ message.file.url }}" alt="Изображение" loading="lazy">
-                </div>
-                {% if message.content %}
-                <p class="image-caption">{{ message.content }}</p>
-                {% endif %}
-            {% elif message.message_type == 'file' %}
-                <div class="message-file">
-                    <i data-feather="file"></i>
-                    <div class="file-info">
-                        <a href="{{ message.file.url }}" download class="file-name">
-                            {{ message.file.name|slice:"-30:" }}
-                        </a>
-                        <span class="file-size">{{ message.file.size|filesizeformat }}</span>
-                    </div>
-                    <a href="{{ message.file.url }}" download class="download-btn">
-                        <i data-feather="download"></i>
-                    </a>
-                </div>
-                {% if message.content %}
-                <p class="file-caption">{{ message.content }}</p>
-                {% endif %}
-            {% elif message.message_type == 'system' %}
-                <i data-feather="info"></i>
-                {{ message.content }}
+            {% else %}
+                <em>[Сообщение удалено]</em>
             {% endif %}
         </div>
 
-        {% if message.sender == user and not message.is_system %}
+        {% if message.author == user and not message.is_system %}
         <div class="message-footer">
             <div class="message-status">
                 {% if message.is_read %}
                     <i data-feather="check-circle" title="Прочитано"></i>
-                {% elif message.is_delivered %}
-                    <i data-feather="check" title="Доставлено"></i>
                 {% else %}
-                    <i data-feather="clock" title="Отправляется"></i>
+                    <i data-feather="check" title="Отправлено"></i>
                 {% endif %}
             </div>
 
             <div class="message-actions">
                 <button class="message-action-btn reply-btn" data-message-id="{{ message.id }}"
                         data-message-content="{{ message.content|default:''|escapejs }}"
-                        data-sender="{{ message.sender.username|default:'Пользователь' }}"
+                        data-author="{{ message.author.username|default:'Пользователь' }}"
                         title="Ответить"
-                        onclick="replyToMessage({{ message.id }}, '{{ message.content|default:''|truncatewords:10|escapejs }}', '{{ message.sender.username|default:'Пользователь' }}')">
+                        onclick="replyToMessage({{ message.id }}, '{{ message.content|default:''|truncatewords:10|escapejs }}', '{{ message.author.username|default:'Пользователь' }}')">
                     <i data-feather="corner-up-left"></i>
                 </button>
-                {% if message.message_type == 'text' %}
+                {% if not message.is_deleted %}
                 <button class="message-action-btn edit-btn" data-message-id="{{ message.id }}"
                         data-message-content="{{ message.content|default:''|escapejs }}"
                         title="Редактировать"
@@ -129,20 +97,20 @@
                 </button>
             </div>
         </div>
-        {% elif message.sender != user and not message.is_system and message.sender %}
+        {% elif message.author != user and not message.is_system and message.author %}
         <div class="message-footer">
             <button class="message-action-btn reply-btn" data-message-id="{{ message.id }}"
                     data-message-content="{{ message.content|default:''|escapejs }}"
-                    data-sender="{{ message.sender.username|default:'Пользователь' }}"
+                    data-author="{{ message.author.username|default:'Пользователь' }}"
                     title="Ответить"
-                    onclick="replyToMessage({{ message.id }}, '{{ message.content|default:''|truncatewords:10|escapejs }}', '{{ message.sender.username|default:'Пользователь' }}')">
+                    onclick="replyToMessage({{ message.id }}, '{{ message.content|default:''|truncatewords:10|escapejs }}', '{{ message.author.username|default:'Пользователь' }}')">
                 <i data-feather="corner-up-left"></i>
             </button>
         </div>
         {% endif %}
 
         {% if message.is_edited %}
-        <span class="edited-indicator" title="Отредактировано {{ message.edited_at|date:'d.m.Y H:i' }}">
+        <span class="edited-indicator" title="Отредактировано {{ message.updated_at|date:'d.m.Y H:i' }}">
             (ред.)
         </span>
         {% endif %}
@@ -364,6 +332,9 @@
         padding: 0.25rem;
         border-radius: var(--radius-sm);
         color: var(--color-text-tertiary);
+        background: none;
+        border: none;
+        cursor: pointer;
     }
 
     .message-action-btn:hover {
@@ -415,9 +386,39 @@
                 }
             }).then(response => {
                 if (response.ok) {
-                    document.querySelector(`.message[data-message-id="${messageId}"]`)?.remove();
+                    const messageElement = document.querySelector(`.message[data-message-id="${messageId}"]`);
+                    if (messageElement) {
+                        messageElement.remove();
+                    }
                 }
             });
+        }
+    }
+
+    function editMessage(messageId, currentContent) {
+        const newContent = prompt('Редактировать сообщение:', currentContent);
+        if (newContent && newContent !== currentContent) {
+            fetch(`/messenger/message/${messageId}/edit/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: `content=${encodeURIComponent(newContent)}`
+            }).then(response => {
+                if (response.ok) {
+                    location.reload();
+                }
+            });
+        }
+    }
+
+    function replyToMessage(messageId, content, author) {
+        // Реализация ответа на сообщение
+        const input = document.querySelector('.chat-input textarea');
+        if (input) {
+            input.value = `> ${author}: ${content}\n`;
+            input.focus();
         }
     }
 

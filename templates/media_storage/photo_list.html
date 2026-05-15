@@ -4,137 +4,393 @@
 {% block title %}Мои фото · Поток{% endblock %}
 {% block page_title %}Мои фото{% endblock %}
 
+{% block header_actions %}
+<button class="btn btn--primary btn--sm" onclick="document.getElementById('photoUpload').click()">
+    <i data-feather="upload"></i> Загрузить
+</button>
+<input type="file" id="photoUpload" accept="image/*" multiple style="display:none" onchange="uploadPhotos(this)">
+{% endblock %}
+
 {% block content %}
 <style>
-    .media-page { max-width: 1300px; margin: 0 auto; }
-    .media-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-    .media-count { font-size: 0.95rem; color: var(--color-text-secondary); }
-    .media-count strong { color: var(--color-text); font-size: 1.4rem; }
+    .ph-page { max-width: 1100px; margin: 0 auto; }
 
-    .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    /* Статистика и фильтры */
+    .ph-stats-row {
+        display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .ph-stat {
+        background: var(--color-bg-surface); border: 1px solid var(--color-border-light);
+        border-radius: 12px; padding: 12px 18px; display: flex; flex-direction: column; gap: 2px;
+        min-width: 90px;
+    }
+    .ph-stat-val { font-size: 1.5rem; font-weight: 700; color: var(--color-text); }
+    .ph-stat-lbl { font-size: 0.75rem; color: var(--color-text-tertiary); }
 
-    .photo-card { background: var(--color-bg-surface); border-radius: 14px; overflow: hidden; border: 1px solid var(--color-border-light); transition: box-shadow 0.2s; }
-    .photo-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+    .ph-filters {
+        display: flex; gap: 4px; background: var(--color-bg-surface);
+        border-radius: 12px; padding: 4px; border: 1px solid var(--color-border-light);
+        margin-left: auto;
+    }
+    .ph-filter-btn {
+        padding: 8px 16px; border: none; background: transparent; border-radius: 10px;
+        font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.15s;
+        color: var(--color-text-secondary); font-family: inherit; white-space: nowrap;
+    }
+    .ph-filter-btn:hover { background: var(--color-bg-elevated); }
+    .ph-filter-btn.active { background: var(--color-primary); color: #fff; }
 
-    .photo-card-image { position: relative; aspect-ratio: 16/10; overflow: hidden; cursor: pointer; background: var(--color-bg-elevated); }
-    .photo-card-image img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.35s; }
-    .photo-card:hover .photo-card-image img { transform: scale(1.04); }
+    /* Список фото */
+    .ph-list { display: flex; flex-direction: column; gap: 2px; }
 
-    .photo-card-image .delete-btn { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); color: #fff; border: none; cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; z-index: 2; }
-    .photo-card:hover .photo-card-image .delete-btn { opacity: 1; }
+    .ph-row {
+        display: flex; align-items: center; gap: 18px;
+        padding: 14px 18px; background: var(--color-bg-surface);
+        border-radius: 14px; transition: all 0.2s;
+        border: 1px solid transparent;
+    }
+    .ph-row:first-child { border-radius: 14px 14px 0 0; }
+    .ph-row:last-child { border-radius: 0 0 14px 14px; }
+    .ph-row:only-child { border-radius: 14px; border: 1px solid var(--color-border-light); }
+    .ph-row:hover { background: var(--color-bg-elevated); border-color: var(--color-border); }
+    .ph-row.hidden { display: none; }
 
-    .photo-card-info { padding: 12px 14px; }
-    .photo-card-date { font-size: 0.78rem; color: var(--color-text-tertiary); margin-bottom: 4px; }
-    .photo-card-source { font-size: 0.85rem; color: var(--color-text-secondary); margin-bottom: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .photo-card-source a { color: var(--color-primary); text-decoration: none; }
-    .photo-card-source a:hover { text-decoration: underline; }
-    .photo-card-actions { display: flex; gap: 8px; }
-    .photo-card-actions .btn { flex: 1; padding: 8px 12px; border-radius: 8px; font-size: 0.82rem; font-weight: 500; cursor: pointer; text-align: center; text-decoration: none; display: inline-block; border: none; }
-    .btn-view { background: var(--color-primary); color: #fff; }
-    .btn-view:hover { background: var(--color-primary-hover); }
-    .btn-source { background: var(--color-bg-elevated); color: var(--color-text); border: 1px solid var(--color-border); }
-    .btn-source:hover { background: var(--color-bg-hover); }
+    /* Превью */
+    .ph-preview {
+        width: 140px; height: 100px; border-radius: 10px;
+        overflow: hidden; flex-shrink: 0; position: relative;
+        cursor: pointer; background: var(--color-bg-elevated);
+    }
+    .ph-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .ph-preview:hover img { transform: scale(1.06); transition: transform 0.4s; }
+    .ph-preview-zoom {
+        position: absolute; inset: 0; display: flex; align-items: center;
+        justify-content: center; background: rgba(0,0,0,0.15); opacity: 0; transition: opacity 0.2s;
+    }
+    .ph-row:hover .ph-preview-zoom { opacity: 1; }
+    .ph-preview-zoom-circle {
+        width: 36px; height: 36px; border-radius: 50%;
+        background: rgba(0,0,0,0.55); border: 1.5px solid rgba(255,255,255,0.3);
+        color: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.9rem;
+    }
 
-    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.97); z-index: 1000; align-items: center; justify-content: center; flex-direction: column; }
-    .lightbox.on { display: flex; }
-    .lightbox-img { max-width: 92vw; max-height: 82vh; border-radius: 8px; object-fit: contain; }
-    .lightbox-close { position: absolute; top: 16px; right: 16px; width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.1); color: #fff; border: none; cursor: pointer; font-size: 1.4rem; display: flex; align-items: center; justify-content: center; z-index: 10; }
-    .lightbox-close:hover { background: rgba(255,255,255,0.2); }
-    .lightbox-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 48px; height: 48px; border-radius: 50%; background: rgba(255,255,255,0.08); color: #fff; border: none; cursor: pointer; font-size: 1.6rem; display: flex; align-items: center; justify-content: center; }
-    .lightbox-nav:hover { background: rgba(255,255,255,0.18); }
-    .lightbox-prev { left: 20px; } .lightbox-next { right: 20px; }
-    .lightbox-info { color: rgba(255,255,255,0.7); font-size: 0.85rem; margin-top: 12px; }
+    /* Информация */
+    .ph-info { flex: 1; min-width: 0; }
+    .ph-info-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+    .ph-date { font-size: 0.8rem; color: var(--color-text-tertiary); }
+    .ph-badge {
+        display: inline-block; padding: 2px 8px; border-radius: 6px;
+        font-size: 0.7rem; font-weight: 600;
+    }
+    .ph-badge-saved { background: #eef2ff; color: #6366f1; }
+    .ph-badge-uploaded { background: #fef3c7; color: #d97706; }
 
-    .empty-state { grid-column: span 3; text-align: center; padding: 100px 20px; }
-    .empty-icon { font-size: 4rem; margin-bottom: 12px; }
-    .empty-state h3 { font-size: 1.2rem; margin-bottom: 6px; }
-    .empty-state p { color: var(--color-text-tertiary); font-size: 0.9rem; }
+    .ph-source {
+        font-size: 0.85rem; color: var(--color-text-secondary);
+        margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ph-source a { color: var(--color-primary); text-decoration: none; font-weight: 500; }
+    .ph-source a:hover { text-decoration: underline; }
+    .ph-size { font-size: 0.75rem; color: var(--color-text-tertiary); }
 
-    @media (max-width: 900px) { .photo-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 500px) { .photo-grid { grid-template-columns: 1fr; } }
+    /* Кнопки справа */
+    .ph-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+    .ph-act-btn {
+        display: flex; align-items: center; justify-content: center;
+        width: 38px; height: 38px; border-radius: 50%; border: none;
+        cursor: pointer; transition: all 0.15s; background: none; color: var(--color-text-secondary);
+    }
+    .ph-act-btn:hover { background: var(--color-bg-elevated); color: var(--color-text); }
+    .ph-act-btn.view-btn { background: var(--color-primary); color: #fff; width: 42px; height: 42px; }
+    .ph-act-btn.view-btn:hover { background: var(--color-primary-hover, #2563eb); }
+    .ph-act-btn.del-btn:hover { background: #fee2e2; color: #ef4444; }
+
+    /* Пусто */
+    .ph-empty { text-align: center; padding: 80px 20px; }
+    .ph-empty-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.5; }
+    .ph-empty h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 4px; color: var(--color-text-secondary); }
+    .ph-empty p { color: var(--color-text-tertiary); font-size: 0.85rem; }
+
+    /* Лайтбокс */
+    .ph-lb { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.96); z-index: 1000; align-items: center; justify-content: center; flex-direction: column; }
+    .ph-lb.on { display: flex; }
+    .ph-lb-img { max-width: 92vw; max-height: 78vh; border-radius: 12px; object-fit: contain; }
+    .ph-lb-close {
+        position: absolute; top: 20px; right: 20px; width: 44px; height: 44px;
+        border-radius: 50%; background: rgba(255,255,255,0.1); color: #fff;
+        border: none; cursor: pointer; font-size: 1.3rem; display: flex;
+        align-items: center; justify-content: center; z-index: 10;
+    }
+    .ph-lb-close:hover { background: rgba(255,255,255,0.2); }
+    .ph-lb-nav {
+        position: absolute; top: 50%; transform: translateY(-50%);
+        width: 48px; height: 48px; border-radius: 50%;
+        background: rgba(255,255,255,0.08); color: #fff;
+        border: none; cursor: pointer; font-size: 1.6rem;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .ph-lb-nav:hover { background: rgba(255,255,255,0.18); }
+    .ph-lb-prev { left: 20px; }
+    .ph-lb-next { right: 20px; }
+    .ph-lb-info { color: rgba(255,255,255,0.7); font-size: 0.85rem; margin-top: 14px; }
+    .ph-lb-actions { display: flex; gap: 16px; margin-top: 8px; }
+    .ph-lb-actions button {
+        display: flex; align-items: center; gap: 6px;
+        padding: 8px 16px; background: rgba(255,255,255,0.12);
+        border: none; border-radius: 8px; color: #fff;
+        cursor: pointer; font-size: 13px; font-family: inherit;
+    }
+    .ph-lb-actions button:hover { background: rgba(255,255,255,0.22); }
+
+    /* Пагинация */
+    .ph-pagination { display: flex; justify-content: center; gap: 6px; padding: 32px 0; }
+    .ph-page-btn {
+        min-width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+        border-radius: 10px; font-size: 0.9rem; font-weight: 500; text-decoration: none;
+        background: var(--color-bg-surface); border: 1px solid var(--color-border); color: var(--color-text);
+        transition: all 0.15s;
+    }
+    .ph-page-btn:hover { background: var(--color-bg-elevated); border-color: var(--color-primary); }
+    .ph-page-btn.active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+
+    @media (max-width: 700px) {
+        .ph-preview { width: 100px; height: 75px; }
+        .ph-row { padding: 10px 12px; gap: 12px; }
+        .ph-actions { gap: 4px; }
+        .ph-act-btn { width: 34px; height: 34px; }
+        .ph-act-btn.view-btn { width: 38px; height: 38px; }
+    }
 </style>
 
-<div class="media-page">
-    <div class="media-header">
-        <div class="media-count"><strong>{{ page_obj.paginator.count }}</strong> фото</div>
-        <button class="btn btn--primary btn--sm" onclick="document.getElementById('photoUpload').click()">
-            <i data-feather="upload"></i> Загрузить фото
-        </button>
-        <input type="file" id="photoUpload" accept="image/*" multiple style="display:none" onchange="uploadPhotos(this)">
+<div class="ph-page">
+    <!-- Статистика и фильтры -->
+    <div class="ph-stats-row">
+        <div class="ph-stat">
+            <span class="ph-stat-val" id="totalCount">{{ total_count }}</span>
+            <span class="ph-stat-lbl">Всего</span>
+        </div>
+        <div class="ph-stat">
+            <span class="ph-stat-val" id="savedCount">{{ saved_count }}</span>
+            <span class="ph-stat-lbl">Сохранённых</span>
+        </div>
+        <div class="ph-stat">
+            <span class="ph-stat-val" id="uploadedCount">{{ uploaded_count }}</span>
+            <span class="ph-stat-lbl">Загруженных</span>
+        </div>
+
+        <div class="ph-filters">
+            <button class="ph-filter-btn active" data-filter="all">Все</button>
+            <button class="ph-filter-btn" data-filter="saved">Сохранённые</button>
+            <button class="ph-filter-btn" data-filter="uploaded">Загруженные</button>
+        </div>
     </div>
 
-    <div class="photo-grid">
+    <!-- Список -->
+    <div class="ph-list" id="phList">
         {% for photo in photos %}
-        <div class="photo-card" data-src="{{ photo.image.url }}" data-id="{{ photo.id }}">
-            <div class="photo-card-image" onclick="lbOpen('{{ photo.image.url }}')">
+        <div class="ph-row" data-type="{% if photo.post %}saved{% else %}uploaded{% endif %}" data-id="{{ photo.id }}">
+            <!-- Превью -->
+            <div class="ph-preview" onclick="lbOpen('{{ photo.image.url }}')">
                 <img src="{{ photo.image.url }}" loading="lazy" alt="">
-                <button class="delete-btn" onclick="event.stopPropagation();delPhoto({{ photo.id }}, this)" title="Удалить">✕</button>
+                <div class="ph-preview-zoom">
+                    <div class="ph-preview-zoom-circle">🔍</div>
+                </div>
             </div>
-            <div class="photo-card-info">
-                <div class="photo-card-date">📅 {{ photo.created_at|date:'d.m.Y в H:i' }}</div>
-                {% if photo.post %}
-                <div class="photo-card-source">📌 <a href="{% url 'posts:post_detail' pk=photo.post.id %}">{{ photo.post.title|truncatechars:40 }}</a></div>
-                {% else %}
-                <div class="photo-card-source" style="color:var(--color-text-tertiary)">Загружено с устройства</div>
-                {% endif %}
-                <div class="photo-card-actions">
-                    <button class="btn btn-view" onclick="lbOpen('{{ photo.image.url }}')">🔍 Открыть</button>
+
+            <!-- Инфо -->
+            <div class="ph-info">
+                <div class="ph-info-row">
+                    <span class="ph-date">Добавлено: {{ photo.created_at|date:'d.m.Y' }} в {{ photo.created_at|date:'H:i' }}</span>
                     {% if photo.post %}
-                    <a href="{% url 'posts:post_detail' pk=photo.post.id %}" class="btn btn-source">📌 К посту</a>
+                    <span class="ph-badge ph-badge-saved">Сохранено</span>
+                    {% else %}
+                    <span class="ph-badge ph-badge-uploaded">Загружено</span>
                     {% endif %}
                 </div>
+                {% if photo.post %}
+                <div class="ph-source">Источник: <a href="{% url 'posts:post_detail' pk=photo.post.id %}">{{ photo.post.title|truncatechars:60 }}</a></div>
+                {% else %}
+                <div class="ph-source" style="color:var(--color-text-tertiary)">Загружено с устройства</div>
+                {% endif %}
+                {% if photo.image.size %}
+                <div class="ph-size">Размер: {{ photo.image.size|filesizeformat }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Кнопки -->
+            <div class="ph-actions">
+                <button class="ph-act-btn view-btn" onclick="lbOpen('{{ photo.image.url }}')" title="Открыть">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                </button>
+                {% if photo.post %}
+                <a href="{% url 'posts:post_detail' pk=photo.post.id %}" class="ph-act-btn" title="Перейти к посту">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+                {% endif %}
+                <button class="ph-act-btn" onclick="lbDownload('{{ photo.image.url }}')" title="Скачать">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </button>
+                <button class="ph-act-btn del-btn" onclick="delPhoto({{ photo.id }}, this)" title="Удалить">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
             </div>
         </div>
         {% empty %}
-        <div class="empty-state"><div class="empty-icon">🖼️</div><h3>Нет сохранённых фото</h3><p>Сохраняйте фото из постов через меню ⋮ или загружайте с устройства</p></div>
+        <div class="ph-empty">
+            <div class="ph-empty-icon">🖼️</div>
+            <h3>Нет сохранённых фото</h3>
+            <p>Загружайте фото с устройства или сохраняйте из постов</p>
+        </div>
         {% endfor %}
     </div>
 
+    <!-- Пагинация -->
     {% if is_paginated %}
-    <div style="display:flex;justify-content:center;gap:8px;padding:28px 0">
-        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="btn btn--outline btn--sm">←</a>{% endif %}
-        {% for n in page_obj.paginator.page_range %}{% if n == page_obj.number %}<span class="btn btn--primary btn--sm">{{ n }}</span>{% elif n > page_obj.number|add:'-3' and n < page_obj.number|add:'3' %}<a href="?page={{ n }}" class="btn btn--outline btn--sm">{{ n }}</a>{% endif %}{% endfor %}
-        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="btn btn--outline btn--sm">→</a>{% endif %}
+    <div class="ph-pagination">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}" class="ph-page-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </a>
+        {% endif %}
+        {% for n in page_obj.paginator.page_range %}
+            {% if n == page_obj.number %}
+            <span class="ph-page-btn active">{{ n }}</span>
+            {% elif n > page_obj.number|add:'-3' and n < page_obj.number|add:'3' %}
+            <a href="?page={{ n }}" class="ph-page-btn">{{ n }}</a>
+            {% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}" class="ph-page-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+        {% endif %}
     </div>
     {% endif %}
 </div>
 
-<div class="lightbox" id="lb">
-    <button class="lightbox-close" onclick="lbClose()">✕</button>
-    <button class="lightbox-nav lightbox-prev" onclick="lbNav(-1)">‹</button>
-    <button class="lightbox-nav lightbox-next" onclick="lbNav(1)">›</button>
-    <img class="lightbox-img" id="lbImg" src="">
-    <div class="lightbox-info" id="lbInfo"></div>
+<!-- Лайтбокс -->
+<div class="ph-lb" id="phLb">
+    <button class="ph-lb-close" onclick="lbClose()">✕</button>
+    <button class="ph-lb-nav ph-lb-prev" onclick="lbNav(-1)">‹</button>
+    <button class="ph-lb-nav ph-lb-next" onclick="lbNav(1)">›</button>
+    <img class="ph-lb-img" id="lbImg" src="" alt="">
+    <div class="ph-lb-info" id="lbInfo"></div>
+    <div class="ph-lb-actions">
+        <button onclick="lbDownload(lbCurrentUrl)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Скачать</button>
+        <button onclick="lbSaveAs()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg> Сохранить как...</button>
+    </div>
 </div>
 
 <script>
 function getCookie(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
-const photos = [...document.querySelectorAll('.photo-card[data-src]')].map(c => ({src: c.dataset.src, id: c.dataset.id}));
-let idx = 0;
 
+// Список фото для навигации
+let photoList = [];
+let lbIndex = 0;
+let lbCurrentUrl = null;
+
+function updatePhotoList() {
+    photoList = [...document.querySelectorAll('.ph-row:not(.hidden) .ph-preview')].map(p => {
+        const img = p.querySelector('img');
+        return img ? img.src : '';
+    }).filter(Boolean);
+}
+updatePhotoList();
+
+// Фильтры
+document.querySelectorAll('.ph-filter-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.ph-filter-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        const filter = this.dataset.filter;
+        document.querySelectorAll('.ph-row').forEach(row => {
+            if (filter === 'all') row.classList.remove('hidden');
+            else row.classList.toggle('hidden', row.dataset.type !== filter);
+        });
+        updatePhotoList();
+    });
+});
+
+// Лайтбокс
 window.lbOpen = function(src) {
-    document.getElementById('lb').classList.add('on');
+    document.getElementById('phLb').classList.add('on');
     document.getElementById('lbImg').src = src;
-    idx = photos.findIndex(p => p.src === src);
-    document.getElementById('lbInfo').textContent = `${idx+1} / ${photos.length}`;
+    lbCurrentUrl = src;
+    updatePhotoList();
+    lbIndex = photoList.indexOf(src);
+    if (lbIndex === -1) lbIndex = 0;
+    document.getElementById('lbInfo').textContent = (lbIndex + 1) + ' / ' + photoList.length;
+    document.body.style.overflow = 'hidden';
 };
-window.lbClose = function() { document.getElementById('lb').classList.remove('on'); };
-window.lbNav = function(d) { idx = (idx + d + photos.length) % photos.length; document.getElementById('lbImg').src = photos[idx].src; document.getElementById('lbInfo').textContent = `${idx+1} / ${photos.length}`; };
-document.addEventListener('keydown', e => { if (e.key === 'Escape') lbClose(); if (e.key === 'ArrowLeft') lbNav(-1); if (e.key === 'ArrowRight') lbNav(1); });
 
+window.lbClose = function() {
+    document.getElementById('phLb').classList.remove('on');
+    document.body.style.overflow = '';
+    lbCurrentUrl = null;
+};
+
+window.lbNav = function(d) {
+    if (photoList.length === 0) return;
+    lbIndex = (lbIndex + d + photoList.length) % photoList.length;
+    const src = photoList[lbIndex];
+    document.getElementById('lbImg').src = src;
+    lbCurrentUrl = src;
+    document.getElementById('lbInfo').textContent = (lbIndex + 1) + ' / ' + photoList.length;
+};
+
+window.lbDownload = function(url) {
+    const link = url || lbCurrentUrl;
+    if (link) {
+        const a = document.createElement('a');
+        a.href = link; a.download = link.split('/').pop().split('?')[0] || 'photo';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+};
+
+window.lbSaveAs = function() {
+    if (lbCurrentUrl) {
+        const name = prompt('Имя файла:', lbCurrentUrl.split('/').pop().split('?')[0] || 'photo');
+        if (name) {
+            const a = document.createElement('a');
+            a.href = lbCurrentUrl; a.download = name;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        }
+    }
+};
+
+// Клавиатура
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.getElementById('phLb').classList.contains('on')) lbClose();
+    if (document.getElementById('phLb').classList.contains('on')) {
+        if (e.key === 'ArrowLeft') lbNav(-1);
+        if (e.key === 'ArrowRight') lbNav(1);
+    }
+});
+
+// Удаление
 window.delPhoto = async function(id, btn) {
     if (!confirm('Удалить фото?')) return;
     const r = await fetch(`/media-storage/photo/${id}/delete/`, { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } });
-    if (r.ok) { const card = btn.closest('.photo-card'); card.style.transition = 'all 0.3s'; card.style.opacity = '0'; card.style.transform = 'scale(0.95)'; setTimeout(() => card.remove(), 300); }
+    if (r.ok) {
+        const row = btn.closest('.ph-row');
+        row.style.opacity = '0'; row.style.transform = 'translateX(-12px)'; row.style.transition = 'all 0.3s';
+        setTimeout(() => {
+            row.remove();
+            updatePhotoList();
+            document.getElementById('totalCount').textContent = parseInt(document.getElementById('totalCount').textContent) - 1;
+            if (row.dataset.type === 'saved') document.getElementById('savedCount').textContent = parseInt(document.getElementById('savedCount').textContent) - 1;
+            else document.getElementById('uploadedCount').textContent = parseInt(document.getElementById('uploadedCount').textContent) - 1;
+        }, 300);
+    }
 };
 
+// Загрузка
 window.uploadPhotos = async function(input) {
     for (let file of input.files) {
-        const fd = new FormData();
-        fd.append('file', file);
-        const r = await fetch('/media-storage/photo/upload/', { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }, body: fd });
-        if (r.ok) { location.reload(); }
+        const fd = new FormData(); fd.append('file', file);
+        await fetch('/media-storage/photo/upload/', { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }, body: fd });
     }
+    location.reload();
 };
 </script>
 {% endblock %}

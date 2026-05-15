@@ -4,153 +4,310 @@
 {% block title %}Мои видео · Поток{% endblock %}
 {% block page_title %}Мои видео{% endblock %}
 
+{% block header_actions %}
+<button class="btn btn--primary btn--sm" onclick="document.getElementById('videoUpload').click()">
+    <i data-feather="upload"></i> Загрузить
+</button>
+<input type="file" id="videoUpload" accept="video/*" multiple style="display:none" onchange="uploadVideos(this)">
+{% endblock %}
+
 {% block content %}
 <style>
-    .media-page { max-width: 1300px; margin: 0 auto; }
-    .media-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
-    .media-count { font-size: 0.95rem; color: var(--color-text-secondary); }
-    .media-count strong { color: var(--color-text); font-size: 1.4rem; }
+    .vid-page { max-width: 1100px; margin: 0 auto; }
 
-    .video-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    /* Статистика и фильтры */
+    .vid-stats-row {
+        display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
+    }
+    .vid-stat {
+        background: var(--color-bg-surface); border: 1px solid var(--color-border-light);
+        border-radius: 12px; padding: 12px 18px; display: flex; flex-direction: column; gap: 2px;
+        min-width: 90px;
+    }
+    .vid-stat-val { font-size: 1.5rem; font-weight: 700; color: var(--color-text); }
+    .vid-stat-lbl { font-size: 0.75rem; color: var(--color-text-tertiary); }
 
-    .video-card { background: var(--color-bg-surface); border-radius: 14px; overflow: hidden; border: 1px solid var(--color-border-light); transition: box-shadow 0.2s; }
-    .video-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+    .vid-filters {
+        display: flex; gap: 4px; background: var(--color-bg-surface);
+        border-radius: 12px; padding: 4px; border: 1px solid var(--color-border-light);
+        margin-left: auto;
+    }
+    .vid-filter-btn {
+        padding: 8px 16px; border: none; background: transparent; border-radius: 10px;
+        font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.15s;
+        color: var(--color-text-secondary); font-family: inherit; white-space: nowrap;
+    }
+    .vid-filter-btn:hover { background: var(--color-bg-elevated); }
+    .vid-filter-btn.active { background: var(--color-primary); color: #fff; }
 
-    .video-card-player { position: relative; aspect-ratio: 16/10; overflow: hidden; cursor: pointer; background: #000; }
-    .video-card-player video { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.35s; }
-    .video-card:hover .video-card-player video { transform: scale(1.04); }
-    .video-duration { position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.8); color: #fff; font-size: 0.72rem; padding: 3px 7px; border-radius: 5px; font-weight: 500; }
+    /* Список видео */
+    .vid-list { display: flex; flex-direction: column; gap: 2px; }
 
-    .video-card-player .delete-btn { position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); color: #fff; border: none; cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; z-index: 2; }
-    .video-card:hover .video-card-player .delete-btn { opacity: 1; }
-    .video-card-player .play-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.2); opacity: 0; transition: opacity 0.2s; }
-    .video-card:hover .video-card-player .play-overlay { opacity: 1; }
-    .play-circle { width: 50px; height: 50px; border-radius: 50%; background: rgba(0,0,0,0.55); border: 1.5px solid rgba(255,255,255,0.25); color: #fff; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; }
+    .vid-row {
+        display: flex; align-items: center; gap: 18px;
+        padding: 14px 18px; background: var(--color-bg-surface);
+        border-radius: 14px; transition: all 0.2s;
+        border: 1px solid transparent;
+    }
+    .vid-row:first-child { border-radius: 14px 14px 0 0; }
+    .vid-row:last-child { border-radius: 0 0 14px 14px; }
+    .vid-row:only-child { border-radius: 14px; border: 1px solid var(--color-border-light); }
+    .vid-row:hover { background: var(--color-bg-elevated); border-color: var(--color-border); }
+    .vid-row.hidden { display: none; }
 
-    .video-card-info { padding: 12px 14px; }
-    .video-card-date { font-size: 0.78rem; color: var(--color-text-tertiary); margin-bottom: 4px; }
-    .video-card-source { font-size: 0.85rem; color: var(--color-text-secondary); margin-bottom: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .video-card-source a { color: var(--color-primary); text-decoration: none; }
-    .video-card-source a:hover { text-decoration: underline; }
-    .video-card-actions { display: flex; gap: 8px; }
-    .video-card-actions .btn { flex: 1; padding: 8px 12px; border-radius: 8px; font-size: 0.82rem; font-weight: 500; cursor: pointer; text-align: center; text-decoration: none; display: inline-block; border: none; }
-    .btn-play { background: var(--color-primary); color: #fff; }
-    .btn-play:hover { background: var(--color-primary-hover); }
-    .btn-source { background: var(--color-bg-elevated); color: var(--color-text); border: 1px solid var(--color-border); }
-    .btn-source:hover { background: var(--color-bg-hover); }
+    /* Превью видео */
+    .vid-preview {
+        width: 200px; height: 120px; border-radius: 10px;
+        overflow: hidden; flex-shrink: 0; position: relative;
+        cursor: pointer; background: #000;
+    }
+    .vid-preview video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .vid-preview:hover video { transform: scale(1.06); transition: transform 0.4s; }
+    .vid-preview-dur {
+        position: absolute; bottom: 6px; right: 6px;
+        background: rgba(0,0,0,0.8); color: #fff; font-size: 0.7rem;
+        padding: 2px 6px; border-radius: 4px; font-weight: 500;
+    }
+    .vid-preview-play {
+        position: absolute; inset: 0; display: flex; align-items: center;
+        justify-content: center; background: rgba(0,0,0,0.2); opacity: 0; transition: opacity 0.2s;
+    }
+    .vid-row:hover .vid-preview-play { opacity: 1; }
+    .vid-preview-play-circle {
+        width: 40px; height: 40px; border-radius: 50%;
+        background: rgba(0,0,0,0.6); border: 1.5px solid rgba(255,255,255,0.3);
+        color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1rem;
+    }
 
-    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.97); z-index: 1000; align-items: center; justify-content: center; }
-    .lightbox.on { display: flex; }
-    .lightbox-close { position: absolute; top: 16px; right: 16px; width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,0.1); color: #fff; border: none; cursor: pointer; font-size: 1.4rem; display: flex; align-items: center; justify-content: center; z-index: 20; }
-    .lightbox-close:hover { background: rgba(255,255,255,0.2); }
+    /* Информация */
+    .vid-info { flex: 1; min-width: 0; }
+    .vid-info-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+    .vid-date {
+        font-size: 0.8rem; color: var(--color-text-tertiary);
+        display: flex; align-items: center; gap: 4px;
+    }
+    .vid-badge {
+        display: inline-block; padding: 2px 8px; border-radius: 6px;
+        font-size: 0.7rem; font-weight: 600;
+    }
+    .vid-badge-saved { background: #eef2ff; color: #6366f1; }
+    .vid-badge-uploaded { background: #fef3c7; color: #d97706; }
 
-    .lb-player-wrap { position: relative; max-width: 90vw; max-height: 90vh; background: #000; border-radius: 10px; overflow: hidden; cursor: pointer; }
-    .lb-player-wrap video { display: block; max-width: 90vw; max-height: 85vh; }
-    .lb-big-play { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 5; pointer-events: none; }
-    .lb-big-play.hidden { display: none; }
-    .lb-big-play-btn { width: 68px; height: 68px; border-radius: 50%; background: rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.2); color: #fff; font-size: 1.6rem; display: flex; align-items: center; justify-content: center; pointer-events: all; cursor: pointer; }
-    .lb-controls-bar { position: absolute; bottom: 0; left: 0; right: 0; display: flex; align-items: center; gap: 10px; padding: 20px 16px 12px; background: linear-gradient(transparent, rgba(0,0,0,0.85)); z-index: 10; opacity: 0; transition: opacity 0.3s; }
-    .lb-player-wrap:hover .lb-controls-bar, .lb-player-wrap.show-controls .lb-controls-bar { opacity: 1; }
-    .lb-ctrl-btn { background: none; border: none; cursor: pointer; color: #fff; padding: 6px; display: flex; align-items: center; border-radius: 4px; flex-shrink: 0; opacity: 0.85; }
-    .lb-ctrl-btn:hover { opacity: 1; }
-    .lb-progress-area { flex: 1; cursor: pointer; padding: 8px 0; position: relative; }
-    .lb-progress-track { height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; position: relative; transition: height 0.2s; }
-    .lb-progress-area:hover .lb-progress-track { height: 6px; }
-    .lb-progress-filled { position: absolute; left: 0; top: 0; height: 100%; background: #fff; border-radius: 2px; width: 0%; }
-    .lb-progress-thumb { position: absolute; top: 50%; transform: translate(-50%,-50%); width: 13px; height: 13px; background: #fff; border-radius: 50%; left: 0%; opacity: 0; transition: opacity 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
-    .lb-progress-area:hover .lb-progress-thumb { opacity: 1; }
-    .lb-time-text { font-size: 0.75rem; color: rgba(255,255,255,0.85); font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 90px; text-align: right; }
-    .lb-volume-area { position: relative; }
-    .lb-volume-slider { position: absolute; bottom: 44px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.9); padding: 10px 14px; border-radius: 8px; display: none; }
-    .lb-volume-area:hover .lb-volume-slider, .lb-volume-slider:hover { display: block; }
-    .lb-volume-slider input { width: 80px; accent-color: #7c3aed; cursor: pointer; }
+    .vid-source {
+        font-size: 0.85rem; color: var(--color-text-secondary);
+        margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .vid-source a { color: var(--color-primary); text-decoration: none; font-weight: 500; }
+    .vid-source a:hover { text-decoration: underline; }
 
-    .empty-state { grid-column: span 3; text-align: center; padding: 100px 20px; }
-    .empty-icon { font-size: 4rem; margin-bottom: 12px; }
-    .empty-state h3 { font-size: 1.2rem; margin-bottom: 6px; }
-    .empty-state p { color: var(--color-text-tertiary); font-size: 0.9rem; }
+    /* Кнопки справа */
+    .vid-actions {
+        display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    }
+    .vid-act-btn {
+        display: flex; align-items: center; justify-content: center;
+        width: 38px; height: 38px; border-radius: 50%; border: none;
+        cursor: pointer; transition: all 0.15s; background: none; color: var(--color-text-secondary);
+    }
+    .vid-act-btn:hover { background: var(--color-bg-elevated); color: var(--color-text); }
+    .vid-act-btn.play-btn {
+        background: var(--color-primary); color: #fff; width: 42px; height: 42px;
+    }
+    .vid-act-btn.play-btn:hover { background: var(--color-primary-hover, #2563eb); }
+    .vid-act-btn.del-btn:hover { background: #fee2e2; color: #ef4444; }
 
-    @media (max-width: 900px) { .video-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 500px) { .video-grid { grid-template-columns: 1fr; } }
+    /* Пусто */
+    .vid-empty { text-align: center; padding: 80px 20px; }
+    .vid-empty-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.5; }
+    .vid-empty h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 4px; color: var(--color-text-secondary); }
+    .vid-empty p { color: var(--color-text-tertiary); font-size: 0.85rem; }
+
+    /* Лайтбокс */
+    .vid-lb { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.96); z-index: 1000; align-items: center; justify-content: center; }
+    .vid-lb.on { display: flex; }
+    .vid-lb-backdrop { position: absolute; inset: 0; }
+    .vid-lb-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; }
+    .vid-lb-close {
+        position: absolute; top: -44px; right: 0; width: 40px; height: 40px;
+        border-radius: 50%; background: rgba(255,255,255,0.1); color: #fff;
+        border: none; cursor: pointer; font-size: 1.2rem; display: flex;
+        align-items: center; justify-content: center;
+    }
+    .vid-lb-close:hover { background: rgba(255,255,255,0.2); }
+    .vid-lb-media { margin-bottom: 10px; }
+    .vid-lb-media video {
+        max-width: 90vw; max-height: 65vh; border-radius: 12px 12px 0 0; display: block;
+    }
+    .vid-lb-controls {
+        display: flex; align-items: center; gap: 6px;
+        padding: 8px 10px; background: rgba(0,0,0,0.9); border-radius: 0 0 12px 12px;
+        width: 100%; max-width: 90vw;
+    }
+    .vid-lb-controls button {
+        background: none; border: none; color: #fff; cursor: pointer;
+        padding: 4px 6px; border-radius: 4px; display: flex;
+        align-items: center; min-width: 30px; justify-content: center; font-size: 16px;
+    }
+    .vid-lb-controls button:hover { background: rgba(255,255,255,0.15); }
+    .vid-lb-seek {
+        flex: 1; height: 3px; -webkit-appearance: none;
+        background: rgba(255,255,255,0.25); border-radius: 2px; outline: none; cursor: pointer;
+    }
+    .vid-lb-seek::-webkit-slider-thumb {
+        -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #fff; cursor: pointer;
+    }
+    .vid-lb-time {
+        font-size: 11px; color: #fff; min-width: 100px; text-align: center; white-space: nowrap;
+    }
+    .vid-lb-vol {
+        width: 60px; height: 3px; -webkit-appearance: none;
+        background: rgba(255,255,255,0.25); border-radius: 2px; outline: none; cursor: pointer; flex-shrink: 0;
+    }
+    .vid-lb-vol::-webkit-slider-thumb {
+        -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #fff; cursor: pointer;
+    }
+    .vid-lb-actions { display: flex; gap: 16px; margin-top: 4px; }
+    .vid-lb-actions button {
+        display: flex; align-items: center; gap: 6px;
+        padding: 8px 16px; background: rgba(255,255,255,0.12);
+        border: none; border-radius: 8px; color: #fff;
+        cursor: pointer; font-size: 13px; font-family: inherit;
+    }
+    .vid-lb-actions button:hover { background: rgba(255,255,255,0.22); }
+
+    /* Пагинация */
+    .vid-pagination { display: flex; justify-content: center; gap: 6px; padding: 32px 0; }
+    .vid-page-btn {
+        min-width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+        border-radius: 10px; font-size: 0.9rem; font-weight: 500; text-decoration: none;
+        background: var(--color-bg-surface); border: 1px solid var(--color-border); color: var(--color-text);
+        transition: all 0.15s;
+    }
+    .vid-page-btn:hover { background: var(--color-bg-elevated); border-color: var(--color-primary); }
+    .vid-page-btn.active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+
+    @media (max-width: 700px) {
+        .vid-preview { width: 140px; height: 90px; }
+        .vid-row { padding: 10px 12px; gap: 12px; }
+        .vid-actions { gap: 4px; }
+        .vid-act-btn { width: 34px; height: 34px; }
+        .vid-act-btn.play-btn { width: 38px; height: 38px; }
+    }
 </style>
 
-<div class="media-page">
-    <div class="media-header">
-        <div class="media-count"><strong>{{ page_obj.paginator.count }}</strong> видео</div>
-        <button class="btn btn--primary btn--sm" onclick="document.getElementById('videoUpload').click()">
-            <i data-feather="upload"></i> Загрузить видео
-        </button>
-        <input type="file" id="videoUpload" accept="video/*" multiple style="display:none" onchange="uploadVideos(this)">
+<div class="vid-page">
+    <!-- Статистика и фильтры -->
+    <div class="vid-stats-row">
+        <div class="vid-stat">
+            <span class="vid-stat-val" id="totalCount">{{ total_count }}</span>
+            <span class="vid-stat-lbl">Всего</span>
+        </div>
+        <div class="vid-stat">
+            <span class="vid-stat-val" id="savedCount">{{ saved_count }}</span>
+            <span class="vid-stat-lbl">Сохранённых</span>
+        </div>
+        <div class="vid-stat">
+            <span class="vid-stat-val" id="uploadedCount">{{ uploaded_count }}</span>
+            <span class="vid-stat-lbl">Загруженных</span>
+        </div>
+
+        <div class="vid-filters">
+            <button class="vid-filter-btn active" data-filter="all">Все</button>
+            <button class="vid-filter-btn" data-filter="saved">Сохранённые</button>
+            <button class="vid-filter-btn" data-filter="uploaded">Загруженные</button>
+        </div>
     </div>
 
-    <div class="video-grid">
+    <!-- Список -->
+    <div class="vid-list" id="vidList">
         {% for video in videos %}
-        <div class="video-card" data-src="{{ video.file.url }}" data-id="{{ video.id }}">
-            <div class="video-card-player" onclick="lbOpen('{{ video.file.url }}')">
+        <div class="vid-row" data-type="{% if video.post %}saved{% else %}uploaded{% endif %}" data-id="{{ video.id }}">
+            <!-- Превью -->
+            <div class="vid-preview" onclick="lbOpen('{{ video.file.url }}')">
                 <video src="{{ video.file.url }}" muted preload="metadata" loop playsinline></video>
-                <div class="video-duration"></div>
-                <button class="delete-btn" onclick="event.stopPropagation();delVideo({{ video.id }}, this)" title="Удалить">✕</button>
-                <div class="play-overlay">
-                    <div class="play-circle">▶</div>
+                <div class="vid-preview-dur"></div>
+                <div class="vid-preview-play">
+                    <div class="vid-preview-play-circle">▶</div>
                 </div>
             </div>
-            <div class="video-card-info">
-                <div class="video-card-date">📅 {{ video.created_at|date:'d.m.Y в H:i' }}</div>
-                {% if video.post %}
-                <div class="video-card-source">📌 <a href="{% url 'posts:post_detail' pk=video.post.id %}">{{ video.post.title|truncatechars:40 }}</a></div>
-                {% else %}
-                <div class="video-card-source" style="color:var(--color-text-tertiary)">Загружено с устройства</div>
-                {% endif %}
-                <div class="video-card-actions">
-                    <button class="btn btn-play" onclick="lbOpen('{{ video.file.url }}')">▶ Смотреть</button>
+
+            <!-- Инфо -->
+            <div class="vid-info">
+                <div class="vid-info-row">
+                    <span class="vid-date">Добавлено: {{ video.created_at|date:'d.m.Y' }} в {{ video.created_at|date:'H:i' }}</span>
                     {% if video.post %}
-                    <a href="{% url 'posts:post_detail' pk=video.post.id %}" class="btn btn-source">📌 К посту</a>
+                    <span class="vid-badge vid-badge-saved">Сохранено</span>
+                    {% else %}
+                    <span class="vid-badge vid-badge-uploaded">Загружено</span>
                     {% endif %}
                 </div>
+                {% if video.post %}
+                <div class="vid-source">Источник: <a href="{% url 'posts:post_detail' pk=video.post.id %}">{{ video.post.title|truncatechars:60 }}</a></div>
+                {% else %}
+                <div class="vid-source" style="color:var(--color-text-tertiary)">Загружено с устройства</div>
+                {% endif %}
+            </div>
+
+            <!-- Кнопки -->
+            <div class="vid-actions">
+                <button class="vid-act-btn play-btn" onclick="lbOpen('{{ video.file.url }}')" title="Смотреть">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg>
+                </button>
+                {% if video.post %}
+                <a href="{% url 'posts:post_detail' pk=video.post.id %}" class="vid-act-btn" title="Перейти к посту">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+                {% endif %}
+                <button class="vid-act-btn" onclick="lbDownload('{{ video.file.url }}')" title="Скачать">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </button>
+                <button class="vid-act-btn del-btn" onclick="delVideo({{ video.id }}, this)" title="Удалить">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
             </div>
         </div>
         {% empty %}
-        <div class="empty-state"><div class="empty-icon">🎬</div><h3>Нет сохранённых видео</h3><p>Сохраняйте видео из постов через меню ⋮ или загружайте с устройства</p></div>
+        <div class="vid-empty">
+            <div class="vid-empty-icon">🎬</div>
+            <h3>Нет видео</h3>
+            <p>Загрузите видео с устройства или сохраните из постов</p>
+        </div>
         {% endfor %}
     </div>
 
+    <!-- Пагинация -->
     {% if is_paginated %}
-    <div style="display:flex;justify-content:center;gap:8px;padding:28px 0">
-        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="btn btn--outline btn--sm">←</a>{% endif %}
-        {% for n in page_obj.paginator.page_range %}{% if n == page_obj.number %}<span class="btn btn--primary btn--sm">{{ n }}</span>{% elif n > page_obj.number|add:'-3' and n < page_obj.number|add:'3' %}<a href="?page={{ n }}" class="btn btn--outline btn--sm">{{ n }}</a>{% endif %}{% endfor %}
-        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="btn btn--outline btn--sm">→</a>{% endif %}
+    <div class="vid-pagination">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}" class="vid-page-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </a>
+        {% endif %}
+        {% for n in page_obj.paginator.page_range %}
+            {% if n == page_obj.number %}
+            <span class="vid-page-btn active">{{ n }}</span>
+            {% elif n > page_obj.number|add:'-3' and n < page_obj.number|add:'3' %}
+            <a href="?page={{ n }}" class="vid-page-btn">{{ n }}</a>
+            {% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}" class="vid-page-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+        {% endif %}
     </div>
     {% endif %}
 </div>
 
-<div class="lightbox" id="lb">
-    <button class="lightbox-close" onclick="lbClose()">✕</button>
-    <div class="lb-player-wrap" id="lbWrap">
-        <video id="lbVideo" playsinline></video>
-        <div class="lb-big-play" id="lbBigPlay">
-            <button class="lb-big-play-btn" id="lbBigPlayBtn">▶</button>
-        </div>
-        <div class="lb-controls-bar" id="lbBar">
-            <button class="lb-ctrl-btn" id="lbPlayPause">
-                <svg class="ic-play" width="22" height="22" viewBox="0 0 22 22" fill="white"><polygon points="6,3 18,11 6,19"/></svg>
-                <svg class="ic-pause" width="22" height="22" viewBox="0 0 22 22" fill="white" style="display:none"><rect x="4" y="3" width="5" height="16" rx="1.5"/><rect x="13" y="3" width="5" height="16" rx="1.5"/></svg>
-            </button>
-            <div class="lb-progress-area" id="lbProgress">
-                <div class="lb-progress-track">
-                    <div class="lb-progress-filled" id="lbFilled"></div>
-                    <div class="lb-progress-thumb" id="lbThumb"></div>
-                </div>
-            </div>
-            <span class="lb-time-text" id="lbTime">0:00 / 0:00</span>
-            <div class="lb-volume-area">
-                <button class="lb-ctrl-btn" id="lbMuteBtn">
-                    <svg class="ic-vol" width="20" height="20" fill="white"><polygon points="2,7 6,7 10,3 10,17 6,13 2,13"/><path d="M13,7c1,0.7 1.6,1.8 1.6,3s-0.6,2.3-1.6,3" stroke="white" stroke-width="1.5" fill="none"/></svg>
-                </button>
-                <div class="lb-volume-slider"><input type="range" min="0" max="100" value="80" id="lbVolumeRange"></div>
-            </div>
-            <button class="lb-ctrl-btn" id="lbFullscreen">
-                <svg width="20" height="20" fill="none" stroke="white" stroke-width="2"><path d="M2 8V2h6M14 2h6v6M20 14v6h-6M8 20H2v-6"/></svg>
-            </button>
+<!-- Лайтбокс -->
+<div class="vid-lb" id="vidLb">
+    <div class="vid-lb-backdrop" onclick="lbClose()"></div>
+    <div class="vid-lb-content">
+        <button class="vid-lb-close" onclick="lbClose()">✕</button>
+        <div class="vid-lb-media" id="lbMedia"></div>
+        <div class="vid-lb-actions">
+            <button onclick="lbDownload(lbUrl)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Скачать</button>
+            <button onclick="lbSaveAs()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg> Сохранить как...</button>
         </div>
     </div>
 </div>
@@ -158,93 +315,170 @@
 <script>
 function getCookie(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
 
-document.querySelectorAll('.video-card video').forEach(v => {
+// Длительность на превью
+document.querySelectorAll('.vid-preview video').forEach(v => {
     v.addEventListener('loadedmetadata', () => {
-        const dur = v.closest('.video-card').querySelector('.video-duration');
+        const dur = v.closest('.vid-row').querySelector('.vid-preview-dur');
         if (dur) { const m = Math.floor(v.duration/60), s = Math.floor(v.duration%60).toString().padStart(2,'0'); dur.textContent = m+':'+s; }
     });
     v.addEventListener('mouseenter', () => { v.play().catch(()=>{}); });
     v.addEventListener('mouseleave', () => { v.pause(); v.currentTime = 0; });
 });
 
-const v = document.getElementById('lbVideo');
-const wrap = document.getElementById('lbWrap');
-const bigPlay = document.getElementById('lbBigPlay');
-const playBtn = document.getElementById('lbPlayPause');
-const icPlay = playBtn.querySelector('.ic-play');
-const icPause = playBtn.querySelector('.ic-pause');
-const filled = document.getElementById('lbFilled');
-const thumb = document.getElementById('lbThumb');
-const timeText = document.getElementById('lbTime');
-const bar = document.getElementById('lbBar');
-const progress = document.getElementById('lbProgress');
-const muteBtn = document.getElementById('lbMuteBtn');
-const volOnIcon = muteBtn.querySelector('.ic-vol');
-const volRange = document.getElementById('lbVolumeRange');
-let ctrlTO;
+// Фильтры
+document.querySelectorAll('.vid-filter-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.vid-filter-btn').forEach(b => b.classList.remove('active'));
+        this.classList.add('active');
+        const filter = this.dataset.filter;
+        document.querySelectorAll('.vid-row').forEach(row => {
+            if (filter === 'all') row.classList.remove('hidden');
+            else row.classList.toggle('hidden', row.dataset.type !== filter);
+        });
+    });
+});
 
-function fmt(t) { const m = Math.floor(t/60), s = Math.floor(t%60).toString().padStart(2,'0'); return m+':'+s; }
-function showBar() { bar.style.opacity='1'; wrap.classList.add('show-controls'); clearTimeout(ctrlTO); if(!v.paused) ctrlTO = setTimeout(hideBar, 3000); }
-function hideBar() { if(!v.paused) { bar.style.opacity='0'; wrap.classList.remove('show-controls'); } }
-function toggle() { v.paused ? v.play().catch(()=>{}) : v.pause(); }
+// Лайтбокс
+let lbUrl = null;
+let lbVideoEl = null;
+let seekDrag = false;
 
-function updateVolumeIcon() {
-    if (v.muted || v.volume === 0) {
-        volOnIcon.innerHTML = '<polygon points="2,7 6,7 10,3 10,17 6,13 2,13"/><line x1="15" y1="5" x2="20" y2="11" stroke="white" stroke-width="1.5"/><line x1="20" y1="5" x2="15" y2="11" stroke="white" stroke-width="1.5"/>';
-    } else if (v.volume < 0.5) {
-        volOnIcon.innerHTML = '<polygon points="2,7 6,7 10,3 10,17 6,13 2,13"/><path d="M13,7c1,0.7 1.6,1.8 1.6,3s-0.6,2.3-1.6,3" stroke="white" stroke-width="1.5" fill="none"/>';
-    } else {
-        volOnIcon.innerHTML = '<polygon points="2,7 6,7 10,3 10,17 6,13 2,13"/><path d="M13,7c1,0.7 1.6,1.8 1.6,3s-0.6,2.3-1.6,3" stroke="white" stroke-width="1.5" fill="none"/><path d="M15.5,5c1.5,1.2 2.5,3 2.5,5s-1,3.8-2.5,5" stroke="white" stroke-width="1.5" fill="none" opacity="0.6"/>';
+function fmt(t) { if (!t && t !== 0) return '0:00'; const m = Math.floor(t/60), s = Math.floor(t%60).toString().padStart(2,'0'); return m+':'+s; }
+
+window.lbOpen = function(url) {
+    lbUrl = url;
+    document.getElementById('vidLb').classList.add('on');
+    document.body.style.overflow = 'hidden';
+
+    const media = document.getElementById('lbMedia');
+    media.innerHTML = `
+        <video id="lbVideo" src="${url}" preload="auto"></video>
+        <div class="vid-lb-controls">
+            <button id="lbPlayBtn">▶</button>
+            <span class="vid-lb-time" id="lbTime">0:00 / 0:00</span>
+            <input type="range" id="lbSeek" value="0" min="0" max="100" step="0.1" class="vid-lb-seek">
+            <button id="lbMuteBtn">🔊</button>
+            <input type="range" id="lbVolume" value="80" min="0" max="100" class="vid-lb-vol">
+            <button id="lbFsBtn">⛶</button>
+        </div>`;
+
+    setTimeout(() => {
+        lbVideoEl = document.getElementById('lbVideo');
+        if (!lbVideoEl) return;
+
+        const seek = document.getElementById('lbSeek');
+        const vol = document.getElementById('lbVolume');
+        const time = document.getElementById('lbTime');
+        const playBtn = document.getElementById('lbPlayBtn');
+        const muteBtn = document.getElementById('lbMuteBtn');
+
+        function setupSeek() { if (lbVideoEl.duration && isFinite(lbVideoEl.duration)) seek.max = 100; }
+        lbVideoEl.addEventListener('loadedmetadata', setupSeek);
+        lbVideoEl.addEventListener('durationchange', setupSeek);
+        if (lbVideoEl.readyState >= 1) setupSeek();
+
+        lbVideoEl.addEventListener('timeupdate', () => {
+            if (lbVideoEl.duration && !seekDrag) seek.value = (lbVideoEl.currentTime / lbVideoEl.duration) * 100;
+            time.textContent = fmt(lbVideoEl.currentTime) + ' / ' + fmt(lbVideoEl.duration);
+        });
+
+        seek.addEventListener('mousedown', () => seekDrag = true);
+        seek.addEventListener('mouseup', () => { seekDrag = false; if (lbVideoEl.duration) lbVideoEl.currentTime = (seek.value / 100) * lbVideoEl.duration; });
+        seek.addEventListener('input', () => { if (seekDrag && lbVideoEl.duration) lbVideoEl.currentTime = (seek.value / 100) * lbVideoEl.duration; });
+        seek.addEventListener('change', () => { if (lbVideoEl.duration) lbVideoEl.currentTime = (seek.value / 100) * lbVideoEl.duration; });
+
+        vol.addEventListener('input', () => { lbVideoEl.volume = vol.value / 100; updateMuteIcon(); });
+
+        function updateMuteIcon() { muteBtn.textContent = lbVideoEl.muted || lbVideoEl.volume === 0 ? '🔇' : lbVideoEl.volume < 0.5 ? '🔉' : '🔊'; }
+
+        playBtn.addEventListener('click', () => {
+            if (lbVideoEl.paused) { lbVideoEl.play(); playBtn.textContent = '⏸'; }
+            else { lbVideoEl.pause(); playBtn.textContent = '▶'; }
+        });
+
+        lbVideoEl.addEventListener('play', () => playBtn.textContent = '⏸');
+        lbVideoEl.addEventListener('pause', () => playBtn.textContent = '▶');
+        lbVideoEl.addEventListener('ended', () => playBtn.textContent = '▶');
+        lbVideoEl.addEventListener('click', () => {
+            if (lbVideoEl.paused) { lbVideoEl.play(); playBtn.textContent = '⏸'; }
+            else { lbVideoEl.pause(); playBtn.textContent = '▶'; }
+        });
+        lbVideoEl.addEventListener('volumechange', updateMuteIcon);
+
+        muteBtn.addEventListener('click', () => {
+            lbVideoEl.muted = !lbVideoEl.muted;
+            if (!lbVideoEl.muted && lbVideoEl.volume === 0) { lbVideoEl.volume = 0.5; vol.value = 50; }
+            updateMuteIcon();
+        });
+
+        document.getElementById('lbFsBtn').addEventListener('click', () => {
+            document.fullscreenElement ? document.exitFullscreen() : lbVideoEl.requestFullscreen();
+        });
+
+        lbVideoEl.volume = vol.value / 100;
+    }, 100);
+};
+
+window.lbClose = function() {
+    document.getElementById('vidLb').classList.remove('on');
+    document.body.style.overflow = '';
+    if (lbVideoEl) { lbVideoEl.pause(); lbVideoEl.removeAttribute('src'); lbVideoEl.load(); }
+    lbUrl = null; lbVideoEl = null;
+};
+
+window.lbDownload = function(url) {
+    const link = url || lbUrl;
+    if (link) {
+        const a = document.createElement('a');
+        a.href = link; a.download = link.split('/').pop().split('?')[0] || 'video';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
-}
+};
 
-v.addEventListener('loadedmetadata', () => { timeText.textContent = '0:00 / '+fmt(v.duration); v.volume = volRange.value / 100; updateVolumeIcon(); });
-v.addEventListener('timeupdate', () => { const p = v.duration?(v.currentTime/v.duration)*100:0; filled.style.width=p+'%'; thumb.style.left=p+'%'; timeText.textContent = fmt(v.currentTime)+' / '+fmt(v.duration); });
-v.addEventListener('ended', () => { icPlay.style.display='block'; icPause.style.display='none'; bigPlay.classList.remove('hidden'); showBar(); });
-v.addEventListener('play', () => { icPlay.style.display='none'; icPause.style.display='block'; bigPlay.classList.add('hidden'); });
-v.addEventListener('pause', () => { icPlay.style.display='block'; icPause.style.display='none'; bigPlay.classList.remove('hidden'); });
-v.addEventListener('volumechange', updateVolumeIcon);
+window.lbSaveAs = function() {
+    if (lbUrl) {
+        const name = prompt('Имя файла:', lbUrl.split('/').pop().split('?')[0] || 'video');
+        if (name) {
+            const a = document.createElement('a');
+            a.href = lbUrl; a.download = name;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        }
+    }
+};
 
-wrap.addEventListener('mousemove', showBar);
-wrap.addEventListener('mouseleave', hideBar);
-document.getElementById('lbBigPlayBtn').addEventListener('click', (e) => { e.stopPropagation(); toggle(); });
-playBtn.addEventListener('click', toggle);
-v.addEventListener('click', toggle);
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.getElementById('vidLb').classList.contains('on')) lbClose();
+    if (e.key === ' ' && document.getElementById('vidLb').classList.contains('on')) {
+        e.preventDefault();
+        if (lbVideoEl) lbVideoEl.paused ? lbVideoEl.play() : lbVideoEl.pause();
+    }
+    if (e.key === 'ArrowLeft' && lbVideoEl) lbVideoEl.currentTime -= 5;
+    if (e.key === 'ArrowRight' && lbVideoEl) lbVideoEl.currentTime += 5;
+});
 
-function seek(e) { const r = progress.getBoundingClientRect(), p = Math.max(0,Math.min(100,((e.clientX-r.left)/r.width)*100)); if(v.duration) v.currentTime = (p/100)*v.duration; }
-progress.addEventListener('click', seek);
-let drag = false;
-progress.addEventListener('mousedown', e => { drag=true; seek(e); });
-document.addEventListener('mousemove', e => { if(drag) seek(e); });
-document.addEventListener('mouseup', () => { drag=false; });
-
-const volArea = document.querySelector('.lb-volume-area');
-const volSlider = document.querySelector('.lb-volume-slider');
-volArea.addEventListener('mouseenter', () => { volSlider.style.display = 'block'; });
-volArea.addEventListener('mouseleave', () => { setTimeout(() => { if (!volSlider.matches(':hover')) volSlider.style.display = 'none'; }, 100); });
-volSlider.addEventListener('mouseleave', () => { volSlider.style.display = 'none'; });
-volRange.addEventListener('input', function() { v.volume = this.value / 100; v.muted = false; updateVolumeIcon(); });
-muteBtn.addEventListener('click', () => { v.muted = !v.muted; if (!v.muted && v.volume === 0) { v.volume = 0.5; volRange.value = 50; } updateVolumeIcon(); });
-
-document.getElementById('lbFullscreen').addEventListener('click', () => { document.fullscreenElement ? document.exitFullscreen() : wrap.requestFullscreen(); });
-
-window.lbOpen = function(src) { document.getElementById('lb').classList.add('on'); v.src = src; v.load(); v.volume = volRange.value / 100; showBar(); v.play().catch(()=>{}); };
-window.lbClose = function() { document.getElementById('lb').classList.remove('on'); v.pause(); v.removeAttribute('src'); v.load(); };
-document.addEventListener('keydown', e => { if (e.key === 'Escape') lbClose(); });
-
+// Удаление
 window.delVideo = async function(id, btn) {
     if (!confirm('Удалить видео?')) return;
     const r = await fetch(`/media-storage/video/${id}/delete/`, { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } });
-    if (r.ok) { const card = btn.closest('.video-card'); card.style.transition = 'all 0.3s'; card.style.opacity = '0'; card.style.transform = 'scale(0.95)'; setTimeout(() => card.remove(), 300); }
+    if (r.ok) {
+        const row = btn.closest('.vid-row');
+        row.style.opacity = '0'; row.style.transform = 'translateX(-12px)'; row.style.transition = 'all 0.3s';
+        setTimeout(() => {
+            row.remove();
+            document.getElementById('totalCount').textContent = parseInt(document.getElementById('totalCount').textContent) - 1;
+            if (row.dataset.type === 'saved') document.getElementById('savedCount').textContent = parseInt(document.getElementById('savedCount').textContent) - 1;
+            else document.getElementById('uploadedCount').textContent = parseInt(document.getElementById('uploadedCount').textContent) - 1;
+        }, 300);
+    }
 };
 
+// Загрузка
 window.uploadVideos = async function(input) {
     for (let file of input.files) {
-        const fd = new FormData();
-        fd.append('file', file);
-        const r = await fetch('/media-storage/video/upload/', { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }, body: fd });
-        if (r.ok) { location.reload(); }
+        const fd = new FormData(); fd.append('file', file);
+        await fetch('/media-storage/video/upload/', { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }, body: fd });
     }
+    location.reload();
 };
 </script>
 {% endblock %}

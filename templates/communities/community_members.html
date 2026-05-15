@@ -6,356 +6,306 @@
 {% block page_title %}Участники c/{{ community.name }}{% endblock %}
 
 {% block header_actions %}
-<a href="{% url 'communities:community_detail' slug=community.slug %}" class="btn btn--outline">
+<a href="{% url 'communities:community_detail' slug=community.slug %}" class="btn btn--outline btn--sm">
     <i data-feather="arrow-left"></i>
     <span>К сообществу</span>
 </a>
 {% endblock %}
 
 {% block content %}
-<div class="members-container">
+<style>
+    .mem-page { max-width: 800px; margin: 0 auto; }
+
+    .mem-header { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+    .mem-ava { width: 52px; height: 52px; border-radius: 14px; overflow: hidden; flex-shrink: 0; }
+    .mem-ava img { width: 100%; height: 100%; object-fit: cover; }
+    .mem-ava-alt {
+        width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; font-weight: 700; font-size: 1.3rem;
+    }
+    .mem-header h2 { font-size: 1.2rem; margin-bottom: 2px; }
+    .mem-header p { font-size: 0.85rem; color: var(--color-text-tertiary); }
+
+    /* Табы */
+    .mem-tabs {
+        display: flex; gap: 4px; background: var(--color-bg-surface);
+        border-radius: 12px; padding: 4px; border: 1px solid var(--color-border-light);
+        margin-bottom: 16px;
+    }
+    .mem-tab {
+        flex: 1; display: flex; align-items: center; justify-content: center;
+        gap: 6px; padding: 9px 12px; border-radius: 10px; font-size: 0.85rem;
+        font-weight: 500; cursor: pointer; border: none; background: transparent;
+        color: var(--color-text-secondary); font-family: inherit; white-space: nowrap;
+    }
+    .mem-tab:hover { background: var(--color-bg-elevated); }
+    .mem-tab.active { background: var(--color-primary); color: #fff; }
+    .mem-badge {
+        background: var(--color-bg-elevated); padding: 1px 7px;
+        border-radius: 10px; font-size: 0.72rem; font-weight: 600;
+    }
+    .mem-tab.active .mem-badge { background: rgba(255,255,255,0.25); }
+    .mem-badge-warn { background: #fef3c7; color: #92400e; }
+
+    /* Поиск */
+    .mem-search { position: relative; margin-bottom: 16px; }
+    .mem-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9aa7b4; width: 18px; height: 18px; }
+    .mem-search input {
+        width: 100%; padding: 10px 14px 10px 40px; border: 1px solid var(--color-border);
+        border-radius: 12px; font-size: 0.9rem; font-family: inherit; background: var(--color-bg-surface);
+    }
+    .mem-search input:focus { outline: none; border-color: var(--color-primary); }
+
+    /* Контент табов */
+    .mem-content { display: none; }
+    .mem-content.active { display: block; }
+
+    /* Карточки */
+    .mem-list { display: flex; flex-direction: column; gap: 2px; }
+    .mem-row {
+        display: flex; align-items: center; gap: 14px; padding: 12px 16px;
+        background: var(--color-bg-surface); border-radius: 14px; transition: all 0.15s;
+        border: 1px solid transparent;
+    }
+    .mem-row:first-child { border-radius: 14px 14px 4px 4px; }
+    .mem-row:last-child { border-radius: 4px 4px 14px 14px; }
+    .mem-row:only-child { border-radius: 14px; }
+    .mem-row:hover { background: var(--color-bg-elevated); border-color: var(--color-border); }
+    .mem-row.hidden { display: none; }
+
+    .mem-row-ava { width: 44px; height: 44px; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
+    .mem-row-ava img { width: 100%; height: 100%; object-fit: cover; }
+    .mem-row-ava-alt {
+        width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+        background: var(--color-primary-light); color: var(--color-primary); font-weight: 600; font-size: 1rem;
+    }
+
+    .mem-row-info { flex: 1; min-width: 0; }
+    .mem-row-name {
+        font-weight: 600; color: var(--color-text); text-decoration: none; font-size: 0.92rem;
+    }
+    .mem-row-name:hover { color: var(--color-primary); }
+    .mem-row-username { font-size: 0.8rem; color: var(--color-text-tertiary); }
+
+    .mem-row-badge {
+        display: inline-block; padding: 2px 8px; border-radius: 6px;
+        font-size: 0.7rem; font-weight: 600; margin-left: 6px;
+    }
+    .mem-badge-creator { background: #eef2ff; color: #6366f1; }
+    .mem-badge-mod { background: #dcfce7; color: #16a34a; }
+    .mem-badge-banned { background: #fef2f2; color: #ef4444; }
+
+    .mem-row-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .mem-action-btn {
+        display: flex; align-items: center; justify-content: center;
+        width: 34px; height: 34px; border-radius: 8px; border: none;
+        background: transparent; color: var(--color-text-tertiary); cursor: pointer;
+    }
+    .mem-action-btn:hover { background: var(--color-bg-elevated); color: var(--color-text); }
+    .mem-action-btn.danger:hover { background: #fee2e2; color: #ef4444; }
+    .mem-action-btn.success:hover { background: #dcfce7; color: #16a34a; }
+
+    .mem-empty { text-align: center; padding: 50px 20px; color: var(--color-text-tertiary); }
+    .mem-empty svg { width: 44px; height: 44px; opacity: 0.4; margin-bottom: 10px; }
+    .mem-empty h3 { font-size: 1rem; margin-bottom: 4px; }
+
+    @media (max-width: 600px) {
+        .mem-row { flex-wrap: wrap; }
+        .mem-row-actions { width: 100%; justify-content: flex-end; }
+    }
+</style>
+
+<div class="mem-page">
     <!-- Шапка -->
-    <div class="members-header">
-        <div class="community-info-mini">
-            <div class="community-avatar-small">
-                {% if community.avatar %}
-                <img src="{{ community.avatar.url }}" alt="{{ community.name }}">
-                {% else %}
-                <div class="avatar-placeholder">{{ community.name|make_list|first|upper }}</div>
-                {% endif %}
-            </div>
-            <div>
-                <h2>c/{{ community.name }}</h2>
-                <p>{{ community.members.count }} участников</p>
-            </div>
+    <div class="mem-header">
+        <div class="mem-ava">
+            {% if community.avatar %}<img src="{{ community.avatar.url }}" alt="">
+            {% else %}<div class="mem-ava-alt">{{ community.name|first|upper }}</div>{% endif %}
+        </div>
+        <div>
+            <h2>c/{{ community.name }}</h2>
+            <p>{{ total_members }} {{ total_members|pluralize:'участник,участника,участников' }}</p>
         </div>
     </div>
 
     <!-- Табы -->
-    <div class="members-tabs">
-        <button class="tab-btn active" data-tab="all">
-            <i data-feather="users"></i>
-            <span>Все участники</span>
-            <span class="badge">{{ members.count }}</span>
+    <div class="mem-tabs">
+        <button class="mem-tab active" data-tab="all">
+            Все <span class="mem-badge">{{ total_members }}</span>
         </button>
-        <button class="tab-btn" data-tab="moderators">
-            <i data-feather="shield"></i>
-            <span>Модераторы</span>
-            <span class="badge">{{ moderators.count|add:1 }}</span>
+        <button class="mem-tab" data-tab="moderators">
+            Модераторы <span class="mem-badge">{{ moderators|length|add:"1" }}</span>
         </button>
         {% if user in community.moderators.all or user == community.creator %}
-        <button class="tab-btn" data-tab="requests">
-            <i data-feather="clock"></i>
-            <span>Заявки</span>
+        <button class="mem-tab" data-tab="requests">
+            Заявки
             {% if pending_requests %}
-            <span class="badge badge--warning">{{ pending_requests.count }}</span>
+            <span class="mem-badge mem-badge-warn">{{ pending_requests|length }}</span>
             {% endif %}
-        </button>
-        <button class="tab-btn" data-tab="banned">
-            <i data-feather="slash"></i>
-            <span>Заблокированные</span>
         </button>
         {% endif %}
     </div>
 
     <!-- Поиск -->
-    <div class="search-wrapper">
-        <i data-feather="search"></i>
-        <input type="text" id="memberSearch" placeholder="Поиск участников..." class="search-input">
+    <div class="mem-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="memSearch" placeholder="Поиск по имени...">
     </div>
 
-    <!-- Список участников -->
-    <div class="tab-content active" id="tab-all">
-        <div class="members-list">
-            <!-- Создатель -->
-            {% if community.creator and community.creator.username %}
-            <div class="member-card creator">
-                <div class="member-avatar">
-                    <a href="{% url 'accounts:profile_by_username' username=community.creator.username %}">
-                        {% if community.creator.profile.avatar %}
-                        <img src="{{ community.creator.profile.avatar.url }}" alt="{{ community.creator.username }}">
-                        {% else %}
-                        <div class="avatar-placeholder">{{ community.creator.username|make_list|first|upper }}</div>
-                        {% endif %}
-                    </a>
+    <!-- Все участники -->
+    <div class="mem-content active" id="tab-all">
+        <div class="mem-list">
+            {% for member in all_members %}
+            <div class="mem-row" data-search="{{ member.get_full_name|default:member.username }} {{ member.username }}">
+                <div class="mem-row-ava">
+                    {% if member.profile.avatar %}<img src="{{ member.profile.avatar.url }}" alt="">
+                    {% else %}<div class="mem-row-ava-alt">{{ member.username|first|upper }}</div>{% endif %}
                 </div>
-                <div class="member-info">
-                    <a href="{% url 'accounts:profile_by_username' username=community.creator.username %}" class="member-name">
-                        {{ community.creator.get_full_name|default:community.creator.username }}
-                    </a>
-                    <span class="member-username">@{{ community.creator.username }}</span>
-                    <span class="member-badge creator-badge">Создатель</span>
-                </div>
-                <div class="member-actions">
-                    <span class="member-joined">Создал {{ community.created_at|date:"d.m.Y" }}</span>
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- Модераторы -->
-            {% for moderator in moderators %}
-            {% if moderator.username %}
-            <div class="member-card moderator">
-                <div class="member-avatar">
-                    <a href="{% url 'accounts:profile_by_username' username=moderator.username %}">
-                        {% if moderator.profile.avatar %}
-                        <img src="{{ moderator.profile.avatar.url }}" alt="{{ moderator.username }}">
-                        {% else %}
-                        <div class="avatar-placeholder">{{ moderator.username|make_list|first|upper }}</div>
-                        {% endif %}
-                    </a>
-                </div>
-                <div class="member-info">
-                    <a href="{% url 'accounts:profile_by_username' username=moderator.username %}" class="member-name">
-                        {{ moderator.get_full_name|default:moderator.username }}
-                    </a>
-                    <span class="member-username">@{{ moderator.username }}</span>
-                    <span class="member-badge moderator-badge">Модератор</span>
-                </div>
-                <div class="member-actions">
-                    {% if user == community.creator %}
-                    <button class="btn btn--outline btn--sm remove-moderator-btn" data-user-id="{{ moderator.id }}">
-                        <i data-feather="user-minus"></i>
-                        Снять
-                    </button>
-                    {% endif %}
-                </div>
-            </div>
-            {% endif %}
-            {% endfor %}
-
-            <!-- Обычные участники -->
-            {% for member in members %}
-            {% if member != community.creator and member not in moderators and member.username %}
-            <div class="member-card" data-username="{{ member.username }}">
-                <div class="member-avatar">
-                    <a href="{% url 'accounts:profile_by_username' username=member.username %}">
-                        {% if member.profile.avatar %}
-                        <img src="{{ member.profile.avatar.url }}" alt="{{ member.username }}">
-                        {% else %}
-                        <div class="avatar-placeholder">{{ member.username|make_list|first|upper }}</div>
-                        {% endif %}
-                    </a>
-                </div>
-                <div class="member-info">
-                    <a href="{% url 'accounts:profile_by_username' username=member.username %}" class="member-name">
+                <div class="mem-row-info">
+                    <a href="{% url 'accounts:profile_by_username' username=member.username %}" class="mem-row-name">
                         {{ member.get_full_name|default:member.username }}
                     </a>
-                    <span class="member-username">@{{ member.username }}</span>
+                    <span class="mem-row-username">@{{ member.username }}</span>
+                    {% if member == community.creator %}
+                    <span class="mem-row-badge mem-badge-creator">Создатель</span>
+                    {% elif member in moderators %}
+                    <span class="mem-row-badge mem-badge-mod">Модератор</span>
+                    {% endif %}
                 </div>
-                <div class="member-actions">
+                <div class="mem-row-actions">
+                    <a href="{% url 'accounts:profile_by_username' username=member.username %}" class="mem-action-btn" title="Профиль">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    </a>
+                    {% if user == community.creator and member != community.creator and member not in moderators %}
+                    <button class="mem-action-btn" onclick="makeModerator({{ member.id }})" title="Сделать модератором">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    </button>
+                    {% endif %}
                     {% if user in community.moderators.all or user == community.creator %}
-                    <div class="member-menu">
-                        <button class="menu-toggle">
-                            <i data-feather="more-vertical"></i>
+                        {% if member != community.creator and member != user %}
+                        <button class="mem-action-btn danger" onclick="banMember({{ member.id }})" title="Заблокировать">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
                         </button>
-                        <div class="menu-dropdown">
-                            <button class="menu-item make-moderator-btn" data-user-id="{{ member.id }}">
-                                <i data-feather="shield"></i>
-                                Сделать модератором
-                            </button>
-                            <button class="menu-item menu-item--danger ban-member-btn" data-user-id="{{ member.id }}">
-                                <i data-feather="slash"></i>
-                                Заблокировать
-                            </button>
-                        </div>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Модераторы -->
+    <div class="mem-content" id="tab-moderators">
+        <div class="mem-list">
+            {% for member in all_members %}
+                {% if member in moderators or member == community.creator %}
+                <div class="mem-row" data-search="{{ member.get_full_name|default:member.username }} {{ member.username }}">
+                    <div class="mem-row-ava">
+                        {% if member.profile.avatar %}<img src="{{ member.profile.avatar.url }}" alt="">
+                        {% else %}<div class="mem-row-ava-alt">{{ member.username|first|upper }}</div>{% endif %}
                     </div>
-                    {% endif %}
+                    <div class="mem-row-info">
+                        <a href="{% url 'accounts:profile_by_username' username=member.username %}" class="mem-row-name">
+                            {{ member.get_full_name|default:member.username }}
+                        </a>
+                        <span class="mem-row-username">@{{ member.username }}</span>
+                        <span class="mem-row-badge {% if member == community.creator %}mem-badge-creator{% else %}mem-badge-mod{% endif %}">
+                            {% if member == community.creator %}Создатель{% else %}Модератор{% endif %}
+                        </span>
+                    </div>
                 </div>
-            </div>
-            {% endif %}
+                {% endif %}
             {% endfor %}
         </div>
     </div>
 
-    <!-- Таб модераторов -->
-    <div class="tab-content" id="tab-moderators">
-        <div class="members-list">
-            {% if community.creator and community.creator.username %}
-            <div class="member-card creator">
-                <div class="member-avatar">
-                    <a href="{% url 'accounts:profile_by_username' username=community.creator.username %}">
-                        {% if community.creator.profile.avatar %}
-                        <img src="{{ community.creator.profile.avatar.url }}" alt="{{ community.creator.username }}">
-                        {% else %}
-                        <div class="avatar-placeholder">{{ community.creator.username|make_list|first|upper }}</div>
-                        {% endif %}
-                    </a>
-                </div>
-                <div class="member-info">
-                    <a href="{% url 'accounts:profile_by_username' username=community.creator.username %}" class="member-name">
-                        {{ community.creator.get_full_name|default:community.creator.username }}
-                    </a>
-                    <span class="member-username">@{{ community.creator.username }}</span>
-                    <span class="member-badge creator-badge">Создатель</span>
-                </div>
-            </div>
-            {% endif %}
-
-            {% for moderator in moderators %}
-            {% if moderator.username %}
-            <div class="member-card moderator">
-                <div class="member-avatar">
-                    <a href="{% url 'accounts:profile_by_username' username=moderator.username %}">
-                        {% if moderator.profile.avatar %}
-                        <img src="{{ moderator.profile.avatar.url }}" alt="{{ moderator.username }}">
-                        {% else %}
-                        <div class="avatar-placeholder">{{ moderator.username|make_list|first|upper }}</div>
-                        {% endif %}
-                    </a>
-                </div>
-                <div class="member-info">
-                    <a href="{% url 'accounts:profile_by_username' username=moderator.username %}" class="member-name">
-                        {{ moderator.get_full_name|default:moderator.username }}
-                    </a>
-                    <span class="member-username">@{{ moderator.username }}</span>
-                    <span class="member-badge moderator-badge">Модератор</span>
-                </div>
-                <div class="member-actions">
-                    {% if user == community.creator %}
-                    <button class="btn btn--outline btn--sm remove-moderator-btn" data-user-id="{{ moderator.id }}">
-                        <i data-feather="user-minus"></i>
-                        Снять
-                    </button>
-                    {% endif %}
-                </div>
-            </div>
-            {% endif %}
-            {% endfor %}
-        </div>
-    </div>
-
-    <!-- Таб заявок -->
+    <!-- Заявки -->
     {% if user in community.moderators.all or user == community.creator %}
-    <div class="tab-content" id="tab-requests">
-        <div class="members-list">
-            {% for request in pending_requests %}
-            {% if request.user and request.user.username %}
-            <div class="member-card request">
-                <div class="member-avatar">
-                    <a href="{% url 'accounts:profile_by_username' username=request.user.username %}">
-                        {% if request.user.profile.avatar %}
-                        <img src="{{ request.user.profile.avatar.url }}" alt="{{ request.user.username }}">
-                        {% else %}
-                        <div class="avatar-placeholder">{{ request.user.username|make_list|first|upper }}</div>
-                        {% endif %}
-                    </a>
+    <div class="mem-content" id="tab-requests">
+        <div class="mem-list">
+            {% for req in pending_requests %}
+            <div class="mem-row" data-search="{{ req.user.get_full_name|default:req.user.username }} {{ req.user.username }}">
+                <div class="mem-row-ava">
+                    {% if req.user.profile.avatar %}<img src="{{ req.user.profile.avatar.url }}" alt="">
+                    {% else %}<div class="mem-row-ava-alt">{{ req.user.username|first|upper }}</div>{% endif %}
                 </div>
-                <div class="member-info">
-                    <a href="{% url 'accounts:profile_by_username' username=request.user.username %}" class="member-name">
-                        {{ request.user.get_full_name|default:request.user.username }}
+                <div class="mem-row-info">
+                    <a href="{% url 'accounts:profile_by_username' username=req.user.username %}" class="mem-row-name">
+                        {{ req.user.get_full_name|default:req.user.username }}
                     </a>
-                    <span class="member-username">@{{ request.user.username }}</span>
-                    <span class="request-date">Заявка {{ request.created_at|timesince }} назад</span>
+                    <span class="mem-row-username">@{{ req.user.username }} · {{ req.created_at|timesince }} назад</span>
+                    {% if req.message %}<div style="font-size:0.8rem;color:var(--color-text-secondary);margin-top:2px">💬 {{ req.message|truncatechars:60 }}</div>{% endif %}
                 </div>
-                <div class="member-actions">
-                    <button class="btn btn--success btn--sm approve-request" data-request-id="{{ request.id }}">
-                        <i data-feather="check"></i>
-                        Принять
+                <div class="mem-row-actions">
+                    <button class="mem-action-btn success" onclick="approveRequest({{ req.id }})" title="Одобрить">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
                     </button>
-                    <button class="btn btn--danger btn--sm reject-request" data-request-id="{{ request.id }}">
-                        <i data-feather="x"></i>
-                        Отклонить
+                    <button class="mem-action-btn danger" onclick="rejectRequest({{ req.id }})" title="Отклонить">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
                 </div>
             </div>
-            {% endif %}
             {% empty %}
-            <div class="empty-state">
-                <i data-feather="inbox"></i>
+            <div class="mem-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
                 <h3>Нет заявок</h3>
-                <p>Новых заявок на вступление нет</p>
             </div>
             {% endfor %}
         </div>
     </div>
     {% endif %}
 </div>
-{% endblock %}
 
-{% block extra_css %}
-<style>
-    .members-container { max-width: 700px; margin: 0 auto; }
-    .members-header { margin-bottom: 1.5rem; }
-    .community-info-mini { display: flex; align-items: center; gap: 1rem; }
-    .community-avatar-small { width: 3rem; height: 3rem; border-radius: var(--radius-md); overflow: hidden; }
-    .community-avatar-small img { width: 100%; height: 100%; object-fit: cover; }
-    .avatar-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--color-primary-light); color: var(--color-primary); font-weight: 600; }
-    .community-info-mini h2 { font-size: 1.25rem; margin-bottom: 0.125rem; }
-    .community-info-mini p { color: var(--color-text-tertiary); font-size: 0.875rem; }
-    .members-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--color-border); }
-    .tab-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 0; color: var(--color-text-secondary); border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent; transition: all var(--transition-base); }
-    .tab-btn:hover { color: var(--color-text-primary); }
-    .tab-btn.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
-    .badge { background: var(--color-bg-elevated); padding: 0.125rem 0.5rem; border-radius: var(--radius-full); font-size: 0.75rem; font-weight: 600; }
-    .badge--warning { background: #fef3c7; color: #92400e; }
-    .search-wrapper { position: relative; margin-bottom: 1.5rem; }
-    .search-wrapper i { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--color-text-tertiary); }
-    .search-input { width: 100%; padding: 0.75rem 1rem 0.75rem 2.5rem; border: 1px solid var(--color-border); border-radius: var(--radius-lg); font-size: 0.9375rem; }
-    .search-input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-light); }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-    .members-list { display: flex; flex-direction: column; gap: 0.75rem; }
-    .member-card { display: flex; align-items: center; gap: 1rem; padding: 1rem; background: var(--color-bg-surface); border-radius: var(--radius-lg); border: 1px solid var(--color-border-light); transition: all var(--transition-base); }
-    .member-card:hover { box-shadow: var(--shadow-md); }
-    .member-avatar { width: 3rem; height: 3rem; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
-    .member-avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .member-info { flex: 1; min-width: 0; }
-    .member-name { font-weight: 600; color: var(--color-text-primary); text-decoration: none; }
-    .member-name:hover { color: var(--color-primary); }
-    .member-username { font-size: 0.8125rem; color: var(--color-text-tertiary); display: block; }
-    .member-badge { display: inline-block; font-size: 0.6875rem; padding: 0.125rem 0.5rem; border-radius: var(--radius-full); margin-top: 0.25rem; }
-    .creator-badge { background: #fef3c7; color: #92400e; }
-    .moderator-badge { background: var(--color-primary-light); color: var(--color-primary); }
-    .member-actions { flex-shrink: 0; }
-    .member-joined { font-size: 0.75rem; color: var(--color-text-tertiary); }
-    .member-menu { position: relative; }
-    .menu-toggle { padding: 0.25rem; border-radius: var(--radius-md); color: var(--color-text-tertiary); background: none; border: none; cursor: pointer; }
-    .menu-toggle:hover { background: var(--color-bg-elevated); }
-    .menu-dropdown { position: absolute; right: 0; top: 100%; background: var(--color-bg-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 1px solid var(--color-border); min-width: 180px; z-index: 10; display: none; }
-    .member-menu:hover .menu-dropdown { display: block; }
-    .menu-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; color: var(--color-text-primary); width: 100%; background: none; border: none; cursor: pointer; font-size: 0.85rem; transition: background var(--transition-base); }
-    .menu-item:hover { background: var(--color-bg-elevated); }
-    .menu-item--danger { color: var(--color-danger); }
-    .menu-item--danger:hover { background: var(--color-danger); color: white; }
-    .btn--success { background: var(--color-success); color: white; }
-    .btn--success:hover { background: #059669; }
-    .btn--danger { background: var(--color-danger); color: white; }
-    .btn--danger:hover { background: #dc2626; }
-    .request-date { font-size: 0.75rem; color: var(--color-text-tertiary); margin-left: 0.5rem; }
-    .empty-state { text-align: center; padding: 3rem; background: var(--color-bg-surface); border-radius: var(--radius-lg); }
-    .empty-state i { width: 3rem; height: 3rem; color: var(--color-text-tertiary); margin-bottom: 1rem; }
-    .empty-state h3 { margin-bottom: 0.5rem; }
-    .empty-state p { color: var(--color-text-secondary); }
-    @media (max-width: 768px) { .member-card { flex-wrap: wrap; } .member-actions { width: 100%; } .members-tabs { overflow-x: auto; } .tab-btn { white-space: nowrap; } }
-</style>
-{% endblock %}
-
-{% block extra_js %}
 <script>
-feather.replace();
 function G(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
-function T(m,t){const d=document.createElement('div');d.style.cssText='position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:10px;font-size:.8rem;font-weight:600;color:#fff;z-index:9999;background:#7c3aed;box-shadow:0 8px 24px rgba(0,0,0,.2);animation:toastIn .25s';d.textContent=m;document.body.appendChild(d);setTimeout(()=>{d.style.opacity='0';d.style.transition='all .3s';setTimeout(()=>d.remove(),300)},2000)}
 
-document.addEventListener('DOMContentLoaded',function(){
-    // Табы
-    document.querySelectorAll('.tab-btn[data-tab]').forEach(b=>b.addEventListener('click',function(){document.querySelectorAll('.tab-btn[data-tab]').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active'));this.classList.add('active');document.getElementById('tab-'+this.dataset.tab).classList.add('active')}));
-
-    // Поиск
-    document.getElementById('memberSearch')?.addEventListener('input',function(){const q=this.value.toLowerCase();document.querySelectorAll('.member-card[data-username]').forEach(c=>{c.style.display=(c.dataset.username+' '+c.querySelector('.member-name')?.textContent).toLowerCase().includes(q)?'':'none'})});
-
-    // Назначить модератора
-    document.querySelectorAll('.make-moderator-btn').forEach(b=>b.addEventListener('click',async function(){const u=this.dataset.userId;const r=await fetch('/communities/{{ community.slug }}/add-moderator/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':G('csrftoken')},body:JSON.stringify({user_id:u})});if(r.ok){T('Модератор назначен');setTimeout(()=>location.reload(),1000)}}));
-
-    // Снять модератора
-    document.querySelectorAll('.remove-moderator-btn').forEach(b=>b.addEventListener('click',async function(){if(!confirm('Снять модератора?'))return;const u=this.dataset.userId;const r=await fetch('/communities/{{ community.slug }}/remove-moderator/',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':G('csrftoken')},body:JSON.stringify({user_id:u})});if(r.ok){T('Модератор снят');setTimeout(()=>location.reload(),1000)}}));
-
-    // Бан
-    document.querySelectorAll('.ban-member-btn').forEach(b=>b.addEventListener('click',async function(){if(!confirm('Заблокировать?'))return;const u=this.dataset.userId;const r=await fetch('/communities/{{ community.slug }}/ban/'+u+'/',{method:'POST',headers:{'X-CSRFToken':G('csrftoken')}});if(r.ok){this.closest('.member-card').remove();T('Заблокирован')}}));
-
-    // Заявки
-    document.querySelectorAll('.approve-request').forEach(b=>b.addEventListener('click',async function(){const rid=this.dataset.requestId;const r=await fetch('/communities/requests/'+rid+'/approve/',{method:'POST',headers:{'X-CSRFToken':G('csrftoken')}});if(r.ok){this.closest('.member-card').remove();T('Одобрено')}}));
-    document.querySelectorAll('.reject-request').forEach(b=>b.addEventListener('click',async function(){const rid=this.dataset.requestId;const r=await fetch('/communities/requests/'+rid+'/reject/',{method:'POST',headers:{'X-CSRFToken':G('csrftoken')}});if(r.ok){this.closest('.member-card').remove();T('Отклонено')}}));
+// Табы
+document.querySelectorAll('.mem-tab[data-tab]').forEach(b => {
+    b.addEventListener('click', function() {
+        document.querySelectorAll('.mem-tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        document.querySelectorAll('.mem-content').forEach(c => c.classList.remove('active'));
+        document.getElementById('tab-' + this.dataset.tab).classList.add('active');
+    });
 });
+
+// Поиск
+document.getElementById('memSearch').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('.mem-row[data-search]').forEach(r => {
+        r.classList.toggle('hidden', q && !r.dataset.search.toLowerCase().includes(q));
+    });
+});
+
+// Функции
+async function makeModerator(userId) {
+    const r = await fetch('/communities/{{ community.slug }}/add-moderator/', {
+        method: 'POST', headers: {'Content-Type':'application/json','X-CSRFToken':G('csrftoken')},
+        body: JSON.stringify({user_id: userId})
+    });
+    if (r.ok) location.reload();
+}
+
+async function banMember(userId) {
+    if (!confirm('Заблокировать пользователя?')) return;
+    const r = await fetch(`/communities/{{ community.slug }}/ban/${userId}/`, {
+        method: 'POST', headers: {'X-CSRFToken':G('csrftoken')}
+    });
+    if (r.ok) location.reload();
+}
+
+async function approveRequest(reqId) {
+    const r = await fetch(`/communities/requests/${reqId}/approve/`, {
+        method: 'POST', headers: {'X-CSRFToken':G('csrftoken')}
+    });
+    if (r.ok) location.reload();
+}
+
+async function rejectRequest(reqId) {
+    const r = await fetch(`/communities/requests/${reqId}/reject/`, {
+        method: 'POST', headers: {'X-CSRFToken':G('csrftoken')}
+    });
+    if (r.ok) location.reload();
+}
 </script>
 {% endblock %}

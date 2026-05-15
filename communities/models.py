@@ -142,8 +142,9 @@ class Community(models.Model):
         super().save(*args, **kwargs)
 
     def update_stats(self):
-        """Обновление статистики сообщества"""
-        from .models import CommunityMembership, CommunityPost
+        self.members_count = self.members.filter(communitymembership__status='active').count()
+        self.posts_count = self.posts.count()
+        self.save(update_fields=['members_count', 'posts_count'])
 
         # Подсчет участников (активных)
         self.members_count = CommunityMembership.objects.filter(

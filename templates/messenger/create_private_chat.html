@@ -688,7 +688,7 @@
                 const data = await response.json();
 
                 if (data.chat_id) {
-                    window.location.href = `/messenger/chat/${data.chat_id}/`;
+                    window.location.href = `/messenger/?chat=${data.chat_id}`;
                 } else {
                     alert(data.error || 'Не удалось создать чат');
                 }

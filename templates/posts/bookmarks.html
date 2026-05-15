@@ -1,454 +1,329 @@
-<!-- templates/posts/bookmarks.html -->
 {% extends 'base.html' %}
 {% load static %}
 
 {% block title %}Закладки · Поток{% endblock %}
-{% block page_title %}
-    <span class="page-title-with-icon">
-        Закладки
-    </span>
-{% endblock %}
+{% block page_title %}Закладки{% endblock %}
 
 {% block header_actions %}
-<div class="bookmarks-actions">
-    <button class="btn btn--outline" id="clearAllBookmarks">
+<div class="bkm-header-actions">
+    <div class="bkm-sort-wrap">
+        <select class="bkm-sort" id="sortSelect">
+            <option value="new" {% if request.GET.sort == 'new' or not request.GET.sort %}selected{% endif %}>Сначала новые</option>
+            <option value="old" {% if request.GET.sort == 'old' %}selected{% endif %}>Сначала старые</option>
+        </select>
+    </div>
+    <button class="btn btn--outline btn--sm" id="clearAllBookmarks">
         <i data-feather="trash-2"></i>
-        <span>Очистить все</span>
+        <span>Очистить всё</span>
     </button>
 </div>
 {% endblock %}
 
 {% block content %}
-<div class="bookmarks-container">
-    <!-- Статистика -->
-    <div class="bookmarks-stats">
-        <div class="stat-card">
-            <span class="stat-value">{{ page_obj.paginator.count }}</span>
-            <span class="stat-label">Всего закладок</span>
-        </div>
-        <div class="stat-card">
-            <span class="stat-value">{{ page_obj.paginator.count }}</span>
-            <span class="stat-label">Сохранено</span>
+<style>
+    .bkm-page { max-width: 850px; margin: 0 auto; }
+
+    /* Шапка */
+    .bkm-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+
+    .bkm-header-actions { display: flex; align-items: center; gap: 8px; }
+    .bkm-sort {
+        padding: 8px 32px 8px 12px; border: 1px solid var(--color-border);
+        border-radius: 10px; background: var(--color-bg-surface);
+        font-size: 0.85rem; font-family: inherit; cursor: pointer;
+        appearance: none; color: var(--color-text);
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat; background-position: right 10px center;
+    }
+
+    /* Список */
+    .bkm-list { display: flex; flex-direction: column; gap: 2px; }
+
+    .bkm-item {
+        display: flex; background: var(--color-bg-surface);
+        border-radius: 14px; overflow: hidden; transition: all 0.2s;
+        border: 1px solid var(--color-border-light); position: relative;
+    }
+    .bkm-item:hover { border-color: #d1d5db; box-shadow: 0 2px 12px rgba(0,0,0,0.04); }
+    .bkm-item:first-child { border-radius: 14px 14px 4px 4px; }
+    .bkm-item:last-child { border-radius: 4px 4px 14px 14px; }
+    .bkm-item:only-child { border-radius: 14px; }
+
+    /* Цветная полоса */
+    .bkm-accent {
+        width: 4px; flex-shrink: 0;
+        background: var(--color-primary);
+    }
+
+    .bkm-body { flex: 1; padding: 16px 20px 16px 18px; min-width: 0; }
+
+    /* Мета-строка */
+    .bkm-meta {
+        display: flex; align-items: center; flex-wrap: wrap;
+        gap: 6px 10px; font-size: 0.8rem; color: var(--color-text-tertiary);
+        margin-bottom: 10px;
+    }
+    .bkm-community {
+        display: inline-flex; align-items: center; gap: 5px;
+        color: #6366f1; font-weight: 600; text-decoration: none;
+        padding: 3px 10px; background: #eef2ff; border-radius: 7px;
+        font-size: 0.78rem;
+    }
+    .bkm-community:hover { background: #e0e7ff; }
+    .bkm-community svg { width: 13px; height: 13px; }
+
+    .bkm-author {
+        color: var(--color-text-secondary); text-decoration: none;
+        font-weight: 500; display: inline-flex; align-items: center; gap: 4px;
+    }
+    .bkm-author:hover { color: var(--color-primary); }
+    .bkm-author-avatar {
+        width: 18px; height: 18px; border-radius: 50%; object-fit: cover;
+    }
+    .bkm-dot { opacity: 0.4; font-weight: 700; }
+    .bkm-time { white-space: nowrap; }
+
+    /* Заголовок */
+    .bkm-title {
+        font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; line-height: 1.35;
+    }
+    .bkm-title a { color: var(--color-text); text-decoration: none; }
+    .bkm-title a:hover { color: var(--color-primary); }
+
+    /* Превью */
+    .bkm-excerpt {
+        color: var(--color-text-secondary); font-size: 0.875rem;
+        line-height: 1.6; margin-bottom: 14px;
+    }
+
+    /* Футер */
+    .bkm-footer { display: flex; align-items: center; justify-content: space-between; }
+    .bkm-stats { display: flex; gap: 18px; }
+    .bkm-stat {
+        display: flex; align-items: center; gap: 5px;
+        font-size: 0.82rem; color: var(--color-text-tertiary);
+    }
+    .bkm-stat svg { width: 15px; height: 15px; }
+    .bkm-stat.likes svg { color: #ef4444; }
+    .bkm-stat.comments svg { color: #6366f1; }
+    .bkm-stat.views svg { color: var(--color-text-tertiary); }
+
+    .bkm-actions-row { display: flex; gap: 4px; }
+    .bkm-btn {
+        display: flex; align-items: center; justify-content: center;
+        width: 34px; height: 34px; border-radius: 8px; border: none;
+        background: transparent; color: var(--color-text-tertiary);
+        cursor: pointer; transition: all 0.15s;
+    }
+    .bkm-btn:hover { background: var(--color-bg-elevated); color: var(--color-text); }
+    .bkm-btn.del:hover { background: #fee2e2; color: #ef4444; }
+    .bkm-btn svg { width: 17px; height: 17px; }
+
+    /* Пусто */
+    .bkm-empty {
+        text-align: center; padding: 70px 20px;
+        background: var(--color-bg-surface); border-radius: 16px;
+        border: 1px solid var(--color-border-light);
+    }
+    .bkm-empty-icon { margin-bottom: 16px; opacity: 0.5; }
+    .bkm-empty h3 { font-size: 1.15rem; font-weight: 600; margin-bottom: 6px; color: var(--color-text-secondary); }
+    .bkm-empty p { color: var(--color-text-tertiary); margin-bottom: 20px; font-size: 0.9rem; }
+
+    /* Пагинация */
+    .bkm-pagination { display: flex; justify-content: center; gap: 5px; padding: 32px 0; }
+    .bkm-page-btn {
+        min-width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
+        border-radius: 10px; font-size: 0.9rem; font-weight: 500; text-decoration: none;
+        background: var(--color-bg-surface); border: 1px solid var(--color-border); color: var(--color-text);
+        transition: all 0.15s;
+    }
+    .bkm-page-btn:hover { background: var(--color-bg-elevated); border-color: var(--color-primary); }
+    .bkm-page-btn.active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+
+    @media (max-width: 600px) {
+        .bkm-body { padding: 12px 14px; }
+        .bkm-title { font-size: 0.95rem; }
+        .bkm-stats { gap: 12px; }
+        .bkm-stat { font-size: 0.75rem; }
+    }
+    .bkm-stat-box {
+        display: flex; flex-direction: column; gap: 2px;
+        background: var(--color-bg-surface); border: 1px solid var(--color-border-light);
+        border-radius: 12px; padding: 12px 18px; min-width: 90px;
+    }
+    .bkm-stat-num { font-size: 1.5rem; font-weight: 700; color: var(--color-text); }
+    .bkm-stat-lbl { font-size: 0.75rem; color: var(--color-text-tertiary); }
+
+</style>
+
+<div class="bkm-page">
+    <!-- Шапка -->
+    <div class="bkm-top">
+        <div class="bkm-stat-box">
+            <span class="bkm-stat-num">{{ page_obj.paginator.count }}</span>
+            <span class="bkm-stat-lbl">Всего</span>
         </div>
     </div>
-
-    <!-- Сортировка -->
-    <div class="bookmarks-toolbar">
-        <div class="sort-wrapper">
-            <select class="sort-select" id="sortSelect">
-                <option value="new" {% if request.GET.sort == 'new' or not request.GET.sort %}selected{% endif %}>
-                    Сначала новые
-                </option>
-                <option value="old" {% if request.GET.sort == 'old' %}selected{% endif %}>
-                    Сначала старые
-                </option>
-            </select>
-        </div>
-    </div>
-
-    <!-- Список закладок -->
-    <div class="bookmarks-list" id="bookmarksList">
+    <!-- Список -->
+    <div class="bkm-list" id="bookmarksList">
         {% for bookmark in page_obj %}
-        <div class="bookmark-item" data-bookmark-id="{{ bookmark.id }}">
-            <button class="bookmark-remove" data-bookmark-id="{{ bookmark.id }}" title="Удалить из закладок">
-                <i data-feather="x"></i>
-            </button>
+        <article class="bkm-item" data-bookmark-id="{{ bookmark.id }}">
+            <div class="bkm-accent" style="background: {% if bookmark.post.community %}#6366f1{% else %}#3b82f6{% endif %}"></div>
 
-            <div class="bookmark-content">
-                <div class="bookmark-meta">
+            <div class="bkm-body">
+                <!-- Мета -->
+                <div class="bkm-meta">
                     {% if bookmark.post.community %}
-                    <a href="{% url 'communities:community_detail' slug=bookmark.post.community.slug %}" class="bookmark-community">
-                        c/{{ bookmark.post.community.name }}
+                    <a href="{% url 'communities:community_detail' slug=bookmark.post.community.slug %}" class="bkm-community">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                        {{ bookmark.post.community.name }}
                     </a>
-                    <span>·</span>
+                    <span class="bkm-dot">·</span>
                     {% endif %}
-                    <span class="bookmark-author">
-                        Опубликовал
-                        <a href="{% url 'accounts:profile_by_username' username=bookmark.post.author.username %}">
-                            u/{{ bookmark.post.author.username }}
-                        </a>
-                    </span>
-                    <span>·</span>
-                    <span class="bookmark-time">Сохранено {{ bookmark.created_at|timesince }} назад</span>
+
+                    <a href="{% url 'accounts:profile_by_username' username=bookmark.post.author.username %}" class="bkm-author">
+                        {% if bookmark.post.author.profile.avatar %}
+                        <img src="{{ bookmark.post.author.profile.avatar.url }}" class="bkm-author-avatar" alt="">
+                        {% endif %}
+                        {{ bookmark.post.author.get_full_name|default:bookmark.post.author.username }}
+                    </a>
+                    <span class="bkm-dot">·</span>
+                    <time class="bkm-time">{{ bookmark.created_at|date:'d.m.Y' }} в {{ bookmark.created_at|date:'H:i' }}</time>
                 </div>
 
-                <h3 class="bookmark-title">
+                <!-- Заголовок -->
+                <h2 class="bkm-title">
                     <a href="{% url 'posts:post_detail' pk=bookmark.post.id %}">{{ bookmark.post.title }}</a>
-                </h3>
+                </h2>
 
-                <p class="bookmark-excerpt">{{ bookmark.post.content|truncatewords:30 }}</p>
+                <!-- Превью -->
+                <p class="bkm-excerpt">{{ bookmark.post.content|striptags|truncatewords:45 }}</p>
 
-                <div class="bookmark-footer">
-                    <div class="bookmark-stats">
-                        <span><i data-feather="heart"></i> {{ bookmark.post.likes_count }}</span>
-                        <span><i data-feather="message-circle"></i> {{ bookmark.post.comments_count }}</span>
+                <!-- Футер -->
+                <div class="bkm-footer">
+                    <div class="bkm-stats">
+                        <span class="bkm-stat likes">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                            {{ bookmark.post.likes_count }}
+                        </span>
+                        <span class="bkm-stat comments">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            {{ bookmark.post.comments_count }}
+                        </span>
+                        <span class="bkm-stat views">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            {{ bookmark.post.views_count|default:0 }}
+                        </span>
+                    </div>
+
+                    <div class="bkm-actions-row">
+                        <a href="{% url 'posts:post_detail' pk=bookmark.post.id %}" class="bkm-btn" title="Перейти">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        </a>
+                        <button class="bkm-btn del" data-bookmark-id="{{ bookmark.id }}" title="Удалить из закладок">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16"/></svg>
+                        </button>
                     </div>
                 </div>
             </div>
-        </div>
+        </article>
         {% empty %}
-        <div class="empty-state">
-            <i data-feather="bookmark"></i>
+        <div class="bkm-empty">
+            <div class="bkm-empty-icon">
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="1.5"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            </div>
             <h3>Нет закладок</h3>
-            <p>Сохраняйте интересные посты, чтобы вернуться к ним позже</p>
-            <a href="{% url 'posts:post_list' %}" class="btn btn--primary">
-                Перейти к постам
-            </a>
+            <p>Сохраняйте посты через меню ⋮, чтобы вернуться к ним позже</p>
+            <a href="{% url 'posts:post_list' %}" class="btn btn--primary btn--sm">Перейти к постам</a>
         </div>
         {% endfor %}
     </div>
 
     <!-- Пагинация -->
     {% if is_paginated %}
-    <div class="pagination-wrapper">
-        <div class="pagination">
-            {% if page_obj.has_previous %}
-            <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}"
-               class="pagination-btn">
-                <i data-feather="chevron-left"></i>
-            </a>
+    <div class="bkm-pagination">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" class="bkm-page-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </a>
+        {% endif %}
+        {% for num in page_obj.paginator.page_range %}
+            {% if num == page_obj.number %}
+            <span class="bkm-page-btn active">{{ num }}</span>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <a href="?page={{ num }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" class="bkm-page-btn">{{ num }}</a>
             {% endif %}
-
-            <div class="pagination-pages">
-                {% for num in page_obj.paginator.page_range %}
-                    {% if num == page_obj.number %}
-                    <span class="pagination-btn active">{{ num }}</span>
-                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                    <a href="?page={{ num }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}"
-                       class="pagination-btn">{{ num }}</a>
-                    {% endif %}
-                {% endfor %}
-            </div>
-
-            {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}"
-               class="pagination-btn">
-                <i data-feather="chevron-right"></i>
-            </a>
-            {% endif %}
-        </div>
+        {% endfor %}
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}{% if request.GET.sort %}&sort={{ request.GET.sort }}{% endif %}" class="bkm-page-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+        {% endif %}
     </div>
     {% endif %}
 </div>
 {% endblock %}
 
-{% block extra_css %}
-<style>
-    .bookmarks-container {
-        max-width: 800px;
-        margin: 0 auto;
-    }
-
-    .bookmarks-actions {
-        display: flex;
-        gap: 0.75rem;
-    }
-
-    .bookmarks-stats {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .stat-card {
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-lg);
-        padding: 1.25rem;
-        text-align: center;
-        border: 1px solid var(--color-border-light);
-    }
-
-    .stat-value {
-        display: block;
-        font-size: 2rem;
-        font-weight: 700;
-        color: var(--color-primary);
-        margin-bottom: 0.25rem;
-    }
-
-    .stat-label {
-        font-size: 0.875rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .bookmarks-toolbar {
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
-        margin-bottom: 1.5rem;
-    }
-
-    .sort-select {
-        padding: 0.5rem 2rem 0.5rem 1rem;
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-md);
-        background: var(--color-bg-surface);
-        font-size: 0.875rem;
-        cursor: pointer;
-        appearance: none;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
-        background-repeat: no-repeat;
-        background-position: right 10px center;
-    }
-
-    .bookmarks-list {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .bookmark-item {
-        position: relative;
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-lg);
-        border: 1px solid var(--color-border-light);
-        transition: all var(--transition-base);
-    }
-
-    .bookmark-item:hover {
-        box-shadow: var(--shadow-md);
-    }
-
-    .bookmark-remove {
-        position: absolute;
-        top: 0.75rem;
-        right: 0.75rem;
-        padding: 0.25rem;
-        border-radius: var(--radius-md);
-        color: var(--color-text-tertiary);
-        opacity: 0;
-        transition: all var(--transition-base);
-        border: none;
-        background: transparent;
-        cursor: pointer;
-    }
-
-    .bookmark-item:hover .bookmark-remove {
-        opacity: 1;
-    }
-
-    .bookmark-remove:hover {
-        background: var(--color-danger);
-        color: white;
-    }
-
-    .bookmark-content {
-        padding: 1.25rem;
-    }
-
-    .bookmark-meta {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 0.25rem 0.5rem;
-        font-size: 0.8125rem;
-        color: var(--color-text-tertiary);
-        margin-bottom: 0.75rem;
-    }
-
-    .bookmark-community,
-    .bookmark-author a {
-        color: var(--color-text-secondary);
-        text-decoration: none;
-    }
-
-    .bookmark-community:hover,
-    .bookmark-author a:hover {
-        color: var(--color-primary);
-    }
-
-    .bookmark-title {
-        font-size: 1.125rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .bookmark-title a {
-        color: var(--color-text);
-        text-decoration: none;
-    }
-
-    .bookmark-title a:hover {
-        color: var(--color-primary);
-    }
-
-    .bookmark-excerpt {
-        color: var(--color-text-secondary);
-        font-size: 0.875rem;
-        line-height: 1.6;
-        margin-bottom: 0.75rem;
-    }
-
-    .bookmark-footer {
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
-    }
-
-    .bookmark-stats {
-        display: flex;
-        gap: 1rem;
-        font-size: 0.8125rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .bookmark-stats span {
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-    }
-
-    .empty-state {
-        text-align: center;
-        padding: 3rem;
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-lg);
-        border: 1px solid var(--color-border-light);
-    }
-
-    .empty-state i {
-        width: 3rem;
-        height: 3rem;
-        color: var(--color-text-tertiary);
-        margin-bottom: 1rem;
-    }
-
-    .empty-state h3 {
-        margin-bottom: 0.5rem;
-    }
-
-    .empty-state p {
-        color: var(--color-text-secondary);
-        margin-bottom: 1.5rem;
-    }
-
-    .pagination-wrapper {
-        display: flex;
-        justify-content: center;
-        margin-top: 2rem;
-    }
-
-    .pagination {
-        display: flex;
-        gap: 0.25rem;
-    }
-
-    .pagination-btn {
-        min-width: 2.25rem;
-        height: 2.25rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: var(--radius-md);
-        background: var(--color-bg-surface);
-        border: 1px solid var(--color-border);
-        color: var(--color-text);
-        text-decoration: none;
-        font-size: 0.875rem;
-    }
-
-    .pagination-btn:hover {
-        background: var(--color-bg-elevated);
-    }
-
-    .pagination-btn.active {
-        background: var(--color-primary);
-        color: white;
-        border-color: var(--color-primary);
-    }
-
-    @media (max-width: 768px) {
-        .bookmark-remove {
-            opacity: 1;
-        }
-
-        .bookmarks-stats {
-            grid-template-columns: 1fr 1fr;
-            gap: 0.5rem;
-        }
-    }
-</style>
-{% endblock %}
-
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Сортировка
-        const sortSelect = document.getElementById('sortSelect');
-        sortSelect?.addEventListener('change', function() {
-            const url = new URL(window.location);
-            url.searchParams.set('sort', this.value);
-            window.location = url;
-        });
+document.addEventListener('DOMContentLoaded', function() {
+    // Сортировка
+    document.getElementById('sortSelect')?.addEventListener('change', function() {
+        const url = new URL(window.location);
+        url.searchParams.set('sort', this.value);
+        window.location = url;
+    });
 
-        // Удаление закладки
-        document.querySelectorAll('.bookmark-remove').forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const bookmarkId = this.dataset.bookmarkId;
-                const item = this.closest('.bookmark-item');
-
-                try {
-                    const response = await fetch(`/bookmark/${bookmarkId}/remove/`, {
-                        method: 'POST',
-                        headers: { 'X-CSRFToken': getCookie('csrftoken') }
-                    });
-
-                    if (response.ok) {
-                        item.style.transition = 'opacity 0.3s ease';
-                        item.style.opacity = '0';
-                        setTimeout(() => item.remove(), 300);
-                        showToast('Удалено из закладок');
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                }
-            });
-        });
-
-        // Очистить все закладки
-        document.getElementById('clearAllBookmarks')?.addEventListener('click', async function() {
-            if (!confirm('Вы уверены, что хотите удалить все закладки?')) return;
-
+    // Удаление одной закладки
+    document.querySelectorAll('.bkm-btn.del').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const bookmarkId = this.dataset.bookmarkId;
+            const item = this.closest('.bkm-item');
             try {
-                const response = await fetch('/bookmarks/clear/', {
+                const r = await fetch(`/bookmark/${bookmarkId}/remove/`, {
                     method: 'POST',
                     headers: { 'X-CSRFToken': getCookie('csrftoken') }
                 });
-
-                if (response.ok) {
-                    window.location.reload();
+                if (r.ok) {
+                    item.style.opacity = '0';
+                    item.style.transform = 'translateX(-12px)';
+                    item.style.transition = 'all 0.25s ease';
+                    setTimeout(() => item.remove(), 250);
+                    showToast('Удалено из закладок');
                 }
-            } catch (error) {
-                console.error('Error:', error);
-            }
+            } catch(err) { console.error(err); }
         });
-
-        function showToast(message) {
-            const toast = document.createElement('div');
-            toast.style.cssText = 'position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:10px;font-size:0.8125rem;font-weight:600;color:white;z-index:9999;background:#059669;box-shadow:0 8px 24px rgba(0,0,0,0.2);animation:toastIn 0.25s ease-out;';
-            toast.textContent = message;
-            document.body.appendChild(toast);
-            setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'all 0.3s ease'; toast.style.transform = 'translateY(8px)'; setTimeout(() => toast.remove(), 300); }, 2000);
-        }
-
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
-        }
-
-        const s = document.createElement('style');
-        s.textContent = '@keyframes toastIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}';
-        document.head.appendChild(s);
     });
+
+    // Очистить все
+    document.getElementById('clearAllBookmarks')?.addEventListener('click', async function() {
+        if (!confirm('Удалить все закладки? Это действие нельзя отменить.')) return;
+        try {
+            const r = await fetch('/bookmarks/clear/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            if (r.ok) window.location.reload();
+        } catch(err) { console.error(err); }
+    });
+
+    function showToast(msg) {
+        const t = document.createElement('div');
+        t.style.cssText = 'position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:10px;font-size:0.85rem;font-weight:600;color:#fff;z-index:9999;background:#059669;box-shadow:0 8px 24px rgba(0,0,0,0.2);animation:toastIn 0.25s ease-out;';
+        t.textContent = msg;
+        document.body.appendChild(t);
+        setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'all 0.3s'; t.style.transform = 'translateY(8px)'; setTimeout(() => t.remove(), 300); }, 2000);
+    }
+
+    function getCookie(n) {
+        let v = null;
+        document.cookie.split(';').forEach(c => { const [k, val] = c.trim().split('='); if (k === n) v = decodeURIComponent(val); });
+        return v;
+    }
+
+    const st = document.createElement('style');
+    st.textContent = '@keyframes toastIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}';
+    document.head.appendChild(st);
+});
 </script>
 {% endblock %}

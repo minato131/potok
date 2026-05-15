@@ -74,7 +74,7 @@
                         </a>
                     </li>
                     <li class="nav-menu__item">
-                        <a href="{% url 'messenger:chat_list' %}" class="nav-link {% if 'messenger' in request.resolver_match.namespace and request.resolver_match.url_name == 'chat_list' %}nav-link--active{% endif %}">
+                        <a href="{% url 'messenger:messenger' %}" class="nav-link {% if 'messenger' in request.resolver_match.namespace and request.resolver_match.url_name == 'messenger' %}nav-link--active{% endif %}">
                             <i data-feather="message-circle"></i>
                             <span>Мессенджер</span>
                         </a>
@@ -205,7 +205,7 @@
             <li><a href="{% url 'posts:post_list' %}"><i data-feather="home"></i> Главная</a></li>
             <li><a href="{% url 'posts:search' %}"><i data-feather="search"></i> Поиск</a></li>
             <li><a href="{% url 'communities:community_list' %}"><i data-feather="users"></i> Сообщества</a></li>
-            <li><a href="{% url 'messenger:chat_list' %}"><i data-feather="message-circle"></i> Мессенджер</a></li>
+            <li><a href="{% url 'messenger:messenger' %}"><i data-feather="message-circle"></i> Мессенджер</a></li>
             {% if user.is_authenticated %}
             <li><a href="{% url 'accounts:friend_list' username=user.username %}"><i data-feather="users"></i> Друзья</a></li>
             {% endif %}

@@ -137,7 +137,20 @@ class Message(models.Model):
         verbose_name='Автор'
     )
     content = models.TextField(
+        blank=True,  # ← теперь может быть пустым (если только файл)
         verbose_name='Содержание'
+    )
+    file = models.FileField(  # ← новое поле
+        upload_to='messenger_files/%Y/%m/%d/',
+        null=True,
+        blank=True,
+        verbose_name='Файл'
+    )
+    file_type = models.CharField(  # ← image, document, voice
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name='Тип файла'
     )
     is_read = models.BooleanField(
         default=False,
@@ -172,3 +185,51 @@ class Message(models.Model):
         """Отметить сообщение как прочитанное"""
         self.is_read = True
         self.save(update_fields=['is_read'])
+
+
+# messenger/models.py — добавьте модель Reaction в конец файла
+
+class Reaction(models.Model):
+    """
+    Реакция на сообщение (эмодзи)
+    """
+    EMOJI_CHOICES = [
+        ('👍', '👍'),
+        ('❤️', '❤️'),
+        ('😂', '😂'),
+        ('😮', '😮'),
+        ('😢', '😢'),
+        ('😡', '😡'),
+        ('🔥', '🔥'),
+        ('💯', '💯'),
+        ('🎉', '🎉'),
+    ]
+
+    message = models.ForeignKey(
+        Message,
+        on_delete=models.CASCADE,
+        related_name='reactions',
+        verbose_name='Сообщение'
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name='Пользователь'
+    )
+    emoji = models.CharField(
+        max_length=2,
+        choices=EMOJI_CHOICES,
+        verbose_name='Эмодзи'
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Дата'
+    )
+
+    class Meta:
+        verbose_name = 'Реакция'
+        verbose_name_plural = 'Реакции'
+        unique_together = ['message', 'user', 'emoji']  # Один пользователь — одна реакция одного типа
+
+    def __str__(self):
+        return f"{self.user.username}: {self.emoji} на сообщение #{self.message.id}"

@@ -6,430 +6,589 @@
 {% block page_title %}c/{{ community.name }}{% endblock %}
 
 {% block header_actions %}
-<div class="community-actions">
+<div class="comm-actions">
     {% if user == community.creator or user in community.moderators.all %}
-    <a href="{% url 'communities:community_edit' slug=community.slug %}" class="btn btn--outline">
+    <a href="{% url 'communities:community_edit' slug=community.slug %}" class="btn btn--outline btn--sm">
         <i data-feather="settings"></i>
         <span>Настройки</span>
     </a>
     {% endif %}
 
     {% if user.is_authenticated %}
-        {% if user in community.members.all %}
-        <button class="btn btn--outline join-leave-btn" data-action="leave">
+        {% if user_membership and user_membership.status == 'active' %}
+        <button class="btn btn--outline btn--sm join-leave-btn" data-action="leave">
             <i data-feather="check"></i>
             <span>Вы участник</span>
         </button>
-        {% elif user in community.pending_requests.all %}
-        <button class="btn btn--outline" disabled>
+        {% elif pending_request %}
+        <button class="btn btn--outline btn--sm" disabled>
             <i data-feather="clock"></i>
             <span>Заявка отправлена</span>
         </button>
         {% else %}
-        <button class="btn btn--primary join-leave-btn" data-action="join">
+        <button class="btn btn--primary btn--sm join-leave-btn" data-action="join">
             <i data-feather="plus"></i>
             <span>Вступить</span>
         </button>
         {% endif %}
+    {% else %}
+    <a href="{% url 'accounts:login' %}?next={{ request.path }}" class="btn btn--primary btn--sm">
+        <i data-feather="log-in"></i>
+        <span>Войти</span>
+    </a>
     {% endif %}
 </div>
 {% endblock %}
 
 {% block content %}
-<div class="community-detail-container">
-    <!-- Информация о сообществе -->
-    <div class="community-sidebar">
-        <div class="community-info-card">
-            <div class="community-cover">
-                {% if community.cover_image %}
-                <img src="{{ community.cover_image.url }}" alt="{{ community.name }}">
-                {% else %}
-                <div class="cover-gradient"></div>
-                {% endif %}
-            </div>
-
-            <div class="community-info-content">
-                <div class="community-avatar-large">
-                    {% if community.avatar %}
-                    <img src="{{ community.avatar.url }}" alt="{{ community.name }}">
-                    {% else %}
-                    <div class="avatar-placeholder">{{ community.name|make_list|first|upper }}</div>
-                    {% endif %}
-                </div>
-
-                <h1 class="community-title">c/{{ community.name }}</h1>
-
-                <p class="community-description">{{ community.description }}</p>
-
-                <div class="community-stats-detailed">
-                    <div class="stat-item">
-                        <i data-feather="users"></i>
-                        <div>
-                            <span class="stat-value">{{ community.members.count }}</span>
-                            <span class="stat-label">Участников</span>
-                        </div>
-                    </div>
-                    <div class="stat-item">
-                        <i data-feather="file-text"></i>
-                        <div>
-                            <span class="stat-value">{{ community.posts.count }}</span>
-                            <span class="stat-label">Постов</span>
-                        </div>
-                    </div>
-                    <div class="stat-item">
-                        <i data-feather="calendar"></i>
-                        <div>
-                            <span class="stat-value">{{ community.created_at|date:"M Y" }}</span>
-                            <span class="stat-label">Создано</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="community-meta">
-                    <div class="meta-item">
-                        <i data-feather="shield"></i>
-                        <span>{{ community.get_community_type_display }}</span>
-                    </div>
-                    {% if community.creator and community.creator.username %}
-                    <div class="meta-item">
-                        <i data-feather="user"></i>
-                        <span>Создатель:
-                            <a href="{% url 'accounts:profile_by_username' username=community.creator.username %}">
-                                {{ community.creator.username }}
-                            </a>
-                        </span>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
+<div class="community-page">
+    <!-- Обложка и аватар -->
+    <div class="community-cover-section">
+        <div class="community-cover">
+            {% if community.cover_image %}
+            <img src="{{ community.cover_image.url }}" alt="{{ community.name }}">
+            {% else %}
+            <div class="cover-gradient"></div>
+            {% endif %}
         </div>
-
-        {% if community.rules %}
-        <div class="community-rules-card">
-            <h3><i data-feather="book"></i> Правила сообщества</h3>
-            <div class="rules-content">{{ community.rules|linebreaks }}</div>
-        </div>
-        {% endif %}
-
-        <div class="community-moderators-card">
-            <h3><i data-feather="shield"></i> Модераторы</h3>
-            <div class="moderators-list">
-                {% if community.creator and community.creator.username %}
-                <div class="moderator-item">
-                    <a href="{% url 'accounts:profile_by_username' username=community.creator.username %}">
-                        <span class="moderator-name">{{ community.creator.username }}</span>
-                        <span class="moderator-badge">Создатель</span>
-                    </a>
-                </div>
-                {% endif %}
-                {% for moderator in community.moderators.all %}
-                    {% if moderator.username %}
-                    <div class="moderator-item">
-                        <a href="{% url 'accounts:profile_by_username' username=moderator.username %}">
-                            <span class="moderator-name">{{ moderator.username }}</span>
-                        </a>
-                    </div>
-                    {% endif %}
-                {% endfor %}
-            </div>
+        <div class="community-avatar-lg">
+            {% if community.avatar %}
+            <img src="{{ community.avatar.url }}" alt="{{ community.name }}">
+            {% else %}
+            <div class="avatar-placeholder">{{ community.name|first|upper }}</div>
+            {% endif %}
         </div>
     </div>
 
-    <!-- Лента постов -->
-    <div class="community-posts">
-        <div class="posts-tabs">
-            <button class="tab-btn active" data-tab="posts">
-                <i data-feather="list"></i>
-                <span>Посты</span>
-            </button>
-            <button class="tab-btn" data-tab="about">
-                <i data-feather="info"></i>
-                <span>О сообществе</span>
-            </button>
-            <a href="{% url 'communities:community_members' slug=community.slug %}" class="tab-btn">
-                <i data-feather="users"></i>
-                <span>Участники</span>
-            </a>
-        </div>
-
-        {% if user in community.members.all %}
-        <div class="create-post-card">
-            <div class="create-post-header">
-                <div class="user-avatar-small">
-                    {% if user.profile.avatar %}
-                    <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}">
-                    {% else %}
-                    <div class="avatar-placeholder">{{ user.username|make_list|first|upper }}</div>
-                    {% endif %}
-                </div>
-                <a href="{% url 'communities:community_post_create' slug=community.slug %}" class="create-post-input">
-                    Поделитесь чем-нибудь с сообществом...
-                </a>
-            </div>
-            <div class="create-post-actions">
-                <button class="action-btn" onclick="location.href='{% url 'communities:community_post_create' slug=community.slug %}'">
-                    <i data-feather="image"></i>
-                    <span>Изображение</span>
-                </button>
-                <button class="action-btn" onclick="location.href='{% url 'communities:community_post_create' slug=community.slug %}'">
-                    <i data-feather="link"></i>
-                    <span>Ссылка</span>
-                </button>
+    <!-- Основная информация -->
+    <div class="community-main-card">
+        <div class="community-info-header">
+            <div>
+                <h1 class="community-title">c/{{ community.name }}</h1>
+                <p class="community-type-badge">{{ community.get_community_type_display }}</p>
             </div>
         </div>
-        {% endif %}
 
-        <div class="tab-content active" id="tab-posts">
-            <div class="posts-feed">
-                {% for post in posts %}
-                <article class="post-card">
-                    <div class="post-header">
-                        <div class="post-author">
-                            {% if post.author and post.author.username %}
-                            <a href="{% url 'accounts:profile_by_username' username=post.author.username %}" class="author-avatar">
-                                {% if post.author.profile.avatar %}
-                                <img src="{{ post.author.profile.avatar.url }}" alt="{{ post.author.username }}">
-                                {% else %}
-                                <div class="avatar-placeholder">{{ post.author.username|make_list|first|upper }}</div>
-                                {% endif %}
-                            </a>
-                            <div class="author-info">
-                                <a href="{% url 'accounts:profile_by_username' username=post.author.username %}" class="author-name">
-                                    {{ post.author.get_full_name|default:post.author.username }}
-                                </a>
-                                <span class="post-meta">
-                                    <span class="author-username">@{{ post.author.username }}</span>
-                                    <span class="post-time">· {{ post.created_at|timesince }} назад</span>
-                                </span>
-                            </div>
-                            {% endif %}
-                        </div>
+        <p class="community-description">{{ community.description }}</p>
 
-                        {% if user == post.author or user in community.moderators.all %}
-                        <div class="post-menu">
-                            <button class="menu-toggle">
-                                <i data-feather="more-horizontal"></i>
-                            </button>
-                            <div class="menu-dropdown">
-                                <a href="{% url 'posts:post_edit' pk=post.id %}" class="menu-item">
-                                    <i data-feather="edit"></i>
-                                    Редактировать
-                                </a>
-                                <button class="menu-item menu-item--danger delete-post" data-post-id="{{ post.id }}">
-                                    <i data-feather="trash-2"></i>
-                                    Удалить
-                                </button>
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
-
-                    <div class="post-content">
-                        <h3 class="post-title">
-                            <a href="{% url 'posts:post_detail' pk=post.id %}">{{ post.title }}</a>
-                        </h3>
-                        <div class="post-text">
-                            {{ post.content|truncatewords:50|linebreaks }}
-                        </div>
-                        {% if post.image %}
-                        <div class="post-image">
-                            <img src="{{ post.image.url }}" alt="Изображение поста">
-                        </div>
-                        {% endif %}
-                    </div>
-
-                    <div class="post-footer">
-                        <div class="post-stats">
-                            <button class="stat-btn like-btn" data-post-id="{{ post.id }}">
-                                <i data-feather="heart" class="{% if user in post.likes.all %}liked{% endif %}"></i>
-                                <span>{{ post.likes.count }}</span>
-                            </button>
-                            <a href="{% url 'posts:post_detail' pk=post.id %}" class="stat-btn">
-                                <i data-feather="message-circle"></i>
-                                <span>{{ post.comments.count }}</span>
-                            </a>
-                            <button class="stat-btn share-btn" data-post-id="{{ post.id }}">
-                                <i data-feather="share-2"></i>
-                            </button>
-                        </div>
-                        <button class="save-btn bookmark-btn" data-post-id="{{ post.id }}">
-                            <i data-feather="bookmark"></i>
-                        </button>
-                    </div>
-                </article>
-                {% empty %}
-                <div class="empty-state">
-                    <i data-feather="inbox"></i>
-                    <h3>Нет постов</h3>
-                    <p>Будьте первым, кто опубликует пост в этом сообществе!</p>
-                    {% if user in community.members.all %}
-                    <a href="{% url 'communities:community_post_create' slug=community.slug %}" class="btn btn--primary">
-                        Создать пост
-                    </a>
-                    {% endif %}
-                </div>
-                {% endfor %}
+        <!-- Статистика -->
+        <div class="community-stats">
+            <div class="stat-item">
+                <span class="stat-value">{{ community.members_count }}</span>
+                <span class="stat-label">Участников</span>
             </div>
+            <div class="stat-item">
+                <span class="stat-value">{{ community.posts_count }}</span>
+                <span class="stat-label">Постов</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value">{{ community.created_at|date:"M Y" }}</span>
+                <span class="stat-label">Создано</span>
+            </div>
+        </div>
 
-            {% if is_paginated %}
-            <div class="pagination-container">
-                <div class="pagination">
-                    {% if page_obj.has_previous %}
-                    <a href="?page={{ page_obj.previous_page_number }}" class="pagination-btn">
-                        <i data-feather="chevron-left"></i>
+        <!-- Мета информация -->
+        <div class="community-meta-info">
+            {% if community.creator %}
+            <div class="meta-line">
+                <i data-feather="user"></i>
+                <span>Создатель:
+                    <a href="{% url 'accounts:profile_by_username' username=community.creator.username %}">
+                        @{{ community.creator.username }}
                     </a>
-                    {% endif %}
-
-                    {% for num in page_obj.paginator.page_range %}
-                    {% if num == page_obj.number %}
-                    <span class="pagination-btn active">{{ num }}</span>
-                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-                    <a href="?page={{ num }}" class="pagination-btn">{{ num }}</a>
-                    {% endif %}
-                    {% endfor %}
-
-                    {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}" class="pagination-btn">
-                        <i data-feather="chevron-right"></i>
-                    </a>
-                    {% endif %}
-                </div>
+                </span>
+            </div>
+            {% endif %}
+            {% if community.privacy != 'public' %}
+            <div class="meta-line">
+                <i data-feather="{% if community.privacy == 'private' %}lock{% else %}eye-off{% endif %}"></i>
+                <span>{{ community.get_community_type_display }} — {% if community.privacy == 'private' %}требуется заявка{% else %}доступ по приглашению{% endif %}</span>
             </div>
             {% endif %}
         </div>
+    </div>
 
-        <div class="tab-content" id="tab-about">
-            <div class="about-card">
-                <h3>О сообществе</h3>
-                <p>{{ community.description }}</p>
+    <!-- Правила -->
+    {% if community.rules %}
+    <div class="community-rules-card">
+        <h3><i data-feather="book"></i> Правила сообщества</h3>
+        <div class="rules-text">{{ community.rules|linebreaks }}</div>
+    </div>
+    {% endif %}
 
-                <div class="about-stats">
-                    <div class="about-stat">
-                        <span class="stat-label">Создано</span>
-                        <span class="stat-value">{{ community.created_at|date:"d F Y" }}</span>
+    <!-- Модераторы -->
+    <div class="community-mods-card">
+        <h3><i data-feather="shield"></i> Команда</h3>
+        <div class="mods-list">
+            {% for admin in admins %}
+            <div class="mod-item">
+                <a href="{% url 'accounts:profile_by_username' username=admin.user.username %}">
+                    <span class="mod-name">@{{ admin.user.username }}</span>
+                    <span class="mod-badge {% if admin.role == 'admin' %}creator{% endif %}">{{ admin.get_role_display }}</span>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Табы -->
+    <div class="community-tabs">
+        <button class="tab-btn active" data-tab="posts">
+            <i data-feather="list"></i> Посты
+        </button>
+        <button class="tab-btn" data-tab="about">
+            <i data-feather="info"></i> О сообществе
+        </button>
+        <a href="{% url 'communities:community_members' slug=community.slug %}" class="tab-btn">
+            <i data-feather="users"></i> Участники
+        </a>
+    </div>
+
+    <!-- Форма создания поста -->
+    {% if user_membership and user_membership.status == 'active' %}
+    <div class="create-post-block">
+        <a href="{% url 'communities:community_post_create' slug=community.slug %}" class="create-post-link">
+            <div class="user-avatar-mini">
+                {% if user.profile.avatar %}
+                <img src="{{ user.profile.avatar.url }}" alt="">
+                {% else %}
+                <div class="avatar-placeholder-sm">{{ user.username|first|upper }}</div>
+                {% endif %}
+            </div>
+            <span>Поделитесь чем-нибудь с сообществом...</span>
+        </a>
+    </div>
+    {% endif %}
+
+    <!-- Контент табов -->
+    <div class="tab-content active" id="tab-posts">
+        <div class="posts-list">
+            {% for post in page_obj %}
+            <article class="post-item">
+                <div class="post-item-header">
+                    <a href="{% url 'accounts:profile_by_username' username=post.post.author.username %}" class="post-author-avatar">
+                        {% if post.post.author.profile.avatar %}
+                        <img src="{{ post.post.author.profile.avatar.url }}" alt="">
+                        {% else %}
+                        <div class="avatar-placeholder-xs">{{ post.post.author.username|first|upper }}</div>
+                        {% endif %}
+                    </a>
+                    <div class="post-author-info">
+                        <a href="{% url 'accounts:profile_by_username' username=post.post.author.username %}" class="post-author-name">
+                            {{ post.post.author.get_full_name|default:post.post.author.username }}
+                        </a>
+                        <span class="post-meta-text">@{{ post.post.author.username }} · {{ post.post.created_at|date:'d.m.Y' }} в {{ post.post.created_at|date:'H:i' }}</span>
                     </div>
-                    <div class="about-stat">
-                        <span class="stat-label">Тип</span>
-                        <span class="stat-value">{{ community.get_community_type_display }}</span>
+                </div>
+
+                <h3 class="post-item-title">
+                    <a href="{% url 'posts:post_detail' pk=post.post.id %}">{{ post.post.title }}</a>
+                </h3>
+                <div class="post-item-text">{{ post.post.content|striptags|truncatewords:50 }}</div>
+
+                {% if post.post.image %}
+                <div class="post-item-image">
+                    <img src="{{ post.post.image.url }}" alt="" loading="lazy">
+                </div>
+                {% endif %}
+
+                <div class="post-item-footer">
+                    <div class="post-item-stats">
+                        <button class="post-stat-btn like-btn" data-post-id="{{ post.post.id }}">
+                            <i data-feather="heart" class="{% if user in post.post.likes.all %}liked{% endif %}"></i>
+                            <span>{{ post.post.likes.count }}</span>
+                        </button>
+                        <a href="{% url 'posts:post_detail' pk=post.post.id %}" class="post-stat-btn">
+                            <i data-feather="message-circle"></i>
+                            <span>{{ post.post.comments.count }}</span>
+                        </a>
+                        <span class="post-stat-btn">
+                            <i data-feather="eye"></i>
+                            <span>{{ post.post.views_count|default:0 }}</span>
+                        </span>
                     </div>
+                    <button class="bookmark-btn" data-post-id="{{ post.post.id }}">
+                        <i data-feather="bookmark"></i>
+                    </button>
+                </div>
+            </article>
+            {% empty %}
+            <div class="empty-block">
+                <i data-feather="inbox"></i>
+                <h3>Нет постов</h3>
+                <p>Будьте первым, кто опубликует пост в этом сообществе!</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if is_paginated %}
+        <div class="pagination-row">
+            {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}" class="page-btn">←</a>
+            {% endif %}
+            {% for n in page_obj.paginator.page_range %}
+                {% if n == page_obj.number %}
+                <span class="page-btn active">{{ n }}</span>
+                {% elif n > page_obj.number|add:'-3' and n < page_obj.number|add:'3' %}
+                <a href="?page={{ n }}" class="page-btn">{{ n }}</a>
+                {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}" class="page-btn">→</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="tab-content" id="tab-about">
+        <div class="about-card">
+            <h3>О сообществе</h3>
+            <p>{{ community.description }}</p>
+            <div class="about-details">
+                <div class="about-row">
+                    <span class="about-label">Создано</span>
+                    <span class="about-value">{{ community.created_at|date:"d F Y" }}</span>
+                </div>
+                <div class="about-row">
+                    <span class="about-label">Тип</span>
+                    <span class="about-value">{{ community.get_community_type_display }}</span>
+                </div>
+                <div class="about-row">
+                    <span class="about-label">Участников</span>
+                    <span class="about-value">{{ community.members.count }}</span>
+                </div>
+                <div class="about-row">
+                    <span class="about-label">Постов</span>
+                    <span class="about-value">{{ community.posts.count }}</span>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Модалка заявки -->
+{% if community.privacy != 'public' %}
+<div class="modal-overlay" id="joinModal" style="display:none">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Вступить в c/{{ community.name }}</h3>
+            <button onclick="closeJoinModal()" class="modal-close">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="modal-community-info">
+                <div class="modal-comm-avatar">
+                    {% if community.avatar %}
+                    <img src="{{ community.avatar.url }}" alt="">
+                    {% else %}
+                    <div class="avatar-placeholder-sm">{{ community.name|first|upper }}</div>
+                    {% endif %}
+                </div>
+                <div>
+                    <strong>c/{{ community.name }}</strong>
+                    <p>{{ community.members.count }} участников</p>
+                </div>
+            </div>
+            {% if community.rules %}
+            <div class="modal-rules">
+                <h4>Правила</h4>
+                <div class="modal-rules-text">{{ community.rules|truncatewords:30 }}</div>
+            </div>
+            {% endif %}
+            <form id="joinForm">
+                {% csrf_token %}
+                <textarea name="message" placeholder="Сообщение модераторам (необязательно)" rows="3"></textarea>
+                <button type="submit" class="btn btn--primary" style="width:100%;margin-top:12px">Отправить заявку</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_css %}
 <style>
-    .community-detail-container { display: grid; grid-template-columns: 320px 1fr; gap: 1.5rem; max-width: 1200px; margin: 0 auto; }
-    .community-sidebar { position: sticky; top: 80px; height: fit-content; }
-    .community-info-card { background: var(--color-bg-surface); border-radius: var(--radius-xl); overflow: hidden; border: 1px solid var(--color-border-light); margin-bottom: 1rem; }
-    .community-cover { height: 100px; background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%); }
+    .community-page { max-width: 850px; margin: 0 auto; }
+    .comm-actions { display: flex; gap: 8px; }
+
+    /* Обложка */
+    .community-cover-section { position: relative; margin-bottom: 60px; }
+    .community-cover {
+        height: 160px; border-radius: 16px; overflow: hidden;
+        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    }
     .community-cover img { width: 100%; height: 100%; object-fit: cover; }
-    .community-info-content { padding: 0 1.25rem 1.25rem; position: relative; }
-    .community-avatar-large { width: 5rem; height: 5rem; border-radius: var(--radius-lg); border: 3px solid var(--color-bg-surface); overflow: hidden; margin-top: -2.5rem; margin-bottom: 0.75rem; background: var(--color-bg-surface); }
-    .community-avatar-large img { width: 100%; height: 100%; object-fit: cover; }
-    .community-avatar-large .avatar-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--color-primary-light); color: var(--color-primary); font-size: 2rem; font-weight: 600; }
-    .community-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
-    .community-description { color: var(--color-text-secondary); line-height: 1.6; margin-bottom: 1rem; }
-    .community-stats-detailed { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem; }
-    .stat-item { display: flex; align-items: center; gap: 0.75rem; color: var(--color-text-secondary); }
-    .stat-item i { width: 1.25rem; color: var(--color-text-tertiary); }
-    .stat-item div { display: flex; flex-direction: column; }
-    .stat-value { font-weight: 600; color: var(--color-text-primary); }
+    .cover-gradient { width: 100%; height: 100%; }
+    .community-avatar-lg {
+        position: absolute; bottom: -40px; left: 24px;
+        width: 90px; height: 90px; border-radius: 20px; overflow: hidden;
+        border: 4px solid var(--color-bg-surface); background: var(--color-bg-surface);
+    }
+    .community-avatar-lg img { width: 100%; height: 100%; object-fit: cover; }
+    .community-avatar-lg .avatar-placeholder {
+        width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff;
+        font-size: 2rem; font-weight: 700;
+    }
+
+    /* Карточка */
+    .community-main-card {
+        background: var(--color-bg-surface); border-radius: 16px;
+        border: 1px solid var(--color-border-light); padding: 24px; margin-bottom: 16px;
+    }
+    .community-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; }
+    .community-type-badge {
+        display: inline-block; padding: 3px 10px; background: var(--color-primary-light);
+        color: var(--color-primary); border-radius: 6px; font-size: 0.78rem; font-weight: 600;
+    }
+    .community-description {
+        color: var(--color-text-secondary); line-height: 1.6; margin: 16px 0;
+    }
+    .community-stats {
+        display: flex; gap: 24px; padding: 14px 0;
+        border-top: 1px solid var(--color-border-light);
+        border-bottom: 1px solid var(--color-border-light);
+        margin-bottom: 14px;
+    }
+    .stat-item { text-align: center; }
+    .stat-value { font-size: 1.25rem; font-weight: 700; display: block; }
     .stat-label { font-size: 0.75rem; color: var(--color-text-tertiary); }
-    .community-meta { padding-top: 0.75rem; border-top: 1px solid var(--color-border-light); }
-    .meta-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--color-text-secondary); margin-bottom: 0.5rem; }
-    .meta-item a { color: var(--color-primary); text-decoration: none; }
-    .community-rules-card, .community-moderators-card { background: var(--color-bg-surface); border-radius: var(--radius-lg); padding: 1.25rem; border: 1px solid var(--color-border-light); margin-bottom: 1rem; }
-    .community-rules-card h3, .community-moderators-card h3 { display: flex; align-items: center; gap: 0.5rem; font-size: 1rem; margin-bottom: 1rem; }
-    .rules-content { font-size: 0.875rem; color: var(--color-text-secondary); line-height: 1.6; }
-    .moderators-list { display: flex; flex-direction: column; gap: 0.5rem; }
-    .moderator-item a { display: flex; align-items: center; justify-content: space-between; text-decoration: none; color: var(--color-text-primary); padding: 0.5rem; border-radius: var(--radius-md); transition: background var(--transition-base); }
-    .moderator-item a:hover { background: var(--color-bg-elevated); }
-    .moderator-badge { font-size: 0.75rem; padding: 0.125rem 0.5rem; background: var(--color-primary-light); color: var(--color-primary); border-radius: var(--radius-full); }
-    .community-posts { min-width: 0; }
-    .posts-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; background: var(--color-bg-surface); padding: 0.5rem; border-radius: var(--radius-lg); border: 1px solid var(--color-border-light); }
-    .tab-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.625rem; border-radius: var(--radius-md); color: var(--color-text-secondary); text-decoration: none; transition: all var(--transition-base); }
+    .community-meta-info { display: flex; flex-direction: column; gap: 6px; }
+    .meta-line { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--color-text-secondary); }
+    .meta-line i { width: 16px; height: 16px; color: var(--color-text-tertiary); }
+    .meta-line a { color: var(--color-primary); }
+
+    /* Правила */
+    .community-rules-card, .community-mods-card {
+        background: var(--color-bg-surface); border-radius: 16px;
+        border: 1px solid var(--color-border-light); padding: 20px 24px; margin-bottom: 16px;
+    }
+    .community-rules-card h3, .community-mods-card h3 {
+        display: flex; align-items: center; gap: 8px; font-size: 1rem; margin-bottom: 12px;
+    }
+    .rules-text { font-size: 0.875rem; color: var(--color-text-secondary); line-height: 1.6; }
+    .mods-list { display: flex; flex-direction: column; gap: 6px; }
+    .mod-item a {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 8px 12px; border-radius: 8px; text-decoration: none;
+        color: var(--color-text); transition: background 0.15s;
+    }
+    .mod-item a:hover { background: var(--color-bg-elevated); }
+    .mod-badge {
+        font-size: 0.7rem; padding: 2px 8px; border-radius: 10px;
+        background: var(--color-bg-elevated); color: var(--color-text-tertiary);
+    }
+    .mod-badge.creator { background: #eef2ff; color: #6366f1; }
+
+    /* Табы */
+    .community-tabs {
+        display: flex; gap: 4px; background: var(--color-bg-surface);
+        border-radius: 12px; padding: 4px; border: 1px solid var(--color-border-light);
+        margin-bottom: 16px;
+    }
+    .tab-btn {
+        flex: 1; display: flex; align-items: center; justify-content: center;
+        gap: 6px; padding: 9px; border-radius: 10px; font-size: 0.85rem;
+        font-weight: 500; cursor: pointer; border: none; background: transparent;
+        color: var(--color-text-secondary); text-decoration: none; font-family: inherit;
+    }
     .tab-btn:hover { background: var(--color-bg-elevated); }
-    .tab-btn.active { background: var(--color-primary); color: white; }
-    .create-post-card { background: var(--color-bg-surface); border-radius: var(--radius-lg); padding: 1rem; border: 1px solid var(--color-border-light); margin-bottom: 1rem; }
-    .create-post-header { display: flex; gap: 0.75rem; margin-bottom: 0.75rem; }
-    .user-avatar-small { width: 2.5rem; height: 2.5rem; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
-    .user-avatar-small img { width: 100%; height: 100%; object-fit: cover; }
-    .create-post-input { flex: 1; padding: 0.625rem 1rem; background: var(--color-bg-elevated); border-radius: var(--radius-full); color: var(--color-text-tertiary); text-decoration: none; transition: background var(--transition-base); }
-    .create-post-input:hover { background: var(--color-border-light); }
-    .create-post-actions { display: flex; gap: 1rem; padding-left: 3.25rem; }
-    .action-btn { display: flex; align-items: center; gap: 0.375rem; padding: 0.375rem 0.75rem; border-radius: var(--radius-md); color: var(--color-text-tertiary); font-size: 0.875rem; transition: all var(--transition-base); }
-    .action-btn:hover { background: var(--color-bg-elevated); color: var(--color-primary); }
+    .tab-btn.active { background: var(--color-primary); color: #fff; }
+
     .tab-content { display: none; }
     .tab-content.active { display: block; }
-    .posts-feed { display: flex; flex-direction: column; gap: 1rem; }
-    .post-card { background: var(--color-bg-surface); border-radius: var(--radius-lg); padding: 1.25rem; border: 1px solid var(--color-border-light); transition: all var(--transition-base); }
-    .post-card:hover { box-shadow: var(--shadow-md); }
-    .post-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1rem; }
-    .post-author { display: flex; gap: 0.75rem; }
-    .author-avatar { width: 2.5rem; height: 2.5rem; border-radius: 50%; overflow: hidden; flex-shrink: 0; display: block; }
-    .author-avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .author-info { display: flex; flex-direction: column; }
-    .author-name { font-weight: 600; color: var(--color-text-primary); text-decoration: none; }
-    .author-name:hover { color: var(--color-primary); }
-    .post-meta { font-size: 0.75rem; color: var(--color-text-tertiary); }
-    .post-menu { position: relative; }
-    .menu-toggle { padding: 0.25rem; border-radius: var(--radius-md); color: var(--color-text-tertiary); }
-    .menu-toggle:hover { background: var(--color-bg-elevated); }
-    .menu-dropdown { position: absolute; right: 0; top: 100%; background: var(--color-bg-surface); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); border: 1px solid var(--color-border); min-width: 150px; z-index: 10; display: none; }
-    .post-menu:hover .menu-dropdown { display: block; }
-    .menu-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; color: var(--color-text-primary); text-decoration: none; width: 100%; transition: background var(--transition-base); }
-    .menu-item:hover { background: var(--color-bg-elevated); }
-    .menu-item--danger { color: var(--color-danger); }
-    .menu-item--danger:hover { background: var(--color-danger); color: white; }
-    .post-title { font-size: 1.125rem; margin-bottom: 0.5rem; }
-    .post-title a { color: var(--color-text-primary); text-decoration: none; }
-    .post-title a:hover { color: var(--color-primary); }
-    .post-text { color: var(--color-text-secondary); line-height: 1.6; margin-bottom: 1rem; }
-    .post-image { margin: 1rem 0; border-radius: var(--radius-lg); overflow: hidden; }
-    .post-image img { width: 100%; height: auto; }
-    .post-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 0.75rem; border-top: 1px solid var(--color-border-light); }
-    .post-stats { display: flex; gap: 1.5rem; }
-    .stat-btn { display: flex; align-items: center; gap: 0.375rem; color: var(--color-text-tertiary); transition: color var(--transition-base); }
-    .stat-btn:hover { color: var(--color-primary); }
-    .liked { fill: var(--color-danger); color: var(--color-danger); }
-    .save-btn { padding: 0.25rem; border-radius: var(--radius-md); color: var(--color-text-tertiary); }
-    .save-btn:hover { background: var(--color-bg-elevated); color: var(--color-primary); }
-    .about-card { background: var(--color-bg-surface); border-radius: var(--radius-lg); padding: 1.5rem; border: 1px solid var(--color-border-light); }
-    .about-card h3 { margin-bottom: 1rem; }
-    .about-stats { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border-light); }
-    .about-stat { display: flex; justify-content: space-between; margin-bottom: 0.75rem; }
-    .about-stat .stat-label { color: var(--color-text-tertiary); font-size: 0.875rem; }
-    .about-stat .stat-value { font-weight: 500; }
-    .pagination-container { display: flex; justify-content: center; margin-top: 2rem; }
-    .pagination { display: flex; gap: 0.5rem; }
-    .pagination-btn { min-width: 2.5rem; height: 2.5rem; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); background: var(--color-bg-surface); border: 1px solid var(--color-border); color: var(--color-text-primary); text-decoration: none; transition: all var(--transition-base); }
-    .pagination-btn:hover { background: var(--color-bg-elevated); }
-    .pagination-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-    .empty-state { text-align: center; padding: 3rem; background: var(--color-bg-surface); border-radius: var(--radius-lg); }
-    .empty-state i { width: 3rem; height: 3rem; color: var(--color-text-tertiary); margin-bottom: 1rem; }
-    .empty-state h3 { margin-bottom: 0.5rem; }
-    .empty-state p { color: var(--color-text-secondary); margin-bottom: 1.5rem; }
-    @media (max-width: 1024px) { .community-detail-container { grid-template-columns: 1fr; } .community-sidebar { position: static; } }
-    @media (max-width: 768px) { .post-card { padding: 1rem; } .post-stats { gap: 1rem; } }
+
+    /* Создать пост */
+    .create-post-block { margin-bottom: 16px; }
+    .create-post-link {
+        display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+        background: var(--color-bg-surface); border-radius: 14px;
+        border: 1px solid var(--color-border-light); text-decoration: none;
+        color: var(--color-text-tertiary); transition: all 0.15s;
+    }
+    .create-post-link:hover { border-color: var(--color-primary); }
+    .user-avatar-mini { width: 36px; height: 36px; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
+    .user-avatar-mini img { width: 100%; height: 100%; object-fit: cover; }
+    .avatar-placeholder-sm {
+        width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+        background: var(--color-primary-light); color: var(--color-primary); font-weight: 600; font-size: 0.8rem;
+    }
+
+    /* Посты */
+    .posts-list { display: flex; flex-direction: column; gap: 10px; }
+    .post-item {
+        background: var(--color-bg-surface); border-radius: 14px;
+        border: 1px solid var(--color-border-light); padding: 18px;
+    }
+    .post-item:hover { border-color: #d1d5db; }
+    .post-item-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .post-author-avatar { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
+    .post-author-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .avatar-placeholder-xs {
+        width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+        background: var(--color-primary-light); color: var(--color-primary); font-weight: 600; font-size: 0.75rem;
+    }
+    .post-author-name { font-weight: 600; color: var(--color-text); text-decoration: none; }
+    .post-author-name:hover { color: var(--color-primary); }
+    .post-meta-text { font-size: 0.75rem; color: var(--color-text-tertiary); }
+    .post-item-title { font-size: 1.05rem; margin-bottom: 8px; }
+    .post-item-title a { color: var(--color-text); text-decoration: none; }
+    .post-item-title a:hover { color: var(--color-primary); }
+    .post-item-text { color: var(--color-text-secondary); font-size: 0.875rem; line-height: 1.5; margin-bottom: 12px; }
+    .post-item-image { border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
+    .post-item-image img { width: 100%; height: auto; }
+    .post-item-footer { display: flex; align-items: center; justify-content: space-between; }
+    .post-item-stats { display: flex; gap: 16px; }
+    .post-stat-btn {
+        display: flex; align-items: center; gap: 4px; font-size: 0.8rem;
+        color: var(--color-text-tertiary); text-decoration: none; background: none; border: none; cursor: pointer;
+    }
+    .post-stat-btn:hover { color: var(--color-primary); }
+    .liked { fill: #ef4444; color: #ef4444; }
+    .bookmark-btn { background: none; border: none; cursor: pointer; color: var(--color-text-tertiary); padding: 4px; border-radius: 6px; }
+    .bookmark-btn:hover { background: var(--color-bg-elevated); color: var(--color-primary); }
+
+    .empty-block { text-align: center; padding: 40px; color: var(--color-text-tertiary); }
+    .empty-block i { width: 40px; height: 40px; opacity: 0.4; margin-bottom: 10px; }
+
+    /* О сообществе */
+    .about-card {
+        background: var(--color-bg-surface); border-radius: 14px;
+        border: 1px solid var(--color-border-light); padding: 24px;
+    }
+    .about-details { margin-top: 16px; }
+    .about-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--color-border-light); }
+    .about-label { color: var(--color-text-tertiary); }
+    .about-value { font-weight: 500; }
+
+    /* Пагинация */
+    .pagination-row { display: flex; justify-content: center; gap: 6px; padding: 24px 0; }
+    .page-btn {
+        min-width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+        border-radius: 8px; font-size: 0.85rem; text-decoration: none;
+        background: var(--color-bg-surface); border: 1px solid var(--color-border); color: var(--color-text);
+    }
+    .page-btn:hover { background: var(--color-bg-elevated); }
+    .page-btn.active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+
+    /* Модалка */
+    .modal-overlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+        display: flex; align-items: center; justify-content: center; z-index: 1000;
+    }
+    .modal { background: #fff; border-radius: 16px; width: 90%; max-width: 440px; padding: 24px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .modal-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; }
+    .modal-community-info { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; padding: 10px; background: #f9fafb; border-radius: 10px; }
+    .modal-comm-avatar { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; }
+    .modal-comm-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .modal-rules { margin-bottom: 16px; }
+    .modal-rules h4 { font-size: 0.85rem; margin-bottom: 6px; }
+    .modal-rules-text { font-size: 0.8rem; color: #6b7280; }
+    #joinForm textarea {
+        width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 10px;
+        font-family: inherit; font-size: 0.875rem; resize: vertical;
+    }
+
+    @media (max-width: 768px) {
+        .community-cover { height: 120px; }
+        .community-avatar-lg { width: 70px; height: 70px; left: 16px; bottom: -32px; }
+        .community-stats { gap: 16px; }
+    }
+    .liked { fill: #ef4444 !important; color: #ef4444 !important; stroke: #ef4444 !important; }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    function G(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
-    function T(m){const t=document.createElement('div');t.style.cssText='position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:10px;font-size:.8rem;font-weight:600;color:#fff;z-index:9999;background:#7c3aed;box-shadow:0 8px 24px rgba(0,0,0,.2);animation:toastIn .25s';t.textContent=m;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='all .3s';setTimeout(()=>t.remove(),300)},2000)}
-    document.addEventListener('DOMContentLoaded', function() {
-        feather.replace();
-        const joinBtn = document.querySelector('.join-leave-btn');
-        if(joinBtn){joinBtn.addEventListener('click',async function(){const slug='{{ community.slug }}';const url=this.dataset.action==='join'?`/communities/${slug}/join/`:`/communities/${slug}/leave/`;const r=await fetch(url,{method:'POST',headers:{'X-CSRFToken':G('csrftoken')}});if(r.ok){const d=await r.json();if(d.joined){this.dataset.action='leave';this.innerHTML='<i data-feather="check"></i><span>Вы участник</span>'}else{this.dataset.action='join';this.innerHTML='<i data-feather="plus"></i><span>Вступить</span>'}feather.replace();setTimeout(()=>location.reload(),1000)}})}
-        document.querySelectorAll('.tab-btn[data-tab]').forEach(b=>b.addEventListener('click',function(){document.querySelectorAll('.tab-btn[data-tab]').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tab-content').forEach(x=>x.classList.remove('active'));this.classList.add('active');document.getElementById('tab-'+this.dataset.tab).classList.add('active')}));
-        document.querySelectorAll('.like-btn').forEach(b=>b.addEventListener('click',async function(){const pid=this.dataset.postId;const r=await fetch('/like/toggle/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':G('csrftoken')},body:'content_type=post&object_id='+pid+'&like_type=like'});const d=await r.json();this.querySelector('span').textContent=d.likes_count}));
-        document.querySelectorAll('.bookmark-btn').forEach(b=>b.addEventListener('click',async function(){const pid=this.dataset.postId;const r=await fetch('/bookmark/'+pid+'/toggle/',{method:'POST',headers:{'X-CSRFToken':G('csrftoken'),'X-Requested-With':'XMLHttpRequest'}});const d=await r.json();T(d.action==='added'?'Добавлено':'Удалено')}));
-        document.querySelectorAll('.delete-post').forEach(b=>b.addEventListener('click',async function(){if(!confirm('Удалить?'))return;const pid=this.dataset.postId;await fetch('/post/'+pid+'/delete/',{method:'POST',headers:{'X-CSRFToken':G('csrftoken')}});this.closest('.post-card').remove()}));
-        document.querySelectorAll('.share-btn').forEach(b=>b.addEventListener('click',function(){const url=location.origin+'/post/'+this.dataset.postId+'/';if(navigator.share)navigator.share({url});else navigator.clipboard.writeText(url).then(()=>T('Ссылка скопирована'))}));
+function G(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
+function T(m){const t=document.createElement('div');t.style.cssText='position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:10px;font-size:.8rem;font-weight:600;color:#fff;z-index:9999;background:#7c3aed;box-shadow:0 8px 24px rgba(0,0,0,.2);animation:toastIn .25s';t.textContent=m;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='all .3s';setTimeout(()=>t.remove(),300)},2000)}
+
+document.addEventListener('DOMContentLoaded', function() {
+    feather.replace();
+
+    // Табы
+    document.querySelectorAll('.tab-btn[data-tab]').forEach(b => {
+        b.addEventListener('click', function() {
+            document.querySelectorAll('.tab-btn[data-tab]').forEach(x => x.classList.remove('active'));
+            this.classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(x => x.classList.remove('active'));
+            document.getElementById('tab-' + this.dataset.tab).classList.add('active');
+        });
     });
+
+    // Вступить / Выйти
+    const joinBtn = document.querySelector('.join-leave-btn');
+    if (joinBtn) {
+        joinBtn.addEventListener('click', async function() {
+            const slug = '{{ community.slug }}';
+            const action = this.dataset.action;
+
+            // Для закрытых — модалка
+            if (action === 'join' && '{{ community.privacy }}' !== 'public') {
+                document.getElementById('joinModal').style.display = 'flex';
+                return;
+            }
+
+            const r = await fetch(`/communities/${slug}/${action === 'join' ? 'join' : 'leave'}/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': G('csrftoken') }
+            });
+            if (r.ok) location.reload();
+        });
+    }
+
+    // Закрытие модалки
+    window.closeJoinModal = function() {
+        document.getElementById('joinModal').style.display = 'none';
+    };
+
+    // Отправка заявки
+    document.getElementById('joinForm')?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const fd = new FormData(this);
+        const r = await fetch('/communities/{{ community.slug }}/join/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': G('csrftoken') },
+            body: fd
+        });
+        if (r.ok) location.reload();
+    });
+
+    // Лайки
+    document.querySelectorAll('.like-btn').forEach(b => {
+        b.addEventListener('click', async function() {
+            const pid = this.dataset.postId;
+            const r = await fetch('/like/toggle/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': G('csrftoken') },
+                body: 'content_type=post&object_id=' + pid + '&like_type=like'
+            });
+            const d = await r.json();
+            this.querySelector('span').textContent = d.likes_count;
+            const icon = this.querySelector('i');
+            if (d.liked) {
+                icon.classList.add('liked');
+                icon.setAttribute('fill', '#ef4444');
+            } else {
+                icon.classList.remove('liked');
+                icon.setAttribute('fill', 'none');
+            }
+            feather.replace();
+        });
+    });
+
+    // Закладки
+    document.querySelectorAll('.bookmark-btn').forEach(b => {
+        b.addEventListener('click', async function() {
+            const pid = this.dataset.postId;
+            const r = await fetch('/bookmark/' + pid + '/toggle/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': G('csrftoken') }
+            });
+            const d = await r.json();
+            T(d.action === 'added' ? 'Добавлено в закладки' : 'Удалено из закладок');
+        });
+    });
+});
 </script>
 {% endblock %}
