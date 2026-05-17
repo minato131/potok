@@ -3,7 +3,7 @@
 {% load static %}
 
 {% block title %}Создать пост · {{ community.name }} · Поток{% endblock %}
-{% block page_title %}Создать пост в c/{{ community.name }}{% endblock %}
+{% block page_title %}Создать пост в {{ community.name }}{% endblock %}
 
 {% block content %}
 <div class="post-create-container">
@@ -20,7 +20,7 @@
                 <div class="avatar-placeholder">{{ community.name|make_list|first|upper }}</div>
                 {% endif %}
             </div>
-            <span>c/{{ community.name }}</span>
+            <span>{{ community.name }}</span>
         </div>
     </div>
 
@@ -138,7 +138,7 @@
 <div class="modal-overlay" id="rulesModal">
     <div class="modal">
         <div class="modal-header">
-            <h3 class="modal-title">Правила c/{{ community.name }}</h3>
+            <h3 class="modal-title">Правила {{ community.name }}</h3>
             <button class="modal-close" id="closeRulesModal">
                 <i data-feather="x"></i>
             </button>

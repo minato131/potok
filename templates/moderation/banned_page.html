@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Аккаунт заблокирован · Поток{% endblock %}
+
+{% block content %}
+<style>
+    .banned-page {
+        display: flex; align-items: center; justify-content: center;
+        min-height: 70vh; padding: 40px 20px;
+    }
+    .banned-card {
+        background: var(--color-bg-surface); border-radius: 20px;
+        border: 1px solid var(--color-border-light); padding: 40px 32px;
+        max-width: 520px; width: 100%; text-align: center;
+    }
+    .banned-icon {
+        width: 72px; height: 72px; border-radius: 50%;
+        background: #fef2f2; display: flex; align-items: center;
+        justify-content: center; margin: 0 auto 20px; font-size: 2rem;
+    }
+    .banned-card h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 8px; }
+    .banned-card p { color: var(--color-text-secondary); margin-bottom: 20px; line-height: 1.5; }
+    .banned-info {
+        background: var(--color-bg-elevated); border-radius: 12px;
+        padding: 16px; text-align: left; margin-bottom: 24px;
+    }
+    .banned-info-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.88rem; }
+    .banned-info-label { color: var(--color-text-tertiary); }
+    .banned-info-value { font-weight: 500; }
+    .banned-info-value.permanent { color: #ef4444; font-weight: 600; }
+    .ticket-form textarea {
+        width: 100%; padding: 12px; border: 1px solid var(--color-border);
+        border-radius: 10px; font-family: inherit; font-size: 0.88rem;
+        resize: vertical; margin-bottom: 12px;
+    }
+    .ticket-form textarea:focus { outline: none; border-color: var(--color-primary); }
+    .ticket-sent {
+        background: #d1fae5; border-radius: 10px; padding: 14px;
+        color: #065f46; font-size: 0.9rem;
+    }
+</style>
+
+<div class="banned-page">
+    <div class="banned-card">
+        <div class="banned-icon">🚫</div>
+        <h1>Ваш аккаунт заблокирован</h1>
+        <p>Доступ к социальной сети ограничен. Ниже указана причина блокировки.</p>
+
+        <div class="banned-info">
+            <div class="banned-info-row">
+                <span class="banned-info-label">Причина:</span>
+                <span class="banned-info-value">{{ active_ban.reason }}</span>
+            </div>
+            <div class="banned-info-row">
+                <span class="banned-info-label">Тип блокировки:</span>
+                <span class="banned-info-value {% if active_ban.ban_type == 'permanent' %}permanent{% endif %}">
+                    {% if active_ban.ban_type == 'permanent' %}Навсегда{% else %}Временная{% endif %}
+                </span>
+            </div>
+            {% if active_ban.expires_at %}
+            <div class="banned-info-row">
+                <span class="banned-info-label">Истекает:</span>
+                <span class="banned-info-value">{{ active_ban.expires_at|date:'d.m.Y H:i' }}</span>
+            </div>
+            {% endif %}
+            <div class="banned-info-row">
+                <span class="banned-info-label">Заблокирован:</span>
+                <span class="banned-info-value">{{ active_ban.created_at|date:'d.m.Y' }}</span>
+            </div>
+        </div>
+
+        {% if existing_ticket %}
+        <div class="ticket-sent">
+            ✅ Вы уже отправили заявку на разблокировку. Статус: <strong>{{ existing_ticket.get_status_display }}</strong>. Ожидайте решения.
+        </div>
+        {% else %}
+        <form class="ticket-form" method="post" action="{% url 'moderation:create_unban_ticket' %}">
+            {% csrf_token %}
+            <textarea name="message" rows="4" placeholder="Опишите, почему вас нужно разблокировать..." maxlength="1000" required></textarea>
+            <button type="submit" class="btn btn--primary" style="width:100%">Отправить заявку на разблокировку</button>
+        </form>
+        {% endif %}
+
+        <p style="margin-top:16px;font-size:0.82rem;color:var(--color-text-tertiary)">
+            <a href="{% url 'accounts:logout' %}">Выйти из аккаунта</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

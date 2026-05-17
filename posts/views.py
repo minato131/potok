@@ -35,29 +35,17 @@ def post_list(request):
         'author', 'author__profile', 'category'
     ).prefetch_related(
         'tags', 'comments'
-    ).filter(status='published')
+    ).filter(status='published', is_hidden=False)
 
     feed = request.GET.get('feed', 'all')
     sort = request.GET.get('sort', 'new')
     period = request.GET.get('period', 'week')
 
-    # === ФИД: ПОДПИСКИ ===
     if feed == 'following' and request.user.is_authenticated:
-        # Друзья
-        friend_ids = list(
-            Friendship.objects.filter(user=request.user).values_list('friend_id', flat=True)
-        )
-        # Подписки (исключая друзей)
-        following_ids = list(
-            request.user.profile.following.exclude(id__in=friend_ids).values_list('id', flat=True)
-        )
-        # Сообщества
-        community_ids = list(
-            Community.objects.filter(members=request.user).values_list('id', flat=True)
-        )
-        community_post_ids = list(
-            CommunityPost.objects.filter(community_id__in=community_ids).values_list('post_id', flat=True)
-        )
+        friend_ids = list(Friendship.objects.filter(user=request.user).values_list('friend_id', flat=True))
+        following_ids = list(request.user.profile.following.exclude(id__in=friend_ids).values_list('id', flat=True))
+        community_ids = list(Community.objects.filter(members=request.user).values_list('id', flat=True))
+        community_post_ids = list(CommunityPost.objects.filter(community_id__in=community_ids).values_list('post_id', flat=True))
 
         posts = posts.filter(
             Q(author_id__in=friend_ids) |
@@ -72,7 +60,6 @@ def post_list(request):
             )
         ).order_by('priority', '-created_at')
 
-    # === ФИД: ПОПУЛЯРНОЕ ===
     elif feed == 'popular':
         if period == 'day':
             date_from = timezone.now() - timedelta(days=1)
@@ -80,26 +67,16 @@ def post_list(request):
             date_from = timezone.now() - timedelta(days=30)
         elif period == 'year':
             date_from = timezone.now() - timedelta(days=365)
-        else:  # week
+        else:
             date_from = timezone.now() - timedelta(days=7)
-
         posts = posts.filter(created_at__gte=date_from).order_by('-likes_count', '-created_at')
 
-    # === ФИД: РЕКОМЕНДАЦИИ ===
     elif feed == 'recommended' and request.user.is_authenticated:
-        # Теги, которые пользователь часто лайкал/комментировал
-        liked_comment_ids = Like.objects.filter(
-            user=request.user, content_type='post'
-        ).values_list('object_id', flat=True)[:50]
-
+        liked_comment_ids = Like.objects.filter(user=request.user, content_type='post').values_list('object_id', flat=True)[:50]
         user_tags = Tag.objects.filter(posts__id__in=liked_comment_ids).distinct()[:10]
         user_categories = Category.objects.filter(posts__id__in=liked_comment_ids).distinct()[:5]
+        posts = posts.filter(Q(tags__in=user_tags) | Q(category__in=user_categories)).exclude(author=request.user).distinct().order_by('-created_at')
 
-        posts = posts.filter(
-            Q(tags__in=user_tags) | Q(category__in=user_categories)
-        ).exclude(author=request.user).distinct().order_by('-created_at')
-
-    # === СОРТИРОВКА ===
     else:
         if sort == 'top':
             if period == 'day':
@@ -116,7 +93,6 @@ def post_list(request):
         else:
             posts = posts.order_by('-created_at')
 
-    # Пагинация
     paginator = Paginator(posts, 20)
     page = request.GET.get('page', 1)
     try:
@@ -126,17 +102,12 @@ def post_list(request):
     except EmptyPage:
         posts_page = paginator.page(paginator.num_pages)
 
-    # Лайки и закладки пользователя
     liked_post_ids = set()
     bookmarked_post_ids = set()
     if request.user.is_authenticated:
         post_ids = [p.id for p in posts_page]
-        liked_post_ids = set(Like.objects.filter(
-            user=request.user, content_type='post', object_id__in=post_ids
-        ).values_list('object_id', flat=True))
-        bookmarked_post_ids = set(Bookmark.objects.filter(
-            user=request.user, post_id__in=post_ids
-        ).values_list('post_id', flat=True))
+        liked_post_ids = set(Like.objects.filter(user=request.user, content_type='post', object_id__in=post_ids).values_list('object_id', flat=True))
+        bookmarked_post_ids = set(Bookmark.objects.filter(user=request.user, post_id__in=post_ids).values_list('post_id', flat=True))
 
     friend_ids = set()
     if request.user.is_authenticated:
@@ -156,72 +127,48 @@ def post_list(request):
     return render(request, 'posts/post_list.html', context)
 
 def post_detail(request, pk):
-    """
-    Детальная страница поста
-    """
     post = get_object_or_404(
         Post.objects.select_related('author', 'category'),
-        pk=pk
+        pk=pk,
+        is_hidden=False
     )
 
-    # Если пост в черновике и не автор - 404
     if post.status != 'published' and post.author != request.user:
         return render(request, '404.html', status=404)
 
-    # Увеличиваем просмотры (только для авторизованных или уникальных)
     if request.user.is_authenticated:
-        # Проверяем, не смотрел ли пользователь этот пост в последний час
         recent_view = PostView.objects.filter(
-            post=post,
-            user=request.user,
+            post=post, user=request.user,
             viewed_at__gte=timezone.now() - timedelta(hours=1)
         ).exists()
-
         if not recent_view:
             PostView.objects.create(post=post, user=request.user)
             post.increment_views()
     elif not request.session.get(f'viewed_post_{pk}'):
-        # Для неавторизованных используем сессию
         PostView.objects.create(post=post, ip_address=request.META.get('REMOTE_ADDR'))
         post.increment_views()
         request.session[f'viewed_post_{pk}'] = True
 
-    # Комментарии
-    comments = post.comments.filter(parent=None, is_deleted=False).prefetch_related('replies')
-
-    # Форма комментария
+    comments = post.comments.filter(parent=None, is_deleted=False, is_hidden=False).prefetch_related('replies')
     comment_form = CommentForm()
 
-    # Проверка лайка от текущего пользователя
     user_like = None
     if request.user.is_authenticated:
-        user_like = Like.objects.filter(
-            user=request.user,
-            content_type='post',
-            object_id=post.id
-        ).first()
+        user_like = Like.objects.filter(user=request.user, content_type='post', object_id=post.id).first()
 
-    # Проверка, в избранном ли пост
     is_bookmarked = False
     if request.user.is_authenticated:
-        is_bookmarked = Bookmark.objects.filter(
-            user=request.user,
-            post=post
-        ).exists()
+        is_bookmarked = Bookmark.objects.filter(user=request.user, post=post).exists()
 
-    # Проверка подписки на автора
     is_subscribed = False
     if request.user.is_authenticated:
         is_subscribed = request.user.profile.following.filter(id=post.author.id).exists()
 
-    # ID лайкнутых комментариев
     liked_comment_ids = set()
     if request.user.is_authenticated:
         comment_ids = list(comments.values_list('id', flat=True))
         liked_comment_ids = set(Like.objects.filter(
-            user=request.user,
-            content_type='comment',
-            object_id__in=comment_ids
+            user=request.user, content_type='comment', object_id__in=comment_ids
         ).values_list('object_id', flat=True))
 
     friend_ids = set()
@@ -520,7 +467,8 @@ def bookmarks_list(request):
     Список избранных постов пользователя
     """
     bookmarks = Bookmark.objects.filter(
-        user=request.user
+        user=request.user,
+        post__is_hidden=False
     ).select_related('post', 'post__author', 'post__author__profile')
 
     # Сортировка
@@ -529,6 +477,8 @@ def bookmarks_list(request):
         bookmarks = bookmarks.order_by('created_at')
     else:
         bookmarks = bookmarks.order_by('-created_at')
+
+
 
     # Пагинация
     paginator = Paginator(bookmarks, 10)
@@ -604,7 +554,8 @@ def search(request):
         if search_type == 'posts':
             results = Post.objects.filter(
                 Q(title__icontains=query) | Q(content__icontains=query),
-                status='published'
+                status='published',
+                is_hidden=False
             ).select_related('author').prefetch_related('tags')
 
             # Фильтр по дате
@@ -660,6 +611,9 @@ def search(request):
 
             total_count = results.count()
             context['communities_count'] = total_count
+            # Показывать теги рядом с результатами постов
+            tag_results = Tag.objects.filter(name__icontains=query)[:10]
+            context['tag_results'] = tag_results
 
         elif search_type == 'users':
             results = User.objects.filter(
@@ -758,14 +712,21 @@ def tag_list(request):
 
 
 def tag_detail(request, slug):
-    """Детальная страница тега с постами"""
     tag = get_object_or_404(Tag, slug=slug)
-    posts = tag.posts.filter(status='published').order_by('-created_at')
+    posts = Post.objects.filter(tags=tag, status='published', is_hidden=False).select_related('author',
+                                                                                              'author__profile').order_by(
+        '-created_at')
+
+    paginator = Paginator(posts, 20)
+    page = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page)
+
     return render(request, 'posts/tag_detail.html', {
         'tag': tag,
-        'posts': posts,
+        'posts': page_obj,
+        'is_paginated': page_obj.has_other_pages(),
+        'page_obj': page_obj,
     })
-
 
 @login_required
 def tag_create(request):
@@ -990,3 +951,7 @@ def tag_search(request):
             for tag in tags
         ]
     })
+
+def tag_list(request):
+    tags = Tag.objects.annotate(posts_count=Count('posts')).order_by('-posts_count')
+    return render(request, 'posts/tag_list.html', {'tags': tags})

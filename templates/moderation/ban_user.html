@@ -2,28 +2,26 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Забанить {{ target_user.username }} · Модерация · Поток{% endblock %}
+{% block title %}Забанить {{ user_to_ban.username }} · Модерация · Поток{% endblock %}
 {% block page_title %}Забанить пользователя{% endblock %}
 
 {% block content %}
 <div class="ban-container">
     <div class="ban-form-card">
-        <!-- Информация о пользователе -->
         <div class="user-preview">
             <div class="user-avatar">
-                {% if target_user.profile.avatar %}
-                <img src="{{ target_user.profile.avatar.url }}" alt="{{ target_user.username }}">
+                {% if user_to_ban.profile.avatar %}
+                <img src="{{ user_to_ban.profile.avatar.url }}" alt="{{ user_to_ban.username }}">
                 {% else %}
-                <div class="avatar-placeholder">{{ target_user.username|make_list|first|upper }}</div>
+                <div class="avatar-placeholder">{{ user_to_ban.username|make_list|first|upper }}</div>
                 {% endif %}
             </div>
             <div class="user-info">
-                <h3>{{ target_user.get_full_name|default:target_user.username }}</h3>
-                <p>@{{ target_user.username }}</p>
+                <h3>{{ user_to_ban.get_full_name|default:user_to_ban.username }}</h3>
+                <p>@{{ user_to_ban.username }}</p>
             </div>
         </div>
 
-        <!-- Активные баны -->
         {% if active_bans %}
         <div class="active-bans-warning">
             <i data-feather="alert-triangle"></i>
@@ -38,7 +36,6 @@
         </div>
         {% endif %}
 
-        <!-- Форма бана -->
         <form method="post" class="ban-form" novalidate>
             {% csrf_token %}
 
@@ -147,7 +144,7 @@
             </div>
 
             <div class="form-actions">
-                <a href="{% url 'moderation:user_detail' user_id=target_user.id %}" class="btn btn--outline">
+                <a href="{% url 'moderation:user_detail' user_id=user_to_ban.id %}" class="btn btn--outline">
                     Отмена
                 </a>
                 <button type="submit" class="btn btn--danger">
@@ -399,7 +396,6 @@
             });
         }
 
-        // Подтверждение перед отправкой
         const form = document.querySelector('.ban-form');
         form?.addEventListener('submit', function(e) {
             const isPermanent = document.querySelector('input[name="duration"]:checked')?.value === 'permanent';

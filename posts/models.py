@@ -201,6 +201,7 @@ class Post(models.Model):
         blank=True,
         verbose_name='Дата публикации'
     )
+    is_hidden = models.BooleanField(default=False, verbose_name='Скрыт модерацией')
 
     class Meta:
         verbose_name = 'Пост'
@@ -270,6 +271,7 @@ class Comment(models.Model):
         default=False,
         verbose_name='Удален'
     )
+    is_hidden = models.BooleanField(default=False, verbose_name='Скрыт модерацией')
 
     # Даты
     created_at = models.DateTimeField(

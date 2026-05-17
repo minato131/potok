@@ -105,6 +105,10 @@
     .spoiler{background:var(--color-text);color:transparent;border-radius:4px;padding:1px 4px;cursor:pointer;transition:all 0.2s;user-select:none}
     .spoiler:hover{opacity:0.85}
     .spoiler.revealed{background:var(--color-bg-elevated);color:var(--color-text);cursor:default}
+    .cmt-menu-dropdown .menu-item { display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;border:none;background:transparent;font-size:0.82rem;color:var(--color-text);cursor:pointer;border-radius:6px;text-align:left;font-family:inherit }
+    .cmt-menu-dropdown .menu-item:hover { background:var(--color-bg-elevated) }
+    .cmt-menu-dropdown .menu-item.danger { color:var(--color-danger) }
+    .cmt-menu-dropdown .menu-divider { height:1px;background:var(--color-border);margin:3px 0 }
 </style>
 
 <div class="pd-wrap">
@@ -192,7 +196,7 @@
 
     <div class="cmt-list">
         {% for comment in comments %}
-        <div class="cmt-card" id="comment-{{ comment.id }}">
+        <div class="cmt-card" id="comment-{{ comment.id }}" style="position:relative">
             <div class="cmt-avatar">{% if comment.author.profile.avatar %}<img src="{{ comment.author.profile.avatar.url }}">{% else %}<div class="av-ph" style="font-size:0.6rem;width:28px;height:28px">{{ comment.author.username|first|upper }}</div>{% endif %}</div>
             <div class="cmt-body">
                 <div class="cmt-top"><span class="cmt-author">{{ comment.author.get_full_name|default:comment.author.username }}</span><span class="cmt-time">{{ comment.created_at|timesince }} назад</span></div>
@@ -215,14 +219,86 @@
                     </div>
                 </div>
             </div>
+            <!-- Кнопка меню комментария -->
+            <div style="position:absolute;top:6px;right:6px;z-index:5">
+                <button class="post-vk-menu-btn" onclick="event.stopPropagation();togglePostMenu(this)" title="Меню" style="width:28px;height:28px">
+                    <i data-feather="more-horizontal" style="width:14px;height:14px"></i>
+                </button>
+                <div class="post-menu-dropdown" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--color-bg-surface);border:1px solid var(--color-border);border-radius:12px;box-shadow:var(--shadow-lg);min-width:180px;z-index:30;padding:4px">
+                    <button class="menu-item" onclick="event.stopPropagation();copyCommentLink({{ comment.id }})"><i data-feather="link" style="width:14px;height:14px"></i> Скопировать ссылку</button>
+                    {% if user == comment.author %}
+                    <button class="menu-item danger" onclick="event.stopPropagation();deleteComment({{ comment.id }})"><i data-feather="trash-2" style="width:14px;height:14px"></i> Удалить</button>
+                    {% endif %}
+                    <div class="menu-divider"></div>
+                    <button class="menu-item" onclick="event.stopPropagation();reportComment({{ comment.id }})"><i data-feather="flag" style="width:14px;height:14px"></i> Пожаловаться</button>
+                </div>
+            </div>
         </div>
         {% empty %}<div class="no-cmt">Пока нет комментариев</div>{% endfor %}
+    </div>
+
+    <!-- Модалка жалобы на комментарий -->
+    <div class="report-modal-overlay" id="reportCommentModal" style="display:none">
+        <div class="report-modal">
+            <div class="report-modal-header">
+                <h3>Пожаловаться на комментарий</h3>
+                <button onclick="closeReportCommentModal()">✕</button>
+            </div>
+            <div class="report-modal-body">
+                <div class="report-types-grid">
+                    <label class="report-type-option"><input type="radio" name="cmt_report_type" value="spam"><span class="report-type-content"><span class="report-type-icon">📢</span> Спам</span></label>
+                    <label class="report-type-option"><input type="radio" name="cmt_report_type" value="abuse"><span class="report-type-content"><span class="report-type-icon">😡</span> Оскорбления</span></label>
+                    <label class="report-type-option"><input type="radio" name="cmt_report_type" value="illegal"><span class="report-type-content"><span class="report-type-icon">🚫</span> Незаконный контент</span></label>
+                    <label class="report-type-option"><input type="radio" name="cmt_report_type" value="adult"><span class="report-type-content"><span class="report-type-icon">🔞</span> Контент 18+</span></label>
+                    <label class="report-type-option"><input type="radio" name="cmt_report_type" value="violence"><span class="report-type-content"><span class="report-type-icon">💀</span> Насилие</span></label>
+                    <label class="report-type-option"><input type="radio" name="cmt_report_type" value="other" checked><span class="report-type-content"><span class="report-type-icon">📝</span> Другое</span></label>
+                </div>
+                <textarea id="cmtReportDescription" placeholder="Опишите причину жалобы..." rows="3" style="width:100%;margin-top:12px;padding:10px;border:1px solid #d1d5db;border-radius:10px;font-family:inherit;font-size:0.88rem;resize:vertical"></textarea>
+                <button class="btn btn--primary" style="width:100%;margin-top:12px" onclick="submitCommentReport()">Отправить жалобу</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .report-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 300; display: flex; align-items: center; justify-content: center; }
+        .report-modal { background: var(--color-bg-surface); border-radius: 16px; width: 90%; max-width: 440px; padding: 24px; }
+        .report-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .report-modal-header h3 { font-size: 1.1rem; font-weight: 700; }
+        .report-modal-header button { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--color-text-tertiary); }
+        .report-types-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .report-type-option input { display: none; }
+        .report-type-content { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px; border: 1.5px solid var(--color-border); border-radius: 10px; cursor: pointer; transition: all 0.15s; font-size: 0.78rem; }
+        .report-type-content:hover { border-color: var(--color-primary); background: var(--color-primary-light); }
+        .report-type-option input:checked + .report-type-content { border-color: var(--color-primary); background: var(--color-primary-light); color: var(--color-primary); font-weight: 600; }
+        .report-type-icon { font-size: 1.3rem; }
+    </style>
+        <!-- Модалка жалобы на пост -->
+    <div class="report-modal-overlay" id="reportModal" style="display:none">
+        <div class="report-modal">
+            <div class="report-modal-header"><h3>Пожаловаться на пост</h3><button onclick="closeReportModal()">✕</button></div>
+            <div class="report-modal-body">
+                <div class="report-types-grid">
+                    <label class="report-type-option"><input type="radio" name="report_type" value="spam"><span class="report-type-content"><span class="report-type-icon">📢</span> Спам</span></label>
+                    <label class="report-type-option"><input type="radio" name="report_type" value="abuse"><span class="report-type-content"><span class="report-type-icon">😡</span> Оскорбления</span></label>
+                    <label class="report-type-option"><input type="radio" name="report_type" value="illegal"><span class="report-type-content"><span class="report-type-icon">🚫</span> Незаконный контент</span></label>
+                    <label class="report-type-option"><input type="radio" name="report_type" value="adult"><span class="report-type-content"><span class="report-type-icon">🔞</span> Контент 18+</span></label>
+                    <label class="report-type-option"><input type="radio" name="report_type" value="violence"><span class="report-type-content"><span class="report-type-icon">💀</span> Насилие</span></label>
+                    <label class="report-type-option"><input type="radio" name="report_type" value="other" checked><span class="report-type-content"><span class="report-type-icon">📝</span> Другое</span></label>
+                </div>
+                <textarea id="reportDescription" placeholder="Опишите причину жалобы..." rows="3" style="width:100%;margin-top:12px;padding:10px;border:1px solid #d1d5db;border-radius:10px;font-family:inherit;font-size:0.88rem;resize:vertical"></textarea>
+                <button class="btn btn--primary" style="width:100%;margin-top:12px" onclick="submitReport()">Отправить жалобу</button>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+window.reportComment = function(cid) {
+    reportCommentId = cid;
+    document.getElementById('reportCommentModal').style.display = 'flex';
+};
 feather.replace();
 const EMOJIS=['😂','❤️','😍','😢','😡','👍','🔥','🎉','💯','👏','💀','😭','🤔','😎','🙏','💪','🤗','😅'];
 function getCookie(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
@@ -233,20 +309,17 @@ document.querySelector('.pd-subscribe')?.addEventListener('click',async function
     const r=await fetch(`/accounts/follow/${this.dataset.authorId}/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken')}});
     if(r.ok){this.classList.toggle('subscribed');this.textContent=this.classList.contains('subscribed')?'Вы подписаны':'Подписаться';}
 });
-
 // Друг
 document.querySelector('.pd-friend')?.addEventListener('click',async function(){
     const r=await fetch(`/accounts/friend/${this.dataset.friendId}/toggle/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken')}});
     const d=await r.json();this.classList.toggle('friend',d.action==='added');this.textContent=d.action==='added'?'Друг':'+ Друг';
 });
-
 // Лайк поста
 document.querySelector('.like-btn-vk')?.addEventListener('click',async function(){
     const pid=this.dataset.postId,cnt=this.querySelector('span');
     const r=await fetch('/like/toggle/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`content_type=post&object_id=${pid}&like_type=like`});
     const d=await r.json();this.classList.toggle('liked',d.action==='added');cnt.textContent=d.likes_count;
 });
-
 // Закладка
 document.querySelector('.bookmark-btn-vk')?.addEventListener('click',async function(){
     const r=await fetch(`/bookmark/${this.dataset.postId}/toggle/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'}});
@@ -255,9 +328,8 @@ document.querySelector('.bookmark-btn-vk')?.addEventListener('click',async funct
 
 // Шеринг
 document.querySelector('.share-btn-vk')?.addEventListener('click',()=>{
-    if(navigator.share)navigator.share({url:location.href});else navigator.clipboard.writeText(location.href).then(()=>alert('Ссылка скопирована'));
+    if(navigator.share)navigator.share({url:location.href});else navigator.clipboard.writeText(location.href).then(()=>showToast('Ссылка скопирована'));
 });
-
 // Инструменты комментария
 document.querySelectorAll('.comment-inline-tool').forEach(btn=>{
     if(btn.querySelector('[data-feather="smile"]')) btn.addEventListener('click',function(){
@@ -269,7 +341,6 @@ document.querySelectorAll('.comment-inline-tool').forEach(btn=>{
     if(btn.querySelector('[data-feather="bookmark"]')) btn.addEventListener('click',function(){window._toggleSavedPicker(this)});
     if(btn.querySelector('[data-feather="image"]')) btn.addEventListener('click',function(){this.nextElementSibling?.click()});
 });
-
 // Отправка комментария
 document.querySelector('.comment-inline-send')?.addEventListener('click',async function(){
     const pid=this.dataset.postId,body=this.closest('.comment-inline-body'),ta=body.querySelector('textarea'),content=ta.value.trim(),files=body.querySelector('input[type="file"]').files;
@@ -279,7 +350,6 @@ document.querySelector('.comment-inline-send')?.addEventListener('click',async f
     if(r.ok)location.reload();
 });
 document.querySelector('.comment-inline-input')?.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();this.closest('.comment-inline-body').querySelector('.comment-inline-send').click()}});
-
 // Превью
 document.querySelector('input[type="file"]')?.addEventListener('change',function(){
     const pv=document.getElementById('preview-inline-'+this.closest('.comment-inline-form')?.querySelector('.comment-inline-send')?.dataset.postId);
@@ -288,7 +358,6 @@ document.querySelector('input[type="file"]')?.addEventListener('change',function
         if(f.type.startsWith('image/')){const img=document.createElement('img');img.src=url;wrap.appendChild(img)}else{const vid=document.createElement('video');vid.src=url;vid.muted=true;vid.autoplay=true;vid.loop=true;wrap.appendChild(vid)}
         const rmv=document.createElement('button');rmv.className='remove-preview';rmv.innerHTML='×';rmv.onclick=e=>{e.stopPropagation();wrap.remove()};wrap.appendChild(rmv);pv.appendChild(wrap)});
 });
-
 // Markdown
 function renderMarkdown(raw){let html=marked.parse(raw||'');html=html.replace(/\|\|(.+?)\|\|/g,'<span class="spoiler" onclick="this.classList.toggle(\'revealed\')">$1</span>');return html}
 document.querySelectorAll('.markdown-content').forEach(el=>{el.innerHTML=renderMarkdown(el.dataset.raw||el.textContent||'')});
@@ -297,30 +366,53 @@ document.querySelectorAll('.markdown-content').forEach(el=>{el.innerHTML=renderM
 window.togglePostMenu=function(btn){const menu=btn.parentElement.querySelector('.post-menu-dropdown');document.querySelectorAll('.post-menu-dropdown').forEach(m=>{if(m!==menu)m.style.display='none'});menu.style.display=menu.style.display==='none'?'block':'none'};
 window.toggleBookmark=async function(btn){const pid=btn.dataset.postId;const r=await fetch(`/bookmark/${pid}/toggle/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'}});const d=await r.json();btn.classList.toggle('active',d.action==='added');btn.querySelector('span').textContent=d.action==='added'?'Убрать из закладок':'В закладки'};
 window.deletePost=async function(pid){if(!confirm('Удалить пост?'))return;const r=await fetch(`/post/${pid}/delete/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken')}});if(r.ok)location.reload()};
-window.reportPost=function(pid){const reason=prompt('Причина жалобы:');if(reason){fetch('/moderation/report/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`post_id=${pid}&reason=${encodeURIComponent(reason)}`}).then(r=>{if(r.ok)showToast('Жалоба отправлена')})}};
 window.copyLink=function(pid){navigator.clipboard.writeText(location.origin+'/post/'+pid+'/').then(()=>showToast('Ссылка скопирована'))};
 
-// Сохранить фото/видео (новый метод — по postId)
-window.savePhoto = async function(postId) {
-    const r = await fetch('/media-storage/save-from-post/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
-        body: `post_id=${postId}&media_type=photo`
-    });
-    const d = await r.json();
-    showToast(d.success ? 'Фото сохранено' : 'Ошибка');
+// Жалоба на пост
+let reportPostId=null;
+window.reportPost=function(pid){reportPostId=pid;document.getElementById('reportModal').style.display='flex'};
+window.closeReportModal=function(){document.getElementById('reportModal').style.display='none'};
+window.submitReport=async function(){
+    var pid=reportPostId;if(!pid)return;
+    var type=document.querySelector('input[name="report_type"]:checked')?.value||'other';
+    var desc=document.getElementById('reportDescription').value.trim();
+    closeReportModal();
+    try{var r=await fetch('/moderation/report/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:'post_id='+pid+'&reason='+encodeURIComponent(desc)+'&report_type='+type});var d=await r.json();showToast(d.message||'✅ Жалоба отправлена')}catch(e){showToast('❌ Ошибка')}
 };
+document.getElementById('reportModal')?.addEventListener('click',function(e){if(e.target===this)closeReportModal()});
 
-window.saveVideo = async function(postId) {
-    const r = await fetch('/media-storage/save-from-post/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
-        body: `post_id=${postId}&media_type=video`
-    });
-    const d = await r.json();
-    showToast(d.success ? 'Видео сохранено' : 'Ошибка');
-};
+// Жалоба на комментарий
+let reportCommentId=null;
+function closeReportCommentModal() {
+    document.getElementById('reportCommentModal').style.display = 'none';
+}
+async function submitCommentReport() {
+    var cid = reportCommentId;
+    if (!cid) return;
+    var type = document.querySelector('input[name="cmt_report_type"]:checked')?.value || 'other';
+    var desc = document.getElementById('cmtReportDescription').value.trim();
+    closeReportCommentModal();
+    try {
+        var r = await fetch('/moderation/report/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+            body: 'comment_id=' + cid + '&reason=' + encodeURIComponent(desc) + '&report_type=' + type
+        });
+        var d = await r.json();
+        notify(d.message || '✅ Жалоба отправлена');
+    } catch(e) {
+        notify('❌ Ошибка');
+    }
+}
+document.getElementById('reportCommentModal')?.addEventListener('click',function(e){if(e.target===this)closeReportCommentModal()});
 
+window.copyCommentLink=function(cid){const url=location.origin+location.pathname+'#comment-'+cid;navigator.clipboard.writeText(url).then(()=>showToast('Ссылка скопирована'))};
+window.deleteComment=async function(cid){if(!confirm('Удалить комментарий?'))return;const r=await fetch(`/post/comment/${cid}/delete/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken')}});if(r.ok)location.reload()};
+
+window.savePhoto=async function(postId){const r=await fetch('/media-storage/save-from-post/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`post_id=${postId}&media_type=photo`});const d=await r.json();showToast(d.success?'Фото сохранено':'Ошибка')};
+window.saveVideo=async function(postId){const r=await fetch('/media-storage/save-from-post/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`post_id=${postId}&media_type=video`});const d=await r.json();showToast(d.success?'Видео сохранено':'Ошибка')};
+
+// Закрытие меню по клику вне
 document.addEventListener('click',function(e){if(!e.target.closest('.post-menu-dropdown')&&!e.target.closest('.post-vk-menu-btn')){document.querySelectorAll('.post-menu-dropdown').forEach(m=>m.style.display='none')}});
 
 // Комментарии

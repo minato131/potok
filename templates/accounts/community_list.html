@@ -48,8 +48,8 @@
             {% endif %}
         </a>
         <div class="community-info">
-            <a href="{% url 'communities:community_detail' slug=community.slug %}" class="community-name">c/{{ community.name }}</a>
-            <span class="community-members">{{ community.members_count }} участников</span>
+            <a href="{% url 'communities:community_detail' slug=community.slug %}" class="community-name">{{ community.name }}</a>
+            <span class="community-members">{{ community.members.count }} участников</span>
         </div>
     </div>
     {% empty %}

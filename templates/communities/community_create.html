@@ -3,688 +3,134 @@
 {% load static %}
 
 {% block title %}Создание сообщества · Поток{% endblock %}
-{% block page_title %}Создание сообщества{% endblock %}
+{% block page_title %}Новое сообщество{% endblock %}
 
 {% block content %}
-<div class="community-create-container">
-    <form method="post" enctype="multipart/form-data" class="community-form" novalidate>
+<style>
+    .cc-page { max-width: 650px; margin: 0 auto; }
+    .cc-card {
+        background: var(--color-bg-surface); border-radius: 20px; padding: 28px;
+        border: 1px solid var(--color-border-light);
+    }
+    .cc-section { margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--color-border-light); }
+    .cc-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .cc-section h3 { font-size: 1rem; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .cc-section h3 i { color: var(--color-primary); width: 18px; height: 18px; }
+    .cc-group { margin-bottom: 16px; }
+    .cc-group:last-child { margin-bottom: 0; }
+    .cc-label { display: block; font-weight: 500; margin-bottom: 6px; font-size: 0.9rem; }
+    .cc-req { color: #ef4444; }
+    .cc-input, .cc-textarea {
+        width: 100%; padding: 10px 14px; border: 1px solid var(--color-border);
+        border-radius: 10px; font-size: 0.9rem; font-family: inherit; background: var(--color-bg-surface);
+        transition: border-color 0.2s;
+    }
+    .cc-input:focus, .cc-textarea:focus { outline: none; border-color: var(--color-primary); }
+    .cc-textarea { resize: vertical; min-height: 100px; }
+    .cc-hint { font-size: 0.78rem; color: var(--color-text-tertiary); margin-top: 4px; }
+    .cc-actions { display: flex; gap: 10px; justify-content: flex-end; padding-top: 20px; border-top: 1px solid var(--color-border-light); margin-top: 24px; }
+
+    .cc-media-row { display: flex; gap: 16px; }
+    .cc-media-box {
+        flex: 1; border: 2px dashed var(--color-border); border-radius: 14px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden;
+        background: var(--color-bg-elevated); aspect-ratio: 1; text-align: center;
+    }
+    .cc-media-box:hover { border-color: var(--color-primary); }
+    .cc-media-box img { width: 100%; height: 100%; object-fit: cover; position: absolute; }
+    .cc-media-box input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .cc-media-box span { color: var(--color-text-tertiary); font-size: 0.8rem; z-index: 1; }
+    .cc-media-box.cover { aspect-ratio: 3/1; }
+</style>
+
+<div class="cc-page">
+    <form method="post" enctype="multipart/form-data" class="cc-card">
         {% csrf_token %}
 
-        <!-- Основная информация -->
-        <div class="form-section">
-            <div class="section-header">
-                <i data-feather="info"></i>
-                <h2>Основная информация</h2>
-            </div>
-
-            <div class="form-group">
-                <label for="{{ form.name.id_for_label }}" class="form-label">
-                    Название сообщества
-                    <span class="required">*</span>
-                </label>
+        <div class="cc-section">
+            <h3><i data-feather="info"></i> Основное</h3>
+            <div class="cc-group">
+                <label class="cc-label">Название <span class="cc-req">*</span></label>
                 {{ form.name }}
-                <div class="field-hint">
-                    <span>Уникальное название для вашего сообщества</span>
-                    <span class="char-counter">
-                        <span id="nameCounter">0</span>/50
-                    </span>
-                </div>
-                {% if form.name.errors %}
-                <div class="form-error">{{ form.name.errors.0 }}</div>
-                {% endif %}
+                <div class="cc-hint">Уникальное название сообщества</div>
             </div>
-
-            <div class="form-group">
-                <label for="{{ form.slug.id_for_label }}" class="form-label">
-                    URL сообщества
-                    <span class="required">*</span>
-                </label>
-                <div class="slug-input-wrapper">
-                    <span class="slug-prefix">potok.ru/c/</span>
-                    {{ form.slug }}
-                </div>
-                <div class="field-hint">
-                    <span>Только латинские буквы, цифры и дефис</span>
-                    <span class="slug-status" id="slugStatus"></span>
-                </div>
-                {% if form.slug.errors %}
-                <div class="form-error">{{ form.slug.errors.0 }}</div>
-                {% endif %}
+            <div class="cc-group">
+                <label class="cc-label">URL <span class="cc-req">*</span></label>
+                {{ form.slug }}
+                <div class="cc-hint">Адрес страницы: potok.ru/c/<strong>ваш-url</strong></div>
             </div>
-
-            <div class="form-group">
-                <label for="{{ form.description.id_for_label }}" class="form-label">
-                    Описание
-                    <span class="required">*</span>
-                </label>
+            <div class="cc-group">
+                <label class="cc-label">Описание <span class="cc-req">*</span></label>
                 {{ form.description }}
-                <div class="field-hint">
-                    <span>Расскажите, о чем ваше сообщество</span>
-                    <span class="char-counter">
-                        <span id="descCounter">0</span>/500
-                    </span>
-                </div>
-                {% if form.description.errors %}
-                <div class="form-error">{{ form.description.errors.0 }}</div>
-                {% endif %}
+                <div class="cc-hint">Расскажите о чём сообщество</div>
             </div>
         </div>
 
-        <!-- Изображения -->
-        <div class="form-section">
-            <div class="section-header">
-                <i data-feather="image"></i>
-                <h2>Изображения</h2>
+        <div class="cc-section">
+            <h3><i data-feather="image"></i> Изображения</h3>
+            <div class="cc-media-row">
+                <div class="cc-media-box" id="avatarBox">
+                    {{ form.avatar }}
+                    <span>📷 Аватар</span>
+                </div>
+                <div class="cc-media-box cover" id="coverBox">
+                    {{ form.cover_image }}
+                    <span>🖼 Обложка</span>
+                </div>
             </div>
+            <div class="cc-hint">Аватар 400×400, обложка 1200×400</div>
+        </div>
 
-            <div class="image-upload-row">
-                <div class="avatar-upload-group">
-                    <label class="form-label">Аватар сообщества</label>
-                    <div class="image-preview avatar-preview" id="avatarPreview">
-                        <div class="preview-placeholder">
-                            <i data-feather="camera"></i>
-                            <span>Загрузить аватар</span>
-                        </div>
-                        {{ form.avatar }}
-                    </div>
-                    <div class="field-hint">Рекомендуемый размер: 400x400</div>
-                </div>
-
-                <div class="cover-upload-group">
-                    <label class="form-label">Обложка сообщества</label>
-                    <div class="image-preview cover-preview" id="coverPreview">
-                        <div class="preview-placeholder">
-                            <i data-feather="image"></i>
-                            <span>Загрузить обложку</span>
-                        </div>
-                        {{ form.cover_image }}
-                    </div>
-                    <div class="field-hint">Рекомендуемый размер: 1200x400</div>
-                </div>
+        <div class="cc-section">
+            <h3><i data-feather="settings"></i> Настройки</h3>
+            <div class="cc-group">
+                <label class="cc-label">Тип сообщества</label>
+                {{ form.community_type }}
             </div>
         </div>
 
-        <!-- Настройки -->
-        <div class="form-section">
-            <div class="section-header">
-                <i data-feather="settings"></i>
-                <h2>Настройки</h2>
-            </div>
-
-            <div class="settings-group">
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <span class="setting-label">Тип сообщества</span>
-                        <span class="setting-description">Кто может видеть и публиковать посты</span>
-                    </div>
-                    {{ form.community_type }}
-                </div>
-
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <span class="setting-label">Модерация постов</span>
-                        <span class="setting-description">Посты требуют одобрения модератора</span>
-                    </div>
-                    <label class="toggle-switch">
-                        {{ form.posts_need_approval }}
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-            </div>
-        </div>
-
-        <!-- Правила -->
-        <div class="form-section">
-            <div class="section-header">
-                <i data-feather="book"></i>
-                <h2>Правила сообщества</h2>
-            </div>
-
-            <div class="form-group">
+        <div class="cc-section">
+            <h3><i data-feather="book"></i> Правила</h3>
+            <div class="cc-group">
                 {{ form.rules }}
-                <div class="field-hint">Установите правила поведения в сообществе (опционально)</div>
+                <div class="cc-hint">Установите правила (необязательно)</div>
             </div>
         </div>
 
-        <!-- Действия -->
-        <div class="form-actions">
-            <a href="{% url 'communities:community_list' %}" class="btn btn--outline">
-                <i data-feather="x"></i>
-                Отмена
-            </a>
-            <button type="submit" class="btn btn--primary">
-                <i data-feather="check"></i>
-                Создать сообщество
-            </button>
+        <div class="cc-actions">
+            <a href="{% url 'communities:community_list' %}" class="btn btn--outline">Отмена</a>
+            <button type="submit" class="btn btn--primary">Создать сообщество</button>
         </div>
     </form>
-
-    <!-- Советы -->
-    <div class="tips-sidebar">
-        <div class="tip-card">
-            <h3>Советы по созданию</h3>
-            <ul class="tips-list">
-                <li>
-                    <i data-feather="check-circle"></i>
-                    <span>Выберите запоминающееся название</span>
-                </li>
-                <li>
-                    <i data-feather="check-circle"></i>
-                    <span>Добавьте качественный аватар</span>
-                </li>
-                <li>
-                    <i data-feather="check-circle"></i>
-                    <span>Напишите понятное описание</span>
-                </li>
-                <li>
-                    <i data-feather="check-circle"></i>
-                    <span>Установите четкие правила</span>
-                </li>
-                <li>
-                    <i data-feather="check-circle"></i>
-                    <span>Будьте активным модератором</span>
-                </li>
-            </ul>
-        </div>
-
-        <div class="tip-card">
-            <h3>Примеры хороших сообществ</h3>
-            <div class="example-communities">
-                <div class="example-item">
-                    <strong>c/programming</strong>
-                    <p>Обсуждение языков программирования, алгоритмов и лучших практик</p>
-                </div>
-                <div class="example-item">
-                    <strong>c/design</strong>
-                    <p>UI/UX дизайн, графический дизайн, типографика и вдохновение</p>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
-{% endblock %}
 
-{% block extra_css %}
-<style>
-    .community-create-container {
-        display: grid;
-        grid-template-columns: 1fr 320px;
-        gap: 2rem;
-        max-width: 1100px;
-        margin: 0 auto;
-    }
-
-    .community-form {
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-xl);
-        padding: 2rem;
-        border: 1px solid var(--color-border-light);
-    }
-
-    .form-section {
-        margin-bottom: 2rem;
-        padding-bottom: 2rem;
-        border-bottom: 1px solid var(--color-border-light);
-    }
-
-    .form-section:last-of-type {
-        border-bottom: none;
-        margin-bottom: 0;
-        padding-bottom: 0;
-    }
-
-    .section-header {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .section-header i {
-        color: var(--color-primary);
-    }
-
-    .section-header h2 {
-        font-size: 1.125rem;
-        font-weight: 600;
-    }
-
-    .form-group {
-        margin-bottom: 1.5rem;
-    }
-
-    .form-group:last-child {
-        margin-bottom: 0;
-    }
-
-    .form-label {
-        display: block;
-        margin-bottom: 0.5rem;
-        font-weight: 500;
-        color: var(--color-text-primary);
-    }
-
-    .required {
-        color: var(--color-danger);
-    }
-
-    .form-input,
-    .form-textarea,
-    .form-select {
-        width: 100%;
-        padding: 0.75rem 1rem;
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-lg);
-        font-size: 0.9375rem;
-        transition: all var(--transition-base);
-        background: var(--color-bg-surface);
-    }
-
-    .form-input:focus,
-    .form-textarea:focus,
-    .form-select:focus {
-        outline: none;
-        border-color: var(--color-primary);
-        box-shadow: 0 0 0 3px var(--color-primary-light);
-    }
-
-    .form-textarea {
-        resize: vertical;
-        min-height: 100px;
-    }
-
-    .slug-input-wrapper {
-        display: flex;
-        align-items: center;
-        border: 1px solid var(--color-border);
-        border-radius: var(--radius-lg);
-        overflow: hidden;
-        transition: all var(--transition-base);
-    }
-
-    .slug-input-wrapper:focus-within {
-        border-color: var(--color-primary);
-        box-shadow: 0 0 0 3px var(--color-primary-light);
-    }
-
-    .slug-prefix {
-        padding: 0.75rem 0.5rem 0.75rem 1rem;
-        background: var(--color-bg-elevated);
-        color: var(--color-text-tertiary);
-        font-size: 0.9375rem;
-    }
-
-    .slug-input-wrapper input {
-        flex: 1;
-        border: none;
-        padding: 0.75rem 1rem 0.75rem 0.5rem;
-    }
-
-    .slug-input-wrapper input:focus {
-        outline: none;
-        box-shadow: none;
-    }
-
-    .field-hint {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 0.375rem;
-        font-size: 0.8125rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .char-counter {
-        font-family: monospace;
-    }
-
-    .slug-status {
-        font-weight: 500;
-    }
-
-    .slug-status.available {
-        color: var(--color-success);
-    }
-
-    .slug-status.unavailable {
-        color: var(--color-danger);
-    }
-
-    .image-upload-row {
-        display: grid;
-        grid-template-columns: 1fr 2fr;
-        gap: 1.5rem;
-    }
-
-    .image-preview {
-        position: relative;
-        cursor: pointer;
-        border-radius: var(--radius-lg);
-        border: 2px dashed var(--color-border);
-        overflow: hidden;
-        transition: all var(--transition-base);
-    }
-
-    .image-preview:hover {
-        border-color: var(--color-primary);
-    }
-
-    .avatar-preview {
-        width: 100%;
-        aspect-ratio: 1;
-    }
-
-    .cover-preview {
-        width: 100%;
-        aspect-ratio: 3 / 1;
-    }
-
-    .preview-placeholder {
-        width: 100%;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        color: var(--color-text-tertiary);
-        background: var(--color-bg-elevated);
-    }
-
-    .image-preview img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .image-preview input[type="file"] {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        opacity: 0;
-        cursor: pointer;
-    }
-
-    .settings-group {
-        display: flex;
-        flex-direction: column;
-        gap: 1.5rem;
-    }
-
-    .setting-item {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-
-    .setting-info {
-        flex: 1;
-    }
-
-    .setting-label {
-        display: block;
-        font-weight: 500;
-        margin-bottom: 0.25rem;
-    }
-
-    .setting-description {
-        font-size: 0.875rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .toggle-switch {
-        position: relative;
-        display: inline-block;
-        width: 48px;
-        height: 24px;
-    }
-
-    .toggle-switch input {
-        opacity: 0;
-        width: 0;
-        height: 0;
-    }
-
-    .toggle-slider {
-        position: absolute;
-        cursor: pointer;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: var(--color-border);
-        transition: .3s;
-        border-radius: 24px;
-    }
-
-    .toggle-slider:before {
-        position: absolute;
-        content: "";
-        height: 20px;
-        width: 20px;
-        left: 2px;
-        bottom: 2px;
-        background-color: white;
-        transition: .3s;
-        border-radius: 50%;
-    }
-
-        input:checked + .toggle-slider {
-        background-color: var(--color-primary);
-    }
-
-    input:checked + .toggle-slider:before {
-        transform: translateX(24px);
-    }
-
-    .form-actions {
-        display: flex;
-        gap: 1rem;
-        justify-content: flex-end;
-        margin-top: 2rem;
-        padding-top: 1.5rem;
-        border-top: 1px solid var(--color-border-light);
-    }
-
-    .tips-sidebar {
-        position: sticky;
-        top: 80px;
-        height: fit-content;
-    }
-
-    .tip-card {
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-lg);
-        padding: 1.5rem;
-        border: 1px solid var(--color-border-light);
-        margin-bottom: 1.5rem;
-    }
-
-    .tip-card h3 {
-        font-size: 1rem;
-        margin-bottom: 1rem;
-        color: var(--color-text-primary);
-    }
-
-    .tips-list {
-        list-style: none;
-    }
-
-    .tips-list li {
-        display: flex;
-        align-items: flex-start;
-        gap: 0.75rem;
-        margin-bottom: 0.75rem;
-        font-size: 0.875rem;
-        color: var(--color-text-secondary);
-    }
-
-    .tips-list i {
-        width: 1rem;
-        height: 1rem;
-        color: var(--color-success);
-        flex-shrink: 0;
-        margin-top: 0.125rem;
-    }
-
-    .example-item {
-        margin-bottom: 1rem;
-    }
-
-    .example-item strong {
-        display: block;
-        margin-bottom: 0.25rem;
-        color: var(--color-primary);
-    }
-
-    .example-item p {
-        font-size: 0.8125rem;
-        color: var(--color-text-tertiary);
-        line-height: 1.5;
-    }
-
-    @media (max-width: 1024px) {
-        .community-create-container {
-            grid-template-columns: 1fr;
-        }
-
-        .tips-sidebar {
-            display: none;
-        }
-    }
-
-    @media (max-width: 768px) {
-        .community-form {
-            padding: 1.5rem;
-        }
-
-        .image-upload-row {
-            grid-template-columns: 1fr;
-        }
-
-        .form-actions {
-            flex-direction: column;
-        }
-
-        .setting-item {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 1rem;
-        }
-    }
-</style>
-{% endblock %}
-
-{% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Автогенерация slug из названия
-        const nameInput = document.querySelector('input[name="name"]');
-        const slugInput = document.querySelector('input[name="slug"]');
-
-        if (nameInput && slugInput) {
-            nameInput.addEventListener('input', function() {
-                if (!slugInput.dataset.manuallyChanged) {
-                    const slug = this.value
-                        .toLowerCase()
-                        .replace(/[^a-z0-9\s-]/g, '')
-                        .replace(/\s+/g, '-')
-                        .replace(/-+/g, '-');
-                    slugInput.value = slug;
-                    checkSlugAvailability(slug);
-                }
-            });
-
-            slugInput.addEventListener('input', function() {
-                this.dataset.manuallyChanged = 'true';
-                checkSlugAvailability(this.value);
-            });
-        }
-
-        // Проверка доступности slug
-        let slugTimeout;
-        async function checkSlugAvailability(slug) {
-            clearTimeout(slugTimeout);
-
-            const statusEl = document.getElementById('slugStatus');
-            if (!slug) {
-                statusEl.textContent = '';
-                return;
-            }
-
-            slugTimeout = setTimeout(async () => {
-                try {
-                    const response = await fetch(`/communities/check-slug/?slug=${slug}`);
-                    const data = await response.json();
-
-                    if (data.available) {
-                        statusEl.textContent = '✓ Доступно';
-                        statusEl.className = 'slug-status available';
-                    } else {
-                        statusEl.textContent = '✗ Занято';
-                        statusEl.className = 'slug-status unavailable';
-                    }
-                } catch (error) {
-                    console.error('Error checking slug:', error);
-                }
-            }, 500);
-        }
-
-        // Предпросмотр аватара
-        const avatarInput = document.querySelector('input[name="avatar"]');
-        const avatarPreview = document.getElementById('avatarPreview');
-
-        if (avatarInput && avatarPreview) {
-            avatarInput.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        avatarPreview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
-                        avatarPreview.appendChild(avatarInput);
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-        }
-
-        // Предпросмотр обложки
-        const coverInput = document.querySelector('input[name="cover_image"]');
-        const coverPreview = document.getElementById('coverPreview');
-
-        if (coverInput && coverPreview) {
-            coverInput.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        coverPreview.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
-                        coverPreview.appendChild(coverInput);
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-        }
-
-        // Счетчики символов
-        const nameCounter = document.getElementById('nameCounter');
-        const descCounter = document.getElementById('descCounter');
-        const descInput = document.querySelector('textarea[name="description"]');
-
-        if (nameInput && nameCounter) {
-            nameInput.addEventListener('input', () => {
-                nameCounter.textContent = nameInput.value.length;
-            });
-            nameCounter.textContent = nameInput.value.length;
-        }
-
-        if (descInput && descCounter) {
-            descInput.addEventListener('input', () => {
-                descCounter.textContent = descInput.value.length;
-            });
-            descCounter.textContent = descInput.value.length;
-        }
-    });
+// Превью аватара
+document.querySelector('#avatarBox input')?.addEventListener('change', function() {
+    const f = this.files[0];
+    if (f) {
+        const reader = new FileReader();
+        reader.onload = e => { document.getElementById('avatarBox').innerHTML = `<img src="${e.target.result}"><input type="file" name="avatar" style="position:absolute;inset:0;opacity:0;cursor:pointer">`; };
+        reader.readAsDataURL(f);
+    }
+});
+// Превью обложки
+document.querySelector('#coverBox input')?.addEventListener('change', function() {
+    const f = this.files[0];
+    if (f) {
+        const reader = new FileReader();
+        reader.onload = e => { document.getElementById('coverBox').innerHTML = `<img src="${e.target.result}"><input type="file" name="cover_image" style="position:absolute;inset:0;opacity:0;cursor:pointer">`; };
+        reader.readAsDataURL(f);
+    }
+});
+// Авто-slug
+document.querySelector('input[name="name"]')?.addEventListener('input', function() {
+    const slug = document.querySelector('input[name="slug"]');
+    if (slug && !slug.dataset.touched) {
+        slug.value = this.value.toLowerCase().replace(/[^a-z0-9\s-]/g,'').replace(/\s+/g,'-').replace(/-+/g,'-');
+    }
+});
+document.querySelector('input[name="slug"]')?.addEventListener('input', function() { this.dataset.touched = '1'; });
 </script>
 {% endblock %}

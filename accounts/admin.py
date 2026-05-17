@@ -13,15 +13,21 @@ class CustomUserAdmin(UserAdmin):
         'email',
         'first_name',
         'last_name',
+        'is_platform_moderator',
         'email_verified',
         'is_staff',
         'is_active',
         'date_joined'
     ]
-    list_filter = ['email_verified', 'is_staff', 'is_active', 'date_joined']
+    list_filter = ['is_platform_moderator', 'email_verified', 'is_staff', 'is_active', 'date_joined']
     search_fields = ['username', 'email', 'first_name', 'last_name']
 
     fieldsets = UserAdmin.fieldsets + (
+        ('Права модерации', {
+            'fields': (
+                'is_platform_moderator',
+            )
+        }),
         ('Дополнительная информация', {
             'fields': (
                 'avatar',

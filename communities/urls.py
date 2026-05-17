@@ -30,4 +30,8 @@ urlpatterns = [
     path('<slug:slug>/requests/', views.community_manage_requests, name='community_manage_requests'),
 
     path('<slug:slug>/cancel-request/', views.cancel_join_request, name='cancel_join_request'),
+    path('<slug:slug>/change-role/', views.change_member_role, name='change_member_role'),
+    path('<slug:slug>/ban-member/', views.ban_community_member, name='ban_community_member'),
+    path('<slug:slug>/unban-member/', views.unban_community_member, name='unban_community_member'),
+    path('friends/search/', views.friends_search_api, name='friends_search_api'),
 ]

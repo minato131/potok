@@ -111,13 +111,26 @@
                             <span>Мои видео</span>
                         </a>
                     </li>
-                    {% if user.is_authenticated and user.is_staff %}
-                    <li class="nav-menu__item">
-                        <a href="{% url 'moderation:panel' %}" class="nav-link {% if 'moderation' in request.resolver_match.namespace %}nav-link--active{% endif %}">
-                            <i data-feather="shield"></i>
-                            <span>Модерация</span>
-                        </a>
-                    </li>
+                    {% if user.is_authenticated %}
+                        {% if user.is_staff or user.is_platform_moderator %}
+                        <li class="nav-menu__item">
+                            <a href="{% url 'moderation:panel' %}" class="nav-link {% if 'moderation' in request.resolver_match.namespace and request.resolver_match.url_name == 'panel' %}nav-link--active{% endif %}">
+                                <i data-feather="shield"></i>
+                                <span>Модерация</span>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for membership in user.communitymembership_set.all %}
+                            {% if membership.status == 'active' and membership.role == 'admin' or membership.role == 'moderator' %}
+                            <li class="nav-menu__item">
+                                <a href="{% url 'moderation:community_moderation' slug=membership.community.slug %}" class="nav-link">
+                                    <i data-feather="flag"></i>
+                                    <span>c/{{ membership.community.name }}</span>
+                                </a>
+                            </li>
+                            {% endif %}
+                        {% endfor %}
                     {% endif %}
                     {% if user.is_authenticated %}
                     <li class="nav-menu__item">
@@ -212,8 +225,16 @@
             <li><a href="{% url 'posts:bookmarks' %}"><i data-feather="bookmark"></i> Закладки</a></li>
             <li><a href="{% url 'media_storage:photo_list' %}"><i data-feather="image"></i> Мои фото</a></li>
             <li><a href="{% url 'media_storage:video_list' %}"><i data-feather="video"></i> Мои видео</a></li>
-            {% if user.is_authenticated and user.is_staff %}
-            <li><a href="{% url 'moderation:panel' %}"><i data-feather="shield"></i> Модерация</a></li>
+            {% if user.is_authenticated %}
+                {% if user.is_staff or user.is_platform_moderator %}
+                <li><a href="{% url 'moderation:panel' %}"><i data-feather="shield"></i> Модерация</a></li>
+                {% endif %}
+
+                {% for membership in user.communitymembership_set.all %}
+                    {% if membership.status == 'active' and membership.role == 'admin' or membership.role == 'moderator' %}
+                    <li><a href="{% url 'moderation:community_moderation' slug=membership.community.slug %}"><i data-feather="flag"></i> c/{{ membership.community.name }}</a></li>
+                    {% endif %}
+                {% endfor %}
             {% endif %}
             {% if user.is_authenticated %}
             <li><a href="{% url 'accounts:profile' %}"><i data-feather="user"></i> Профиль</a></li>

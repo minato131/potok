@@ -63,7 +63,6 @@
     .post-vk-subscribe:hover{background:var(--color-primary);color:#fff}
     .post-vk-subscribe.subscribed{background:var(--color-bg-elevated);color:var(--color-text-secondary)}
 
-    /* ЗАГОЛОВОК ПОСТА — ОТКРЫВАЕТ МОДАЛКУ */
     .post-vk-title{font-size:1.05rem;font-weight:700;padding:0 18px 6px;margin:0;color:var(--color-text);cursor:pointer;line-height:1.3}
     .post-vk-title:hover{color:var(--color-primary)}
 
@@ -77,6 +76,10 @@
     .vk-video-player__video{width:100%;max-height:400px;display:block}
     .vk-video-player__overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:5;pointer-events:none}
     .vk-video-player__play-btn{background:none;border:none;cursor:pointer;pointer-events:all}
+
+    .post-tags-row{display:flex;flex-wrap:wrap;gap:4px;padding:4px 18px}
+    .post-tag{background:var(--color-bg-elevated);color:var(--color-primary);padding:2px 10px;border-radius:12px;font-size:0.72rem;text-decoration:none;font-weight:500;transition:all 0.15s}
+    .post-tag:hover{background:var(--color-primary);color:#fff}
 
     .post-vk-footer{display:flex;align-items:center;padding:8px 18px;border-top:1px solid var(--color-border-light);gap:4px}
     .post-vk-footer-left{display:flex;align-items:center;gap:16px;flex:1}
@@ -137,69 +140,36 @@
     .pagination-wrapper{display:flex;justify-content:center;align-items:center;gap:8px;padding:28px 0}
     .pagination-pages{display:flex;gap:4px}
 
-    @media(max-width:768px){
-        .home-container{max-width:100%}
-        .post-card-vk,.create-post-card{border-radius:0;border-left:none;border-right:none}
-        .post-vk-media--video{margin:0 12px 8px}
-        .post-modal{border-radius:0;max-height:100vh}
-    }
+    @media(max-width:768px){.home-container{max-width:100%}.post-card-vk,.create-post-card{border-radius:0;border-left:none;border-right:none}.post-vk-media--video{margin:0 12px 8px}.post-modal{border-radius:0;max-height:100vh}}
 
-        /* Markdown */
-    .markdown-content { line-height: 1.7; word-break: break-word; }
-    .markdown-content h1, .markdown-content h2, .markdown-content h3 { font-weight: 700; margin: 12px 0 6px; }
-    .markdown-content h1 { font-size: 1.3rem; }
-    .markdown-content h2 { font-size: 1.15rem; }
-    .markdown-content h3 { font-size: 1.05rem; }
-    .markdown-content p { margin-bottom: 8px; }
-    .markdown-content ul, .markdown-content ol { padding-left: 24px; margin-bottom: 8px; }
-    .markdown-content li { margin-bottom: 2px; }
-    .markdown-content code { background: var(--color-bg-elevated); padding: 2px 6px; border-radius: 4px; font-size: 0.85em; }
-    .markdown-content pre { background: var(--color-bg-elevated); padding: 12px; border-radius: 8px; overflow-x: auto; margin-bottom: 8px; }
-    .markdown-content pre code { background: none; padding: 0; }
-    .markdown-content blockquote { border-left: 3px solid var(--color-primary); padding-left: 12px; color: var(--color-text-secondary); margin: 8px 0; }
-    .markdown-content a { color: var(--color-primary); text-decoration: underline; }
-    .markdown-content img { max-width: 100%; border-radius: 8px; margin: 8px 0; }
+    .markdown-content{line-height:1.7;word-break:break-word}
+    .markdown-content h1,.markdown-content h2,.markdown-content h3{font-weight:700;margin:12px 0 6px}
+    .markdown-content h1{font-size:1.3rem}.markdown-content h2{font-size:1.15rem}.markdown-content h3{font-size:1.05rem}
+    .markdown-content p{margin-bottom:8px}.markdown-content ul,.markdown-content ol{padding-left:24px;margin-bottom:8px}.markdown-content li{margin-bottom:2px}
+    .markdown-content code{background:var(--color-bg-elevated);padding:2px 6px;border-radius:4px;font-size:0.85em}
+    .markdown-content pre{background:var(--color-bg-elevated);padding:12px;border-radius:8px;overflow-x:auto;margin-bottom:8px}.markdown-content pre code{background:none;padding:0}
+    .markdown-content blockquote{border-left:3px solid var(--color-primary);padding-left:12px;color:var(--color-text-secondary);margin:8px 0}
+    .markdown-content a{color:var(--color-primary);text-decoration:underline}.markdown-content img{max-width:100%;border-radius:8px;margin:8px 0}
+    .spoiler{background:var(--color-text);color:transparent;border-radius:4px;padding:1px 4px;cursor:pointer;transition:all 0.2s;user-select:none}
+    .spoiler:hover{opacity:0.85}.spoiler.revealed{background:var(--color-bg-elevated);color:var(--color-text);cursor:default}
 
-    /* Спойлер */
-    .spoiler {
-        background: var(--color-text);
-        color: transparent;
-        border-radius: 4px;
-        padding: 1px 4px;
-        cursor: pointer;
-        transition: all 0.2s;
-        user-select: none;
-    }
-    .spoiler:hover { opacity: 0.85; }
-    .spoiler.revealed {
-        background: var(--color-bg-elevated);
-        color: var(--color-text);
-        cursor: default;
-    }
+    .post-vk-menu-btn{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:none;background:transparent;cursor:pointer;color:var(--color-text-tertiary);transition:all 0.2s}
+    .post-vk-menu-btn:hover{background:var(--color-bg-elevated);color:var(--color-text)}
+    .post-vk-friend{padding:7px 16px;border-radius:20px;font-size:0.8rem;font-weight:600;cursor:pointer;border:none;background:var(--color-success-light);color:var(--color-success);transition:all 0.2s;white-space:nowrap}
+    .post-vk-friend:hover{background:var(--color-success);color:#fff}.post-vk-friend.friend{background:var(--color-bg-elevated);color:var(--color-text-secondary)}
 
-    .post-vk-menu-btn {
-    width: 36px; height: 36px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    border: none; background: transparent;
-    cursor: pointer; color: var(--color-text-tertiary);
-    transition: all 0.2s;
-    }
-    .post-vk-menu-btn:hover {
-        background: var(--color-bg-elevated);
-        color: var(--color-text);
-    }
-    .post-vk-friend {
-        padding: 7px 16px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
-        cursor: pointer; border: none; background: var(--color-success-light); color: var(--color-success);
-        transition: all 0.2s; white-space: nowrap;
-    }
-    .post-vk-friend:hover { background: var(--color-success); color: #fff; }
-    .post-vk-friend.friend { background: var(--color-bg-elevated); color: var(--color-text-secondary);
-    }
-
-
-    </style>
+    .report-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:300;display:flex;align-items:center;justify-content:center}
+    .report-modal{background:var(--color-bg-surface);border-radius:16px;width:90%;max-width:440px;padding:24px}
+    .report-modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+    .report-modal-header h3{font-size:1.1rem;font-weight:700}.report-modal-header button{background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--color-text-tertiary)}
+    .report-types-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .report-type-option input{display:none}
+    .report-type-content{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border:1.5px solid var(--color-border);border-radius:10px;cursor:pointer;transition:all 0.15s;font-size:0.78rem}
+    .report-type-content:hover{border-color:var(--color-primary);background:var(--color-primary-light)}
+    .report-type-option input:checked+.report-type-content{border-color:var(--color-primary);background:var(--color-primary-light);color:var(--color-primary);font-weight:600}
+    .report-type-icon{font-size:1.3rem}
+    @keyframes toastIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+</style>
 
 <div class="home-container">
     {% if user.is_authenticated and not category and not tag %}
@@ -216,24 +186,24 @@
     </div>
     {% endif %}
 
-<div class="posts-toolbar">
-    <div class="sort-group">
-        <span class="sort-label">Сортировка</span>
-        <div class="sort-buttons">
-            <button class="sort-btn {% if current_sort == 'new' or not current_sort %}active{% endif %}" data-sort="new">Новые</button>
-            <button class="sort-btn {% if current_sort == 'top' %}active{% endif %}" data-sort="top">Лучшие</button>
-            <button class="sort-btn {% if current_sort == 'hot' %}active{% endif %}" data-sort="hot">Обсуждаемые</button>
+    <div class="posts-toolbar">
+        <div class="sort-group">
+            <span class="sort-label">Сортировка</span>
+            <div class="sort-buttons">
+                <button class="sort-btn {% if current_sort == 'new' or not current_sort %}active{% endif %}" data-sort="new">Новые</button>
+                <button class="sort-btn {% if current_sort == 'top' %}active{% endif %}" data-sort="top">Лучшие</button>
+                <button class="sort-btn {% if current_sort == 'hot' %}active{% endif %}" data-sort="hot">Обсуждаемые</button>
+            </div>
         </div>
+        {% if current_feed == 'popular' or current_sort == 'top' %}
+        <div class="period-group" style="display:flex;gap:4px;margin-left:auto;background:var(--color-bg-surface);padding:4px;border-radius:10px;border:1px solid var(--color-border-light)">
+            <button class="sort-btn {% if current_period == 'day' %}active{% endif %}" data-period="day">День</button>
+            <button class="sort-btn {% if current_period == 'week' or not current_period %}active{% endif %}" data-period="week">Неделя</button>
+            <button class="sort-btn {% if current_period == 'month' %}active{% endif %}" data-period="month">Месяц</button>
+            <button class="sort-btn {% if current_period == 'year' %}active{% endif %}" data-period="year">Год</button>
+        </div>
+        {% endif %}
     </div>
-    {% if current_feed == 'popular' or current_sort == 'top' %}
-    <div class="period-group" style="display:flex;gap:4px;margin-left:auto;background:var(--color-bg-surface);padding:4px;border-radius:10px;border:1px solid var(--color-border-light)">
-        <button class="sort-btn {% if current_period == 'day' %}active{% endif %}" data-period="day">День</button>
-        <button class="sort-btn {% if current_period == 'week' or not current_period %}active{% endif %}" data-period="week">Неделя</button>
-        <button class="sort-btn {% if current_period == 'month' %}active{% endif %}" data-period="month">Месяц</button>
-        <button class="sort-btn {% if current_period == 'year' %}active{% endif %}" data-period="year">Год</button>
-    </div>
-    {% endif %}
-</div>
 
     {% for post in posts %}
     <article class="post-card-vk" data-post-id="{{ post.id }}">
@@ -244,85 +214,45 @@
                 <div class="post-vk-meta"><span>{{ post.created_at|date:'d M в H:i' }}</span>{% if post.community %}<span>·</span><a href="{% url 'communities:community_detail' slug=post.community.slug %}" class="post-vk-community">{{ post.community.name }}</a>{% endif %}</div>
             </div>
             {% if user.is_authenticated %}
-                {% if post.community %}
-                    {% if user not in post.community.members.all %}
-                    <button class="pd-subscribe" data-community-id="{{ post.community.id }}" data-type="community">
-                        Подписаться на сообщество
-                    </button>
-                    {% endif %}
-                {% elif user != post.author %}
-                    <button class="pd-subscribe {% if is_subscribed %}subscribed{% endif %}" data-author-id="{{ post.author.id }}" data-type="user">
-                        {% if is_subscribed %}Вы подписаны{% else %}Подписаться{% endif %}
-                    </button>
-                {% endif %}
-                {% if user.is_authenticated and post.author != user %}
-                <button class="post-vk-friend {% if post.author.id in friend_ids %}friend{% endif %}" data-friend-id="{{ post.author.id }}">
-                    {% if post.author.id in friend_ids %}Друг{% else %}+ Друг{% endif %}
-                </button>
-                {% endif %}
+                {% if post.community %}{% if user not in post.community.members.all %}<button class="pd-subscribe" data-community-id="{{ post.community.id }}" data-type="community">Подписаться</button>{% endif %}
+                {% elif user != post.author %}<button class="pd-subscribe {% if is_subscribed %}subscribed{% endif %}" data-author-id="{{ post.author.id }}" data-type="user">{% if is_subscribed %}Вы подписаны{% else %}Подписаться{% endif %}</button>{% endif %}
+                {% if post.author != user %}<button class="post-vk-friend {% if post.author.id in friend_ids %}friend{% endif %}" data-friend-id="{{ post.author.id }}">{% if post.author.id in friend_ids %}Друг{% else %}+ Друг{% endif %}</button>{% endif %}
             {% endif %}
-         <div style="position:relative;flex-shrink:0">
-                <button class="post-vk-menu-btn" onclick="event.stopPropagation();togglePostMenu(this)" title="Меню">
-                    <i data-feather="more-horizontal"></i>
-                </button>
+            <div style="position:relative;flex-shrink:0">
+                <button class="post-vk-menu-btn" onclick="event.stopPropagation();togglePostMenu(this)" title="Меню"><i data-feather="more-horizontal"></i></button>
                 <div class="post-menu-dropdown" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--color-bg-surface);border:1px solid var(--color-border);border-radius:12px;box-shadow:var(--shadow-lg);min-width:180px;z-index:30;padding:4px">
-                    {% if user == post.author %}
-                    <a href="{% url 'posts:post_edit' pk=post.id %}" class="menu-item" onclick="event.stopPropagation()">
-                        <i data-feather="edit"></i> Редактировать
-                    </a>
-                    <button class="menu-item danger" onclick="event.stopPropagation();deletePost({{ post.id }})">
-                        <i data-feather="trash-2"></i> Удалить
-                    </button>
+                    {% if user == post.author %}<a href="{% url 'posts:post_edit' pk=post.id %}" class="menu-item" onclick="event.stopPropagation()"><i data-feather="edit"></i> Редактировать</a><button class="menu-item danger" onclick="event.stopPropagation();deletePost({{ post.id }})"><i data-feather="trash-2"></i> Удалить</button><div class="menu-divider"></div>{% endif %}
+                    <button class="menu-item bookmark-menu-item {% if post.id in bookmarked_post_ids %}active{% endif %}" data-post-id="{{ post.id }}" onclick="event.stopPropagation();toggleBookmark(this)"><i data-feather="bookmark"></i> <span>{% if post.id in bookmarked_post_ids %}Убрать{% else %}В закладки{% endif %}</span></button>
+                    <button class="menu-item" onclick="event.stopPropagation();copyLink({{ post.id }})"><i data-feather="link"></i> Скопировать ссылку</button>
                     <div class="menu-divider"></div>
-                    {% endif %}
-                    <button class="menu-item bookmark-menu-item {% if post.id in bookmarked_post_ids %}active{% endif %}" data-post-id="{{ post.id }}" onclick="event.stopPropagation();toggleBookmark(this)">
-                        <i data-feather="bookmark"></i> <span>{% if post.id in bookmarked_post_ids %}Убрать из закладок{% else %}В закладки{% endif %}</span>
-                    </button>
-                    <button class="menu-item" onclick="event.stopPropagation();copyLink({{ post.id }})">
-                        <i data-feather="link"></i> Скопировать ссылку
-                    </button>
-                    <div class="menu-divider"></div>
-                    <button class="menu-item" onclick="event.stopPropagation();reportPost({{ post.id }})">
-                        <i data-feather="flag"></i> Пожаловаться
-                    </button>
-                    {% if post.image %}
-                    <button class="menu-item" onclick="savePhoto({{ post.id }})"><i data-feather="image"></i> Сохранить фото</button>
-                    {% endif %}
-                    {% if post.video %}
-                    <button class="menu-item" onclick="saveVideo({{ post.id }})"><i data-feather="video"></i> Сохранить видео</button>
-                    {% endif %}
+                    <button class="menu-item" onclick="event.stopPropagation();reportPost({{ post.id }})"><i data-feather="flag"></i> Пожаловаться</button>
+                    {% if post.image %}<button class="menu-item" onclick="savePhoto({{ post.id }})"><i data-feather="image"></i> Сохранить фото</button>{% endif %}
+                    {% if post.video %}<button class="menu-item" onclick="saveVideo({{ post.id }})"><i data-feather="video"></i> Сохранить видео</button>{% endif %}
                 </div>
             </div>
         </div>
 
-        <!-- ЗАГОЛОВОК — КЛИК ОТКРЫВАЕТ МОДАЛКУ -->
         <h3 class="post-vk-title" onclick="openPostModal({{ post.id }})">{{ post.title }}</h3>
-
-        <div class="post-vk-text" onclick="event.stopPropagation()">
-            <div class="markdown-content markdown-preview" data-full="{{ post.content|escapejs }}"></div>
-        </div>
-
+        <div class="post-vk-text" onclick="event.stopPropagation()"><div class="markdown-content markdown-preview" data-full="{{ post.content|escapejs }}"></div></div>
         {% if post.image %}<div class="post-vk-media"><img src="{{ post.image.url }}" class="post-vk-img" loading="lazy" onclick="event.stopPropagation();openPostModal({{ post.id }})"></div>{% endif %}
-        {% if post.video %}
-        <div class="post-vk-media--video" onclick="event.stopPropagation();openPostModal({{ post.id }})">
-            <div class="vk-video-player">
-                <video class="vk-video-player__video" preload="metadata" playsinline><source src="{{ post.video.url }}"></video>
-                <div class="vk-video-player__overlay"><button class="vk-video-player__play-btn"><svg width="48" height="48"><circle cx="24" cy="24" r="22" fill="rgba(0,0,0,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/><path d="M19 14L31 24L19 34V14Z" fill="white"/></svg></button></div>
-            </div>
+        {% if post.video %}<div class="post-vk-media--video" onclick="event.stopPropagation();openPostModal({{ post.id }})"><div class="vk-video-player"><video class="vk-video-player__video" preload="metadata" playsinline><source src="{{ post.video.url }}"></video><div class="vk-video-player__overlay"><button class="vk-video-player__play-btn"><svg width="48" height="48"><circle cx="24" cy="24" r="22" fill="rgba(0,0,0,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/><path d="M19 14L31 24L19 34V14Z" fill="white"/></svg></button></div></div></div>{% endif %}
+
+        <!-- ТЕГИ -->
+        {% if post.tags.exists %}
+        <div class="post-tags-row">
+            {% for t in post.tags.all %}
+            <a href="{% url 'posts:tag_detail' slug=t.slug %}" class="post-tag">#{{ t.name }}</a>
+            {% endfor %}
         </div>
         {% endif %}
 
         <div class="post-vk-footer">
             <div class="post-vk-footer-left">
-                <button class="post-vk-stat like-btn-vk {% if post.id in liked_post_ids %}liked{% endif %}" data-post-id="{{ post.id }}">
-                    <svg width="22" height="20" viewBox="0 0 22 20"><path d="M11 19C11 19 1 13.5 1 6.5C1 3.5 3.5 1 6.5 1C8.5 1 10 2 11 3.5C12 2 13.5 1 15.5 1C18.5 1 21 3.5 21 6.5C21 13.5 11 19 11 19Z" stroke="currentColor" stroke-width="1.8"/></svg>
-                    <span>{{ post.likes_count }}</span>
-                </button>
-                <span class="post-vk-stat" style="cursor:default"><i data-feather="message-circle"></i> <span>{{ post.comments_count }}</span></span>
+                <button class="post-vk-stat like-btn-vk {% if post.id in liked_post_ids %}liked{% endif %}" data-post-id="{{ post.id }}"><svg width="22" height="20" viewBox="0 0 22 20"><path d="M11 19C11 19 1 13.5 1 6.5C1 3.5 3.5 1 6.5 1C8.5 1 10 2 11 3.5C12 2 13.5 1 15.5 1C18.5 1 21 3.5 21 6.5C21 13.5 11 19 11 19Z" stroke="currentColor" stroke-width="1.8"/></svg><span>{{ post.likes_count }}</span></button>
+                <span class="post-vk-stat" onclick="event.stopPropagation();toggleComments({{ post.id }})" style="cursor:pointer"><i data-feather="message-circle"></i> <span>{{ post.comments_count }}</span></span>
             </div>
             <div class="post-vk-footer-right">
-                <div class="share-dropdown">
-                    <button class="post-vk-stat" onclick="event.stopPropagation();toggleShareMenu(this)"><i data-feather="share-2"></i></button>
+                <div class="share-dropdown"><button class="post-vk-stat" onclick="event.stopPropagation();toggleShareMenu(this)"><i data-feather="share-2"></i></button>
                     <div class="share-menu">
                         <button onclick="event.stopPropagation();shareTo('messages')"><i data-feather="send"></i> Отправить в ЛС</button>
                         <button onclick="event.stopPropagation();shareTo('community')"><i data-feather="users"></i> В сообщество</button>
@@ -342,10 +272,8 @@
                     <div class="comment-inline-tools">
                         <button type="button" class="comment-inline-tool" onclick="this.nextElementSibling.click()" title="Фото/Видео"><i data-feather="image"></i></button>
                         <input type="file" accept="image/*,video/*" class="hidden-input" onchange="previewFilesInline(this, 'preview-inline-{{ post.id }}')" multiple>
-                        <button type="button" class="comment-inline-tool" onclick="toggleSavedPickerInline(this)" title="Закладки"><i data-feather="bookmark"></i></button>
-                        <div class="saved-picker"></div>
-                        <button type="button" class="comment-inline-tool" onclick="toggleEmojiInline(this)" title="Эмодзи"><i data-feather="smile"></i></button>
-                        <div class="emoji-picker"></div>
+                        <button type="button" class="comment-inline-tool" onclick="toggleSavedPickerInline(this)" title="Закладки"><i data-feather="bookmark"></i></button><div class="saved-picker"></div>
+                        <button type="button" class="comment-inline-tool" onclick="toggleEmojiInline(this)" title="Эмодзи"><i data-feather="smile"></i></button><div class="emoji-picker"></div>
                     </div>
                     <button class="comment-inline-send" data-post-id="{{ post.id }}">Отправить</button>
                 </div>
@@ -353,13 +281,9 @@
         </div>
         {% endif %}
 
-        <div class="post-vk-comments" id="comments-{{ post.id }}" onclick="event.stopPropagation()">
-            <div class="comments-inner"></div>
-        </div>
+        <div class="post-vk-comments" id="comments-{{ post.id }}" onclick="event.stopPropagation()"><div class="comments-inner"></div></div>
     </article>
-    {% empty %}
-    <div class="empty-feed"><h3>Лента пуста</h3><p>Подпишитесь на пользователей или создайте пост</p></div>
-    {% endfor %}
+    {% empty %}<div class="empty-feed"><h3>Лента пуста</h3><p>Подпишитесь на пользователей или создайте пост</p></div>{% endfor %}
 
     {% if is_paginated %}
     <div class="pagination-wrapper">
@@ -370,10 +294,39 @@
     {% endif %}
 </div>
 
-<div class="post-modal-overlay" id="postModalOverlay">
-    <div class="post-modal" id="postModal">
-        <button class="post-modal-close" onclick="closePostModal()"><i data-feather="x"></i></button>
-        <div class="post-modal-content" id="postModalContent"></div>
+<div class="post-modal-overlay" id="postModalOverlay"><div class="post-modal" id="postModal"><button class="post-modal-close" onclick="closePostModal()"><i data-feather="x"></i></button><div class="post-modal-content" id="postModalContent"></div></div></div>
+
+<div class="report-modal-overlay" id="reportModal" style="display:none">
+    <div class="report-modal"><div class="report-modal-header"><h3>Пожаловаться на пост</h3><button onclick="closeReportModal()">✕</button></div>
+        <div class="report-modal-body">
+            <div class="report-types-grid">
+                <label class="report-type-option"><input type="radio" name="report_type" value="spam"><span class="report-type-content"><span class="report-type-icon">📢</span> Спам</span></label>
+                <label class="report-type-option"><input type="radio" name="report_type" value="abuse"><span class="report-type-content"><span class="report-type-icon">😡</span> Оскорбления</span></label>
+                <label class="report-type-option"><input type="radio" name="report_type" value="illegal"><span class="report-type-content"><span class="report-type-icon">🚫</span> Незаконный контент</span></label>
+                <label class="report-type-option"><input type="radio" name="report_type" value="adult"><span class="report-type-content"><span class="report-type-icon">🔞</span> Контент 18+</span></label>
+                <label class="report-type-option"><input type="radio" name="report_type" value="violence"><span class="report-type-content"><span class="report-type-icon">💀</span> Насилие</span></label>
+                <label class="report-type-option"><input type="radio" name="report_type" value="other" checked><span class="report-type-content"><span class="report-type-icon">📝</span> Другое</span></label>
+            </div>
+            <textarea id="reportDescription" placeholder="Опишите причину жалобы..." rows="3" style="width:100%;margin-top:12px;padding:10px;border:1px solid #d1d5db;border-radius:10px;font-family:inherit;font-size:0.88rem;resize:vertical"></textarea>
+            <button class="btn btn--primary" style="width:100%;margin-top:12px" onclick="submitReport()">Отправить жалобу</button>
+        </div>
+    </div>
+</div>
+
+<div class="report-modal-overlay" id="reportCommentModal" style="display:none">
+    <div class="report-modal"><div class="report-modal-header"><h3>Пожаловаться на комментарий</h3><button onclick="closeReportCommentModal()">✕</button></div>
+        <div class="report-modal-body">
+            <div class="report-types-grid">
+                <label class="report-type-option"><input type="radio" name="cmt_report_type" value="spam"><span class="report-type-content"><span class="report-type-icon">📢</span> Спам</span></label>
+                <label class="report-type-option"><input type="radio" name="cmt_report_type" value="abuse"><span class="report-type-content"><span class="report-type-icon">😡</span> Оскорбления</span></label>
+                <label class="report-type-option"><input type="radio" name="cmt_report_type" value="illegal"><span class="report-type-content"><span class="report-type-icon">🚫</span> Незаконный контент</span></label>
+                <label class="report-type-option"><input type="radio" name="cmt_report_type" value="adult"><span class="report-type-content"><span class="report-type-icon">🔞</span> Контент 18+</span></label>
+                <label class="report-type-option"><input type="radio" name="cmt_report_type" value="violence"><span class="report-type-content"><span class="report-type-icon">💀</span> Насилие</span></label>
+                <label class="report-type-option"><input type="radio" name="cmt_report_type" value="other" checked><span class="report-type-content"><span class="report-type-icon">📝</span> Другое</span></label>
+            </div>
+            <textarea id="cmtReportDescription" placeholder="Опишите причину жалобы..." rows="3" style="width:100%;margin-top:12px;padding:10px;border:1px solid #d1d5db;border-radius:10px;font-family:inherit;font-size:0.88rem;resize:vertical"></textarea>
+            <button class="btn btn--primary" style="width:100%;margin-top:12px" onclick="submitCommentReport()">Отправить жалобу</button>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -381,460 +334,81 @@
 {% block extra_js %}
 <script>
 feather.replace();
+function toggleCmtMenu(btn){const menu=btn.nextElementSibling;if(!menu||!menu.classList.contains('cmt-menu-dropdown'))return;const isOpen=menu.style.display==='block';document.querySelectorAll('.cmt-menu-dropdown').forEach(m=>m.style.display='none');menu.style.display=isOpen?'none':'block';return false}
+window.toggleCmtMenu=toggleCmtMenu;
 const EMOJIS=['😂','❤️','😍','😢','😡','👍','🔥','🎉','💯','👏','💀','😭','🤔','😎','🙏','💪','🤗','😅'];
 
 function getCookie(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
-function showToast(m){const t=document.createElement('div');t.style.cssText='position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:10px;font-size:0.8rem;font-weight:600;color:#fff;z-index:9999;background:#7c3aed;box-shadow:0 8px 24px rgba(0,0,0,0.2);animation:toastIn 0.25s';t.textContent=m;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='all 0.3s';setTimeout(()=>t.remove(),300)},2000)}
+function notify(msg){setTimeout(function(){var div=document.createElement('div');div.textContent=msg;div.style.position='fixed';div.style.bottom='30px';div.style.right='30px';div.style.background='#16a34a';div.style.color='white';div.style.padding='14px 22px';div.style.borderRadius='12px';div.style.fontSize='15px';div.style.fontWeight='600';div.style.zIndex='999999';div.style.boxShadow='0 6px 20px rgba(0,0,0,0.3)';document.body.appendChild(div);setTimeout(function(){div.remove()},3000)},100)}
 
-// Сортировка
+window.submitReport=async function(){var pid=reportPostId;if(!pid)return;var type=document.querySelector('input[name="report_type"]:checked')?.value||'other';var desc=document.getElementById('reportDescription').value.trim();closeReportModal();try{var r=await fetch('/moderation/report/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:'post_id='+pid+'&reason='+encodeURIComponent(desc)+'&report_type='+type});var d=await r.json();if(d.status==='duplicate'){notify('⚠️ Вы уже отправляли жалобу с этой причиной.')}else if(d.status==='ok'){notify('✅ Жалоба отправлена.')}else{notify(d.message||'✅ Жалоба отправлена')}}catch(e){notify('❌ Ошибка')}};
+function closeReportCommentModal(){document.getElementById('reportCommentModal').style.display='none'}
+async function submitCommentReport(){var cid=reportCommentId;if(!cid)return;var type=document.querySelector('input[name="cmt_report_type"]:checked')?.value||'other';var desc=document.getElementById('cmtReportDescription').value.trim();closeReportCommentModal();try{var r=await fetch('/moderation/report/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:'comment_id='+cid+'&reason='+encodeURIComponent(desc)+'&report_type='+type});var d=await r.json();notify(d.message||'✅ Жалоба отправлена')}catch(e){notify('❌ Ошибка')}}
+
 document.querySelectorAll('.sort-btn').forEach(b=>b.addEventListener('click',function(){const u=new URL(location);u.searchParams.set('sort',this.dataset.sort);location=u}));
+document.querySelectorAll('.like-btn-vk').forEach(btn=>btn.addEventListener('click',async function(e){e.stopPropagation();const pid=this.dataset.postId,cnt=this.querySelector('span');const r=await fetch('/like/toggle/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`content_type=post&object_id=${pid}&like_type=like`});const d=await r.json();this.classList.toggle('liked',d.action==='added');cnt.textContent=d.likes_count}));
+document.querySelectorAll('.pd-subscribe').forEach(btn=>btn.addEventListener('click',async function(e){e.stopPropagation();const type=this.dataset.type||'user';let url;if(type==='community')url=`/communities/${this.dataset.communityId}/join/`;else url=`/accounts/follow/${this.dataset.authorId}/`;const r=await fetch(url,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken')}});const d=await r.json();if(r.ok){this.classList.toggle('subscribed');this.textContent=d.status==='followed'?'Вы подписаны':'Подписаться'}}));
 
-// ===== ЛАЙК =====
-document.querySelectorAll('.like-btn-vk').forEach(btn=>btn.addEventListener('click',async function(e){e.stopPropagation();
-    const pid=this.dataset.postId,cnt=this.querySelector('span');
-    const r=await fetch('/like/toggle/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`content_type=post&object_id=${pid}&like_type=like`});
-    const d=await r.json();this.classList.toggle('liked',d.action==='added');cnt.textContent=d.likes_count;
-}));
+window.toggleShareMenu=function(btn){const menu=btn.parentElement.querySelector('.share-menu');document.querySelectorAll('.share-menu.active').forEach(m=>m!==menu&&m.classList.remove('active'));menu.classList.toggle('active')};
+window.shareTo=function(type){const postId=document.querySelector('.share-menu.active')?.closest('.post-card-vk')?.dataset.postId;if(!postId)return;if(type==='messages')window.open(`${location.origin}/messenger/?share=${postId}`,'_blank');else if(type==='community')window.open(`${location.origin}/communities/create-post/?share=${postId}`,'_blank');document.querySelectorAll('.share-menu.active').forEach(m=>m.classList.remove('active'))};
+window.copyLink=function(postId){navigator.clipboard.writeText(`${location.origin}/post/${postId}/`).then(()=>notify('Ссылка скопирована'));document.querySelectorAll('.share-menu.active').forEach(m=>m.classList.remove('active'))};
+document.addEventListener('click',()=>document.querySelectorAll('.share-menu.active').forEach(m=>m.classList.remove('active')));
 
-// ===== ПОДПИСАТЬСЯ =====
-document.querySelectorAll('.pd-subscribe').forEach(btn => btn.addEventListener('click', async function(e) {
-    e.stopPropagation();
-    const type = this.dataset.type || 'user';
-    let url;
-    if (type === 'community') {
-        url = `/communities/${this.dataset.communityId}/join/`;
-    } else {
-        url = `/accounts/follow/${this.dataset.authorId}/`;
-    }
-    const r = await fetch(url, { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } });
-    const d = await r.json();
-    if (r.ok) {
-        this.classList.toggle('subscribed');
-        this.textContent = d.status === 'followed' ? 'Вы подписаны' : 'Подписаться';
-    }
-}));
+window.toggleEmojiInline=function(btn){const picker=btn.parentElement.querySelector('.emoji-picker');if(!picker.dataset.filled){picker.innerHTML=EMOJIS.map(e=>`<button>${e}</button>`).join('');picker.dataset.filled='1';picker.querySelectorAll('button').forEach(b=>b.addEventListener('click',function(){const ta=btn.closest('.comment-inline-body')?.querySelector('textarea')||btn.closest('.cmt-form-body')?.querySelector('textarea');if(ta){ta.value+=this.textContent;ta.focus()}picker.classList.remove('open')}))}picker.classList.toggle('open')};
 
-// ===== ШЕРИНГ =====
-window.toggleShareMenu = function(btn) {
-    const menu = btn.parentElement.querySelector('.share-menu');
-    document.querySelectorAll('.share-menu.active').forEach(m => m !== menu && m.classList.remove('active'));
-    menu.classList.toggle('active');
-};
-window.shareTo = function(type) {
-    const postId = document.querySelector('.share-menu.active')?.closest('.post-card-vk')?.dataset.postId;
-    if (!postId) return;
-    if (type === 'messages') window.open(`${location.origin}/messenger/?share=${postId}`, '_blank');
-    else if (type === 'community') window.open(`${location.origin}/communities/create-post/?share=${postId}`, '_blank');
-    document.querySelectorAll('.share-menu.active').forEach(m => m.classList.remove('active'));
-};
-window.copyLink = function(postId) {
-    navigator.clipboard.writeText(`${location.origin}/post/${postId}/`).then(() => showToast('Ссылка скопирована'));
-    document.querySelectorAll('.share-menu.active').forEach(m => m.classList.remove('active'));
-};
-document.addEventListener('click', () => document.querySelectorAll('.share-menu.active').forEach(m => m.classList.remove('active')));
+window._toggleSavedPicker=async function(btn){const postId=btn.closest('.post-card-vk')?.dataset.postId||btn.closest('.comment-inline-form')?.querySelector('.comment-inline-send')?.dataset.postId||btn.closest('.cmt-form')?.dataset.postId;let modal=document.getElementById('savedMediaModal');if(!modal){modal=document.createElement('div');modal.id='savedMediaModal';modal.className='saved-media-modal';modal.innerHTML=`<div class="saved-media-modal-overlay" onclick="closeSavedMediaModal()"></div><div class="saved-media-modal-content"><div class="saved-media-modal-header"><h3>Мои закладки</h3><button onclick="closeSavedMediaModal()"><i data-feather="x"></i></button></div><div class="saved-media-tabs"><button class="saved-media-tab active" data-tab="photos">🖼️ Фото</button><button class="saved-media-tab" data-tab="videos">🎬 Видео</button></div><div class="saved-media-grid" id="savedMediaGrid"><div style="text-align:center;padding:20px;color:var(--color-text-tertiary)">Загрузка...</div></div></div>`;document.body.appendChild(modal);const style=document.createElement('style');style.textContent='.saved-media-modal{position:fixed;inset:0;z-index:300;display:none;align-items:center;justify-content:center}.saved-media-modal.open{display:flex}.saved-media-modal-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.6)}.saved-media-modal-content{position:relative;background:var(--color-bg-surface);border-radius:16px;width:500px;max-width:95vw;max-height:80vh;overflow-y:auto;z-index:1}.saved-media-modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--color-border)}.saved-media-modal-header h3{font-size:1.1rem;font-weight:700}.saved-media-modal-header button{background:none;border:none;cursor:pointer;color:var(--color-text-tertiary)}.saved-media-tabs{display:flex;border-bottom:1px solid var(--color-border)}.saved-media-tab{flex:1;padding:12px;text-align:center;background:none;border:none;cursor:pointer;font-size:0.9rem;font-weight:500;color:var(--color-text-secondary);border-bottom:2px solid transparent}.saved-media-tab.active{color:var(--color-primary);border-bottom-color:var(--color-primary)}.saved-media-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:16px}.saved-media-grid img,.saved-media-grid video{width:100%;height:120px;object-fit:cover;border-radius:8px;cursor:pointer}.saved-media-grid img:hover,.saved-media-grid video:hover{opacity:0.8;transform:scale(1.02)}.saved-media-empty{grid-column:span 3;text-align:center;padding:40px;color:var(--color-text-tertiary)}';document.head.appendChild(style)}modal.classList.add('open');modal.dataset.postId=postId;modal.dataset.target=btn.closest('.comment-inline-body')?'inline':'modal';loadSavedMedia('photos');modal.querySelectorAll('.saved-media-tab').forEach(tab=>tab.onclick=function(){modal.querySelectorAll('.saved-media-tab').forEach(t=>t.classList.remove('active'));this.classList.add('active');loadSavedMedia(this.dataset.tab)})};
+window.toggleSavedPickerInline=window._toggleSavedPicker;
+window.closeSavedMediaModal=function(){document.getElementById('savedMediaModal')?.classList.remove('open')};
 
-// ===== ЭМОДЗИ =====
-window.toggleEmojiInline = function(btn) {
-    const picker = btn.parentElement.querySelector('.emoji-picker');
-    if (!picker.dataset.filled) {
-        picker.innerHTML = EMOJIS.map(e => `<button>${e}</button>`).join('');
-        picker.dataset.filled = '1';
-        picker.querySelectorAll('button').forEach(b => b.addEventListener('click', function() {
-            const ta = btn.closest('.comment-inline-body')?.querySelector('textarea') || btn.closest('.cmt-form-body')?.querySelector('textarea');
-            if (ta) { ta.value += this.textContent; ta.focus(); }
-            picker.classList.remove('open');
-        }));
-    }
-    picker.classList.toggle('open');
-};
+async function loadSavedMedia(type){const grid=document.getElementById('savedMediaGrid');grid.innerHTML='<div style="text-align:center;padding:20px;color:var(--color-text-tertiary)">Загрузка...</div>';try{const r=await fetch('/bookmarks/');const html=await r.text();const doc=new DOMParser().parseFromString(html,'text/html');const items=doc.querySelectorAll('.bookmark-item');const media=[];items.forEach(item=>{const img=item.querySelector('img');const src=img?.src||'';if(type==='photos'&&img&&src)media.push({type:'photo',src});else if(type==='videos'&&src&&(src.includes('.mp4')||src.includes('.webm')||src.includes('.mov')))media.push({type:'video',src})});if(media.length>0){grid.innerHTML=media.slice(0,12).map((item,i)=>`<div onclick="selectSavedMedia('${item.src.replace(/'/g,"\\'")}','${item.type}')" style="cursor:pointer">${item.type==='photo'?`<img src="${item.src}" alt="">`:`<video src="${item.src}" muted></video>`}</div>`).join('');grid.querySelectorAll('video').forEach(v=>{v.addEventListener('mouseenter',()=>v.play());v.addEventListener('mouseleave',()=>{v.pause();v.currentTime=0})})}else grid.innerHTML='<div class="saved-media-empty">Нет сохранённых '+(type==='photos'?'фото':'видео')+'</div>'}catch(e){grid.innerHTML='<div class="saved-media-empty">Ошибка загрузки</div>'}}
+window.selectSavedMedia=function(src,type){const modal=document.getElementById('savedMediaModal');const target=modal?.dataset.target;const postId=modal?.dataset.postId;const body=target==='inline'?document.querySelector(`.comment-inline-send[data-post-id="${postId}"]`)?.closest('.comment-inline-body'):document.querySelector('#postModal .cmt-form-body')||document.querySelector('.cmt-form-body');if(body){const ta=body.querySelector('textarea');if(ta){ta.value+=(ta.value?'\n':'')+src;ta.focus()}}closeSavedMediaModal()};
 
-// ===== ЗАКЛАДКИ — МОДАЛЬНОЕ ОКНО =====
-window._toggleSavedPicker = async function(btn) {
-    const postId = btn.closest('.post-card-vk')?.dataset.postId ||
-                   btn.closest('.comment-inline-form')?.querySelector('.comment-inline-send')?.dataset.postId ||
-                   btn.closest('.cmt-form')?.dataset.postId;
-    let modal = document.getElementById('savedMediaModal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'savedMediaModal';
-        modal.className = 'saved-media-modal';
-        modal.innerHTML = `
-            <div class="saved-media-modal-overlay" onclick="closeSavedMediaModal()"></div>
-            <div class="saved-media-modal-content">
-                <div class="saved-media-modal-header"><h3>Мои закладки</h3><button onclick="closeSavedMediaModal()"><i data-feather="x"></i></button></div>
-                <div class="saved-media-tabs">
-                    <button class="saved-media-tab active" data-tab="photos">🖼️ Фото</button>
-                    <button class="saved-media-tab" data-tab="videos">🎬 Видео</button>
-                </div>
-                <div class="saved-media-grid" id="savedMediaGrid"><div style="text-align:center;padding:20px;color:var(--color-text-tertiary)">Загрузка...</div></div>
-            </div>`;
-        document.body.appendChild(modal);
-        const style = document.createElement('style');
-        style.textContent = '.saved-media-modal{position:fixed;inset:0;z-index:300;display:none;align-items:center;justify-content:center}.saved-media-modal.open{display:flex}.saved-media-modal-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.6)}.saved-media-modal-content{position:relative;background:var(--color-bg-surface);border-radius:16px;width:500px;max-width:95vw;max-height:80vh;overflow-y:auto;z-index:1}.saved-media-modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--color-border)}.saved-media-modal-header h3{font-size:1.1rem;font-weight:700}.saved-media-modal-header button{background:none;border:none;cursor:pointer;color:var(--color-text-tertiary)}.saved-media-tabs{display:flex;border-bottom:1px solid var(--color-border)}.saved-media-tab{flex:1;padding:12px;text-align:center;background:none;border:none;cursor:pointer;font-size:0.9rem;font-weight:500;color:var(--color-text-secondary);border-bottom:2px solid transparent}.saved-media-tab.active{color:var(--color-primary);border-bottom-color:var(--color-primary)}.saved-media-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:16px}.saved-media-grid img,.saved-media-grid video{width:100%;height:120px;object-fit:cover;border-radius:8px;cursor:pointer}.saved-media-grid img:hover,.saved-media-grid video:hover{opacity:0.8;transform:scale(1.02)}.saved-media-empty{grid-column:span 3;text-align:center;padding:40px;color:var(--color-text-tertiary)}';
-        document.head.appendChild(style);
-    }
-    modal.classList.add('open');
-    modal.dataset.postId = postId;
-    modal.dataset.target = btn.closest('.comment-inline-body') ? 'inline' : 'modal';
-    loadSavedMedia('photos');
-    modal.querySelectorAll('.saved-media-tab').forEach(tab => tab.onclick = function() {
-        modal.querySelectorAll('.saved-media-tab').forEach(t => t.classList.remove('active'));
-        this.classList.add('active');
-        loadSavedMedia(this.dataset.tab);
-    });
-};
-window.toggleSavedPickerInline = window._toggleSavedPicker;
-window.closeSavedMediaModal = function() { document.getElementById('savedMediaModal')?.classList.remove('open'); };
+window.previewFilesInline=function(input,previewId){const pv=document.getElementById(previewId);pv.innerHTML='';[...input.files].forEach(f=>{const url=URL.createObjectURL(f),wrap=document.createElement('span');wrap.className='preview-item';if(f.type.startsWith('image/')){const img=document.createElement('img');img.src=url;wrap.appendChild(img)}else{const vid=document.createElement('video');vid.src=url;vid.muted=true;vid.autoplay=true;vid.loop=true;wrap.appendChild(vid)}const rmv=document.createElement('button');rmv.className='remove-preview';rmv.innerHTML='×';rmv.onclick=e=>{e.stopPropagation();wrap.remove()};wrap.appendChild(rmv);pv.appendChild(wrap)})};
 
-async function loadSavedMedia(type) {
-    const grid = document.getElementById('savedMediaGrid');
-    grid.innerHTML = '<div style="text-align:center;padding:20px;color:var(--color-text-tertiary)">Загрузка...</div>';
-    try {
-        const r = await fetch('/bookmarks/'); const html = await r.text();
-        const doc = new DOMParser().parseFromString(html, 'text/html');
-        const items = doc.querySelectorAll('.bookmark-item'); const media = [];
-        items.forEach(item => {
-            const img = item.querySelector('img'); const src = img?.src || '';
-            if (type === 'photos' && img && src) media.push({ type: 'photo', src });
-            else if (type === 'videos' && src && (src.includes('.mp4')||src.includes('.webm')||src.includes('.mov'))) media.push({ type: 'video', src });
-        });
-        if (media.length > 0) {
-            grid.innerHTML = media.slice(0, 12).map((item, i) => `
-                <div onclick="selectSavedMedia('${item.src.replace(/'/g, "\\'")}', '${item.type}')" style="cursor:pointer">
-                    ${item.type === 'photo' ? `<img src="${item.src}" alt="">` : `<video src="${item.src}" muted></video>`}
-                </div>`).join('');
-            grid.querySelectorAll('video').forEach(v => { v.addEventListener('mouseenter',()=>v.play()); v.addEventListener('mouseleave',()=>{v.pause();v.currentTime=0}); });
-        } else grid.innerHTML = '<div class="saved-media-empty">Нет сохранённых ' + (type==='photos'?'фото':'видео') + '</div>';
-    } catch(e) { grid.innerHTML = '<div class="saved-media-empty">Ошибка загрузки</div>'; }
-}
-window.selectSavedMedia = function(src, type) {
-    const modal = document.getElementById('savedMediaModal');
-    const target = modal?.dataset.target; const postId = modal?.dataset.postId;
-    const body = target === 'inline'
-        ? document.querySelector(`.comment-inline-send[data-post-id="${postId}"]`)?.closest('.comment-inline-body')
-        : document.querySelector('#postModal .cmt-form-body') || document.querySelector('.cmt-form-body');
-    if (body) { const ta = body.querySelector('textarea'); if (ta) { ta.value += (ta.value ? '\n' : '') + src; ta.focus(); } }
-    closeSavedMediaModal();
-};
+document.querySelectorAll('.comment-inline-send').forEach(btn=>btn.addEventListener('click',async function(){const pid=this.dataset.postId,body=this.closest('.comment-inline-body'),ta=body.querySelector('textarea');const content=ta.value.trim(),files=body.querySelector('input[type="file"]').files;if(!content&&files.length===0)return;const fd=new FormData();fd.append('content',content);for(let f of files)fd.append(f.type.startsWith('image/')?'image':'video',f);const r=await fetch(`/post/${pid}/comment/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'},body:fd});if(r.ok){ta.value='';document.getElementById('preview-inline-'+pid).innerHTML='';loadComments(pid,10)}}));
+document.querySelectorAll('.comment-inline-input').forEach(ta=>ta.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();this.closest('.comment-inline-body').querySelector('.comment-inline-send').click()}}));
 
-// ===== ПРЕВЬЮ =====
-window.previewFilesInline = function(input, previewId) {
-    const pv = document.getElementById(previewId); pv.innerHTML = '';
-    [...input.files].forEach(f => {
-        const url = URL.createObjectURL(f), wrap = document.createElement('span'); wrap.className = 'preview-item';
-        if (f.type.startsWith('image/')) { const img = document.createElement('img'); img.src = url; wrap.appendChild(img); }
-        else { const vid = document.createElement('video'); vid.src = url; vid.muted = true; vid.autoplay = true; vid.loop = true; wrap.appendChild(vid); }
-        const rmv = document.createElement('button'); rmv.className = 'remove-preview'; rmv.innerHTML = '×';
-        rmv.onclick = e => { e.stopPropagation(); wrap.remove(); }; wrap.appendChild(rmv); pv.appendChild(wrap);
-    });
-};
+window.toggleComments=function(pid){const blk=document.getElementById('comments-'+pid);if(!blk)return;if(blk.classList.contains('expanded')){blk.classList.remove('expanded')}else{blk.classList.add('expanded');if(!blk.querySelector('.comments-inner').innerHTML.trim()||blk.querySelector('.comments-inner').innerHTML.includes('Загрузка')){loadComments(pid,10)}}};
 
-// ===== ОТПРАВКА КОММЕНТАРИЯ =====
-document.querySelectorAll('.comment-inline-send').forEach(btn => btn.addEventListener('click', async function() {
-    const pid = this.dataset.postId, body = this.closest('.comment-inline-body'), ta = body.querySelector('textarea');
-    const content = ta.value.trim(), files = body.querySelector('input[type="file"]').files;
-    if (!content && files.length === 0) return;
-    const fd = new FormData(); fd.append('content', content);
-    for (let f of files) fd.append(f.type.startsWith('image/') ? 'image' : 'video', f);
-    const r = await fetch(`/post/${pid}/comment/`, { method:'POST', headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'}, body:fd });
-    if (r.ok) { ta.value = ''; document.getElementById('preview-inline-' + pid).innerHTML = ''; loadComments(pid, 10); }
-}));
-document.querySelectorAll('.comment-inline-input').forEach(ta => ta.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.closest('.comment-inline-body').querySelector('.comment-inline-send').click(); }
-}));
+window.loadComments=async function(pid,limit=null){const blk=document.getElementById('comments-'+pid);if(!blk)return;const inner=blk.querySelector('.comments-inner');if(!blk.classList.contains('expanded'))blk.classList.add('expanded');inner.innerHTML='<div style="padding:12px;text-align:center;color:var(--color-text-tertiary)">Загрузка...</div>';try{const r=await fetch(`/post/${pid}/`);const html=await r.text();const doc=new DOMParser().parseFromString(html,'text/html');const allComments=doc.querySelectorAll('.cmt-list .cmt-card');if(allComments.length>0){let h='';const max=limit?Math.min(limit,allComments.length):allComments.length;for(let i=0;i<max;i++)h+=allComments[i].outerHTML;inner.innerHTML=h;feather.replace();inner.querySelectorAll('.post-vk-menu-btn').forEach(btn=>{btn.onclick=function(e){e.stopPropagation();const menu=this.parentElement.querySelector('.post-menu-dropdown');if(menu){const isOpen=menu.style.display==='block';document.querySelectorAll('.post-menu-dropdown').forEach(m=>m.style.display='none');menu.style.display=isOpen?'none':'block'}}});if(limit&&allComments.length>limit){inner.insertAdjacentHTML('beforeend',`<div style="text-align:center;padding:10px"><button class="show-more-comments" style="color:var(--color-primary);background:none;border:none;cursor:pointer;font-size:0.85rem;font-weight:500">Показать ещё (${allComments.length-limit})</button></div>`);inner.querySelector('.show-more-comments').addEventListener('click',function(){let all='';allComments.forEach(c=>all+=c.outerHTML);inner.innerHTML=all;inner.querySelectorAll('.post-vk-menu-btn').forEach(btn=>{btn.addEventListener('click',function(e){e.stopPropagation();togglePostMenu(this)})})})}}else inner.innerHTML='<div style="padding:12px;text-align:center;color:var(--color-text-tertiary)">Пока нет комментариев</div>'}catch(e){inner.innerHTML='<div style="padding:12px;color:var(--color-danger)">Ошибка</div>'}};
+document.querySelectorAll('.post-vk-comments').forEach(blk=>{loadComments(blk.id.replace('comments-',''),10)});
 
-// ===== ЗАГРУЗКА КОММЕНТАРИЕВ =====
-window.loadComments = async function(pid, limit = null) {
-    const blk = document.getElementById('comments-' + pid);
-    if (!blk) return;
-    const inner = blk.querySelector('.comments-inner');
-    if (!blk.classList.contains('expanded')) blk.classList.add('expanded');
-    inner.innerHTML = '<div style="padding:12px;text-align:center;color:var(--color-text-tertiary)">Загрузка...</div>';
-    try {
-        const r = await fetch(`/post/${pid}/`); const html = await r.text();
-        const doc = new DOMParser().parseFromString(html, 'text/html');
-        const allComments = doc.querySelectorAll('.cmt-list .cmt-card');
-        if (allComments.length > 0) {
-            let h = ''; const max = limit ? Math.min(limit, allComments.length) : allComments.length;
-            for (let i = 0; i < max; i++) h += allComments[i].outerHTML;
-            inner.innerHTML = h;
-            if (limit && allComments.length > limit) {
-                inner.insertAdjacentHTML('beforeend', `<div style="text-align:center;padding:10px"><button class="show-more-comments" style="color:var(--color-primary);background:none;border:none;cursor:pointer;font-size:0.85rem;font-weight:500">Показать ещё (${allComments.length - limit})</button></div>`);
-                inner.querySelector('.show-more-comments').addEventListener('click', function() {
-                    let all = ''; allComments.forEach(c => all += c.outerHTML); inner.innerHTML = all;
-                });
-            }
-        } else inner.innerHTML = '<div style="padding:12px;text-align:center;color:var(--color-text-tertiary)">Пока нет комментариев</div>';
-    } catch(e) { inner.innerHTML = '<div style="padding:12px;color:var(--color-danger)">Ошибка</div>'; }
-};
-// Автозагрузка комментариев
-document.querySelectorAll('.post-vk-comments').forEach(blk => { loadComments(blk.id.replace('comments-', ''), 10); });
+window.likeComment=async function(id,btn){const cnt=btn.querySelector('span');const r=await fetch('/like/toggle/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`content_type=comment&object_id=${id}&like_type=like`});const d=await r.json();btn.classList.toggle('active',d.action==='added');if(cnt)cnt.textContent=d.likes_count};
+window.showReplyForm=function(id){const form=document.getElementById('replyForm-'+id);if(form)form.style.display='block'};
+window.hideReplyForm=function(id){const form=document.getElementById('replyForm-'+id);if(form)form.style.display='none'};
+window.sendReply=async function(cid,pid){const form=document.getElementById('replyForm-'+cid);const text=form.querySelector('textarea').value.trim();if(!text)return;const r=await fetch(`/post/${pid}/comment/`,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'},body:`content=${encodeURIComponent(text)}&parent_id=${cid}`});if(r.ok)loadComments(pid,10)};
 
-// Лайк комментария (глобально, для загруженных комментариев)
-window.likeComment = async function(id, btn) {
-    const cnt = btn.querySelector('span');
-    const r = await fetch('/like/toggle/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
-        body: `content_type=comment&object_id=${id}&like_type=like`
-    });
-    const d = await r.json();
-    btn.classList.toggle('active', d.action === 'added');
-    if (cnt) cnt.textContent = d.likes_count;
-};
-window.showReplyForm = function(id) {
-    const form = document.getElementById('replyForm-' + id);
-    if (form) form.style.display = 'block';
-};
-window.hideReplyForm = function(id) {
-    const form = document.getElementById('replyForm-' + id);
-    if (form) form.style.display = 'none';
-};
-window.sendReply = async function(cid, pid) {
-    const form = document.getElementById('replyForm-' + cid);
-    const text = form.querySelector('textarea').value.trim();
-    if (!text) return;
-    const r = await fetch(`/post/${pid}/comment/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken'), 'X-Requested-With': 'XMLHttpRequest' },
-        body: `content=${encodeURIComponent(text)}&parent_id=${cid}`
-    });
-    if (r.ok) loadComments(pid, 10);
-}
+window.openPostModal=async function(postId){document.getElementById('postModalOverlay').classList.add('open');document.getElementById('postModalContent').innerHTML='<div style="padding:40px;text-align:center;color:var(--color-text-tertiary)">Загрузка...</div>';try{const r=await fetch(`/post/${postId}/`);const html=await r.text();const doc=new DOMParser().parseFromString(html,'text/html');const content=doc.querySelector('.pd-wrap');const styles=doc.querySelectorAll('style');let allStyles='';styles.forEach(s=>allStyles+=s.outerHTML);document.getElementById('postModalContent').innerHTML=allStyles+(content?.outerHTML||'Пост не найден');document.getElementById('postModal').scrollTop=0;feather.replace();initModalHandlers()}catch(e){document.getElementById('postModalContent').innerHTML='<div style="padding:40px;text-align:center;color:var(--color-danger)">Ошибка загрузки</div>'}};
+window.closePostModal=function(){document.getElementById('postModalOverlay').classList.remove('open')};
+document.getElementById('postModalOverlay').addEventListener('click',function(e){if(e.target===this)closePostModal()});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closePostModal()});
+function initModalHandlers(){}
 
-// ===== МОДАЛКА ПОСТА =====
-window.openPostModal = async function(postId) {
-    document.getElementById('postModalOverlay').classList.add('open');
-    document.getElementById('postModalContent').innerHTML = '<div style="padding:40px;text-align:center;color:var(--color-text-tertiary)">Загрузка...</div>';
-    try {
-        const r = await fetch(`/post/${postId}/`);
-        const html = await r.text();
-        const doc = new DOMParser().parseFromString(html, 'text/html');
-        const content = doc.querySelector('.pd-wrap');
+document.querySelectorAll('.vk-video-player').forEach(p=>{const v=p.querySelector('video'),ov=p.querySelector('.vk-video-player__overlay'),pb=p.querySelector('.vk-video-player__play-btn');function toggle(){if(v.paused){v.play();ov.style.display='none'}else{v.pause();ov.style.display='flex'}}pb?.addEventListener('click',e=>{e.stopPropagation();toggle()});v?.addEventListener('ended',()=>ov.style.display='flex');p.addEventListener('click',e=>{if(!e.target.closest('.vk-video-player__play-btn'))toggle()})});
+document.querySelectorAll('[data-period]').forEach(b=>b.addEventListener('click',function(){const u=new URL(location);u.searchParams.set('period',this.dataset.period);location=u}));
 
-        // Собираем все стили из post_detail
-        const styles = doc.querySelectorAll('style');
-        let allStyles = '';
-        styles.forEach(s => allStyles += s.outerHTML);
+function renderMarkdown(raw){let html=marked.parse(raw||'');html=html.replace(/\|\|(.+?)\|\|/g,'<span class="spoiler" onclick="this.classList.toggle(\'revealed\')">$1</span>');return html}
+document.querySelectorAll('.markdown-preview').forEach(el=>{const raw=el.dataset.full||'';const truncated=raw.length>80?raw.substring(0,80)+'...':raw;el.innerHTML=renderMarkdown(truncated)});
 
-        document.getElementById('postModalContent').innerHTML = allStyles + (content?.outerHTML || 'Пост не найден');
-        document.getElementById('postModal').scrollTop = 0;
-        feather.replace();
-        initModalHandlers();
-    } catch(e) {
-        document.getElementById('postModalContent').innerHTML = '<div style="padding:40px;text-align:center;color:var(--color-danger)">Ошибка загрузки</div>';
-    }
-};
-window.closePostModal = function() { document.getElementById('postModalOverlay').classList.remove('open'); };
-document.getElementById('postModalOverlay').addEventListener('click', function(e) { if (e.target === this) closePostModal(); });
-document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closePostModal(); });
+window.copyCommentLink=function(cid){const url=location.origin+'/post/'+cid+'#comment-'+cid;navigator.clipboard.writeText(url).then(()=>notify('Ссылка скопирована'))};
+window.togglePostMenu=function(btn){const menu=btn.parentElement.querySelector('.post-menu-dropdown');document.querySelectorAll('.post-menu-dropdown').forEach(m=>{if(m!==menu)m.style.display='none'});menu.style.display=menu.style.display==='none'?'block':'none'};
+window.toggleBookmark=async function(btn){const pid=btn.dataset.postId;const r=await fetch(`/bookmark/${pid}/toggle/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'}});const d=await r.json();btn.classList.toggle('active',d.action==='added');btn.querySelector('span').textContent=d.action==='added'?'Убрать из закладок':'В закладки'};
+window.deletePost=async function(pid){if(!confirm('Удалить пост?'))return;const r=await fetch(`/post/${pid}/delete/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken')}});if(r.ok)location.reload()};
 
-function initModalHandlers() {
-    // Подписаться
-    document.querySelectorAll('.post-vk-subscribe').forEach(btn => btn.addEventListener('click', async function(e) {
-        e.stopPropagation();
-        const type = this.dataset.type || 'user';
-        let url;
-        if (type === 'community') {
-            url = `/communities/${this.dataset.communityId}/join/`;
-        } else {
-            url = `/accounts/follow/${this.dataset.authorId}/`;
-        }
-        const r = await fetch(url, { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } });
-        if (r.ok) {
-            this.classList.toggle('subscribed');
-            this.textContent = this.classList.contains('subscribed') ? 'Вы подписаны' : 'Подписаться';
-        }
-    }));
+let reportPostId=null;
+window.reportPost=function(pid){reportPostId=pid;document.getElementById('reportModal').style.display='flex'};
+window.closeReportModal=function(){document.getElementById('reportModal').style.display='none'};
+document.getElementById('reportModal')?.addEventListener('click',function(e){if(e.target===this)closeReportModal()});
 
-    // Лайк поста
-    document.querySelector('#postModal .like-btn-vk')?.addEventListener('click', async function() {
-        const pid = this.dataset.postId, cnt = this.querySelector('span');
-        const r = await fetch('/like/toggle/', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')}, body:`content_type=post&object_id=${pid}&like_type=like` });
-        const d = await r.json(); this.classList.toggle('liked', d.action === 'added'); cnt.textContent = d.likes_count;
-    });
+let reportCommentId=null;
+window.reportComment=function(cid){reportCommentId=cid;document.getElementById('reportCommentModal').style.display='flex'};
 
-    // Закладка
-    document.querySelector('#postModal .bookmark-btn-vk')?.addEventListener('click', async function() {
-        const r = await fetch(`/bookmark/${this.dataset.postId}/toggle/`, { method:'POST', headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'} });
-        const d = await r.json(); this.classList.toggle('bookmarked', d.action === 'added');
-    });
+document.addEventListener('click',function(e){if(!e.target.closest('.post-menu-dropdown')&&!e.target.closest('.post-vk-menu-btn')){document.querySelectorAll('.post-menu-dropdown').forEach(m=>m.style.display='none')}});
+document.querySelectorAll('.post-vk-friend').forEach(btn=>btn.addEventListener('click',async function(e){e.stopPropagation();const r=await fetch(`/accounts/friend/${this.dataset.friendId}/toggle/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken')}});const d=await r.json();this.classList.toggle('friend',d.action==='added');this.textContent=d.action==='added'?'Друг':'+ Друг'}));
 
-    // Отправка комментария
-    document.querySelector('#postModal .comment-inline-send')?.addEventListener('click', async function() {
-        const pid = this.dataset.postId, body = this.closest('.comment-inline-body'), ta = body.querySelector('textarea');
-        const content = ta.value.trim(), files = body.querySelector('input[type="file"]').files;
-        if (!content && files.length === 0) return;
-        const fd = new FormData(); fd.append('content', content);
-        for (let f of files) fd.append(f.type.startsWith('image/') ? 'image' : 'video', f);
-        const r = await fetch(`/post/${pid}/comment/`, { method:'POST', headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'}, body:fd });
-        if (r.ok) closePostModal();
-    });
+window.savePhoto=async function(postId){const r=await fetch('/media-storage/save-from-post/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`post_id=${postId}&media_type=photo`});const d=await r.json();notify(d.success?'Фото сохранено':'Ошибка')};
+window.saveVideo=async function(postId){const r=await fetch('/media-storage/save-from-post/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`post_id=${postId}&media_type=video`});const d=await r.json();notify(d.success?'Видео сохранено':'Ошибка')};
 
-    // Инструменты комментария
-    document.querySelectorAll('#postModal .comment-inline-tool').forEach(btn => {
-        if (btn.querySelector('[data-feather="smile"]')) btn.onclick = function() { toggleEmojiInline(this); };
-        if (btn.querySelector('[data-feather="bookmark"]')) btn.onclick = function() { window._toggleSavedPicker(this); };
-        if (btn.querySelector('[data-feather="image"]')) btn.onclick = function() { this.nextElementSibling?.click(); };
-    });
-
-    // Превью файлов
-    document.querySelectorAll('#postModal input[type="file"]').forEach(inp => {
-        inp.addEventListener('change', function() {
-            previewFilesInline(this, 'preview-inline-' + this.closest('.comment-inline-form')?.querySelector('.comment-inline-send')?.dataset.postId);
-        });
-    });
-
-    // Лайк комментария в модалке
-    document.querySelectorAll('#postModal .cmt-like').forEach(btn => {
-        btn.addEventListener('click', async function() {
-            const id = this.dataset.commentId;
-            const cnt = this.querySelector('span');
-            const r = await fetch('/like/toggle/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
-                body: `content_type=comment&object_id=${id}&like_type=like`
-            });
-            const d = await r.json();
-            this.classList.toggle('active', d.action === 'added');
-            if (cnt) cnt.textContent = d.likes_count;
-        });
-    });
-
-    // Ответ на комментарий в модалке
-    document.querySelectorAll('#postModal .cmt-reply').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const id = this.dataset.commentId || this.getAttribute('onclick')?.match(/\d+/)?.[0];
-            if (id) document.getElementById('replyForm-' + id).style.display = 'block';
-        });
-    });
-
-    // Отправка ответа в модалке
-    document.querySelectorAll('#postModal .send-reply').forEach(btn => {
-        btn.addEventListener('click', async function() {
-            const cid = this.dataset.commentId || this.getAttribute('onclick')?.match(/\d+/)?.[0];
-            const form = document.getElementById('replyForm-' + cid);
-            const text = form.querySelector('textarea').value.trim();
-            if (!text) return;
-            const pid = document.querySelector('#postModal .cmt-form')?.dataset.postId ||
-                        document.querySelector('#postModal .comment-inline-send')?.dataset.postId;
-            const r = await fetch(`/post/${pid}/comment/`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken'), 'X-Requested-With': 'XMLHttpRequest' },
-                body: `content=${encodeURIComponent(text)}&parent_id=${cid}`
-            });
-            if (r.ok) closePostModal();
-        });
-    });
-
-    // Enter в поле комментария модалки
-    document.querySelector('#postModal .comment-inline-input')?.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            this.closest('.comment-inline-body').querySelector('.comment-inline-send').click();
-        }
-    });
-}
-
-// ===== ВИДЕО =====
-document.querySelectorAll('.vk-video-player').forEach(p => {
-    const v = p.querySelector('video'), ov = p.querySelector('.vk-video-player__overlay'), pb = p.querySelector('.vk-video-player__play-btn');
-    function toggle() { if (v.paused) { v.play(); ov.style.display = 'none'; } else { v.pause(); ov.style.display = 'flex'; } }
-    pb?.addEventListener('click', e => { e.stopPropagation(); toggle(); });
-    v?.addEventListener('ended', () => ov.style.display = 'flex');
-    p.addEventListener('click', e => { if (!e.target.closest('.vk-video-player__play-btn')) toggle(); });
-});
-
-document.querySelectorAll('[data-period]').forEach(b => b.addEventListener('click', function() {
-    const u = new URL(location);
-    u.searchParams.set('period', this.dataset.period);
-    location = u;
-}));
-// ===== MARKDOWN =====
-function renderMarkdown(raw) {
-    let html = marked.parse(raw || '');
-    // Спойлер: ||текст|| → размытый span
-    html = html.replace(/\|\|(.+?)\|\|/g, '<span class="spoiler" onclick="this.classList.toggle(\'revealed\')">$1</span>');
-    return html;
-}
-
-// Рендерим превью в ленте
-document.querySelectorAll('.markdown-preview').forEach(el => {
-    const raw = el.dataset.full || '';
-    const truncated = raw.length > 80 ? raw.substring(0, 80) + '...' : raw;
-    el.innerHTML = renderMarkdown(truncated);
-});
-
-// Меню поста
-window.togglePostMenu = function(btn) {
-    const menu = btn.parentElement.querySelector('.post-menu-dropdown');
-    document.querySelectorAll('.post-menu-dropdown').forEach(m => { if (m !== menu) m.style.display = 'none'; });
-    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
-};
-
-window.toggleBookmark = async function(btn) {
-    const pid = btn.dataset.postId;
-    const r = await fetch(`/bookmark/${pid}/toggle/`, {
-        method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken'), 'X-Requested-With': 'XMLHttpRequest' }
-    });
-    const d = await r.json();
-    btn.classList.toggle('active', d.action === 'added');
-    btn.querySelector('span').textContent = d.action === 'added' ? 'Убрать из закладок' : 'В закладки';
-};
-
-window.deletePost = async function(pid) {
-    if (!confirm('Удалить пост?')) return;
-    const r = await fetch(`/post/${pid}/delete/`, { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } });
-    if (r.ok) location.reload();
-};
-
-window.reportPost = function(pid) {
-    const reason = prompt('Причина жалобы:');
-    if (reason) {
-        fetch('/moderation/report/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
-            body: `post_id=${pid}&reason=${encodeURIComponent(reason)}`
-        }).then(r => { if (r.ok) showToast('Жалоба отправлена'); });
-    }
-};
-
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('.post-menu-dropdown') && !e.target.closest('.post-vk-menu-btn')) {
-        document.querySelectorAll('.post-menu-dropdown').forEach(m => m.style.display = 'none');
-    }
-});
-
-document.querySelectorAll('.post-vk-friend').forEach(btn => btn.addEventListener('click', async function(e) {
-    e.stopPropagation();
-    const r = await fetch(`/accounts/friend/${this.dataset.friendId}/toggle/`, {
-        method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }
-    });
-    const d = await r.json();
-    this.classList.toggle('friend', d.action === 'added');
-    this.textContent = d.action === 'added' ? 'Друг' : '+ Друг';
-}));
-
-window.savePhoto = async function(postId) {
-    const r = await fetch('/media-storage/save-from-post/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
-        body: `post_id=${postId}&media_type=photo`
-    });
-    const d = await r.json();
-    showToast(d.success ? 'Фото сохранено' : 'Ошибка');
-};
-
-window.saveVideo = async function(postId) {
-    const r = await fetch('/media-storage/save-from-post/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
-        body: `post_id=${postId}&media_type=video`
-    });
-    const d = await r.json();
-    showToast(d.success ? 'Видео сохранено' : 'Ошибка');
-};
-
-document.addEventListener('click', e => { if (!e.target.closest('.comment-inline-tools') && !e.target.closest('.cmt-tools')) { document.querySelectorAll('.emoji-picker.open,.saved-picker.open').forEach(p => p.classList.remove('open')); } });
+document.addEventListener('click',e=>{if(!e.target.closest('.comment-inline-tools')&&!e.target.closest('.cmt-tools')){document.querySelectorAll('.emoji-picker.open,.saved-picker.open').forEach(p=>p.classList.remove('open'))}});
 </script>
 {% endblock %}

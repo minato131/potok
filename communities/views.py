@@ -1,3 +1,5 @@
+import json
+
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -5,8 +7,10 @@ from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage  # ← 
 from django.db.models import Q, Count
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
+
+from accounts.models import Friendship
 from accounts.utils import create_notification
-from .models import Community, CommunityMembership, CommunityPost, CommunityJoinRequest
+from .models import Community, CommunityMembership, CommunityPost, CommunityJoinRequest, User
 from .forms import CommunityForm, CommunityPostForm, CommunityJoinRequestForm
 from posts.models import Post
 from django.utils import timezone
@@ -90,12 +94,14 @@ def community_detail(request, slug):
 
     # Получаем посты сообщества
     posts = CommunityPost.objects.filter(
-        community=community
+        community=community,
+        post__is_hidden=False
     ).select_related(
         'post', 'post__author'
     ).prefetch_related(
         'post__tags'
     ).order_by('-is_pinned', '-post__created_at')
+
 
     paginator = Paginator(posts, 10)
     page_number = request.GET.get('page')
@@ -124,6 +130,8 @@ def community_detail(request, slug):
         status='active'
     ).select_related('user')
 
+    community.update_stats()
+
     context = {
         'community': community,
         'page_obj': page_obj,
@@ -136,31 +144,24 @@ def community_detail(request, slug):
 
 @login_required
 def community_create(request):
-    """
-    Создание нового сообщества
-    """
+    """Создание нового сообщества"""
     if request.method == 'POST':
         form = CommunityForm(request.POST, request.FILES)
         if form.is_valid():
             community = form.save(commit=False)
             community.creator = request.user
 
-            # Генерируем slug если он пустой
             if not community.slug:
                 from django.utils.text import slugify
                 community.slug = slugify(community.name)
 
-            # Проверяем уникальность slug
             from django.db import IntegrityError
             try:
                 community.save()
-                form.save_m2m()
             except IntegrityError:
-                # Если slug не уникален, добавляем случайное число
                 import random
                 community.slug = f"{slugify(community.name)}-{random.randint(1000, 9999)}"
                 community.save()
-                form.save_m2m()
 
             # Добавляем создателя как администратора
             CommunityMembership.objects.create(
@@ -170,7 +171,8 @@ def community_create(request):
                 status='active'
             )
 
-            messages.success(request, f'Сообщество "{community.name}" успешно создано!')
+            community.update_stats()
+            messages.success(request, f'Сообщество "{community.name}" создано!')
             return redirect('communities:community_detail', slug=community.slug)
         else:
             messages.error(request, 'Пожалуйста, исправьте ошибки в форме')
@@ -185,17 +187,11 @@ def community_create(request):
 
 @login_required
 def community_edit(request, slug):
-    """
-    Редактирование сообщества
-    """
     community = get_object_or_404(Community, slug=slug)
 
-    # Проверка прав (только создатель или админ)
     membership = CommunityMembership.objects.filter(
-        user=request.user,
-        community=community,
-        role__in=['admin', 'moderator'],
-        status='active'
+        user=request.user, community=community,
+        role__in=['admin', 'moderator'], status='active'
     ).exists()
 
     if not membership and request.user != community.creator:
@@ -206,6 +202,7 @@ def community_edit(request, slug):
         form = CommunityForm(request.POST, request.FILES, instance=community)
         if form.is_valid():
             community = form.save()
+            community.update_stats()
             messages.success(request, 'Сообщество успешно обновлено!')
             return redirect('communities:community_detail', slug=community.slug)
     else:
@@ -247,6 +244,8 @@ def community_join(request, slug):
         if is_ajax: return JsonResponse({'joined': False, 'message': 'Заявка отправлена'})
         messages.success(request, 'Заявка отправлена!')
         return redirect('communities:community_detail', slug=community.slug)
+
+    community.update_stats()
 
     return render(request, 'communities/join_request_modal.html', {'community': community})
 
@@ -322,6 +321,8 @@ def community_post_create(request, slug):
             print("Ошибки формы:", form.errors)  # Отладка
     else:
         form = CommunityPostForm()
+
+    community.update_stats()
 
     return render(request, 'communities/community_post_create.html', {
         'form': form,
@@ -496,3 +497,74 @@ def cancel_join_request(request, slug):
 
     messages.success(request, 'Заявка успешно отменена')
     return redirect('communities:community_detail', slug=community.slug)
+
+
+@login_required
+def change_member_role(request, slug):
+    community = get_object_or_404(Community, slug=slug)
+    # Проверка что админ
+    membership = CommunityMembership.objects.filter(
+        user=request.user, community=community, role='admin', status='active'
+    ).first()
+    if not membership:
+        return JsonResponse({'error': 'Нет прав'}, status=403)
+
+    data = json.loads(request.body)
+    user_id = data.get('user_id')
+    role = data.get('role')
+
+    member = CommunityMembership.objects.filter(community=community, user_id=user_id).first()
+    if member and role in ['member', 'moderator']:
+        member.role = role
+        member.save()
+        return JsonResponse({'status': 'ok'})
+    return JsonResponse({'error': 'Ошибка'}, status=400)
+
+
+@login_required
+def ban_community_member(request, slug):
+    community = get_object_or_404(Community, slug=slug)
+    membership = CommunityMembership.objects.filter(
+        user=request.user, community=community, role__in=['admin', 'moderator'], status='active'
+    ).first()
+    if not membership:
+        return JsonResponse({'error': 'Нет прав'}, status=403)
+
+    data = json.loads(request.body)
+    user_id = data.get('user_id')
+
+    member = CommunityMembership.objects.filter(community=community, user_id=user_id).first()
+    if member and member.user != community.creator:
+        member.status = 'banned'
+        member.save()
+        return JsonResponse({'status': 'ok'})
+    return JsonResponse({'error': 'Ошибка'}, status=400)
+
+
+@login_required
+def unban_community_member(request, slug):
+    # Аналогично ban_community_member, но status = 'active'
+    ...
+
+
+@login_required
+def friends_search_api(request):
+    """API поиска среди друзей"""
+    query = request.GET.get('q', '').strip()
+    if len(query) < 2:
+        return JsonResponse([], safe=False)
+
+    friend_ids = Friendship.objects.filter(user=request.user).values_list('friend_id', flat=True)
+    users = User.objects.filter(id__in=friend_ids).filter(
+        Q(username__icontains=query) | Q(first_name__icontains=query) | Q(last_name__icontains=query)
+    )[:10]
+
+    results = []
+    for u in users:
+        results.append({
+            'id': u.id,
+            'username': u.username,
+            'full_name': u.get_full_name(),
+            'avatar': u.profile.avatar.url if hasattr(u, 'profile') and u.profile.avatar else None,
+        })
+    return JsonResponse(results, safe=False)

@@ -316,9 +316,9 @@
                         </div>
                         <h4 id="previewName">
                             {% if form.instance.name %}
-                            c/{{ form.instance.name }}
+                            {{ form.instance.name }}
                             {% else %}
-                            c/название
+                            название
                             {% endif %}
                         </h4>
                         <p id="previewDescription">
@@ -835,7 +835,7 @@
             const name = nameInput?.value || '';
             const description = document.querySelector('textarea[name="description"]')?.value || '';
 
-            document.getElementById('previewName').textContent = name ? `c/${name}` : 'c/название';
+            document.getElementById('previewName').textContent = name ? `c/${name}` : 'Название';
             document.getElementById('previewDescription').textContent = description || 'Описание сообщества...';
 
             const firstChar = name.charAt(0).toUpperCase() || '?';

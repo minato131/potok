@@ -71,12 +71,20 @@ class User(AbstractUser):
     message_privacy = models.CharField(
         max_length=20,
         choices=[
-            ('everyone', 'Все'),
-            ('followers', 'Только подписчики'),
-            ('none', 'Никто'),
+            ('everyone', 'Все пользователи'),
+            ('friends', 'Только друзья'),
+            ('friends_except', 'Друзья, кроме...'),
+            ('nobody', 'Только я'),
         ],
         default='everyone',
         verbose_name='Кто может писать'
+    )
+
+    message_privacy_except = models.ManyToManyField(
+        'self',
+        blank=True,
+        symmetrical=False,
+        verbose_name='Исключения (кто не может писать)'
     )
 
     # Социальные сети
@@ -118,6 +126,35 @@ class User(AbstractUser):
         blank=True,
         verbose_name='Последняя активность'
     )
+    is_platform_moderator = models.BooleanField(
+        default=False,
+        verbose_name='Модератор площадки'
+    )
+    # accounts/models.py — в Profile добавь:
+
+    # Кто видит основную информацию
+    who_can_see_profile = models.CharField(max_length=20, default='everyone',
+                                           choices=[('everyone', 'Все'), ('friends', 'Друзья'),
+                                                    ('friends_friends', 'Друзья и друзья друзей'),
+                                                    ('nobody', 'Только я')])
+
+    # Кто видит дату рождения
+    who_can_see_birthdate = models.CharField(max_length=20, default='friends')
+
+    # Кто видит фото
+    who_can_see_photos = models.CharField(max_length=20, default='everyone')
+
+    # Кто видит видео
+    who_can_see_videos = models.CharField(max_length=20, default='everyone')
+
+    # Кто видит сообщества
+    who_can_see_communities = models.CharField(max_length=20, default='everyone')
+
+    # Кто видит аудиозаписи
+    who_can_see_music = models.CharField(max_length=20, default='everyone')
+
+    # Кого видно в друзьях
+    who_can_see_friends = models.CharField(max_length=20, default='everyone')
 
     @property
     def is_online(self):
@@ -312,6 +349,13 @@ class Profile(models.Model):
         related_name='profile_followers',
         symmetrical=False,
         blank=True
+    )
+
+    message_except = models.ManyToManyField(
+        User,
+        blank=True,
+        related_name='message_excepted_by',
+        verbose_name='Исключения для сообщений'
     )
 
     created_at = models.DateTimeField(auto_now_add=True)

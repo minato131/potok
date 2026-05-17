@@ -2,16 +2,16 @@
 {% load static %}
 
 {% block title %}Приватность · Поток{% endblock %}
-{% block page_title %}🔒 Приватность{% endblock %}
+{% block page_title %}Приватность{% endblock %}
 
 {% block content %}
 <style>
     .settings-page { max-width: 650px; margin: 0 auto; }
     .settings-card { background: var(--color-bg-surface); border-radius: 14px; border: 1px solid var(--color-border-light); padding: 20px 24px; margin-bottom: 16px; }
     .settings-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 16px; }
-    .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--color-border-light); }
+    .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--color-border-light); flex-wrap: wrap; gap: 8px; }
     .setting-row:last-child { border-bottom: none; }
-    .setting-label { font-weight: 500; font-size: 0.9rem; }
+    .setting-label { font-weight: 500; font-size: 0.9rem; flex: 1; min-width: 180px; }
     .setting-desc { font-size: 0.78rem; color: var(--color-text-tertiary); margin-top: 2px; }
     .toggle-switch { position: relative; display: inline-block; width: 48px; height: 26px; flex-shrink: 0; }
     .toggle-switch input { opacity: 0; width: 0; height: 0; }
@@ -19,53 +19,128 @@
     .toggle-slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
     input:checked + .toggle-slider { background: var(--color-primary); }
     input:checked + .toggle-slider:before { transform: translateX(22px); }
-    .settings-card select { padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 0.85rem; background: var(--color-bg-surface); }
+    .settings-card select { padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 0.85rem; background: var(--color-bg-surface); max-width: 240px; }
     .btn-save { padding: 12px 28px; background: var(--color-primary); color: #fff; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 0.9rem; }
+    .except-list { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+    .except-tag { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: var(--color-bg-elevated); border-radius: 20px; font-size: 0.78rem; }
+    .except-tag button { background: none; border: none; cursor: pointer; color: var(--color-text-tertiary); padding: 0; font-size: 1rem; line-height: 1; }
+    .except-tag button:hover { color: #ef4444; }
+    .add-except-wrap { position: relative; margin-top: 8px; }
+    .add-except-wrap input { width: 100%; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 0.85rem; }
+    .except-dropdown { position: absolute; top: 100%; left: 0; right: 0; background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: 10px; max-height: 180px; overflow-y: auto; z-index: 10; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .except-dropdown-item { padding: 8px 12px; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; }
+    .except-dropdown-item:hover { background: var(--color-bg-elevated); }
+    .except-dropdown-item img { width: 24px; height: 24px; border-radius: 50%; }
 </style>
 
 <div class="settings-page">
-    <form method="post">
+    <form method="post" id="privacyForm">
         {% csrf_token %}
-        <div class="settings-card">
-            <h3>Видимость профиля</h3>
-            <div class="setting-row">
-                <div>
-                    <div class="setting-label">Приватный профиль</div>
-                    <div class="setting-desc">Только подписчики видят ваши посты</div>
-                </div>
-                <label class="toggle-switch">
-                    <input type="checkbox" name="is_private" {% if profile.is_private %}checked{% endif %}>
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-            <div class="setting-row">
-                <div>
-                    <div class="setting-label">Показывать email</div>
-                    <div class="setting-desc">Отображать email в профиле</div>
-                </div>
-                <label class="toggle-switch">
-                    <input type="checkbox" name="show_email" {% if profile.show_email %}checked{% endif %}>
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
-        </div>
 
+        <!-- Видимость профиля -->
         <div class="settings-card">
-            <h3>Кто может взаимодействовать</h3>
+            <h3>Моя страница</h3>
             <div class="setting-row">
-                <div class="setting-label">Писать сообщения</div>
-                <select name="allow_messages">
-                    <option value="everyone" {% if profile.allow_messages == 'everyone' %}selected{% endif %}>Все</option>
-                    <option value="friends" {% if profile.allow_messages == 'friends' %}selected{% endif %}>Друзья</option>
-                    <option value="nobody" {% if profile.allow_messages == 'nobody' %}selected{% endif %}>Никто</option>
+                <span class="setting-label">Кто видит основную информацию моей страницы</span>
+                <select name="who_can_see_profile">
+                    <option value="everyone" {% if profile.who_can_see_profile == 'everyone' %}selected{% endif %}>Все</option>
+                    <option value="friends" {% if profile.who_can_see_profile == 'friends' %}selected{% endif %}>Только друзья</option>
+                    <option value="friends_friends" {% if profile.who_can_see_profile == 'friends_friends' %}selected{% endif %}>Друзья и друзья друзей</option>
+                    <option value="nobody" {% if profile.who_can_see_profile == 'nobody' %}selected{% endif %}>Только я</option>
                 </select>
             </div>
             <div class="setting-row">
-                <div class="setting-label">Комментировать посты</div>
+                <span class="setting-label">Кто видит мою дату рождения</span>
+                <select name="who_can_see_birthdate">
+                    <option value="everyone" {% if profile.who_can_see_birthdate == 'everyone' %}selected{% endif %}>Все</option>
+                    <option value="friends" {% if profile.who_can_see_birthdate == 'friends' %}selected{% endif %}>Только друзья</option>
+                    <option value="nobody" {% if profile.who_can_see_birthdate == 'nobody' %}selected{% endif %}>Только я</option>
+                </select>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label">Кого видно в списке моих друзей и подписок</span>
+                <select name="who_can_see_friends">
+                    <option value="everyone" {% if profile.who_can_see_friends == 'everyone' %}selected{% endif %}>Все</option>
+                    <option value="friends" {% if profile.who_can_see_friends == 'friends' %}selected{% endif %}>Только друзья</option>
+                    <option value="nobody" {% if profile.who_can_see_friends == 'nobody' %}selected{% endif %}>Только я</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Фото, видео, музыка -->
+        <div class="settings-card">
+            <h3>Мои медиа</h3>
+            <div class="setting-row">
+                <span class="setting-label">Кто видит мои фотографии</span>
+                <select name="who_can_see_photos">
+                    <option value="everyone" {% if profile.who_can_see_photos == 'everyone' %}selected{% endif %}>Все</option>
+                    <option value="friends" {% if profile.who_can_see_photos == 'friends' %}selected{% endif %}>Только друзья</option>
+                    <option value="nobody" {% if profile.who_can_see_photos == 'nobody' %}selected{% endif %}>Только я</option>
+                </select>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label">Кто видит список моих видеозаписей</span>
+                <select name="who_can_see_videos">
+                    <option value="everyone" {% if profile.who_can_see_videos == 'everyone' %}selected{% endif %}>Все</option>
+                    <option value="friends" {% if profile.who_can_see_videos == 'friends' %}selected{% endif %}>Только друзья</option>
+                    <option value="nobody" {% if profile.who_can_see_videos == 'nobody' %}selected{% endif %}>Только я</option>
+                </select>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label">Кто видит список моих аудиозаписей</span>
+                <select name="who_can_see_music">
+                    <option value="everyone" {% if profile.who_can_see_music == 'everyone' %}selected{% endif %}>Все</option>
+                    <option value="friends" {% if profile.who_can_see_music == 'friends' %}selected{% endif %}>Только друзья</option>
+                    <option value="nobody" {% if profile.who_can_see_music == 'nobody' %}selected{% endif %}>Только я</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Сообщества -->
+        <div class="settings-card">
+            <h3>Сообщества</h3>
+            <div class="setting-row">
+                <span class="setting-label">Кто видит список моих сообществ</span>
+                <select name="who_can_see_communities">
+                    <option value="everyone" {% if profile.who_can_see_communities == 'everyone' %}selected{% endif %}>Все</option>
+                    <option value="friends" {% if profile.who_can_see_communities == 'friends' %}selected{% endif %}>Только друзья</option>
+                    <option value="nobody" {% if profile.who_can_see_communities == 'nobody' %}selected{% endif %}>Только я</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Взаимодействие -->
+        <div class="settings-card">
+            <h3>Кто может взаимодействовать</h3>
+            <div class="setting-row" style="flex-direction:column;align-items:flex-start">
+                <span class="setting-label">Писать сообщения</span>
+                <select name="allow_messages" id="msgPrivacy" onchange="toggleExcept(this.value)" style="width:100%;max-width:100%">
+                    <option value="everyone" {% if profile.allow_messages == 'everyone' %}selected{% endif %}>Все пользователи</option>
+                    <option value="friends" {% if profile.allow_messages == 'friends' %}selected{% endif %}>Только друзья</option>
+                    <option value="friends_except" {% if profile.allow_messages == 'friends_except' %}selected{% endif %}>Друзья, кроме...</option>
+                    <option value="nobody" {% if profile.allow_messages == 'nobody' %}selected{% endif %}>Только я</option>
+                </select>
+            <div id="exceptBlock" style="display:{% if profile.allow_messages == 'friends_except' %}block{% else %}none{% endif %};width:100%">
+                <div style="font-size:0.8rem;color:var(--color-text-tertiary);margin-bottom:6px">Выберите друзей, которые <strong>не смогут</strong> писать:</div>
+                <input type="text" id="exceptSearch" placeholder="Поиск друга..." autocomplete="off" oninput="filterFriends(this.value)" style="width:100%;padding:8px 12px;border:1px solid var(--color-border);border-radius:8px;font-size:0.85rem;margin-bottom:8px">
+                <div id="friendsChecklist" style="max-height:250px;overflow-y:auto">
+                    {% for friend in all_friends %}
+                    <label style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer;border-bottom:1px solid var(--color-border-light)">
+                        <input type="checkbox" value="{{ friend.id }}" onchange="toggleExceptCheckbox(this)" {% if friend in message_except_list %}checked{% endif %}>
+                        {% if friend.profile.avatar %}<img src="{{ friend.profile.avatar.url }}" style="width:28px;height:28px;border-radius:50%">{% else %}<div style="width:28px;height:28px;border-radius:50%;background:var(--color-primary-light);display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:var(--color-primary)">{{ friend.username|first|upper }}</div>{% endif %}
+                        <span style="font-size:0.85rem">{{ friend.get_full_name|default:friend.username }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="message_except" id="messageExceptInput" value="{% for u in message_except_list %}{{ u.id }}{% if not forloop.last %},{% endif %}{% endfor %}">
+            </div>
+            </div>
+            <div class="setting-row">
+                <span class="setting-label">Комментировать посты</span>
                 <select name="allow_comments">
-                    <option value="everyone" {% if profile.allow_comments == 'everyone' %}selected{% endif %}>Все</option>
-                    <option value="friends" {% if profile.allow_comments == 'friends' %}selected{% endif %}>Друзья</option>
-                    <option value="nobody" {% if profile.allow_comments == 'nobody' %}selected{% endif %}>Никто</option>
+                    <option value="everyone" {% if profile.allow_comments == 'everyone' %}selected{% endif %}>Все пользователи</option>
+                    <option value="friends" {% if profile.allow_comments == 'friends' %}selected{% endif %}>Только друзья</option>
+                    <option value="nobody" {% if profile.allow_comments == 'nobody' %}selected{% endif %}>Только я</option>
                 </select>
             </div>
         </div>
@@ -73,4 +148,66 @@
         <button type="submit" class="btn-save">Сохранить</button>
     </form>
 </div>
+
+<script>
+    let exceptIds = [{% for u in message_except_list %}{{ u.id }}{% if not forloop.last %},{% endif %}{% endfor %}];
+
+    function toggleExcept(val) {
+        document.getElementById('exceptBlock').style.display = val === 'friends_except' ? 'block' : 'none';
+    }
+
+    function toggleExceptCheckbox(cb) {
+        const id = parseInt(cb.value);
+        if (cb.checked) {
+            if (!exceptIds.includes(id)) exceptIds.push(id);
+        } else {
+            exceptIds = exceptIds.filter(x => x !== id);
+        }
+        document.getElementById('messageExceptInput').value = exceptIds.join(',');
+    }
+
+    function filterFriends(query) {
+        const q = query.toLowerCase();
+        document.querySelectorAll('#friendsChecklist label').forEach(label => {
+            const name = label.textContent.toLowerCase();
+            label.style.display = name.includes(q) ? '' : 'none';
+        });
+    }
+    async function searchFriends(query) {
+        const dd = document.getElementById('exceptDropdown');
+        if (query.length < 2) { dd.style.display = 'none'; return; }
+        const r = await fetch('/accounts/friends/search/?q=' + encodeURIComponent(query));
+        const friends = await r.json();
+        dd.innerHTML = friends.filter(f => !exceptIds.includes(f.id)).map(f => `
+            <div class="except-dropdown-item" onclick="addExcept(${f.id}, '${(f.full_name || f.username).replace(/'/g, "\\'")}')">
+                ${f.avatar ? `<img src="${f.avatar}">` : ''}
+                ${f.full_name || f.username}
+            </div>
+        `).join('');
+        dd.style.display = friends.length ? 'block' : 'none';
+    }
+
+    function addExcept(id, name) {
+        if (exceptIds.includes(id)) return;
+        exceptIds.push(id);
+        document.getElementById('exceptList').innerHTML += `<span class="except-tag">${name} <button type="button" onclick="removeExcept(${id})">✕</button></span>`;
+        document.getElementById('messageExceptInput').value = exceptIds.join(',');
+        document.getElementById('exceptDropdown').style.display = 'none';
+        document.getElementById('exceptSearch').value = '';
+    }
+
+    function removeExcept(id) {
+        exceptIds = exceptIds.filter(x => x !== id);
+        document.getElementById('messageExceptInput').value = exceptIds.join(',');
+        document.querySelectorAll('.except-tag').forEach(tag => {
+            if (tag.innerHTML.includes('removeExcept(' + id + ')')) tag.remove();
+        });
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.add-except-wrap')) {
+            document.getElementById('exceptDropdown').style.display = 'none';
+        }
+    });
+</script>
 {% endblock %}

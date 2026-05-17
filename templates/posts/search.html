@@ -84,7 +84,7 @@
                     <option value="">Все сообщества</option>
                     {% for community in communities %}
                     <option value="{{ community.slug }}" {% if community_filter == community.slug %}selected{% endif %}>
-                        c/{{ community.name }}
+                        {{ community.name }}
                     </option>
                     {% endfor %}
                 </select>

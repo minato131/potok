@@ -4,47 +4,70 @@ from .models import Community, CommunityPost
 from posts.models import Post
 
 
+from django import forms
+from django.core.exceptions import ValidationError
+from .models import Community, CommunityPost
+from posts.models import Post
+
+
 class CommunityForm(forms.ModelForm):
     """
     Форма создания/редактирования сообщества
     """
+    # Поля вручную с нужными классами
+    name = forms.CharField(
+        max_length=100,
+        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Название сообщества'})
+    )
+    slug = forms.CharField(
+        max_length=120,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'url-soobshchestva'})
+    )
+    description = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'class': 'form-textarea', 'rows': 4, 'placeholder': 'Опишите сообщество...'})
+    )
+    avatar = forms.ImageField(required=False)
+    cover = forms.ImageField(required=False)
+    privacy = forms.ChoiceField(
+        choices=Community.PRIVACY_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    community_type = forms.ChoiceField(
+        choices=Community.COMMUNITY_TYPE_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    category = forms.ModelChoiceField(
+        queryset=None,  # будет установлено в __init__
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    posts_need_approval = forms.BooleanField(required=False)
+    rules = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'class': 'form-textarea', 'rows': 4, 'placeholder': 'Правила сообщества...'})
+    )
+    website = forms.URLField(required=False, widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'https://...'}))
+    discord = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'discord.gg/...'}))
+    telegram = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': '@username или t.me/...'}))
 
     class Meta:
         model = Community
-        fields = ['name', 'description', 'avatar', 'cover', 'privacy', 'categories', 'tags']
-        widgets = {
-            'name': forms.TextInput(attrs={
-                'class': 'form-control',
-                'placeholder': 'Название сообщества'
-            }),
-            'description': forms.Textarea(attrs={
-                'class': 'form-control',
-                'rows': 5,
-                'placeholder': 'Описание сообщества...'
-            }),
-            'avatar': forms.FileInput(attrs={
-                'class': 'form-control'
-            }),
-            'cover': forms.FileInput(attrs={
-                'class': 'form-control'
-            }),
-            'privacy': forms.Select(attrs={
-                'class': 'form-control'
-            }),
-            'categories': forms.SelectMultiple(attrs={
-                'class': 'form-control'
-            }),
-            'tags': forms.SelectMultiple(attrs={
-                'class': 'form-control'
-            }),
-        }
+        fields = ['name', 'slug', 'description', 'avatar', 'cover', 'privacy',
+                  'community_type', 'category', 'posts_need_approval', 'rules',
+                  'website', 'discord', 'telegram']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from posts.models import Category
+        self.fields['category'].queryset = Category.objects.all()
 
     def clean_name(self):
         name = self.cleaned_data.get('name')
         if len(name) < 3:
             raise ValidationError('Название должно содержать минимум 3 символа')
         return name
-
 
 class CommunityPostForm(forms.ModelForm):
     """

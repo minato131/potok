@@ -90,4 +90,5 @@ urlpatterns = [
     # Юридические страницы
     path('terms/', views.terms_view, name='terms'),
     path('privacy-policy/', views.privacy_view, name='privacy'),
+    path('users/search/', views.user_search_api, name='user_search_api'),
 ]

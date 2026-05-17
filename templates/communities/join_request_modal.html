@@ -14,7 +14,7 @@
                         {% endif %}
                     </div>
                     <div>
-                        <h3 class="modal-title">Вступить в c/{{ community.name }}</h3>
+                        <h3 class="modal-title">Вступить в {{ community.name }}</h3>
                         <p class="community-meta-modal">
                             <span><i data-feather="users"></i> {{ community.members.count }} участников</span>
                             <span><i data-feather="calendar"></i> Создано {{ community.created_at|date:"M Y" }}</span>
@@ -108,7 +108,7 @@
 <div class="modal-overlay" id="fullRulesModal" style="display: none;">
     <div class="modal">
         <div class="modal-header">
-            <h3 class="modal-title">Правила c/{{ community.name }}</h3>
+            <h3 class="modal-title">Правила {{ community.name }}</h3>
             <button class="modal-close" onclick="closeFullRulesModal()">
                 <i data-feather="x"></i>
             </button>

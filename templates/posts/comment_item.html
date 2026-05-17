@@ -72,7 +72,7 @@
                     </button>
                     {% endif %}
                     <div class="dropdown-divider"></div>
-                    <button class="menu-item report-btn" data-comment-id="{{ comment.id }}">
+                    <button class="menu-item report-btn" data-comment-id="{{ comment.id }}" onclick="event.stopPropagation();reportComment({{ comment.id }})">
                         <i data-feather="flag"></i>
                         <span>Пожаловаться</span>
                     </button>
@@ -86,6 +86,11 @@
                 <p class="deleted-comment">
                     <i data-feather="trash-2"></i>
                     Комментарий удален
+                </p>
+                {% elif comment.is_hidden %}
+                <p class="deleted-comment">
+                    <i data-feather="eye-off"></i>
+                    Комментарий скрыт модерацией
                 </p>
                 {% else %}
                 {{ comment.content|linebreaks }}

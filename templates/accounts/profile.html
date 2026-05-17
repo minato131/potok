@@ -50,20 +50,21 @@
                 {% if user != profile_user %}
                 <div class="profile-actions">
                     {% if is_following %}
-                    <button class="btn btn--outline follow-btn"
-                            data-user-id="{{ profile_user.id }}"
-                            data-action="unfollow">
+                    <button class="btn btn--outline follow-btn" data-user-id="{{ profile_user.id }}" data-action="unfollow">
                         <i data-feather="user-check"></i>
                         <span>Отписаться</span>
                     </button>
                     {% else %}
-                    <button class="btn btn--primary follow-btn"
-                            data-user-id="{{ profile_user.id }}"
-                            data-action="follow">
+                    <button class="btn btn--primary follow-btn" data-user-id="{{ profile_user.id }}" data-action="follow">
                         <i data-feather="user-plus"></i>
                         <span>Подписаться</span>
                     </button>
                     {% endif %}
+
+                    <button class="btn btn--outline friend-btn" data-friend-id="{{ profile_user.id }}">
+                        <i data-feather="users"></i>
+                        <span>{% if profile_user.id in friend_ids %}Удалить из друзей{% else %}Добавить в друзья{% endif %}</span>
+                    </button>
                 </div>
                 {% endif %}
             </div>
@@ -137,6 +138,18 @@
         <button class="tab-btn" data-tab="bookmarks">
             <i data-feather="bookmark"></i>
             <span>Закладки</span>
+        </button>
+        <button class="tab-btn" data-tab="photos">
+            <i data-feather="image"></i>
+            <span>Фото</span>
+        </button>
+        <button class="tab-btn" data-tab="videos">
+            <i data-feather="video"></i>
+            <span>Видео</span>
+        </button>
+        <button class="tab-btn" data-tab="music">
+            <i data-feather="music"></i>
+            <span>Музыка</span>
         </button>
         {% endif %}
     </div>
@@ -289,6 +302,64 @@
                 {% endfor %}
             </div>
         </div>
+
+        {% endif %}
+    </div>
+    <!-- Таб Фото -->
+    <div class="tab-content" id="tab-photos">
+        <div class="media-grid">
+            {% for photo in user_photos %}
+            <div class="media-item" onclick="openLightbox('{{ photo.image.url }}')">
+                <img src="{{ photo.image.url }}" alt="" loading="lazy">
+            </div>
+            {% empty %}
+            <div class="empty-state" style="grid-column:span 4">
+                <i data-feather="image"></i>
+                <h3>Нет фото</h3>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Таб Видео -->
+    <div class="tab-content" id="tab-videos">
+        <div class="media-grid">
+            {% for video in user_videos %}
+            <div class="media-item video-item" onclick="openVideo('{{ video.file.url }}')">
+                <video src="{{ video.file.url }}" muted preload="metadata"></video>
+                <div class="video-play-icon">▶</div>
+            </div>
+            {% empty %}
+            <div class="empty-state" style="grid-column:span 4">
+                <i data-feather="video"></i>
+                <h3>Нет видео</h3>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="tab-content" id="tab-music">
+        {% if user_tracks %}
+        <div class="music-list">
+            {% for track in user_tracks %}
+            <div class="music-item" style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--color-bg-surface);border-radius:10px;margin-bottom:4px;border:1px solid var(--color-border-light)">
+                {% if track.cover_url %}
+                <img src="{{ track.cover_url }}" style="width:40px;height:40px;border-radius:6px;object-fit:cover">
+                {% else %}
+                <div style="width:40px;height:40px;border-radius:6px;background:var(--color-primary-light);display:flex;align-items:center;justify-content:center">🎵</div>
+                {% endif %}
+                <div style="flex:1;min-width:0">
+                    <div style="font-weight:600;font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ track.title }}</div>
+                    <div style="font-size:0.8rem;color:var(--color-text-tertiary)">{{ track.artist }}</div>
+                </div>
+                <span style="font-size:0.75rem;color:var(--color-text-tertiary)">{{ track.duration|floatformat:0 }} сек</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i data-feather="music"></i>
+            <h3>Нет музыки</h3>
+        </div>
         {% endif %}
     </div>
 </div>
@@ -350,6 +421,42 @@
         .profile-stats { justify-content: space-around; }
         .profile-meta { justify-content: center; }
     }
+    .media-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+    }
+    .media-item {
+        aspect-ratio: 1;
+        border-radius: 10px;
+        overflow: hidden;
+        cursor: pointer;
+        background: var(--color-bg-elevated);
+    }
+    .media-item img, .media-item video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .video-item {
+        position: relative;
+    }
+    .video-play-icon {
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        width: 40px; height: 40px;
+        border-radius: 50%;
+        background: rgba(0,0,0,0.6);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+    }
+    @media (max-width: 500px) {
+        .media-grid { grid-template-columns: repeat(3, 1fr); }
+    }
 </style>
 {% endblock %}
 
@@ -393,7 +500,16 @@
                 if (el) el.textContent = d.followers_count;
             });
         }
-
+        // Друзья
+        const friendBtn = document.querySelector('.friend-btn');
+        if (friendBtn) {
+            friendBtn.addEventListener('click', async function() {
+                const friendId = this.dataset.friendId;
+                const r = await fetch('/accounts/friend/' + friendId + '/toggle/', { method: 'POST', headers: { 'X-CSRFToken': G('csrftoken') } });
+                const d = await r.json();
+                this.querySelector('span').textContent = d.action === 'added' ? 'Удалить из друзей' : 'Добавить в друзья';
+            });
+        }
         // Лайк
         document.querySelectorAll('.like-btn').forEach(btn => btn.addEventListener('click', async function(e) {
             e.preventDefault();
@@ -432,6 +548,21 @@
             document.querySelectorAll('.account-menu-dropdown').forEach(d => d.style.display = 'none');
         }
     });
+
+    function openLightbox(url) {
+        const lb = document.createElement('div');
+        lb.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:9999;display:flex;align-items:center;justify-content:center';
+        lb.innerHTML = `<img src="${url}" style="max-width:90vw;max-height:90vh;border-radius:8px"><button style="position:absolute;top:20px;right:20px;background:none;border:none;color:#fff;font-size:2rem;cursor:pointer" onclick="this.parentElement.remove()">✕</button>`;
+        lb.addEventListener('click', function(e) { if (e.target === lb) lb.remove(); });
+        document.body.appendChild(lb);
+    }
+    function openVideo(url) {
+        const lb = document.createElement('div');
+        lb.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:9999;display:flex;align-items:center;justify-content:center';
+        lb.innerHTML = `<video src="${url}" controls autoplay style="max-width:90vw;max-height:90vh;border-radius:8px"><button style="position:absolute;top:20px;right:20px;background:none;border:none;color:#fff;font-size:2rem;cursor:pointer" onclick="this.parentElement.remove()">✕</button>`;
+        lb.addEventListener('click', function(e) { if (e.target === lb) lb.remove(); });
+        document.body.appendChild(lb);
+    }
 
 </script>
 {% endblock %}

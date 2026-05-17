@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from communities.models import Community
 from posts.models import Post, Like, Bookmark, Comment
+from . import models
 from .utils import generate_verification_code, send_verification_email, mask_email, send_welcome_email
 from .forms import EmailVerificationForm, ResendCodeForm
 from django.shortcuts import render, redirect, get_object_or_404
@@ -47,6 +48,8 @@ from .forms import ProfileEditForm
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib import messages
+from django.http import JsonResponse
+from django.contrib.auth import get_user_model
 
 logger = logging.getLogger(__name__)
 
@@ -126,91 +129,60 @@ def logout_view(request):
 
 @login_required
 def profile_view(request, username=None):
-    """
-    Просмотр профиля пользователя
-    """
     if username:
         user = get_object_or_404(User, username=username)
     else:
         user = request.user
 
-    # Статистика
-    posts_count = user.posts.filter(status='published').count()
+    posts_count = user.posts.filter(status='published', is_hidden=False).count()
     followers_count = Follow.objects.filter(following=user).count()
     following_count = Follow.objects.filter(follower=user).count()
+    friend_ids = set(Friendship.objects.filter(user=request.user).values_list('friend_id',flat=True)) if request.user.is_authenticated else set()
 
-    # Посты пользователя
-    user_posts = user.posts.filter(status='published').order_by('-created_at')[:10]
+    user_posts = user.posts.filter(status='published', is_hidden=False).order_by('-created_at')[:10]
 
-    # Комментарии пользователя
-    from posts.models import Comment
-    user_comments = Comment.objects.filter(
-        author=user,
-        is_deleted=False
-    ).select_related('post').order_by('-created_at')[:10]
+    from posts.models import Comment, Like, Bookmark
+    from communities.models import CommunityMembership, Community
+    from media_storage.models import SavedPhoto, SavedVideo
 
-    # Сообщества пользователя
-    from communities.models import CommunityMembership
-    user_communities = CommunityMembership.objects.filter(
-        user=user,
-        status='active'
-    ).select_related('community').order_by('-joined_at')[:10]
+    user_comments = Comment.objects.filter(author=user, is_deleted=False).select_related('post').order_by('-created_at')[:10]
+    user_communities = CommunityMembership.objects.filter(user=user, status='active').select_related('community').order_by('-joined_at')[:10]
 
-    # Закладки пользователя (только для своего профиля)
     user_bookmarks = []
     if request.user == user:
-        from posts.models import Bookmark
-        user_bookmarks = Bookmark.objects.filter(
-            user=user
-        ).select_related('post', 'post__author', 'post__author__profile').order_by('-created_at')[:10]
+        user_bookmarks = Bookmark.objects.filter(user=user, post__is_hidden=False).select_related('post', 'post__author', 'post__author__profile').order_by('-created_at')[:10]
 
-    # Проверка подписки
+    # Фото и видео пользователя
+    user_photos = SavedPhoto.objects.filter(user=user).select_related('post').order_by('-created_at')[:12]
+    user_videos = SavedVideo.objects.filter(user=user).select_related('post').order_by('-created_at')[:12]
+
+    # В profile_view, после загрузки user_videos добавь:
+    from music_app.models import SavedTrack
+    user_tracks = SavedTrack.objects.filter(user=user).order_by('-created_at')[:20]
+
     is_following = False
     if request.user.is_authenticated and request.user != user:
-        is_following = Follow.objects.filter(
-            follower=request.user,
-            following=user
-        ).exists()
+        is_following = Follow.objects.filter(follower=request.user, following=user).exists()
 
-    # Лайки
     liked_post_ids = set()
     if request.user.is_authenticated:
-        from posts.models import Like
         post_ids = [p.id for p in user_posts]
-        liked_post_ids = set(Like.objects.filter(
-            user=request.user, content_type='post', object_id__in=post_ids
-        ).values_list('object_id', flat=True))
+        liked_post_ids = set(Like.objects.filter(user=request.user, content_type='post', object_id__in=post_ids).values_list('object_id', flat=True))
 
-    # Понравившиеся посты
-    from posts.models import Like
-    liked_post_ids_full = Like.objects.filter(
-        user=user, content_type='post'
-    ).values_list('object_id', flat=True)
-    liked_posts = Post.objects.filter(
-        id__in=liked_post_ids_full, status='published'
-    ).select_related('author', 'author__profile').order_by('-created_at')[:10]
-
-    # Друзья и сообщества
-    from accounts.models import Friendship
-    from communities.models import Community
+    liked_post_ids_full = Like.objects.filter(user=user, content_type='post').values_list('object_id', flat=True)
+    liked_posts = Post.objects.filter(id__in=liked_post_ids_full, status='published', is_hidden=False).select_related('author', 'author__profile').order_by('-created_at')[:10]
 
     friends_count = Friendship.objects.filter(user=user).count()
     communities_count = Community.objects.filter(members=user).count()
 
-    # Собираем все ID постов на странице
     all_post_ids = set()
-    for p in user_posts:
-        all_post_ids.add(p.id)
-    for p in liked_posts:
-        all_post_ids.add(p.id)
-    for b in user_bookmarks:
-        all_post_ids.add(b.post.id)
+    for p in user_posts: all_post_ids.add(p.id)
+    for p in liked_posts: all_post_ids.add(p.id)
+    for b in user_bookmarks: all_post_ids.add(b.post.id)
 
     liked_post_ids = set()
     if request.user.is_authenticated:
-        liked_post_ids = set(Like.objects.filter(
-            user=request.user, content_type='post', object_id__in=all_post_ids
-        ).values_list('object_id', flat=True))
+        liked_post_ids = set(Like.objects.filter(user=request.user, content_type='post', object_id__in=all_post_ids).values_list('object_id', flat=True))
 
     context = {
         'profile_user': user,
@@ -223,28 +195,57 @@ def profile_view(request, username=None):
         'user_comments': user_comments,
         'user_communities': user_communities,
         'user_bookmarks': user_bookmarks,
+        'user_photos': user_photos,
+        'user_videos': user_videos,
         'friends_count': friends_count,
         'communities_count': communities_count,
         'liked_post_ids': liked_post_ids,
+        'friend_ids': friend_ids,
+        'user_tracks': user_tracks,
     }
     return render(request, 'accounts/profile.html', context)
 
 
 @login_required
 def privacy_settings(request):
-    """Настройки приватности"""
+    profile = request.user.profile
     if request.method == 'POST':
-        profile = request.user.profile
-        profile.is_private = request.POST.get('is_private') == 'on'
-        profile.show_email = request.POST.get('show_email') == 'on'
+        profile.who_can_see_profile = request.POST.get('who_can_see_profile', 'everyone')
+        profile.who_can_see_birthdate = request.POST.get('who_can_see_birthdate', 'friends')
+        profile.who_can_see_photos = request.POST.get('who_can_see_photos', 'everyone')
+        profile.who_can_see_videos = request.POST.get('who_can_see_videos', 'everyone')
+        profile.who_can_see_communities = request.POST.get('who_can_see_communities', 'everyone')
+        profile.who_can_see_music = request.POST.get('who_can_see_music', 'everyone')
+        profile.who_can_see_friends = request.POST.get('who_can_see_friends', 'everyone')
         profile.allow_messages = request.POST.get('allow_messages', 'everyone')
         profile.allow_comments = request.POST.get('allow_comments', 'everyone')
+
+        # Исключения для сообщений
+        if profile.allow_messages == 'friends_except':
+            except_ids = request.POST.get('message_except', '')
+            profile.message_except.clear()
+            if except_ids:
+                for uid in except_ids.split(','):
+                    try:
+                        u = User.objects.get(id=int(uid))
+                        profile.message_except.add(u)
+                    except:
+                        pass
+        else:
+            profile.message_except.clear()
+
         profile.save()
         messages.success(request, 'Настройки приватности сохранены')
         return redirect('accounts:privacy_settings')
 
+    message_except_list = profile.message_except.all() if profile.allow_messages == 'friends_except' else []
+    all_friends = Friendship.objects.filter(user=request.user).select_related('friend', 'friend__profile')
+    all_friends_list = [f.friend for f in all_friends]
+
     return render(request, 'accounts/privacy_settings.html', {
-        'profile': request.user.profile,
+        'profile': profile,
+        'message_except_list': message_except_list,
+        'all_friends': all_friends_list,
     })
 
 
@@ -449,7 +450,6 @@ def export_data(request):
             # Собираем полные данные
             from posts.models import Bookmark, Like
             from communities.models import Community
-            from accounts.models import Friendship
 
             full_data = {
                 'exported_at': timezone.now().isoformat(),
@@ -1214,3 +1214,25 @@ def community_list(request, username):
         'query': query,
         'total_count': communities.count(),
     })
+
+
+
+def user_search_api(request):
+    """API для поиска пользователей"""
+    query = request.GET.get('q', '').strip()
+    if len(query) < 2:
+        return JsonResponse([], safe=False)
+
+    users = User.objects.filter(username__icontains=query) | User.objects.filter(
+        first_name__icontains=query) | User.objects.filter(last_name__icontains=query)
+    users = users[:10]
+
+    results = []
+    for u in users:
+        results.append({
+            'id': u.id,
+            'username': u.username,
+            'full_name': u.get_full_name(),
+            'avatar': u.profile.avatar.url if hasattr(u, 'profile') and u.profile.avatar else None,
+        })
+    return JsonResponse(results, safe=False)

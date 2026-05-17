@@ -3,7 +3,7 @@
 {% load static %}
 
 {% block title %}{{ community.name }} · Поток{% endblock %}
-{% block page_title %}c/{{ community.name }}{% endblock %}
+{% block page_title %}{{ community.name }}{% endblock %}
 
 {% block header_actions %}
 <div class="comm-actions">
@@ -64,7 +64,7 @@
     <div class="community-main-card">
         <div class="community-info-header">
             <div>
-                <h1 class="community-title">c/{{ community.name }}</h1>
+                <h1 class="community-title">{{ community.name }}</h1>
                 <p class="community-type-badge">{{ community.get_community_type_display }}</p>
             </div>
         </div>
@@ -74,11 +74,11 @@
         <!-- Статистика -->
         <div class="community-stats">
             <div class="stat-item">
-                <span class="stat-value">{{ community.members_count }}</span>
+                <span class="stat-value">{{ community.members.count }}</span>
                 <span class="stat-label">Участников</span>
             </div>
             <div class="stat-item">
-                <span class="stat-value">{{ community.posts_count }}</span>
+                <span class="stat-value">{{ community.posts.count }}</span>
                 <span class="stat-label">Постов</span>
             </div>
             <div class="stat-item">
@@ -271,7 +271,7 @@
 <div class="modal-overlay" id="joinModal" style="display:none">
     <div class="modal">
         <div class="modal-header">
-            <h3>Вступить в c/{{ community.name }}</h3>
+            <h3>Вступить в {{ community.name }}</h3>
             <button onclick="closeJoinModal()" class="modal-close">✕</button>
         </div>
         <div class="modal-body">
@@ -284,7 +284,7 @@
                     {% endif %}
                 </div>
                 <div>
-                    <strong>c/{{ community.name }}</strong>
+                    <strong>{{ community.name }}</strong>
                     <p>{{ community.members.count }} участников</p>
                 </div>
             </div>

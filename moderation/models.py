@@ -24,6 +24,7 @@ class Report(models.Model):
         ('pending', 'На рассмотрении'),
         ('approved', 'Одобрено'),
         ('rejected', 'Отклонено'),
+        ('lifted', 'Снято'),
     ]
 
     # Кто пожаловался
@@ -265,3 +266,77 @@ class ModerationLog(models.Model):
 
     def __str__(self):
         return f"{self.get_action_display()} от {self.created_at}"
+
+class UnbanTicket(models.Model):
+    """
+    Тикет на разбан — заявка от заблокированного пользователя
+    """
+    STATUS_CHOICES = [
+        ('pending', 'На рассмотрении'),
+        ('approved', 'Одобрен'),
+        ('rejected', 'Отклонён'),
+    ]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='unban_tickets',
+        verbose_name='Пользователь'
+    )
+    ban = models.ForeignKey(
+        Ban,
+        on_delete=models.CASCADE,
+        related_name='unban_tickets',
+        verbose_name='Блокировка',
+        null=True,
+        blank=True
+    )
+    message = models.TextField(
+        max_length=1000,
+        verbose_name='Сообщение'
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        verbose_name='Статус'
+    )
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_tickets',
+        verbose_name='Рассмотрел'
+    )
+    review_comment = models.TextField(
+        max_length=500,
+        blank=True,
+        verbose_name='Комментарий модератора'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Тикет на разбан'
+        verbose_name_plural = 'Тикеты на разбан'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Тикет #{self.id} от {self.user.username}"
+
+    def approve(self, moderator, comment=''):
+        self.status = 'approved'
+        self.reviewed_by = moderator
+        self.reviewed_at = timezone.now()
+        self.review_comment = comment
+        self.save()
+        if self.ban:
+            self.ban.lift(moderator)
+
+    def reject(self, moderator, comment=''):
+        self.status = 'rejected'
+        self.reviewed_by = moderator
+        self.reviewed_at = timezone.now()
+        self.review_comment = comment
+        self.save()

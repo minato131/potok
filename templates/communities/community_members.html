@@ -3,7 +3,7 @@
 {% load static %}
 
 {% block title %}Участники {{ community.name }} · Поток{% endblock %}
-{% block page_title %}Участники c/{{ community.name }}{% endblock %}
+{% block page_title %}Участники {{ community.name }}{% endblock %}
 
 {% block header_actions %}
 <a href="{% url 'communities:community_detail' slug=community.slug %}" class="btn btn--outline btn--sm">
@@ -123,7 +123,7 @@
             {% else %}<div class="mem-ava-alt">{{ community.name|first|upper }}</div>{% endif %}
         </div>
         <div>
-            <h2>c/{{ community.name }}</h2>
+            <h2>{{ community.name }}</h2>
             <p>{{ total_members }} {{ total_members|pluralize:'участник,участника,участников' }}</p>
         </div>
     </div>

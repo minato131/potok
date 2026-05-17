@@ -1,82 +1,172 @@
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Профиль пользователя {{ target_user.username }} - Модерация{% endblock %}
+{% block title %}{{ target_user.username }} · Модерация · Поток{% endblock %}
+{% block page_title %}Пользователь: {{ target_user.get_full_name|default:target_user.username }}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'moderation:ban_user' user_id=target_user.id %}" class="btn btn--danger btn--sm">
+    <i data-feather="user-x"></i> Забанить
+</a>
+{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body text-center">
-                {% if target_user.avatar %}
-                    <img src="{{ target_user.avatar.url }}" class="avatar-large mb-3">
+<div class="user-mod-page">
+    <!-- Профиль -->
+    <div class="user-mod-card">
+        <div class="user-mod-header">
+            <div class="user-mod-avatar">
+                {% if target_user.profile.avatar %}
+                <img src="{{ target_user.profile.avatar.url }}" alt="">
                 {% else %}
-                    <div class="avatar-large bg-secondary text-white d-flex align-items-center justify-content-center mx-auto mb-3">
-                        {{ target_user.username|first|upper }}
-                    </div>
+                <div class="user-mod-avatar-alt">{{ target_user.username|first|upper }}</div>
                 {% endif %}
-                <h4>{{ target_user.get_full_name|default:target_user.username }}</h4>
-                <p class="text-muted">@{{ target_user.username }}</p>
-                
-                <div class="d-grid gap-2">
-                    <a href="{% url 'moderation:ban_user' target_user.id %}" class="btn btn-danger">
-                        <i class="bi bi-shield-lock"></i> Заблокировать
-                    </a>
-                </div>
+            </div>
+            <div class="user-mod-info">
+                <h2>{{ target_user.get_full_name|default:target_user.username }}</h2>
+                <p>@{{ target_user.username }}</p>
+                <p class="user-mod-email">{{ target_user.email }}</p>
+                <p class="user-mod-date">Зарегистрирован: {{ target_user.date_joined|date:'d.m.Y' }}</p>
+            </div>
+        </div>
+
+        <div class="user-mod-stats">
+            <div class="user-mod-stat">
+                <span class="user-mod-stat-val">{{ target_user.posts.count }}</span>
+                <span class="user-mod-stat-lbl">Постов</span>
+            </div>
+            <div class="user-mod-stat">
+                <span class="user-mod-stat-val">{{ target_user.comments.count }}</span>
+                <span class="user-mod-stat-lbl">Комментариев</span>
+            </div>
+            <div class="user-mod-stat">
+                <span class="user-mod-stat-val">{{ target_user.reports_made.count }}</span>
+                <span class="user-mod-stat-lbl">Жалоб подано</span>
+            </div>
+            <div class="user-mod-stat">
+                <span class="user-mod-stat-val">{{ reports|length }}</span>
+                <span class="user-mod-stat-lbl">Жалоб получено</span>
             </div>
         </div>
     </div>
-    
-    <div class="col-md-8">
-        <div class="card mb-3">
-            <div class="card-header">
-                <h5>Статистика</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-3 text-center">
-                        <h3>{{ stats.posts }}</h3>
-                        <small class="text-muted">постов</small>
-                    </div>
-                    <div class="col-md-3 text-center">
-                        <h3>{{ stats.comments }}</h3>
-                        <small class="text-muted">комментариев</small>
-                    </div>
-                    <div class="col-md-3 text-center">
-                        <h3>{{ stats.communities }}</h3>
-                        <small class="text-muted">сообществ</small>
-                    </div>
-                    <div class="col-md-3 text-center">
-                        <h3>{{ stats.reports_received }}</h3>
-                        <small class="text-muted">жалоб</small>
-                    </div>
+
+    <!-- Активные баны -->
+    <div class="user-mod-card">
+        <h3><i data-feather="shield"></i> Активные блокировки</h3>
+        {% if active_bans %}
+        <div class="user-mod-list">
+            {% for ban in active_bans %}
+            <div class="ban-row">
+                <div class="ban-row-info">
+                    <span class="ban-type-badge {% if ban.ban_type == 'permanent' %}ban-permanent{% endif %}">
+                        {% if ban.ban_type == 'permanent' %}Навсегда{% else %}Временная{% endif %}
+                    </span>
+                    <span>{{ ban.reason|truncatechars:60 }}</span>
+                </div>
+                <div class="ban-row-actions">
+                    {% if ban.expires_at %}<span class="ban-expires">До {{ ban.expires_at|date:'d.m.Y' }}</span>{% endif %}
+                    <button class="btn btn--outline btn--sm lift-ban-btn" data-ban-id="{{ ban.id }}">
+                        <i data-feather="unlock"></i> Снять
+                    </button>
                 </div>
             </div>
+            {% endfor %}
         </div>
-        
-        {% if active_bans %}
-        <div class="card mb-3">
-            <div class="card-header bg-warning">
-                <h5>Активные блокировки</h5>
-            </div>
-            <div class="card-body">
-                {% for ban in active_bans %}
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>{{ ban.get_ban_type_display }}</strong>
-                            <p class="mb-0">{{ ban.reason }}</p>
-                            <small class="text-muted">
-                                Заблокирован: {{ ban.created_at|date:"d.m.Y H:i" }}
-                                {% if ban.expires_at %}до {{ ban.expires_at|date:"d.m.Y H:i" }}{% endif %}
-                            </small>
-                        </div>
-                        <a href="{% url 'moderation:lift_ban' ban.id %}" class="btn btn-sm btn-success">
-                            Снять блокировку
-                        </a>
-                    </div>
-                {% endfor %}
-            </div>
+        {% else %}
+        <p class="user-mod-empty">Нет активных блокировок</p>
+        {% endif %}
+    </div>
+
+    <!-- Жалобы на пользователя -->
+    <div class="user-mod-card">
+        <h3><i data-feather="flag"></i> Жалобы на пользователя</h3>
+        {% if reports %}
+        <div class="user-mod-table-wrap">
+            <table class="user-mod-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Тип</th>
+                        <th>От кого</th>
+                        <th>Статус</th>
+                        <th>Дата</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in reports %}
+                    <tr>
+                        <td><a href="{% url 'moderation:report_detail' report_id=r.id %}">#{{ r.id }}</a></td>
+                        <td>{{ r.get_report_type_display }}</td>
+                        <td>@{{ r.reporter.username }}</td>
+                        <td><span class="report-status status-{{ r.status }}">{{ r.get_status_display }}</span></td>
+                        <td>{{ r.created_at|date:'d.m.Y' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
+        {% else %}
+        <p class="user-mod-empty">Жалоб нет</p>
         {% endif %}
     </div>
 </div>
+
+<script>
+    function G(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
+    document.querySelectorAll('.lift-ban-btn').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            if (!confirm('Снять блокировку?')) return;
+            const r = await fetch(`/moderation/ban/${this.dataset.banId}/lift/`, {
+                method: 'POST', headers: { 'X-CSRFToken': G('csrftoken') }
+            });
+            if (r.ok) location.reload();
+        });
+    });
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .user-mod-page { max-width: 800px; margin: 0 auto; }
+    .user-mod-card {
+        background: var(--color-bg-surface); border-radius: 16px;
+        border: 1px solid var(--color-border-light); padding: 24px; margin-bottom: 16px;
+    }
+    .user-mod-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .user-mod-header { display: flex; gap: 20px; align-items: center; margin-bottom: 20px; }
+    .user-mod-avatar { width: 72px; height: 72px; border-radius: 50%; overflow: hidden; flex-shrink: 0; }
+    .user-mod-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .user-mod-avatar-alt {
+        width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; font-size: 1.8rem; font-weight: 700;
+    }
+    .user-mod-info h2 { font-size: 1.3rem; margin-bottom: 2px; }
+    .user-mod-info p { color: var(--color-text-secondary); font-size: 0.85rem; }
+    .user-mod-email { color: var(--color-text-tertiary) !important; }
+    .user-mod-date { color: var(--color-text-tertiary) !important; font-size: 0.8rem !important; }
+    .user-mod-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding-top: 16px; border-top: 1px solid var(--color-border-light); }
+    .user-mod-stat { text-align: center; }
+    .user-mod-stat-val { display: block; font-size: 1.4rem; font-weight: 700; }
+    .user-mod-stat-lbl { font-size: 0.75rem; color: var(--color-text-tertiary); }
+    .user-mod-list { display: flex; flex-direction: column; gap: 8px; }
+    .ban-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--color-bg-elevated); border-radius: 10px; }
+    .ban-type-badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 600; background: #fef3c7; color: #92400e; margin-right: 8px; }
+    .ban-permanent { background: #fef2f2; color: #ef4444; }
+    .ban-expires { font-size: 0.8rem; color: var(--color-text-tertiary); margin-right: 10px; }
+    .user-mod-empty { color: var(--color-text-tertiary); text-align: center; padding: 20px; }
+    .user-mod-table-wrap { overflow-x: auto; }
+    .user-mod-table { width: 100%; border-collapse: collapse; }
+    .user-mod-table th { text-align: left; padding: 8px 12px; font-size: 0.75rem; color: var(--color-text-tertiary); border-bottom: 1px solid var(--color-border); }
+    .user-mod-table td { padding: 8px 12px; font-size: 0.85rem; border-bottom: 1px solid var(--color-border-light); }
+    .report-status { padding: 2px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 500; }
+    .status-pending { background: #fef3c7; color: #92400e; }
+    .status-approved { background: #d1fae5; color: #065f46; }
+    .status-rejected { background: #f3f4f6; color: #6b7280; }
+    .status-lifted { background: #e0e7ff; color: #4338ca; }
+    @media (max-width: 600px) {
+        .user-mod-header { flex-direction: column; text-align: center; }
+        .user-mod-stats { grid-template-columns: repeat(2, 1fr); }
+        .ban-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+    }
+</style>
 {% endblock %}

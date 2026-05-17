@@ -1,717 +1,365 @@
-<!-- templates/moderation/moderation_panel.html -->
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Панель модератора · Поток{% endblock %}
-{% block page_title %}
-    <span class="page-title-with-icon">
-        Панель модератора
-    </span>
-{% endblock %}
+{% block title %}Панель модерации · Поток{% endblock %}
+{% block page_title %}Панель модерации{% endblock %}
 
 {% block content %}
-<div class="moderation-dashboard">
-    <!-- Статистика -->
-    <div class="stats-grid">
-        <div class="stat-card stat-card--warning">
-            <div class="stat-icon">
-                <i data-feather="flag"></i>
-            </div>
-            <div class="stat-content">
-                <span class="stat-value">{{ pending_reports_count|default:0 }}</span>
-                <span class="stat-label">Жалоб на рассмотрении</span>
-            </div>
-        </div>
-        <div class="stat-card stat-card--success">
-            <div class="stat-icon">
-                <i data-feather="check-circle"></i>
-            </div>
-            <div class="stat-content">
-                <span class="stat-value">{{ resolved_today|default:0 }}</span>
-                <span class="stat-label">Решено сегодня</span>
-            </div>
-        </div>
-        <div class="stat-card stat-card--danger">
-            <div class="stat-icon">
-                <i data-feather="user-x"></i>
-            </div>
-            <div class="stat-content">
-                <span class="stat-value">{{ active_bans_count|default:0 }}</span>
-                <span class="stat-label">Активных банов</span>
-            </div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-icon">
-                <i data-feather="eye-off"></i>
-            </div>
-            <div class="stat-content">
-                <span class="stat-value">{{ hidden_content_count|default:0 }}</span>
-                <span class="stat-label">Скрытого контента</span>
-            </div>
-        </div>
-    </div>
-
-    <div class="moderation-grid">
-        <!-- Левая колонка -->
-        <div class="moderation-left">
-            <!-- Быстрые действия -->
-            <div class="section-card">
-                <h3 class="section-title">
-                    <i data-feather="zap"></i>
-                    Быстрые действия
-                </h3>
-                <div class="quick-actions">
-                    <a href="{% url 'moderation:report_list' %}?status=pending" class="action-item">
-                        <i data-feather="flag"></i>
-                        <span>Новые жалобы</span>
-                        {% if pending_reports_count %}
-                        <span class="action-badge">{{ pending_reports_count }}</span>
-                        {% endif %}
-                    </a>
-                    <a href="{% url 'moderation:report_list' %}" class="action-item">
-                        <i data-feather="list"></i>
-                        <span>Все жалобы</span>
-                    </a>
-                    <button class="action-item" onclick="openUserSearch()">
-                        <i data-feather="search"></i>
-                        <span>Найти пользователя</span>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Активные баны -->
-            <div class="section-card">
-                <h3 class="section-title">
-                    <i data-feather="shield"></i>
-                    Активные баны
-                </h3>
-                <div class="bans-list">
-                    {% for ban in active_bans %}
-                    <div class="ban-item">
-                        <div class="ban-user">
-                            <a href="{% url 'moderation:user_detail' user_id=ban.user.id %}">
-                                <strong>{{ ban.user.get_full_name|default:ban.user.username }}</strong>
-                                <span>@{{ ban.user.username }}</span>
-                            </a>
-                        </div>
-                        <div class="ban-reason">{{ ban.reason|truncatechars:30 }}</div>
-                        <div class="ban-expires">
-                            {% if ban.is_permanent %}
-                            <span class="badge badge--danger">Навсегда</span>
-                            {% else %}
-                            {{ ban.expires_at|date:"d.m.Y" }}
-                            {% endif %}
-                        </div>
-                        <button class="btn-icon lift-ban-btn" data-ban-id="{{ ban.id }}" title="Снять бан">
-                            <i data-feather="unlock"></i>
-                        </button>
-                    </div>
-                    {% empty %}
-                    <p class="empty-text">Нет активных банов</p>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-
-        <!-- Правая колонка -->
-        <div class="moderation-right">
-            <!-- Последние жалобы -->
-            <div class="section-card">
-                <div class="section-header">
-                    <h3 class="section-title">
-                        <i data-feather="clock"></i>
-                        Последние жалобы
-                    </h3>
-                    <a href="{% url 'moderation:report_list' %}" class="view-all">Все →</a>
-                </div>
-
-                <div class="reports-table-wrapper">
-                    <table class="reports-table">
-                        <thead>
-                            <tr>
-                                <th>Тип</th>
-                                <th>Контент</th>
-                                <th>Автор</th>
-                                <th>Жалоб</th>
-                                <th>Статус</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for report in recent_reports %}
-                            <tr>
-                                <td>
-                                    <span class="type-badge type-badge--{{ report.content_type }}">
-                                        {% if report.content_type == 'post' %}
-                                        <i data-feather="file-text"></i> Пост
-                                        {% elif report.content_type == 'comment' %}
-                                        <i data-feather="message-circle"></i> Комментарий
-                                        {% else %}
-                                        <i data-feather="user"></i> Пользователь
-                                        {% endif %}
-                                    </span>
-                                </td>
-                                <td>
-                                    <a href="{{ report.content_url }}" target="_blank" class="content-link">
-                                        {{ report.content_preview|truncatechars:40 }}
-                                    </a>
-                                </td>
-                                <td>
-                                    <a href="{% url 'moderation:user_detail' user_id=report.content_author.id %}" class="author-link">
-                                        @{{ report.content_author.username }}
-                                    </a>
-                                </td>
-                                <td>
-                                    <span class="report-count">{{ report.total_reports }}</span>
-                                </td>
-                                <td>
-                                    <span class="status-badge status-badge--{{ report.status }}">
-                                        {{ report.get_status_display }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <a href="{% url 'moderation:report_detail' report_id=report.id %}" class="btn-icon">
-                                        <i data-feather="eye"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="6" class="empty-row">
-                                    <i data-feather="check-circle"></i>
-                                    Нет активных жалоб
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Последние зарегистрированные пользователи -->
-            <div class="section-card">
-                <h3 class="section-title">
-                    <i data-feather="user-plus"></i>
-                    Новые пользователи
-                </h3>
-                <div class="new-users-list">
-                    {% for user_item in recent_users %}
-                    <div class="user-item">
-                        <div class="user-avatar">
-                            {% if user_item.profile.avatar %}
-                            <img src="{{ user_item.profile.avatar.url }}" alt="{{ user_item.username }}">
-                            {% else %}
-                            <span>{{ user_item.username|first|upper }}</span>
-                            {% endif %}
-                        </div>
-                        <div class="user-info">
-                            <a href="{% url 'moderation:user_detail' user_id=user_item.id %}">
-                                {{ user_item.get_full_name|default:user_item.username }}
-                            </a>
-                            <span>@{{ user_item.username }}</span>
-                        </div>
-                        <span class="user-joined">{{ user_item.date_joined|date:"d.m.Y" }}</span>
-                    </div>
-                    {% empty %}
-                    <p class="empty-text">Нет новых пользователей</p>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Модалка поиска пользователя -->
-<div class="modal-overlay" id="userSearchModal">
-    <div class="modal">
-        <div class="modal-header">
-            <h3>Поиск пользователя</h3>
-            <button class="modal-close" onclick="closeUserSearch()">
-                <i data-feather="x"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <div class="search-wrapper">
-                <i data-feather="search"></i>
-                <input type="text" id="userSearchInput" placeholder="Имя или @username..." class="search-input">
-            </div>
-            <div class="search-results" id="userSearchResults"></div>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block extra_css %}
 <style>
-    .moderation-dashboard {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 1.5rem 1rem;
-    }
+    .mp-page { max-width: 1100px; margin: 0 auto; }
 
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 1rem;
-        margin-bottom: 1.5rem;
+    /* Статистика */
+    .mp-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+    .mp-stat {
+        background: var(--color-bg-surface); border-radius: 16px; padding: 20px;
+        border: 1px solid var(--color-border-light); position: relative; overflow: hidden;
     }
-
-    .stat-card {
-        background: var(--color-bg-surface);
-        border-radius: 16px;
-        padding: 1.25rem;
-        border: 1px solid var(--color-border-light);
-        position: relative;
-        overflow: hidden;
+    .mp-stat-icon {
+        position: absolute; top: 12px; right: 12px; width: 44px; height: 44px;
+        border-radius: 12px; display: flex; align-items: center; justify-content: center;
+        font-size: 1.3rem;
     }
+    .mp-stat-icon.warn { background: #fef3c7; color: #d97706; }
+    .mp-stat-icon.success { background: #d1fae5; color: #059669; }
+    .mp-stat-icon.danger { background: #fef2f2; color: #ef4444; }
+    .mp-stat-icon.info { background: #eef2ff; color: #6366f1; }
+    .mp-stat-val { font-size: 2rem; font-weight: 700; display: block; line-height: 1; }
+    .mp-stat-lbl { font-size: 0.82rem; color: var(--color-text-tertiary); margin-top: 4px; }
 
-    .stat-card--warning {
-        border-left: 4px solid var(--color-warning);
+    /* Сетка */
+    .mp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .mp-card {
+        background: var(--color-bg-surface); border-radius: 16px;
+        border: 1px solid var(--color-border-light); padding: 22px;
     }
+    .mp-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .mp-card-header h3 { font-size: 1.05rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .mp-card-header a { font-size: 0.82rem; color: var(--color-primary); text-decoration: none; }
+    .mp-card-header a:hover { text-decoration: underline; }
 
-    .stat-card--success {
-        border-left: 4px solid var(--color-success);
+    /* Жалобы */
+    .mp-report-item {
+        display: flex; align-items: center; gap: 12px; padding: 12px;
+        background: var(--color-bg-elevated); border-radius: 10px; margin-bottom: 6px;
     }
-
-    .stat-card--danger {
-        border-left: 4px solid var(--color-danger);
+    .mp-report-type {
+        padding: 4px 10px; border-radius: 6px; font-size: 0.72rem; font-weight: 600;
+        white-space: nowrap;
     }
-
-    .stat-icon {
-        position: absolute;
-        top: 1rem;
-        right: 1rem;
-        opacity: 0.15;
+    .mp-report-type.post { background: #eef2ff; color: #6366f1; }
+    .mp-report-type.comment { background: #d1fae5; color: #059669; }
+    .mp-report-type.user { background: #fef3c7; color: #d97706; }
+    .mp-report-info { flex: 1; min-width: 0; }
+    .mp-report-info strong { font-size: 0.88rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mp-report-info span { font-size: 0.75rem; color: var(--color-text-tertiary); }
+    .mp-report-actions { display: flex; gap: 4px; }
+    .mp-btn-sm {
+        width: 32px; height: 32px; border-radius: 8px; border: none; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; background: transparent;
+        color: var(--color-text-tertiary); transition: all 0.15s;
     }
+    .mp-btn-sm:hover { background: var(--color-bg-surface); }
+    .mp-btn-sm.approve:hover { background: #dcfce7; color: #16a34a; }
+    .mp-btn-sm.reject:hover { background: #fee2e2; color: #ef4444; }
 
-    .stat-icon i {
-        width: 2.5rem;
-        height: 2.5rem;
+    /* Баны */
+    .mp-ban-item {
+        display: flex; align-items: center; gap: 10px; padding: 10px;
+        background: var(--color-bg-elevated); border-radius: 10px; margin-bottom: 4px;
     }
-
-    .stat-value {
-        display: block;
-        font-size: 2rem;
-        font-weight: 700;
-        line-height: 1.2;
+    .mp-ban-ava { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: var(--color-primary-light); }
+    .mp-ban-ava img { width: 100%; height: 100%; object-fit: cover; }
+    .mp-ban-info { flex: 1; }
+    .mp-ban-info strong { font-size: 0.85rem; }
+    .mp-ban-info span { font-size: 0.75rem; color: var(--color-text-tertiary); display: block; }
+    .mp-ban-badge {
+        font-size: 0.68rem; padding: 2px 8px; border-radius: 10px; font-weight: 600;
     }
+    .mp-ban-badge.permanent { background: #fef2f2; color: #ef4444; }
+    .mp-ban-badge.temporary { background: #fef3c7; color: #d97706; }
 
-    .stat-label {
-        font-size: 0.8125rem;
-        color: var(--color-text-tertiary);
+    /* Действия */
+    .mp-actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .mp-action-btn {
+        display: flex; align-items: center; gap: 8px; padding: 14px;
+        background: var(--color-bg-elevated); border-radius: 12px; border: none;
+        cursor: pointer; font-family: inherit; font-size: 0.88rem; font-weight: 500;
+        color: var(--color-text); transition: all 0.15s; text-decoration: none;
     }
+    .mp-action-btn:hover { background: var(--color-primary); color: #fff; }
+    .mp-action-btn i, .mp-action-btn svg { width: 20px; height: 20px; }
 
-    .moderation-grid {
-        display: grid;
-        grid-template-columns: 1fr 2fr;
-        gap: 1.5rem;
+    .mp-empty { text-align: center; padding: 24px; color: var(--color-text-tertiary); font-size: 0.88rem; }
+
+    @media (max-width: 768px) {
+        .mp-stats { grid-template-columns: repeat(2, 1fr); }
+        .mp-grid { grid-template-columns: 1fr; }
     }
-
-    .section-card {
-        background: var(--color-bg-surface);
-        border-radius: 16px;
-        padding: 1.5rem;
-        border: 1px solid var(--color-border-light);
-        margin-bottom: 1.5rem;
+    @media (max-width: 480px) {
+        .mp-stats { grid-template-columns: 1fr; }
     }
-
-    .section-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 1.25rem;
+    .mp-search-modal {
+        position: fixed; inset: 0; z-index: 300;
+        display: flex; align-items: flex-start; justify-content: center;
+        padding-top: 12vh;
     }
-
-    .section-title {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 1rem;
-        font-weight: 600;
-        margin: 0;
+    .mp-search-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
+    .mp-search-content {
+        position: relative; background: #fff; border-radius: 16px;
+        padding: 24px; width: 90%; max-width: 500px; max-height: 70vh;
+        overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+        display: flex; flex-direction: column;
     }
-
-    .view-all {
-        color: var(--color-primary);
-        text-decoration: none;
-        font-size: 0.875rem;
+    .mp-search-header {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 20px; flex-shrink: 0;
     }
-
-    .quick-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
+    .mp-search-header h3 { font-size: 1.15rem; font-weight: 700; margin: 0; }
+    .mp-search-header button {
+        background: none; border: none; font-size: 1.3rem; cursor: pointer;
+        color: #9aa7b4; padding: 6px; border-radius: 8px; line-height: 1;
+        transition: all 0.15s;
     }
+    .mp-search-header button:hover { background: #f3f4f6; color: #111827; }
 
-    .action-item {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 0.75rem 1rem;
-        background: var(--color-bg-elevated);
-        border-radius: 12px;
-        color: var(--color-text-primary);
-        text-decoration: none;
-        transition: all 0.2s;
-        border: none;
-        width: 100%;
-        cursor: pointer;
+    .mp-search-input-wrap {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 14px; background: #f3f4f6; border-radius: 12px;
+        margin-bottom: 4px; flex-shrink: 0;
     }
-
-    .action-item:hover {
-        background: var(--color-primary);
-        color: white;
+    .mp-search-input-wrap input {
+        flex: 1; border: none; background: transparent;
+        font-size: 0.95rem; font-family: inherit; outline: none; color: #111827;
     }
+    .mp-search-input-wrap input::placeholder { color: #9aa7b4; }
 
-    .action-badge {
-        margin-left: auto;
-        background: var(--color-warning);
-        color: white;
-        padding: 0.125rem 0.5rem;
-        border-radius: 20px;
-        font-size: 0.75rem;
+    .mp-search-results {
+        flex: 1; overflow-y: auto; min-height: 60px;
+        margin: 0 -8px; padding: 0 8px;
     }
-
-    .bans-list {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
+    .mp-search-hint {
+        text-align: center; padding: 24px; color: #9aa7b4; font-size: 0.88rem;
     }
+    .mp-search-loading { text-align: center; padding: 20px; color: #9aa7b4; }
 
-    .ban-item {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 0.75rem;
-        background: var(--color-bg-elevated);
-        border-radius: 12px;
+    .mp-search-item {
+        display: flex; align-items: center; gap: 12px;
+        padding: 12px 14px; border-radius: 10px; text-decoration: none;
+        color: inherit; transition: background 0.15s; margin-bottom: 2px;
     }
-
-    .ban-user a {
-        text-decoration: none;
-        color: var(--color-text-primary);
+    .mp-search-item:hover { background: #f3f4f6; }
+    .mp-search-ava {
+        width: 44px; height: 44px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: #fff; font-weight: 700; font-size: 1rem;
     }
-
-    .ban-user span {
-        font-size: 0.75rem;
-        color: var(--color-text-tertiary);
-        margin-left: 0.25rem;
-    }
-
-    .ban-reason {
-        flex: 1;
-        font-size: 0.8125rem;
-        color: var(--color-text-secondary);
-    }
-
-    .badge--danger {
-        background: var(--color-danger);
-        color: white;
-        padding: 0.25rem 0.5rem;
-        border-radius: 20px;
-        font-size: 0.6875rem;
-    }
-
-    .btn-icon {
-        padding: 0.375rem;
-        border-radius: 8px;
-        color: var(--color-text-tertiary);
-        transition: all 0.2s;
-    }
-
-    .btn-icon:hover {
-        background: var(--color-danger);
-        color: white;
-    }
-
-    .reports-table-wrapper {
-        overflow-x: auto;
-    }
-
-    .reports-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    .reports-table th {
-        text-align: left;
-        padding: 0.75rem;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: var(--color-text-tertiary);
-        border-bottom: 1px solid var(--color-border);
-    }
-
-    .reports-table td {
-        padding: 0.75rem;
-        border-bottom: 1px solid var(--color-border-light);
-        font-size: 0.875rem;
-    }
-
-    .type-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.375rem;
-        padding: 0.25rem 0.5rem;
-        border-radius: 6px;
-        font-size: 0.75rem;
-        background: var(--color-bg-elevated);
-    }
-
-    .content-link {
-        color: var(--color-text-primary);
-        text-decoration: none;
-    }
-
-    .author-link {
-        color: var(--color-text-secondary);
-        text-decoration: none;
-    }
-
-    .report-count {
-        font-weight: 600;
-    }
-
-    .status-badge {
-        padding: 0.25rem 0.5rem;
-        border-radius: 6px;
-        font-size: 0.75rem;
-    }
-
-    .status-badge--pending {
-        background: #fef3c7;
-        color: #92400e;
-    }
-
-    .status-badge--resolved {
-        background: #d1fae5;
-        color: #065f46;
-    }
-
-    .empty-row {
-        text-align: center;
-        padding: 2rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .new-users-list {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-    }
-
-    .user-item {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-    }
-
-    .user-avatar {
-        width: 2.5rem;
-        height: 2.5rem;
-        border-radius: 50%;
-        overflow: hidden;
-        background: var(--color-primary-light);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--color-primary);
-        font-weight: 600;
-    }
-
-    .user-avatar img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .user-info {
-        flex: 1;
-    }
-
-    .user-info a {
-        font-weight: 500;
-        color: var(--color-text-primary);
-        text-decoration: none;
-    }
-
-    .user-info span {
-        font-size: 0.75rem;
-        color: var(--color-text-tertiary);
-        display: block;
-    }
-
-    .user-joined {
-        font-size: 0.75rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .empty-text {
-        color: var(--color-text-tertiary);
-        text-align: center;
-        padding: 1rem;
-    }
-
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: none;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-    }
-
-    .modal {
-        background: var(--color-bg-surface);
-        border-radius: 20px;
-        padding: 1.5rem;
-        width: 90%;
-        max-width: 500px;
-        max-height: 80vh;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .modal-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 1rem;
-    }
-
-    .modal-body {
-        flex: 1;
-        overflow-y: auto;
-    }
-
-    .search-results {
-        margin-top: 1rem;
-        max-height: 300px;
-        overflow-y: auto;
-    }
-
-    .search-result-item {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 0.75rem;
-        border-radius: 10px;
-        cursor: pointer;
-        transition: background 0.2s;
-    }
-
-    .search-result-item:hover {
-        background: var(--color-bg-elevated);
-    }
-
-    @media (max-width: 900px) {
-        .stats-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-
-        .moderation-grid {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    @media (max-width: 500px) {
-        .stats-grid {
-            grid-template-columns: 1fr;
-        }
-    }
+    .mp-search-ava img { width: 100%; height: 100%; object-fit: cover; }
+    .mp-search-item-info { flex: 1; min-width: 0; }
+    .mp-search-item-info strong { display: block; font-size: 0.9rem; color: #111827; }
+    .mp-search-item-info span { font-size: 0.78rem; color: #6b7280; }
 </style>
-{% endblock %}
 
-{% block extra_js %}
+<div class="mp-page">
+    <!-- Статистика -->
+    <div class="mp-stats">
+        <div class="mp-stat">
+            <div class="mp-stat-icon warn">🚩</div>
+            <span class="mp-stat-val">{{ stats.pending_reports }}</span>
+            <span class="mp-stat-lbl">Жалоб на рассмотрении</span>
+        </div>
+        <div class="mp-stat">
+            <div class="mp-stat-icon success">✅</div>
+            <span class="mp-stat-val">{{ stats.resolved_today }}</span>
+            <span class="mp-stat-lbl">Решено сегодня</span>
+        </div>
+        <div class="mp-stat">
+            <div class="mp-stat-icon danger">🚫</div>
+            <span class="mp-stat-val">{{ stats.active_bans }}</span>
+            <span class="mp-stat-lbl">Активных банов</span>
+        </div>
+        <div class="mp-stat">
+            <div class="mp-stat-icon info">👥</div>
+            <span class="mp-stat-val">{{ stats.total_users }}</span>
+            <span class="mp-stat-lbl">Пользователей</span>
+        </div>
+    </div>
+
+    <div class="mp-grid">
+        <!-- Жалобы -->
+        <div class="mp-card">
+            <div class="mp-card-header">
+                <h3>Последние жалобы</h3>
+                <a href="{% url 'moderation:report_list' %}">Все →</a>
+            </div>
+            {% for report in pending_reports %}
+            <div class="mp-report-item">
+                <span class="mp-report-type {{ report.content_type.model }}">{{ report.get_report_type_display }}</span>
+                <div class="mp-report-info">
+                    <strong>{{ report.content_preview|default:report.description|truncatechars:50 }}</strong>
+                    <span>от @{{ report.reporter.username }} · {{ report.created_at|timesince }} назад</span>
+                </div>
+                <div class="mp-report-actions">
+                    <a href="{% url 'moderation:report_detail' report_id=report.id %}" class="mp-btn-sm" title="Просмотр">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </a>
+                </div>
+            </div>
+            {% empty %}
+            <div class="mp-empty">Жалоб нет ✅</div>
+            {% endfor %}
+        </div>
+
+        <!-- Активные баны -->
+        <div class="mp-card">
+            <div class="mp-card-header">
+                <h3>Активные баны</h3>
+            </div>
+            {% for ban in active_bans %}
+            <div class="mp-ban-item">
+                <div class="mp-ban-ava">
+                    {% if ban.user.profile.avatar %}
+                    <img src="{{ ban.user.profile.avatar.url }}" alt="">
+                    {% else %}
+                    <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.8rem;color:var(--color-primary)">{{ ban.user.username|first|upper }}</div>
+                    {% endif %}
+                </div>
+                <div class="mp-ban-info">
+                    <strong>{{ ban.user.get_full_name|default:ban.user.username }}</strong>
+                    <span>{{ ban.reason|truncatechars:40 }}</span>
+                </div>
+                <span class="mp-ban-badge {{ ban.ban_type }}">{% if ban.ban_type == 'permanent' %}Навсегда{% else %}Временно{% endif %}</span>
+            </div>
+            {% empty %}
+            <div class="mp-empty">Банов нет</div>
+            {% endfor %}
+        </div>
+
+        <!-- Быстрые действия -->
+        <div class="mp-card">
+    <div class="mp-card-header">
+        <h3>Быстрые действия</h3>
+    </div>
+    <div class="mp-actions-grid">
+        <a href="{% url 'moderation:report_list' %}?status=pending" class="mp-action-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Новые жалобы ({{ stats.pending_reports }})
+        </a>
+        <button class="mp-action-btn" onclick="openUserSearch()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Найти пользователя
+        </button>
+        <a href="{% url 'moderation:report_list' %}?status=approved" class="mp-action-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            Одобренные жалобы
+        </a>
+        <a href="{% url 'moderation:report_list' %}?status=rejected" class="mp-action-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            Отклонённые жалобы
+        </a>
+        <a href="/admin/" class="mp-action-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Админ-панель
+        </a>
+    </div>
+</div>
+
+        <!-- Новые пользователи -->
+        <div class="mp-card">
+            <div class="mp-card-header">
+                <h3>Новые пользователи</h3>
+            </div>
+            {% for u in recent_users %}
+            <div class="mp-ban-item">
+                <div class="mp-ban-ava">
+                    {% if u.profile.avatar %}<img src="{{ u.profile.avatar.url }}" alt="">{% else %}<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.8rem;color:var(--color-primary)">{{ u.username|first|upper }}</div>{% endif %}
+                </div>
+                <div class="mp-ban-info">
+                    <strong>{{ u.get_full_name|default:u.username }}</strong>
+                    <span>@{{ u.username }} · {{ u.date_joined|date:'d.m.Y' }}</span>
+                </div>
+                <a href="{% url 'moderation:user_detail' user_id=u.id %}" class="mp-btn-sm">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </a>
+            </div>
+            {% empty %}
+            <div class="mp-empty">Нет новых пользователей</div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const searchModal = document.getElementById('userSearchModal');
-        const searchInput = document.getElementById('userSearchInput');
-        const searchResults = document.getElementById('userSearchResults');
-        let searchTimeout;
+    function G(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
+window.openUserSearch = function() {
+    // Удаляем старую модалку если есть
+    document.querySelector('.mp-search-modal')?.remove();
 
-        window.openUserSearch = () => {
-            searchModal.style.display = 'flex';
-            searchInput.focus();
-        };
+    const modal = document.createElement('div');
+    modal.className = 'mp-search-modal';
+    modal.innerHTML = `
+        <div class="mp-search-backdrop" onclick="this.parentElement.remove()"></div>
+        <div class="mp-search-content">
+            <div class="mp-search-header">
+                <h3>🔍 Поиск пользователя</h3>
+                <button onclick="this.closest('.mp-search-modal').remove()">✕</button>
+            </div>
+            <div class="mp-search-input-wrap">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9aa7b4" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="mpUserSearchInput" placeholder="Введите имя или @username..." autofocus>
+            </div>
+            <div id="mpSearchResults" class="mp-search-results">
+                <div class="mp-search-hint">Введите не менее 2 символов для поиска</div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
 
-        window.closeUserSearch = () => {
-            searchModal.style.display = 'none';
-            searchInput.value = '';
-            searchResults.innerHTML = '';
-        };
+    const input = modal.querySelector('#mpUserSearchInput');
+    const results = modal.querySelector('#mpSearchResults');
+    let timeout;
 
-        searchModal?.addEventListener('click', (e) => {
-            if (e.target === searchModal) closeUserSearch();
-        });
+    input.addEventListener('input', function() {
+        clearTimeout(timeout);
+        const query = this.value.trim();
 
-        searchInput?.addEventListener('input', function() {
-            clearTimeout(searchTimeout);
-            const query = this.value.trim();
-
-            if (query.length < 2) {
-                searchResults.innerHTML = '';
-                return;
-            }
-
-            searchTimeout = setTimeout(async () => {
-                try {
-                    const response = await fetch(`/accounts/users/search/?q=${query}`);
-                    const users = await response.json();
-
-                    searchResults.innerHTML = users.map(user => `
-                        <div class="search-result-item" onclick="window.location.href='/moderation/user/${user.id}/'">
-                            <div class="user-avatar" style="width: 2rem; height: 2rem;">
-                                ${user.avatar ? `<img src="${user.avatar}" alt="${user.username}">` : `<span>${user.username.charAt(0).toUpperCase()}</span>`}
-                            </div>
-                            <div>
-                                <div>${user.full_name || user.username}</div>
-                                <div style="font-size: 0.75rem; color: var(--color-text-tertiary);">@${user.username}</div>
-                            </div>
-                        </div>
-                    `).join('');
-                } catch (error) {
-                    console.error('Error:', error);
-                }
-            }, 300);
-        });
-
-        document.querySelectorAll('.lift-ban-btn').forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const banId = this.dataset.banId;
-                if (confirm('Снять бан?')) {
-                    try {
-                        const response = await fetch(`/moderation/ban/${banId}/lift/`, {
-                            method: 'POST',
-                            headers: { 'X-CSRFToken': getCookie('csrftoken') }
-                        });
-                        if (response.ok) location.reload();
-                    } catch (error) {
-                        console.error('Error:', error);
-                    }
-                }
-            });
-        });
-
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
+        if (query.length < 2) {
+            results.innerHTML = '<div class="mp-search-hint">Введите не менее 2 символов для поиска</div>';
+            return;
         }
+
+        results.innerHTML = '<div class="mp-search-loading">Поиск...</div>';
+
+        timeout = setTimeout(async () => {
+            try {
+                const r = await fetch(`/accounts/users/search/?q=${encodeURIComponent(query)}`);
+                const users = await r.json();
+
+                if (users.length === 0) {
+                    results.innerHTML = '<div class="mp-search-hint">Ничего не найдено</div>';
+                    return;
+                }
+
+                results.innerHTML = users.map(u => `
+                    <a href="/moderation/user/${u.id}/" class="mp-search-item">
+                        <div class="mp-search-ava">
+                            ${u.avatar ? `<img src="${u.avatar}" alt="">` : u.username[0].toUpperCase()}
+                        </div>
+                        <div class="mp-search-item-info">
+                            <strong>${u.full_name || u.username}</strong>
+                            <span>@${u.username}</span>
+                        </div>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9aa7b4" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </a>
+                `).join('');
+            } catch(e) {
+                results.innerHTML = '<div class="mp-search-hint">Ошибка поиска</div>';
+            }
+        }, 400);
     });
+
+    // Фокус на инпут
+    setTimeout(() => input.focus(), 100);
+};
 </script>
 {% endblock %}

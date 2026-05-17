@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Модерация сообщества · {{ community.name }} · Поток{% endblock %}
+{% block page_title %}Модерация: {{ community.name }}{% endblock %}
+
+{% block header_actions %}
+<a href="{% url 'communities:community_detail' slug=community.slug %}" class="btn btn--outline btn--sm">
+    <i data-feather="arrow-left"></i> К сообществу
+</a>
+{% endblock %}
+
+{% block content %}
+<style>
+    .cmp-page { max-width: 900px; margin: 0 auto; }
+    .cmp-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+    .cmp-stat {
+        background: var(--color-bg-surface); border-radius: 14px; padding: 18px;
+        border: 1px solid var(--color-border-light); text-align: center;
+    }
+    .cmp-stat-val { font-size: 1.8rem; font-weight: 700; display: block; }
+    .cmp-stat-lbl { font-size: 0.8rem; color: var(--color-text-tertiary); }
+    .cmp-card {
+        background: var(--color-bg-surface); border-radius: 16px;
+        border: 1px solid var(--color-border-light); padding: 22px; margin-bottom: 16px;
+    }
+    .cmp-card h3 { font-size: 1.05rem; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .cmp-table { width: 100%; border-collapse: collapse; }
+    .cmp-table th { text-align: left; padding: 8px 12px; font-size: 0.78rem; color: var(--color-text-tertiary); border-bottom: 1px solid var(--color-border); }
+    .cmp-table td { padding: 10px 12px; font-size: 0.85rem; border-bottom: 1px solid var(--color-border-light); }
+    .cmp-empty { text-align: center; padding: 30px; color: var(--color-text-tertiary); }
+    .cmp-badge {
+        display: inline-block; padding: 3px 8px; border-radius: 6px;
+        font-size: 0.72rem; font-weight: 600;
+    }
+    .cmp-badge-pending { background: #fef3c7; color: #92400e; }
+    .cmp-badge-active { background: #d1fae5; color: #065f46; }
+    .cmp-badge-banned { background: #fef2f2; color: #ef4444; }
+    .cmp-btn-sm { padding: 6px 12px; font-size: 0.78rem; border-radius: 8px; cursor: pointer; border: 1px solid var(--color-border); background: var(--color-bg-surface); color: var(--color-text); font-family: inherit; }
+    .cmp-btn-sm:hover { background: var(--color-bg-elevated); }
+    .cmp-btn-sm.danger { color: #ef4444; border-color: #fca5a5; }
+    .cmp-btn-sm.danger:hover { background: #fef2f2; }
+    .cmp-btn-sm.success { color: #16a34a; border-color: #86efac; }
+    .cmp-btn-sm.success:hover { background: #f0fdf4; }
+    .cmp-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--color-bg-elevated); border-radius: 10px; margin-bottom: 6px; }
+    .cmp-row-info { flex: 1; }
+    .cmp-row-info strong { font-size: 0.9rem; }
+    .cmp-row-info span { font-size: 0.78rem; color: var(--color-text-tertiary); display: block; }
+    .cmp-row-actions { display: flex; gap: 6px; }
+    @media (max-width: 600px) { .cmp-stats { grid-template-columns: 1fr; } }
+</style>
+
+<div class="cmp-page">
+    <!-- Статистика -->
+    <div class="cmp-stats">
+        <div class="cmp-stat">
+            <span class="cmp-stat-val">{{ pending_reports_count }}</span>
+            <span class="cmp-stat-lbl">Жалоб ожидают</span>
+        </div>
+        <div class="cmp-stat">
+            <span class="cmp-stat-val">{{ total_members }}</span>
+            <span class="cmp-stat-lbl">Участников</span>
+        </div>
+        <div class="cmp-stat">
+            <span class="cmp-stat-val">{{ banned_count }}</span>
+            <span class="cmp-stat-lbl">Заблокировано</span>
+        </div>
+    </div>
+
+    <!-- Жалобы на посты сообщества -->
+    <div class="cmp-card">
+        <h3><i data-feather="flag"></i> Жалобы на контент сообщества</h3>
+        {% if pending_reports %}
+        <table class="cmp-table">
+            <thead>
+                <tr><th>Тип</th><th>Контент</th><th>От кого</th><th>Причина</th><th>Действия</th></tr>
+            </thead>
+            <tbody>
+                {% for report in pending_reports %}
+                <tr>
+                    <td><span class="cmp-badge cmp-badge-pending">{{ report.get_report_type_display }}</span></td>
+                    <td>{{ report.content_preview|truncatechars:40 }}</td>
+                    <td>@{{ report.reporter.username }}</td>
+                    <td>{{ report.description|truncatechars:30 }}</td>
+                    <td>
+                        <button class="cmp-btn-sm success" onclick="handleReport({{ report.id }}, 'approve')">Одобрить</button>
+                        <button class="cmp-btn-sm danger" onclick="handleReport({{ report.id }}, 'reject')">Отклонить</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="cmp-empty"><i data-feather="check-circle"></i> Жалоб нет</div>
+        {% endif %}
+    </div>
+
+    <!-- Участники -->
+    <div class="cmp-card">
+        <h3><i data-feather="users"></i> Управление участниками</h3>
+        <div class="cmp-row" style="margin-bottom:12px">
+            <input type="text" id="memberSearch" placeholder="Поиск участника..." style="flex:1;padding:8px 12px;border:1px solid var(--color-border);border-radius:8px;font-family:inherit;font-size:0.85rem">
+        </div>
+        {% for member in members %}
+        <div class="cmp-row" data-search="{{ member.user.username }} {{ member.user.get_full_name }}">
+            <div class="cmp-row-info">
+                <strong>{{ member.user.get_full_name|default:member.user.username }}</strong>
+                <span>@{{ member.user.username }} · {{ member.get_role_display }}</span>
+            </div>
+            <div class="cmp-row-actions">
+                {% if member.user != community.creator and member.user != request.user %}
+                    {% if member.role == 'member' %}
+                    <button class="cmp-btn-sm success" onclick="changeRole({{ member.user.id }}, 'moderator')">Сделать модератором</button>
+                    <button class="cmp-btn-sm danger" onclick="banMember({{ member.user.id }})">Заблокировать</button>
+                    {% elif member.role == 'moderator' %}
+                    <button class="cmp-btn-sm" onclick="changeRole({{ member.user.id }}, 'member')">Снять модератора</button>
+                    <button class="cmp-btn-sm danger" onclick="banMember({{ member.user.id }})">Заблокировать</button>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Заблокированные -->
+    <div class="cmp-card">
+        <h3><i data-feather="slash"></i> Заблокированные участники</h3>
+        {% if banned_members %}
+        {% for member in banned_members %}
+        <div class="cmp-row">
+            <div class="cmp-row-info">
+                <strong>{{ member.user.get_full_name|default:member.user.username }}</strong>
+                <span>@{{ member.user.username }}</span>
+            </div>
+            <div class="cmp-row-actions">
+                <button class="cmp-btn-sm success" onclick="unbanMember({{ member.user.id }})">Разблокировать</button>
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="cmp-empty">Нет заблокированных</div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    function G(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
+    function T(m){const t=document.createElement('div');t.style.cssText='position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:10px;font-size:.8rem;font-weight:600;color:#fff;z-index:9999;background:#7c3aed;box-shadow:0 8px 24px rgba(0,0,0,.2);animation:toastIn .25s';t.textContent=m;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='all .3s';setTimeout(()=>t.remove(),300)},2000)}
+
+    document.getElementById('memberSearch')?.addEventListener('input', function() {
+        const q = this.value.toLowerCase();
+        document.querySelectorAll('.cmp-row[data-search]').forEach(r => {
+            r.style.display = r.dataset.search.toLowerCase().includes(q) ? '' : 'none';
+        });
+    });
+
+    async function handleReport(id, action) {
+        if (!confirm(action === 'approve' ? 'Одобрить жалобу?' : 'Отклонить жалобу?')) return;
+        const r = await fetch(`/moderation/report/${id}/${action}/`, {
+            method: 'POST', headers: { 'X-CSRFToken': G('csrftoken') }
+        });
+        if (r.ok) { T(action === 'approve' ? 'Жалоба одобрена' : 'Жалоба отклонена'); setTimeout(() => location.reload(), 500); }
+    }
+
+    async function changeRole(userId, role) {
+        const r = await fetch(`/communities/{{ community.slug }}/change-role/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': G('csrftoken') },
+            body: JSON.stringify({ user_id: userId, role: role })
+        });
+        if (r.ok) { T('Роль изменена'); setTimeout(() => location.reload(), 500); }
+    }
+
+    async function banMember(userId) {
+        if (!confirm('Заблокировать участника?')) return;
+        const r = await fetch(`/communities/{{ community.slug }}/ban-member/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': G('csrftoken') },
+            body: JSON.stringify({ user_id: userId })
+        });
+        if (r.ok) { T('Участник заблокирован'); setTimeout(() => location.reload(), 500); }
+    }
+
+    async function unbanMember(userId) {
+        const r = await fetch(`/communities/{{ community.slug }}/unban-member/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': G('csrftoken') },
+            body: JSON.stringify({ user_id: userId })
+        });
+        if (r.ok) { T('Участник разблокирован'); setTimeout(() => location.reload(), 500); }
+    }
+</script>
+{% endblock %}

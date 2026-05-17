@@ -45,4 +45,6 @@ urlpatterns = [
     # Избранное
     path('bookmark/<int:post_pk>/toggle/', views.bookmark_toggle, name='bookmark_toggle'),
     path('search/ajax/', views.search_ajax, name='search_ajax'),
+    path('tag/<slug:slug>/', views.tag_detail, name='tag_detail'),
+    path('tags/', views.tag_list, name='tag_list'),
 ]

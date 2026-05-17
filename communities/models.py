@@ -9,7 +9,7 @@ User = get_user_model()
 
 class Community(models.Model):
     """
-    Модель сообщества (группы) - аналог wiki-разделов из твоего проекта
+    Модель сообщества (группы)
     """
     STATUS_CHOICES = [
         ('active', 'Активно'),
@@ -23,106 +23,42 @@ class Community(models.Model):
         ('hidden', 'Скрытое (не отображается в списках)'),
     ]
 
-    name = models.CharField(
-        max_length=100,
-        unique=True,
-        verbose_name='Название',
-        db_index=True
-    )
-    slug = models.SlugField(
-        max_length=120,
-        unique=True,
-        verbose_name='URL-идентификатор',
-        blank=True
-    )
-    description = models.TextField(
-        max_length=2000,
-        verbose_name='Описание',
-        blank=True
-    )
-    avatar = models.ImageField(
-        upload_to='communities/avatars/%Y/%m/%d/',
-        blank=True,
-        null=True,
-        verbose_name='Аватар'
-    )
-    cover = models.ImageField(
-        upload_to='communities/covers/%Y/%m/%d/',
-        blank=True,
-        null=True,
-        verbose_name='Обложка'
-    )
+    COMMUNITY_TYPE_CHOICES = [
+        ('public', 'Публичное'),
+        ('private', 'Закрытое'),
+        ('restricted', 'Ограниченное'),
+    ]
 
-    # Создатель и администраторы
-    creator = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        related_name='created_communities',
-        verbose_name='Создатель'
-    )
-    admins = models.ManyToManyField(
-        User,
-        related_name='admin_communities',
-        blank=True,
-        verbose_name='Администраторы'
-    )
+    name = models.CharField(max_length=100, unique=True, verbose_name='Название', db_index=True)
+    slug = models.SlugField(max_length=120, unique=True, verbose_name='URL-идентификатор', blank=True)
+    description = models.TextField(max_length=2000, verbose_name='Описание', blank=True)
+    avatar = models.ImageField(upload_to='communities/avatars/%Y/%m/%d/', blank=True, null=True, verbose_name='Аватар')
+    cover = models.ImageField(upload_to='communities/covers/%Y/%m/%d/', blank=True, null=True, verbose_name='Обложка')
 
-    # Участники
-    members = models.ManyToManyField(
-        User,
-        through='CommunityMembership',
-        related_name='communities',
-        verbose_name='Участники'
-    )
+    creator = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_communities', verbose_name='Создатель')
+    admins = models.ManyToManyField(User, related_name='admin_communities', blank=True, verbose_name='Администраторы')
+    members = models.ManyToManyField(User, through='CommunityMembership', related_name='communities', verbose_name='Участники')
 
-    # Настройки
-    privacy = models.CharField(
-        max_length=20,
-        choices=PRIVACY_CHOICES,
-        default='public',
-        verbose_name='Приватность'
-    )
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default='active',
-        verbose_name='Статус'
-    )
+    privacy = models.CharField(max_length=20, choices=PRIVACY_CHOICES, default='public', verbose_name='Приватность')
+    community_type = models.CharField(max_length=20, choices=COMMUNITY_TYPE_CHOICES, default='public', verbose_name='Тип сообщества')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', verbose_name='Статус')
 
-    # Тематика (категории и теги из posts)
-    categories = models.ManyToManyField(
-        'posts.Category',
-        related_name='communities',
-        blank=True,
-        verbose_name='Категории'
-    )
-    tags = models.ManyToManyField(
-        'posts.Tag',
-        related_name='communities',
-        blank=True,
-        verbose_name='Теги'
-    )
+    posts_need_approval = models.BooleanField(default=False, verbose_name='Посты требуют одобрения')
+    rules = models.TextField(max_length=3000, blank=True, verbose_name='Правила')
 
-    # Статистика
-    members_count = models.PositiveIntegerField(
-        default=0,
-        verbose_name='Участников'
-    )
-    posts_count = models.PositiveIntegerField(
-        default=0,
-        verbose_name='Постов'
-    )
+    categories = models.ManyToManyField('posts.Category', related_name='communities', blank=True, verbose_name='Категории')
+    category = models.ForeignKey('posts.Category', on_delete=models.SET_NULL, null=True, blank=True, related_name='categorized_communities', verbose_name='Основная категория')
+    tags = models.ManyToManyField('posts.Tag', related_name='communities', blank=True, verbose_name='Теги')
 
-    # Даты
-    created_at = models.DateTimeField(
-        auto_now_add=True,
-        verbose_name='Дата создания'
-    )
-    updated_at = models.DateTimeField(
-        auto_now=True,
-        verbose_name='Дата обновления'
-    )
+    website = models.URLField(max_length=200, blank=True, verbose_name='Веб-сайт')
+    discord = models.CharField(max_length=100, blank=True, verbose_name='Discord')
+    telegram = models.CharField(max_length=100, blank=True, verbose_name='Telegram')
+
+    members_count = models.PositiveIntegerField(default=0, verbose_name='Участников')
+    posts_count = models.PositiveIntegerField(default=0, verbose_name='Постов')
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
 
     class Meta:
         verbose_name = 'Сообщество'
@@ -142,24 +78,9 @@ class Community(models.Model):
         super().save(*args, **kwargs)
 
     def update_stats(self):
-        self.members_count = self.members.filter(communitymembership__status='active').count()
-        self.posts_count = self.posts.count()
+        self.members_count = CommunityMembership.objects.filter(community=self, status='active').count()
+        self.posts_count = CommunityPost.objects.filter(community=self).count()
         self.save(update_fields=['members_count', 'posts_count'])
-
-        # Подсчет участников (активных)
-        self.members_count = CommunityMembership.objects.filter(
-            community=self,
-            status='active'
-        ).count()
-
-        # Подсчет постов в сообществе
-        self.posts_count = CommunityPost.objects.filter(
-            community=self
-        ).count()
-
-        # Сохраняем изменения
-        self.save(update_fields=['members_count', 'posts_count'])
-        print(f"Stats updated: members={self.members_count}, posts={self.posts_count}")  # для отладки
 
 
 class CommunityMembership(models.Model):
