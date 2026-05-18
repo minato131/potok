@@ -3,3 +3,7 @@ Django
 psycopg2-binary
 python-dotenv
 Pillow
+channels
+channels-redis
+redis
+daphne

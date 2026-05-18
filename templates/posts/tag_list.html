@@ -18,25 +18,30 @@
 <div class="tags-container">
     <!-- Поиск -->
     <div class="search-wrapper">
-        <i data-feather="search"></i>
         <input type="text" id="tagSearch" placeholder="Поиск тегов..." class="search-input">
     </div>
 
     <!-- Популярные теги -->
     <div class="popular-tags-section">
         <h3>
-            <i data-feather="trending-up"></i>
             Популярные теги
         </h3>
         <div class="popular-tags-cloud">
             {% for tag in popular_tags %}
-            <a href="{% url 'posts:tag_detail' slug=tag.slug %}"
-               class="tag-cloud-item"
-               style="font-size: {{ tag.post_count|default:1|add:12 }}px;
-                      color: {{ tag.color|default:'var(--color-primary)' }};">
-                #{{ tag.name }}
-                <span class="tag-count">{{ tag.post_count }}</span>
-            </a>
+                {% if tag.slug %}
+                <a href="{% url 'posts:tag_detail' slug=tag.slug %}"
+                   class="tag-cloud-item"
+                   style="font-size: {{ tag.post_count|default:1|add:12 }}px;
+                          color: {{ tag.color|default:'var(--color-primary)' }};">
+                    #{{ tag.name }}
+                    <span class="tag-count">{{ tag.post_count }}</span>
+                </a>
+                {% else %}
+                <span class="tag-cloud-item" style="opacity: 0.5;">
+                    #{{ tag.name }}
+                    <span class="tag-count">{{ tag.post_count }}</span>
+                </span>
+                {% endif %}
             {% empty %}
             <p class="no-tags">Нет популярных тегов</p>
             {% endfor %}
@@ -46,17 +51,22 @@
     <!-- Все теги -->
     <div class="all-tags-section">
         <h3>
-            <i data-feather="tag"></i>
             Все теги
         </h3>
 
         <div class="tags-grid" id="tagsGrid">
             {% for tag in tags %}
-            <div class="tag-card" data-tag-name="{{ tag.name }}">
+            <div class="tag-card" data-tag-name="{{ tag.name|default:'' }}">
                 <div class="tag-header">
+                    {% if tag.slug %}
                     <a href="{% url 'posts:tag_detail' slug=tag.slug %}" class="tag-name" style="color: {{ tag.color|default:'var(--color-primary)' }};">
                         #{{ tag.name }}
                     </a>
+                    {% else %}
+                    <span class="tag-name" style="color: {{ tag.color|default:'var(--color-primary)' }}; opacity: 0.6;">
+                        #{{ tag.name }}
+                    </span>
+                    {% endif %}
                     <span class="tag-posts-count">{{ tag.posts_count }} постов</span>
                 </div>
 
@@ -65,21 +75,20 @@
                 {% endif %}
 
                 <div class="tag-footer">
-                    {% if user.is_authenticated %}
-                    <button class="follow-tag-btn" data-tag-slug="{{ tag.slug }}">
-                        <i data-feather="{% if tag in user.followed_tags.all %}bell-off{% else %}bell{% endif %}"></i>
-                        <span>{% if tag in user.followed_tags.all %}Отписаться{% else %}Подписаться{% endif %}</span>
-                    </button>
-                    {% endif %}
-
                     {% if user.is_staff %}
                     <div class="tag-actions">
+                        {% if tag.slug %}
                         <a href="{% url 'posts:tag_edit' slug=tag.slug %}" class="action-btn" title="Редактировать">
                             <i data-feather="edit"></i>
                         </a>
                         <a href="{% url 'posts:tag_delete' slug=tag.slug %}" class="action-btn action-btn--danger" title="Удалить">
                             <i data-feather="trash-2"></i>
                         </a>
+                        {% else %}
+                        <span class="action-btn disabled" style="opacity: 0.5;" title="Тег без slug">
+                            <i data-feather="alert-circle"></i>
+                        </span>
+                        {% endif %}
                     </div>
                     {% endif %}
                 </div>
@@ -264,24 +273,7 @@
     .tag-footer {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-    }
-
-    .follow-tag-btn {
-        display: flex;
-        align-items: center;
-        gap: 0.375rem;
-        padding: 0.375rem 0.75rem;
-        border-radius: var(--radius-md);
-        background: var(--color-bg-elevated);
-        color: var(--color-text-secondary);
-        font-size: 0.8125rem;
-        transition: all var(--transition-base);
-    }
-
-    .follow-tag-btn:hover {
-        background: var(--color-primary);
-        color: white;
+        justify-content: flex-end;
     }
 
     .tag-actions {
@@ -295,6 +287,8 @@
         color: var(--color-text-tertiary);
         text-decoration: none;
         transition: all var(--transition-base);
+        display: inline-flex;
+        align-items: center;
     }
 
     .action-btn:hover {
@@ -305,6 +299,11 @@
     .action-btn--danger:hover {
         background: var(--color-danger);
         color: white;
+    }
+
+    .action-btn.disabled {
+        cursor: not-allowed;
+        pointer-events: none;
     }
 
     .empty-state {
@@ -393,59 +392,23 @@
         const searchInput = document.getElementById('tagSearch');
         const tagCards = document.querySelectorAll('.tag-card');
 
-        searchInput?.addEventListener('input', function() {
-            const query = this.value.toLowerCase();
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const query = this.value.toLowerCase().trim();
 
-            tagCards.forEach(card => {
-                const name = card.dataset.tagName.toLowerCase();
-                const description = card.querySelector('.tag-description')?.textContent.toLowerCase() || '';
+                tagCards.forEach(card => {
+                    const name = (card.dataset.tagName || '').toLowerCase();
+                    const descriptionElem = card.querySelector('.tag-description');
+                    const description = descriptionElem ? descriptionElem.textContent.toLowerCase() : '';
 
-                if (name.includes(query) || description.includes(query)) {
-                    card.style.display = '';
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-        });
-
-        // Подписка на тег
-        const followBtns = document.querySelectorAll('.follow-tag-btn');
-        followBtns.forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const tagSlug = this.dataset.tagSlug;
-
-                try {
-                    const response = await fetch(`/tag/${tagSlug}/follow/`, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': getCookie('csrftoken')
-                        }
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        const icon = this.querySelector('i');
-                        const span = this.querySelector('span');
-
-                        if (data.following) {
-                            icon.setAttribute('data-feather', 'bell-off');
-                            span.textContent = 'Отписаться';
-                        } else {
-                            icon.setAttribute('data-feather', 'bell');
-                            span.textContent = 'Подписаться';
-                        }
-                        feather.replace();
-
-                        showToast({
-                            type: 'success',
-                            message: data.following ? 'Вы подписались на тег' : 'Вы отписались от тега'
-                        });
+                    if (name.includes(query) || description.includes(query)) {
+                        card.style.display = '';
+                    } else {
+                        card.style.display = 'none';
                     }
-                } catch (error) {
-                    console.error('Error:', error);
-                }
+                });
             });
-        });
+        }
     });
 </script>
 {% endblock %}

@@ -34,6 +34,17 @@
             height: 100% !important;
             object-fit: cover !important;
         }
+        .notification-dot {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            width: 10px;
+            height: 10px;
+            background-color: #ef4444;
+            border-radius: 50%;
+            border: 2px solid var(--color-bg-surface);
+            box-shadow: 0 0 0 1px var(--color-bg-surface);
+        }
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -140,6 +151,20 @@
                         </a>
                     </li>
                     {% endif %}
+                    {% if user.is_staff or user.is_superuser %}
+                    <li class="nav-menu__item">
+                        <a href="{% url 'analytics:dashboard' %}" class="nav-link">
+                            <i data-feather="bar-chart-2"></i>
+                            <span>Аналитика</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    <li class="nav-menu__item">
+                        <a href="{% url 'pages:user_guide' %}" class="nav-link">
+                            <i data-feather="book-open"></i>
+                            <span>Руководство</span>
+                        </a>
+                    </li>
                 </ul>
             </nav>
 
@@ -160,8 +185,9 @@
                         <span class="user-card__username">@{{ user.username }}</span>
                     </div>
                     <div class="user-card__actions">
-                        <a href="{% url 'accounts:notifications' %}" class="user-card__notifications" title="Уведомления">
+                        <a href="{% url 'accounts:notifications' %}" class="user-card__notifications" title="Уведомления" style="position: relative;">
                             <i data-feather="bell"></i>
+                            <span id="notificationDot" class="notification-dot" style="display: none;"></span>
                         </a>
                         <a href="{% url 'accounts:logout' %}" class="user-card__logout" title="Выйти">
                             <i data-feather="log-out"></i>
@@ -330,5 +356,349 @@
         document.addEventListener('DOMContentLoaded', initInstantSearch);
     </script>
     {% block extra_js %}{% endblock %}
+
+<script>
+// Глобальная переменная для WebSocket
+window.isAuthenticated = {% if user.is_authenticated %}true{% else %}false{% endif %};
+
+// WebSocket для уведомлений в реальном времени
+let notificationSocket = null;
+let reconnectAttempts = 0;
+const maxReconnectAttempts = 10;
+
+function connectNotificationWebSocket() {
+    if (!window.isAuthenticated) return;
+
+    const wsScheme = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+    const wsUrl = `${wsScheme}${window.location.host}/ws/notifications/`;
+
+    notificationSocket = new WebSocket(wsUrl);
+
+    notificationSocket.onopen = function() {
+        console.log('WebSocket connected');
+        reconnectAttempts = 0;
+    };
+
+    notificationSocket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        console.log('WebSocket message:', data);
+
+        if (data.type === 'new_notification') {
+            // Показываем всплывающее уведомление
+            showNotificationToast(data.notification);
+            // Показываем красную точку
+            const dot = document.getElementById('notificationDot');
+            if (dot) {
+                dot.style.display = 'block';
+            }
+        } else if (data.type === 'counter_update') {
+            // Обновляем красную точку
+            const dot = document.getElementById('notificationDot');
+            if (dot) {
+                if (data.count > 0) {
+                    dot.style.display = 'block';
+                } else {
+                    dot.style.display = 'none';
+                }
+            }
+        } else if (data.type === 'initial_notifications') {
+            // Начальные уведомления - показываем точку если есть непрочитанные
+            const dot = document.getElementById('notificationDot');
+            if (dot) {
+                if (data.count > 0) {
+                    dot.style.display = 'block';
+                } else {
+                    dot.style.display = 'none';
+                }
+            }
+        }
+    };
+
+    notificationSocket.onclose = function() {
+        console.log('WebSocket disconnected');
+        if (reconnectAttempts < maxReconnectAttempts) {
+            setTimeout(() => {
+                reconnectAttempts++;
+                connectNotificationWebSocket();
+            }, 5000);
+        }
+    };
+
+    notificationSocket.onerror = function(error) {
+        console.error('WebSocket error:', error);
+    };
+}
+
+// Функция для обновления точки через API (резервный вариант)
+async function updateNotificationDot() {
+    if (!window.isAuthenticated) return;
+
+    try {
+        const response = await fetch('/accounts/notifications/unread-count/');
+        const data = await response.json();
+        const dot = document.getElementById('notificationDot');
+
+        if (dot) {
+            if (data.count > 0) {
+                dot.style.display = 'block';
+            } else {
+                dot.style.display = 'none';
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching notification count:', error);
+    }
+}
+
+// Запускаем обновление точки при загрузке
+document.addEventListener('DOMContentLoaded', function() {
+    updateNotificationDot();
+    // Обновляем каждые 30 секунд на случай, если WebSocket отключился
+    setInterval(updateNotificationDot, 30000);
+});
+
+// Показать всплывающее уведомление
+function showNotificationToast(notification) {
+    const toast = document.createElement('div');
+    toast.className = 'notification-toast';
+    toast.innerHTML = `
+        <div class="toast-icon">
+            ${getNotificationIcon(notification.notification_type)}
+        </div>
+        <div class="toast-content">
+            <div class="toast-title">${escapeHtml(notification.title)}</div>
+            <div class="toast-message">${escapeHtml(notification.message)}</div>
+        </div>
+    `;
+
+    toast.onclick = () => {
+        if (notification.link && notification.link !== '#') {
+            window.location.href = notification.link;
+        } else {
+            window.location.href = '/accounts/notifications/';
+        }
+    };
+
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.style.animation = 'slideOutRight 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, 5000);
+}
+
+function getNotificationIcon(type) {
+    const icons = {
+        'like': '❤️',
+        'comment': '💬',
+        'message': '✉️',
+        'follow': '👥',
+        'mention': '@',
+        'community_invite': '🏘️',
+        'community_request': '📝',
+        'report': '⚠️'
+    };
+    return icons[type] || '🔔';
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Добавляем стили для toast (если ещё нет)
+if (!document.querySelector('#notification-styles')) {
+    const toastStyles = document.createElement('style');
+    toastStyles.id = 'notification-styles';
+    toastStyles.textContent = `
+        .notification-toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 12px;
+            padding: 12px 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 280px;
+            max-width: 380px;
+            z-index: 10000;
+            animation: slideInRight 0.3s ease;
+            border-left: 4px solid #3b82f6;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .notification-toast:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        .toast-icon {
+            font-size: 24px;
+        }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .toast-message {
+            font-size: 13px;
+            color: #666;
+            word-break: break-word;
+        }
+    `;
+    document.head.appendChild(toastStyles);
+}
+
+// Запускаем WebSocket при загрузке
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.isAuthenticated) {
+        connectNotificationWebSocket();
+    }
+
+    // Функция обновления счетчика (fallback)
+    window.updateNotificationCounter = async function() {
+        if (!window.isAuthenticated) return;
+        try {
+            const response = await fetch('/accounts/notifications/unread-count/');
+            const data = await response.json();
+            const counterElement = document.getElementById('unreadNotificationsCount');
+            if (counterElement) {
+                if (data.count > 0) {
+                    counterElement.textContent = data.count > 99 ? '99+' : data.count;
+                    counterElement.classList.remove('hidden');
+                } else {
+                    counterElement.classList.add('hidden');
+                }
+            }
+        } catch (error) {
+            console.error('Error updating counter:', error);
+        }
+    };
+});
+
+// CSRF токен для fetch запросов
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+// Функция обновления счетчика уведомлений
+async function updateNotificationCounter() {
+    if (!window.isAuthenticated) return;
+
+    try {
+        const response = await fetch('/accounts/notifications/unread-count/');
+        const data = await response.json();
+        const counter = document.getElementById('unreadNotificationsCount');
+        if (counter) {
+            if (data.count > 0) {
+                counter.textContent = data.count > 99 ? '99+' : data.count;
+                counter.style.display = 'flex';
+                counter.classList.remove('hidden');
+            } else {
+                counter.style.display = 'none';
+                counter.classList.add('hidden');
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching notification count:', error);
+    }
+}
+
+// Запускаем при загрузке и каждые 30 секунд
+document.addEventListener('DOMContentLoaded', function() {
+    updateNotificationCounter();
+    setInterval(updateNotificationCounter, 30000);
+});
+// Красная точка для уведомлений
+async function updateNotificationDot() {
+    if (!window.isAuthenticated) return;
+
+    try {
+        const response = await fetch('/accounts/notifications/unread-count/');
+        const data = await response.json();
+        const dot = document.getElementById('notificationDot');
+
+        if (dot) {
+            if (data.count > 0) {
+                dot.style.display = 'block';
+            } else {
+                dot.style.display = 'none';
+            }
+        }
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+// Обновляем при загрузке и каждые 30 секунд
+document.addEventListener('DOMContentLoaded', function() {
+    updateNotificationDot();
+    setInterval(updateNotificationDot, 30000);
+});
+
+// Также обновляем при получении WebSocket уведомления
+// Добавьте это в существующий WebSocket onmessage:
+if (data.type === 'new_notification') {
+    // ... существующий код ...
+    const dot = document.getElementById('notificationDot');
+    if (dot) dot.style.display = 'block';
+}
+
+if (data.type === 'counter_update') {
+    const dot = document.getElementById('notificationDot');
+    if (dot) {
+        if (data.count > 0) {
+            dot.style.display = 'block';
+        } else {
+            dot.style.display = 'none';
+        }
+    }
+}
+</script>
 </body>
 </html>

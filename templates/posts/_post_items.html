@@ -1,0 +1,168 @@
+{% for post in posts %}
+<article class="post-card-vk" data-post-id="{{ post.id }}">
+    <div class="post-vk-header">
+        <a href="{% url 'accounts:profile_by_username' username=post.author.username %}" class="post-vk-avatar">
+            {% if post.author.profile.avatar %}
+                <img src="{{ post.author.profile.avatar.url }}" alt="">
+            {% else %}
+                <div class="av-ph">{{ post.author.username|first|upper }}</div>
+            {% endif %}
+        </a>
+        <div class="post-vk-header-info">
+            <a href="{% url 'accounts:profile_by_username' username=post.author.username %}" class="post-vk-author">
+                {{ post.author.get_full_name|default:post.author.username }}
+            </a>
+            <div class="post-vk-meta">
+                <span>{{ post.created_at|date:'d M в H:i' }}</span>
+                {% if post.community %}
+                    <span>·</span>
+                    <a href="{% url 'communities:community_detail' slug=post.community.slug %}" class="post-vk-community">{{ post.community.name }}</a>
+                {% endif %}
+            </div>
+        </div>
+        {% if user.is_authenticated %}
+            {% if post.community %}
+                {% if user not in post.community.members.all %}
+                    <button class="pd-subscribe" data-community-id="{{ post.community.id }}" data-type="community">Подписаться</button>
+                {% endif %}
+            {% elif user != post.author %}
+                <button class="pd-subscribe" data-author-id="{{ post.author.id }}" data-type="user">Подписаться</button>
+            {% endif %}
+            {% if post.author != user %}
+                <button class="post-vk-friend {% if post.author.id in friend_ids %}friend{% endif %}" data-friend-id="{{ post.author.id }}">
+                    {% if post.author.id in friend_ids %}Друг{% else %}+ Друг{% endif %}
+                </button>
+            {% endif %}
+        {% endif %}
+        <div style="position:relative;flex-shrink:0">
+            <button class="post-vk-menu-btn" onclick="event.stopPropagation();togglePostMenu(this)" title="Меню">
+                <i data-feather="more-horizontal"></i>
+            </button>
+            <div class="post-menu-dropdown" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--color-bg-surface);border:1px solid var(--color-border);border-radius:12px;box-shadow:var(--shadow-lg);min-width:180px;z-index:30;padding:4px">
+                {% if user == post.author %}
+                    <a href="{% url 'posts:post_edit' pk=post.id %}" class="menu-item" onclick="event.stopPropagation()"><i data-feather="edit"></i> Редактировать</a>
+                    <button class="menu-item danger" onclick="event.stopPropagation();deletePost({{ post.id }})"><i data-feather="trash-2"></i> Удалить</button>
+                    <div class="menu-divider"></div>
+                {% endif %}
+                <button class="menu-item bookmark-menu-item {% if post.id in bookmarked_post_ids %}active{% endif %}" data-post-id="{{ post.id }}" onclick="event.stopPropagation();toggleBookmark(this)">
+                    <i data-feather="bookmark"></i> <span>{% if post.id in bookmarked_post_ids %}Убрать{% else %}В закладки{% endif %}</span>
+                </button>
+                <button class="menu-item" onclick="event.stopPropagation();copyLink({{ post.id }})"><i data-feather="link"></i> Скопировать ссылку</button>
+                <div class="menu-divider"></div>
+                <button class="menu-item" onclick="event.stopPropagation();reportPost({{ post.id }})"><i data-feather="flag"></i> Пожаловаться</button>
+                {% if post.image %}
+                    <button class="menu-item" onclick="savePhoto({{ post.id }})"><i data-feather="image"></i> Сохранить фото</button>
+                {% endif %}
+                {% if post.video %}
+                    <button class="menu-item" onclick="saveVideo({{ post.id }})"><i data-feather="video"></i> Сохранить видео</button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <h3 class="post-vk-title" onclick="openPostModal({{ post.id }})">{{ post.title }}</h3>
+    <div class="post-vk-text" onclick="event.stopPropagation()">
+        <div class="markdown-content markdown-preview" data-full="{{ post.content|escapejs }}"></div>
+    </div>
+
+    {% if post.image %}
+        <div class="post-vk-media">
+            <img src="{{ post.image.url }}" class="post-vk-img" loading="lazy" onclick="event.stopPropagation();openPostModal({{ post.id }})">
+        </div>
+    {% endif %}
+
+    {% if post.video %}
+        <div class="post-vk-media--video" onclick="event.stopPropagation();openPostModal({{ post.id }})">
+            <div class="vk-video-player">
+                <video class="vk-video-player__video" preload="metadata" playsinline>
+                    <source src="{{ post.video.url }}">
+                </video>
+                <div class="vk-video-player__overlay">
+                    <button class="vk-video-player__play-btn">
+                        <svg width="48" height="48">
+                            <circle cx="24" cy="24" r="22" fill="rgba(0,0,0,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+                            <path d="M19 14L31 24L19 34V14Z" fill="white"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if post.tags.exists %}
+    <div class="post-tags-row">
+        {% for t in post.tags.all %}
+            <a href="{% url 'posts:tag_detail' slug=t.slug %}" class="post-tag">#{{ t.name }}</a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="post-vk-footer">
+        <div class="post-vk-footer-left">
+            <button class="post-vk-stat like-btn-vk {% if post.id in liked_post_ids %}liked{% endif %}" data-post-id="{{ post.id }}">
+                <svg width="22" height="20" viewBox="0 0 22 20">
+                    <path d="M11 19C11 19 1 13.5 1 6.5C1 3.5 3.5 1 6.5 1C8.5 1 10 2 11 3.5C12 2 13.5 1 15.5 1C18.5 1 21 3.5 21 6.5C21 13.5 11 19 11 19Z" stroke="currentColor" stroke-width="1.8"/>
+                </svg>
+                <span>{{ post.likes_count }}</span>
+            </button>
+            <span class="post-vk-stat" onclick="event.stopPropagation();toggleComments({{ post.id }})" style="cursor:pointer">
+                <i data-feather="message-circle"></i> <span>{{ post.comments_count }}</span>
+            </span>
+        </div>
+        <div class="post-vk-footer-right">
+            <div class="share-dropdown">
+                <button class="post-vk-stat" onclick="event.stopPropagation();toggleShareMenu(this)">
+                    <i data-feather="share-2"></i>
+                </button>
+                <div class="share-menu">
+                    <button onclick="event.stopPropagation();shareTo('messages')"><i data-feather="send"></i> Отправить в ЛС</button>
+                    <button onclick="event.stopPropagation();shareTo('community')"><i data-feather="users"></i> В сообщество</button>
+                    <button onclick="event.stopPropagation();copyLink({{ post.id }})"><i data-feather="link"></i> Скопировать ссылку</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if user.is_authenticated %}
+    <div class="comment-inline-form" onclick="event.stopPropagation()">
+        <div class="comment-inline-avatar">
+            {% if user.profile.avatar %}
+                <img src="{{ user.profile.avatar.url }}" alt="">
+            {% else %}
+                <div class="av-ph" style="font-size:0.65rem">{{ user.username|first|upper }}</div>
+            {% endif %}
+        </div>
+        <div class="comment-inline-body">
+            <textarea class="comment-inline-input" placeholder="Написать комментарий..." rows="1" data-post-id="{{ post.id }}"></textarea>
+            <div class="cmt-preview" id="preview-inline-{{ post.id }}"></div>
+            <div class="comment-inline-foot">
+                <div class="comment-inline-tools">
+                    <button type="button" class="comment-inline-tool" onclick="this.nextElementSibling.click()" title="Фото/Видео">
+                        <i data-feather="image"></i>
+                    </button>
+                    <input type="file" accept="image/*,video/*" class="hidden-input" onchange="previewFilesInline(this, 'preview-inline-{{ post.id }}')" multiple>
+                    <button type="button" class="comment-inline-tool" onclick="toggleSavedPickerInline(this)" title="Закладки">
+                        <i data-feather="bookmark"></i>
+                    </button>
+                    <div class="saved-picker"></div>
+                    <button type="button" class="comment-inline-tool" onclick="toggleEmojiInline(this)" title="Эмодзи">
+                        <i data-feather="smile"></i>
+                    </button>
+                    <div class="emoji-picker"></div>
+                </div>
+                <button class="comment-inline-send" data-post-id="{{ post.id }}">Отправить</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="post-vk-comments" id="comments-{{ post.id }}" onclick="event.stopPropagation()">
+        <div class="comments-inner"></div>
+    </div>
+</article>
+{% empty %}
+<div class="empty-feed">
+    <h3>Лента пуста</h3>
+    <p>Подпишитесь на пользователей или создайте пост</p>
+</div>
+{% endfor %}

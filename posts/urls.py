@@ -47,4 +47,5 @@ urlpatterns = [
     path('search/ajax/', views.search_ajax, name='search_ajax'),
     path('tag/<slug:slug>/', views.tag_detail, name='tag_detail'),
     path('tags/', views.tag_list, name='tag_list'),
+    path('recommended/api/', views.recommended_posts_api, name='recommended_api'),
 ]

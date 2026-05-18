@@ -27,6 +27,10 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.db.models import Case, When, Value, IntegerField
+
+from django.db.models import Count, Q, Value, Case, When, IntegerField, F
+from django.db.models.functions import Coalesce
+from datetime import timedelta
 User = get_user_model()
 
 
@@ -71,27 +75,23 @@ def post_list(request):
             date_from = timezone.now() - timedelta(days=7)
         posts = posts.filter(created_at__gte=date_from).order_by('-likes_count', '-created_at')
 
+
+
     elif feed == 'recommended' and request.user.is_authenticated:
-        liked_comment_ids = Like.objects.filter(user=request.user, content_type='post').values_list('object_id', flat=True)[:50]
-        user_tags = Tag.objects.filter(posts__id__in=liked_comment_ids).distinct()[:10]
-        user_categories = Category.objects.filter(posts__id__in=liked_comment_ids).distinct()[:5]
-        posts = posts.filter(Q(tags__in=user_tags) | Q(category__in=user_categories)).exclude(author=request.user).distinct().order_by('-created_at')
+
+        posts = get_recommended_posts(request)
 
     else:
         if sort == 'top':
-            if period == 'day':
-                date_from = timezone.now() - timedelta(days=1)
-            elif period == 'month':
-                date_from = timezone.now() - timedelta(days=30)
-            elif period == 'year':
-                date_from = timezone.now() - timedelta(days=365)
-            else:
-                date_from = timezone.now() - timedelta(days=7)
-            posts = posts.filter(created_at__gte=date_from).order_by('-likes_count', '-created_at')
+            # Лучшие = много лайков + много просмотров
+            posts = posts.annotate(
+                score=F('likes_count') * 2 + F('views_count') + F('comments_count') * 2
+            ).order_by('-score', '-created_at')
         elif sort == 'hot':
-            posts = posts.annotate(comment_count=Count('comments')).order_by('-comment_count', '-created_at')
-        else:
-            posts = posts.order_by('-created_at')
+            # Обсуждаемые = много комментариев
+            posts = posts.annotate(
+                comment_count=Count('comments')
+            ).order_by('-comment_count', '-created_at')
 
     paginator = Paginator(posts, 20)
     page = request.GET.get('page', 1)
@@ -367,12 +367,12 @@ def like_toggle(request):
         object_id = request.POST.get('object_id')
         like_type = request.POST.get('like_type', 'like')
 
-        print(f"Получен запрос: content_type={content_type}, object_id={object_id}")  # Отладка
+        print(f"Получен запрос: content_type={content_type}, object_id={object_id}")
 
         if content_type not in ['post', 'comment']:
             return JsonResponse({'error': 'Invalid content type'}, status=400)
 
-        # Проверяем существование объекта
+        # Получаем объект
         if content_type == 'post':
             obj = get_object_or_404(Post, pk=object_id)
         else:
@@ -391,7 +391,7 @@ def like_toggle(request):
             action = 'removed'
         else:
             # Создаем новый лайк
-            like = Like.objects.create(
+            Like.objects.create(
                 user=request.user,
                 content_type=content_type,
                 object_id=object_id,
@@ -399,38 +399,26 @@ def like_toggle(request):
             )
             action = 'added'
 
-            # Уведомление автору поста
-            if obj.author != request.user:
-                from accounts.utils import create_notification
-                create_notification(
-                    recipient=obj.author,
-                    sender=request.user,
-                    notification_type='like',
-                    title='Новый лайк',
-                    message=f'@{request.user.username} оценил ваш пост',
-                    link=f'/posts/post/{obj.pk}/'
-                )
-
-        # Обновляем счетчик
+        # Считаем лайки
         likes_count = Like.objects.filter(
             content_type=content_type,
             object_id=object_id
         ).count()
 
-        if content_type == 'post':
-            obj.likes_count = likes_count
-        else:
-            obj.likes_count = likes_count
+        # Обновляем счетчик в объекте
+        obj.likes_count = likes_count
         obj.save(update_fields=['likes_count'])
 
         return JsonResponse({
             'action': action,
             'likes_count': likes_count,
-            'like_type': like_type
+            'status': 'ok'
         })
 
     except Exception as e:
         print(f"Ошибка в like_toggle: {e}")
+        import traceback
+        traceback.print_exc()
         return JsonResponse({'error': str(e)}, status=500)
 
 
@@ -706,9 +694,14 @@ def category_edit(request, slug):
 
 
 def tag_list(request):
-    """Список всех тегов"""
-    tags = Tag.objects.annotate(posts_count=Count('posts')).order_by('-posts_count')
-    return render(request, 'posts/tag_list.html', {'tags': tags})
+    tags = Tag.objects.annotate(posts_count=Count('posts')).filter(posts_count__gt=0)
+    popular_tags = tags.order_by('-posts_count')[:10]
+
+    context = {
+        'tags': tags,
+        'popular_tags': popular_tags,
+    }
+    return render(request, 'posts/tag_list.html', context)
 
 
 def tag_detail(request, slug):
@@ -952,6 +945,101 @@ def tag_search(request):
         ]
     })
 
-def tag_list(request):
-    tags = Tag.objects.annotate(posts_count=Count('posts')).order_by('-posts_count')
-    return render(request, 'posts/tag_list.html', {'tags': tags})
+
+def get_recommended_posts(request, limit=20):
+    """
+    Упрощённая рекомендательная система
+    """
+    user = request.user
+
+    # ID постов, которые пользователь уже лайкнул
+    liked_post_ids = list(Like.objects.filter(user=user, content_type='post').values_list('object_id', flat=True))
+
+    # ID просмотренных постов
+    viewed_post_ids = list(PostView.objects.filter(user=user).values_list('post_id', flat=True).distinct())
+
+    print(f"DEBUG: liked count = {len(liked_post_ids)}")
+    print(f"DEBUG: viewed count = {len(viewed_post_ids)}")
+
+    # Если есть лайки - получаем теги и категории из лайкнутых постов
+    if liked_post_ids:
+        # Теги из лайкнутых постов
+        user_tags = Tag.objects.filter(posts__id__in=liked_post_ids).distinct()
+        print(f"DEBUG: tags found = {user_tags.count()}")
+
+        # Категории из лайкнутых постов
+        user_categories = Category.objects.filter(posts__id__in=liked_post_ids).distinct()
+        print(f"DEBUG: categories found = {user_categories.count()}")
+
+        # Рекомендации по тегам и категориям
+        recommendations = Post.objects.filter(
+            status='published',
+            is_hidden=False
+        ).exclude(
+            author=user
+        ).exclude(
+            id__in=liked_post_ids
+        )
+
+        # Добавляем фильтр по тегам или категориям
+        if user_tags.exists() or user_categories.exists():
+            recommendations = recommendations.filter(
+                Q(tags__in=user_tags) | Q(category__in=user_categories)
+            ).distinct()
+            print(f"DEBUG: recommendations after tags/cats = {recommendations.count()}")
+
+        # Исключаем просмотренные
+        if viewed_post_ids:
+            recommendations = recommendations.exclude(id__in=viewed_post_ids)
+            print(f"DEBUG: after excluding viewed = {recommendations.count()}")
+
+        # Сортируем
+        recommendations = recommendations.order_by('-likes_count', '-created_at')
+
+        if recommendations.exists():
+            return recommendations[:limit]
+
+    # Если нет рекомендаций - показываем популярные посты, которые пользователь не видел
+    fallback_posts = Post.objects.filter(
+        status='published',
+        is_hidden=False
+    ).exclude(
+        author=user
+    ).exclude(
+        id__in=liked_post_ids
+    )
+
+    if viewed_post_ids:
+        fallback_posts = fallback_posts.exclude(id__in=viewed_post_ids)
+
+    print(f"DEBUG: fallback posts count = {fallback_posts.count()}")
+
+    return fallback_posts.order_by('-likes_count', '-created_at')[:limit]
+
+
+@login_required
+def recommended_posts_api(request):
+    """API для получения рекомендаций через AJAX (для бесконечной прокрутки)"""
+    page = int(request.GET.get('page', 1))
+    per_page = 10
+
+    recommendations = get_recommended_posts(request, limit=per_page * page)
+
+    # Пагинация
+    start = (page - 1) * per_page
+    end = start + per_page
+    page_posts = recommendations[start:end]
+
+    # Формируем HTML для новых постов
+    from django.template.loader import render_to_string
+    html = render_to_string('posts/_post_items.html', {
+        'posts': page_posts,
+        'liked_post_ids': set(),
+        'bookmarked_post_ids': set(),
+    }, request=request)
+
+    return JsonResponse({
+        'html': html,
+        'has_more': len(recommendations) > end,
+        'next_page': page + 1 if len(recommendations) > end else None
+    })

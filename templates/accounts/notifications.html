@@ -1,117 +1,88 @@
-<!-- templates/accounts/notifications.html -->
 {% extends 'base.html' %}
 {% load static %}
 
 {% block title %}Уведомления · Поток{% endblock %}
 {% block page_title %}Уведомления{% endblock %}
 
-{% block header_actions %}
-<button class="btn btn--outline" id="markAllRead">
-    <i data-feather="check-circle"></i>
-    <span>Прочитать все</span>
-</button>
-{% endblock %}
-
 {% block content %}
 <div class="notifications-container">
-    <!-- Табы -->
-    <div class="notifications-tabs">
-        <button class="tab-btn active" data-tab="all">
-            <i data-feather="bell"></i>
-            <span>Все</span>
-            <span class="badge">{{ notifications.count }}</span>
-        </button>
-        <button class="tab-btn" data-tab="unread">
-            <i data-feather="circle"></i>
-            <span>Непрочитанные</span>
-            <span class="badge">{{ unread_count }}</span>
-        </button>
+    <div class="notifications-header">
+        <h2>Уведомления</h2>
+        <div class="notifications-actions">
+            <button id="markAllReadBtn" class="btn btn--secondary">
+                <i data-feather="check-circle"></i>
+                <span>Отметить все прочитанными</span>
+            </button>
+        </div>
     </div>
 
-    <!-- Список уведомлений -->
     <div class="notifications-list" id="notificationsList">
-        {% for notification in notifications %}
-        <div class="notification-item {% if not notification.is_read %}unread{% endif %}"
-             data-notification-id="{{ notification.id }}"
-             data-type="{{ notification.type }}">
+        {% for notification in page_obj %}
+        <div class="notification-item {% if not notification.is_read %}unread{% else %}read{% endif %}"
+             data-id="{{ notification.id }}"
+             data-link="{{ notification.link|default:'#' }}">
             <div class="notification-icon">
-                {% if notification.type == 'like' %}
-                <i data-feather="heart"></i>
-                {% elif notification.type == 'comment' %}
-                <i data-feather="message-circle"></i>
-                {% elif notification.type == 'follow' %}
-                <i data-feather="user-plus"></i>
-                {% elif notification.type == 'mention' %}
-                <i data-feather="at-sign"></i>
+                {% if notification.notification_type == 'like' %}
+                    ❤️
+                {% elif notification.notification_type == 'comment' %}
+                    💬
+                {% elif notification.notification_type == 'message' %}
+                    ✉️
+                {% elif notification.notification_type == 'follow' %}
+                    👥
+                {% elif notification.notification_type == 'mention' %}
+                    @
+                {% elif notification.notification_type == 'community_invite' %}
+                    🏘️
+                {% elif notification.notification_type == 'community_request' %}
+                    📝
+                {% elif notification.notification_type == 'report' %}
+                    ⚠️
                 {% else %}
-                <i data-feather="bell"></i>
+                    🔔
                 {% endif %}
             </div>
-
             <div class="notification-content">
-                <div class="notification-header">
-                    <a href="{{ notification.actor_url }}" class="notification-actor">
-                        {{ notification.actor_name }}
-                    </a>
-                    <span class="notification-action">{{ notification.get_action_display }}</span>
-                    <span class="notification-time">{{ notification.created_at|timesince }} назад</span>
-                </div>
-
-                {% if notification.preview %}
-                <p class="notification-preview">{{ notification.preview }}</p>
-                {% endif %}
-
-                {% if notification.target_url %}
-                <a href="{{ notification.target_url }}" class="notification-link">
-                    Посмотреть →
-                </a>
-                {% endif %}
+                <div class="notification-title">{{ notification.title }}</div>
+                <div class="notification-message">{{ notification.message }}</div>
+                <div class="notification-time">{{ notification.created_at|timesince }} назад</div>
             </div>
-
-            <div class="notification-actions">
-                {% if not notification.is_read %}
-                <button class="mark-read-btn" data-notification-id="{{ notification.id }}" title="Отметить прочитанным">
-                    <i data-feather="check"></i>
-                </button>
-                {% endif %}
-                <button class="delete-notification-btn" data-notification-id="{{ notification.id }}" title="Удалить">
-                    <i data-feather="x"></i>
-                </button>
-            </div>
+            {% if not notification.is_read %}
+            <button class="mark-read-btn" data-id="{{ notification.id }}">
+                <i data-feather="check"></i>
+            </button>
+            {% endif %}
         </div>
         {% empty %}
         <div class="empty-state">
-            <i data-feather="bell-off"></i>
+            <i data-feather="bell"></i>
             <h3>Нет уведомлений</h3>
-            <p>Здесь будут появляться уведомления о активности</p>
+            <p>Здесь будут появляться уведомления о лайках, комментариях и сообщениях</p>
         </div>
         {% endfor %}
     </div>
 
-    <!-- Пагинация -->
-    {% if is_paginated %}
-    <div class="pagination-container">
-        <div class="pagination">
-            {% if page_obj.has_previous %}
-            <a href="?page={{ page_obj.previous_page_number }}" class="pagination-btn">
-                <i data-feather="chevron-left"></i>
-            </a>
-            {% endif %}
+    {% if page_obj.has_other_pages %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}" class="pagination-btn">
+            <i data-feather="chevron-left"></i>
+        </a>
+        {% endif %}
 
-            {% for num in page_obj.paginator.page_range %}
+        {% for num in page_obj.paginator.page_range %}
             {% if num == page_obj.number %}
             <span class="pagination-btn active">{{ num }}</span>
             {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
             <a href="?page={{ num }}" class="pagination-btn">{{ num }}</a>
             {% endif %}
-            {% endfor %}
+        {% endfor %}
 
-            {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}" class="pagination-btn">
-                <i data-feather="chevron-right"></i>
-            </a>
-            {% endif %}
-        </div>
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}" class="pagination-btn">
+            <i data-feather="chevron-right"></i>
+        </a>
+        {% endif %}
     </div>
     {% endif %}
 </div>
@@ -120,234 +91,143 @@
 {% block extra_css %}
 <style>
     .notifications-container {
-        max-width: 650px;
+        max-width: 800px;
         margin: 0 auto;
     }
 
-    .notifications-tabs {
+    .notifications-header {
         display: flex;
-        gap: 1rem;
-        margin-bottom: 1.5rem;
-        border-bottom: 1px solid var(--color-border);
-    }
-
-    .tab-btn {
-        display: flex;
+        justify-content: space-between;
         align-items: center;
-        gap: 0.5rem;
-        padding: 0.75rem 0;
-        color: var(--color-text-secondary);
-        border-bottom: 2px solid transparent;
-        transition: all var(--transition-base);
-    }
-
-    .tab-btn:hover {
-        color: var(--color-text-primary);
-    }
-
-    .tab-btn.active {
-        color: var(--color-primary);
-        border-bottom-color: var(--color-primary);
-    }
-
-    .tab-btn .badge {
-        background: var(--color-bg-elevated);
-        padding: 0.125rem 0.5rem;
-        border-radius: var(--radius-full);
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-
-    .tab-btn.active .badge {
-        background: var(--color-primary-light);
-        color: var(--color-primary);
+        margin-bottom: 2rem;
     }
 
     .notifications-list {
         display: flex;
         flex-direction: column;
-        gap: 0.75rem;
+        gap: 0.5rem;
+    }
+
+    /* Непрочитанные - бледно-синий фон */
+    .notification-item.unread {
+        background: #eef2ff;
+        border-left: 3px solid #3b82f6;
+        cursor: pointer;
+    }
+
+    /* Прочитанные - серо-белый фон */
+    .notification-item.read {
+        background: var(--color-bg-surface);
+        border-left: 3px solid transparent;
+        cursor: pointer;
+        opacity: 0.8;
     }
 
     .notification-item {
         display: flex;
+        align-items: center;
         gap: 1rem;
-        padding: 1.25rem;
-        background: var(--color-bg-surface);
+        padding: 1rem;
         border-radius: var(--radius-lg);
-        border: 1px solid var(--color-border-light);
         transition: all var(--transition-base);
-        position: relative;
+        border: 1px solid var(--color-border-light);
     }
 
-    .notification-item:hover {
-        box-shadow: var(--shadow-md);
+    .notification-item.unread:hover {
+        background: #e0e7ff;
+        transform: translateX(4px);
+        box-shadow: var(--shadow-sm);
     }
 
-    .notification-item.unread {
-        background: var(--color-primary-light);
-        border-left: 3px solid var(--color-primary);
+    .notification-item.read:hover {
+        background: var(--color-bg-elevated);
+        transform: translateX(4px);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .notification-item.removing {
+        animation: slideOutRight 0.3s ease;
+        pointer-events: none;
     }
 
     .notification-icon {
-        width: 2.5rem;
-        height: 2.5rem;
-        border-radius: 50%;
-        background: var(--color-bg-elevated);
+        font-size: 1.5rem;
+        width: 3rem;
+        height: 3rem;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: var(--color-primary);
+        background: var(--color-bg-elevated);
+        border-radius: 50%;
         flex-shrink: 0;
+    }
+
+    .notification-item.unread .notification-icon {
+        background: white;
     }
 
     .notification-content {
         flex: 1;
     }
 
-    .notification-header {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap;
-        gap: 0.25rem 0.5rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .notification-actor {
+    .notification-title {
         font-weight: 600;
-        color: var(--color-text-primary);
-        text-decoration: none;
+        margin-bottom: 0.25rem;
     }
 
-    .notification-actor:hover {
-        color: var(--color-primary);
-    }
-
-    .notification-action {
+    .notification-message {
+        font-size: 0.875rem;
         color: var(--color-text-secondary);
+        margin-bottom: 0.25rem;
     }
 
     .notification-time {
         font-size: 0.75rem;
         color: var(--color-text-tertiary);
-        margin-left: auto;
     }
 
-    .notification-preview {
-        color: var(--color-text-secondary);
-        font-size: 0.875rem;
-        line-height: 1.5;
-        margin-bottom: 0.5rem;
-    }
-
-    .notification-link {
-        color: var(--color-primary);
-        text-decoration: none;
-        font-size: 0.875rem;
-    }
-
-    .notification-link:hover {
-        text-decoration: underline;
-    }
-
-    .notification-actions {
-        display: flex;
-        gap: 0.25rem;
-        opacity: 0;
-        transition: opacity var(--transition-base);
-    }
-
-    .notification-item:hover .notification-actions {
-        opacity: 1;
-    }
-
-    .mark-read-btn,
-    .delete-notification-btn {
-        padding: 0.25rem;
+    .mark-read-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0.5rem;
         border-radius: var(--radius-md);
-        color: var(--color-text-tertiary);
         transition: all var(--transition-base);
+        flex-shrink: 0;
     }
 
     .mark-read-btn:hover {
-        background: var(--color-success);
-        color: white;
+        background: rgba(59, 130, 246, 0.1);
     }
 
-    .delete-notification-btn:hover {
-        background: var(--color-danger);
-        color: white;
+    .mark-read-btn i {
+        width: 1.25rem;
+        height: 1.25rem;
+        color: #3b82f6;
     }
 
     .empty-state {
         text-align: center;
-        padding: 3rem;
+        padding: 4rem 2rem;
         background: var(--color-bg-surface);
         border-radius: var(--radius-lg);
     }
 
     .empty-state i {
-        width: 3rem;
-        height: 3rem;
+        width: 4rem;
+        height: 4rem;
         color: var(--color-text-tertiary);
         margin-bottom: 1rem;
     }
 
-    .empty-state h3 {
-        margin-bottom: 0.5rem;
-    }
-
-    .empty-state p {
-        color: var(--color-text-secondary);
-    }
-
-    .pagination-container {
-        display: flex;
-        justify-content: center;
-        margin-top: 2rem;
-    }
-
-    .pagination {
-        display: flex;
-        gap: 0.5rem;
-    }
-
-    .pagination-btn {
-        min-width: 2.5rem;
-        height: 2.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: var(--radius-md);
-        background: var(--color-bg-surface);
-        border: 1px solid var(--color-border);
-        color: var(--color-text-primary);
-        text-decoration: none;
-        transition: all var(--transition-base);
-    }
-
-    .pagination-btn:hover {
-        background: var(--color-bg-elevated);
-    }
-
-    .pagination-btn.active {
-        background: var(--color-primary);
-        color: white;
-        border-color: var(--color-primary);
-    }
-
-    @media (max-width: 768px) {
-        .notification-item {
-            padding: 1rem;
-        }
-
-        .notification-actions {
+    @keyframes slideOutRight {
+        from {
+            transform: translateX(0);
             opacity: 1;
         }
-
-        .notification-time {
-            margin-left: 0;
-            width: 100%;
+        to {
+            transform: translateX(100%);
+            opacity: 0;
         }
     }
 </style>
@@ -355,119 +235,151 @@
 
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Отметить как прочитанное
-        const markReadBtns = document.querySelectorAll('.mark-read-btn');
-        markReadBtns.forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const notificationId = this.dataset.notificationId;
-                const notificationItem = document.querySelector(`[data-notification-id="${notificationId}"]`);
+document.addEventListener('DOMContentLoaded', function() {
 
-                try {
-                    const response = await fetch(`/accounts/notifications/${notificationId}/read/`, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': getCookie('csrftoken')
-                        }
-                    });
+    // Функция обновления кнопки "Отметить все"
+    function updateMarkAllButton() {
+        const unreadItems = document.querySelectorAll('.notification-item.unread');
+        const markAllBtn = document.getElementById('markAllReadBtn');
+        if (markAllBtn) {
+            if (unreadItems.length === 0) {
+                markAllBtn.style.display = 'none';
+            } else {
+                markAllBtn.style.display = 'flex';
+            }
+        }
+    }
 
-                    if (response.ok) {
-                        notificationItem.classList.remove('unread');
-                        this.remove();
+    // Клик по уведомлению - переход по ссылке
+    document.querySelectorAll('.notification-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+            // Если кликнули не по кнопке "отметить прочитанным"
+            if (e.target.closest('.mark-read-btn')) return;
 
-                        updateUnreadCount();
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                }
-            });
+            const link = this.dataset.link;
+            if (link && link !== '#') {
+                window.location.href = link;
+            }
         });
+    });
 
-        // Отметить все прочитанными
-        const markAllRead = document.getElementById('markAllRead');
-        markAllRead?.addEventListener('click', async function() {
+    // Отметить одно уведомление как прочитанное
+    document.querySelectorAll('.mark-read-btn').forEach(btn => {
+        btn.addEventListener('click', async function(e) {
+            e.stopPropagation();
+            const notificationId = this.dataset.id;
+            const item = this.closest('.notification-item');
+
             try {
-                const response = await fetch('/accounts/notifications/read-all/', {
+                const response = await fetch(`/accounts/notifications/mark/${notificationId}/`, {
                     method: 'POST',
                     headers: {
-                        'X-CSRFToken': getCookie('csrftoken')
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest'
                     }
                 });
 
                 if (response.ok) {
-                    document.querySelectorAll('.notification-item.unread').forEach(item => {
-                        item.classList.remove('unread');
-                    });
+                    // Меняем класс с unread на read
+                    item.classList.remove('unread');
+                    item.classList.add('read');
+                    // Удаляем кнопку
+                    this.remove();
 
-                    document.querySelectorAll('.mark-read-btn').forEach(btn => btn.remove());
-                    updateUnreadCount();
+                    // Получаем текущий счетчик из данных ответа или обновляем через API
+                    const data = await response.json();
+                    if (data.unread_count !== undefined) {
+                        updateHeaderCounter(data.unread_count);
+                    } else {
+                        // Обновляем счетчик через API
+                        const countResponse = await fetch('/accounts/notifications/unread-count/');
+                        const countData = await countResponse.json();
+                        updateHeaderCounter(countData.count);
+                    }
 
-                    showToast({
-                        type: 'success',
-                        message: 'Все уведомления отмечены прочитанными'
-                    });
+                    // Обновляем кнопку "Отметить все"
+                    updateMarkAllButton();
+
+                    // Отправляем через WebSocket
+                    if (notificationSocket && notificationSocket.readyState === WebSocket.OPEN) {
+                        notificationSocket.send(JSON.stringify({
+                            action: 'mark_as_read',
+                            notification_id: notificationId
+                        }));
+                    }
                 }
             } catch (error) {
                 console.error('Error:', error);
             }
         });
+    });
 
-        // Удалить уведомление
-        const deleteBtns = document.querySelectorAll('.delete-notification-btn');
-        deleteBtns.forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const notificationId = this.dataset.notificationId;
-                const notificationItem = document.querySelector(`[data-notification-id="${notificationId}"]`);
+    // Отметить все как прочитанные
+    const markAllBtn = document.getElementById('markAllReadBtn');
+    if (markAllBtn) {
+        markAllBtn.addEventListener('click', async function() {
+            const unreadCount = document.querySelectorAll('.notification-item.unread').length;
+            if (unreadCount === 0) return;
 
-                if (confirm('Удалить уведомление?')) {
-                    try {
-                        // Здесь должен быть URL для удаления
-                        notificationItem.style.transition = 'opacity 0.3s ease';
-                        notificationItem.style.opacity = '0';
-                        setTimeout(() => notificationItem.remove(), 300);
+            if (!confirm(`Отметить ${unreadCount} уведомлений как прочитанные?`)) return;
 
-                        showToast({
-                            type: 'success',
-                            message: 'Уведомление удалено'
-                        });
-                    } catch (error) {
-                        console.error('Error:', error);
+            try {
+                const response = await fetch('/accounts/notifications/mark-all/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (response.ok) {
+                    // Меняем класс у всех непрочитанных
+                    const unreadItems = document.querySelectorAll('.notification-item.unread');
+                    unreadItems.forEach(item => {
+                        item.classList.remove('unread');
+                        item.classList.add('read');
+                        // Удаляем кнопки
+                        const btn = item.querySelector('.mark-read-btn');
+                        if (btn) btn.remove();
+                    });
+
+                    // Обнуляем счетчик
+                    updateHeaderCounter(0);
+
+                    // Скрываем кнопку "Отметить все"
+                    markAllBtn.style.display = 'none';
+
+                    // Отправляем через WebSocket
+                    if (notificationSocket && notificationSocket.readyState === WebSocket.OPEN) {
+                        notificationSocket.send(JSON.stringify({
+                            action: 'mark_all_read'
+                        }));
                     }
                 }
-            });
+            } catch (error) {
+                console.error('Error:', error);
+            }
         });
+    }
 
-        // Табы
-        const tabBtns = document.querySelectorAll('.tab-btn');
-        tabBtns.forEach(btn => {
-            btn.addEventListener('click', function() {
-                tabBtns.forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
+    // Инициализация
+    updateMarkAllButton();
+});
 
-                const tab = this.dataset.tab;
-                filterNotifications(tab);
-            });
-        });
-
-        function filterNotifications(type) {
-            const items = document.querySelectorAll('.notification-item');
-
-            items.forEach(item => {
-                if (type === 'all') {
-                    item.style.display = '';
-                } else if (type === 'unread') {
-                    item.style.display = item.classList.contains('unread') ? '' : 'none';
-                }
-            });
-        }
-
-        function updateUnreadCount() {
-            const unreadItems = document.querySelectorAll('.notification-item.unread');
-            const badge = document.querySelector('[data-tab="unread"] .badge');
-            if (badge) {
-                badge.textContent = unreadItems.length;
+// CSRF токен
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
             }
         }
-    });
+    }
+    return cookieValue;
+}
 </script>
 {% endblock %}

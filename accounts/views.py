@@ -19,6 +19,9 @@ from .models import Notification, Friendship
 from .models import Profile
 import csv
 import json
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+
 from io import StringIO, BytesIO
 from django.http import HttpResponse
 from django.core.mail import send_mail
@@ -933,17 +936,19 @@ def notifications_ajax(request):
 
     return JsonResponse(data)
 
+
 @login_required
 @require_POST
 def notification_mark_read(request, notification_id):
-    """
-    Отметить уведомление как прочитанное
-    """
+    """Отметить уведомление как прочитанное"""
     notification = get_object_or_404(Notification, id=notification_id, recipient=request.user)
     notification.mark_as_read()
 
+    # Получаем актуальное количество непрочитанных
+    unread_count = request.user.notifications.filter(is_read=False).count()
+
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return JsonResponse({'status': 'ok'})
+        return JsonResponse({'status': 'ok', 'unread_count': unread_count})
 
     return redirect(request.META.get('HTTP_REFERER', 'accounts:notifications'))
 
@@ -951,15 +956,20 @@ def notification_mark_read(request, notification_id):
 @login_required
 @require_POST
 def notification_mark_all_read(request):
-    """
-    Отметить все уведомления как прочитанные
-    """
+    """Отметить все уведомления как прочитанные"""
     request.user.notifications.filter(is_read=False).update(is_read=True)
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return JsonResponse({'status': 'ok'})
+        return JsonResponse({'status': 'ok', 'unread_count': 0})
 
     return redirect('accounts:notifications')
+
+
+@login_required
+def get_unread_count(request):
+    """Возвращает количество непрочитанных уведомлений"""
+    count = request.user.notifications.filter(is_read=False).count()
+    return JsonResponse({'count': count})
 
 
 def send_verification_email(user, code):
@@ -1236,3 +1246,18 @@ def user_search_api(request):
             'avatar': u.profile.avatar.url if hasattr(u, 'profile') and u.profile.avatar else None,
         })
     return JsonResponse(results, safe=False)
+
+
+@login_required
+def get_friend_status(request, user_id):
+    """Получить статус дружбы с пользователем"""
+    target = get_object_or_404(User, id=user_id)
+
+    if target == request.user:
+        status = 'self'
+    elif Friendship.objects.filter(user=request.user, friend=target).exists():
+        status = 'friends'
+    else:
+        status = 'none'
+
+    return JsonResponse({'status': status})

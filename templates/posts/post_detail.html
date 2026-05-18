@@ -109,6 +109,39 @@
     .cmt-menu-dropdown .menu-item:hover { background:var(--color-bg-elevated) }
     .cmt-menu-dropdown .menu-item.danger { color:var(--color-danger) }
     .cmt-menu-dropdown .menu-divider { height:1px;background:var(--color-border);margin:3px 0 }
+    /* Кнопка лайка в pd-actions */
+    .pd-act.like-btn-vk {
+        background: none;
+        border: none;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 8px;
+        transition: all 0.2s;
+        color: #6c757d;
+    }
+
+    .pd-act.like-btn-vk svg {
+        stroke: #6c757d;
+        stroke-width: 2;
+        fill: none;
+        transition: all 0.2s;
+    }
+
+    .pd-act.like-btn-vk.liked {
+        color: #e74c3c;
+    }
+
+    .pd-act.like-btn-vk.liked svg {
+        stroke: #e74c3c;
+        fill: #e74c3c;
+    }
+
+    .pd-act.like-btn-vk:hover {
+        background: rgba(231, 76, 60, 0.1);
+    }
 </style>
 
 <div class="pd-wrap">
@@ -163,7 +196,9 @@
 
     <div class="pd-actions">
         <button class="pd-act like-btn-vk {% if user_like %}liked{% endif %}" data-post-id="{{ post.id }}">
-            <svg width="22" height="20" viewBox="0 0 22 20"><path d="M11 19C11 19 1 13.5 1 6.5C1 3.5 3.5 1 6.5 1C8.5 1 10 2 11 3.5C12 2 13.5 1 15.5 1C18.5 1 21 3.5 21 6.5C21 13.5 11 19 11 19Z" stroke="currentColor" stroke-width="1.8"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            </svg>
             <span>{{ post.likes_count }}</span>
         </button>
         <span class="pd-act"><i data-feather="message-circle"></i> <span>{{ comments.count }}</span></span>
@@ -199,7 +234,7 @@
         <div class="cmt-card" id="comment-{{ comment.id }}" style="position:relative">
             <div class="cmt-avatar">{% if comment.author.profile.avatar %}<img src="{{ comment.author.profile.avatar.url }}">{% else %}<div class="av-ph" style="font-size:0.6rem;width:28px;height:28px">{{ comment.author.username|first|upper }}</div>{% endif %}</div>
             <div class="cmt-body">
-                <div class="cmt-top"><span class="cmt-author">{{ comment.author.get_full_name|default:comment.author.username }}</span><span class="cmt-time">{{ comment.created_at|timesince }} назад</span></div>
+                <div class="cmt-top"><span class="cmt-author">{{ comment.author.get_full_name|default:comment.author.username }}</span> <span class="cmt-time">{{ comment.created_at|date:"j E Y H:i" }}</span></div>
                 <div class="cmt-text">{{ comment.content|linebreaks }}</div>
                 <div class="cmt-row">
                     <button class="cmt-like {% if comment.id in liked_comment_ids %}active{% endif %}" data-comment-id="{{ comment.id }}" onclick="likeComment({{ comment.id }},this)">❤️ <span>{{ comment.likes_count }}</span></button>
@@ -208,7 +243,7 @@
                 {% for reply in comment.replies.all %}
                 <div class="cmt-reply-item">
                     <div class="cmt-avatar" style="width:22px;height:22px;min-width:22px;max-width:22px;min-height:22px;max-height:22px">{% if reply.author.profile.avatar %}<img src="{{ reply.author.profile.avatar.url }}" style="width:100%!important;height:100%!important">{% else %}<div class="av-ph" style="font-size:0.5rem;width:22px;height:22px">{{ reply.author.username|first|upper }}</div>{% endif %}</div>
-                    <div><span class="cmt-author">{{ reply.author.get_full_name|default:reply.author.username }}</span> <span class="cmt-time">{{ reply.created_at|timesince }} назад</span><div class="cmt-text">{{ reply.content }}</div></div>
+                    <div><span class="cmt-author">{{ reply.author.get_full_name|default:reply.author.username }}</span> <span class="cmt-time">{{ comment.created_at|date:"j E Y H:i" }}</span><div class="cmt-text">{{ reply.content }}</div></div>
                 </div>
                 {% endfor %}
                 <div class="reply-form" id="replyForm-{{ comment.id }}" style="display:none;margin-top:8px">
@@ -310,16 +345,122 @@ document.querySelector('.pd-subscribe')?.addEventListener('click',async function
     if(r.ok){this.classList.toggle('subscribed');this.textContent=this.classList.contains('subscribed')?'Вы подписаны':'Подписаться';}
 });
 // Друг
-document.querySelector('.pd-friend')?.addEventListener('click',async function(){
-    const r=await fetch(`/accounts/friend/${this.dataset.friendId}/toggle/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken')}});
-    const d=await r.json();this.classList.toggle('friend',d.action==='added');this.textContent=d.action==='added'?'Друг':'+ Друг';
-});
-// Лайк поста
-document.querySelector('.like-btn-vk')?.addEventListener('click',async function(){
-    const pid=this.dataset.postId,cnt=this.querySelector('span');
-    const r=await fetch('/like/toggle/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`content_type=post&object_id=${pid}&like_type=like`});
-    const d=await r.json();this.classList.toggle('liked',d.action==='added');cnt.textContent=d.likes_count;
-});
+// Кнопка дружбы на странице поста
+async function initFriendButton() {
+    const friendBtn = document.querySelector('.pd-friend');
+    if (!friendBtn) return;
+
+    const userId = friendBtn.dataset.friendId;
+
+    // Получаем текущий статус
+    try {
+        const statusRes = await fetch(`/accounts/friend/status/${userId}/`);
+        const statusData = await statusRes.json();
+
+        if (statusData.status === 'friends') {
+            friendBtn.classList.add('friend');
+            friendBtn.textContent = 'Друг';
+            friendBtn.dataset.friendStatus = 'friends';
+        } else if (statusData.status === 'pending_sent') {
+            friendBtn.textContent = 'Заявка отправлена';
+            friendBtn.disabled = true;
+            friendBtn.style.opacity = '0.6';
+            friendBtn.dataset.friendStatus = 'pending';
+        } else {
+            friendBtn.textContent = '+ Друг';
+            friendBtn.dataset.friendStatus = 'none';
+        }
+    } catch(e) {}
+
+    friendBtn.addEventListener('click', async function() {
+        const currentStatus = this.dataset.friendStatus;
+
+        // Если уже отправлена заявка или уже друзья - ничего не делаем
+        if (currentStatus === 'pending' || currentStatus === 'friends') {
+            showToast(currentStatus === 'pending' ? 'Заявка уже отправлена' : 'Вы уже друзья');
+            return;
+        }
+
+        const r = await fetch(`/accounts/friend/${userId}/toggle/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') }
+        });
+        const d = await r.json();
+
+        if (d.action === 'added') {
+            this.textContent = 'Заявка отправлена';
+            this.disabled = true;
+            this.style.opacity = '0.6';
+            this.dataset.friendStatus = 'pending';
+            showToast('✅ Заявка в друзья отправлена');
+        } else if (d.action === 'removed') {
+            this.textContent = '+ Друг';
+            this.disabled = false;
+            this.style.opacity = '1';
+            this.classList.remove('friend');
+            this.dataset.friendStatus = 'none';
+            showToast('❌ Пользователь удален из друзей');
+        }
+    });
+}
+
+function showToast(message) {
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:10px;font-size:0.8rem;font-weight:600;color:#fff;z-index:9999;background:#7c3aed;box-shadow:0 8px 24px rgba(0,0,0,0.2);animation:toastIn 0.25s';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'all 0.3s';
+        setTimeout(() => toast.remove(), 300);
+    }, 2000);
+}
+
+// Запускаем инициализацию
+initFriendButton();
+// Лайк поста - исправленная версия
+const likeBtn = document.querySelector('.like-btn-vk');
+if (likeBtn) {
+    // Удаляем старые обработчики
+    const newLikeBtn = likeBtn.cloneNode(true);
+    likeBtn.parentNode.replaceChild(newLikeBtn, likeBtn);
+
+    newLikeBtn.addEventListener('click', async function(e) {
+        e.preventDefault();
+
+        const postId = this.dataset.postId;
+        const countSpan = this.querySelector('span');
+
+        console.log('Liking post:', postId);
+
+        try {
+            const response = await fetch('/like/toggle/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: `content_type=post&object_id=${postId}&like_type=like`
+            });
+
+            const data = await response.json();
+            console.log('Server response:', data);
+
+            if (data.action === 'added') {
+                this.classList.add('liked');
+            } else if (data.action === 'removed') {
+                this.classList.remove('liked');
+            }
+
+            if (countSpan && data.likes_count !== undefined) {
+                countSpan.textContent = data.likes_count;
+            }
+
+        } catch (error) {
+            console.error('Like error:', error);
+        }
+    });
+}
 // Закладка
 document.querySelector('.bookmark-btn-vk')?.addEventListener('click',async function(){
     const r=await fetch(`/bookmark/${this.dataset.postId}/toggle/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'}});

@@ -1,0 +1,476 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Руководство пользователя · Поток{% endblock %}
+{% block page_title %}Руководство пользователя{% endblock %}
+
+{% block content %}
+<style>
+    .guide-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    
+    .guide-hero {
+        background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+        border-radius: var(--radius-xl);
+        padding: 2rem;
+        color: white;
+        text-align: center;
+        margin-bottom: 2rem;
+        border: 2px solid var(--color-primary);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .guide-hero h1 {
+        font-size: 1.8rem;
+        margin-bottom: 0.5rem;
+        color: var(--color-primary);
+    }
+
+    .guide-hero p {
+        color: var(--color-text-secondary);
+        font-size: 1rem;
+    }
+    
+    .guide-toc {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--color-border-light);
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .guide-toc h2 {
+        font-size: 1.2rem;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .guide-toc-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 0.75rem;
+    }
+    
+    .guide-toc-link {
+        color: var(--color-text);
+        text-decoration: none;
+        padding: 0.5rem;
+        border-radius: var(--radius-md);
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .guide-toc-link:hover {
+        background: var(--color-bg-elevated);
+        color: var(--color-primary);
+    }
+    
+    .guide-section {
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--color-border-light);
+        margin-bottom: 1.5rem;
+        scroll-margin-top: 80px;
+    }
+    
+    .guide-section-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--color-border-light);
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    }
+    
+    .guide-section-header h2 {
+        font-size: 1.2rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0;
+    }
+    
+    .guide-section-content {
+        padding: 1.5rem;
+    }
+    
+    .guide-step {
+        margin-bottom: 1.5rem;
+    }
+    
+    .guide-step-title {
+        font-weight: 600;
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .guide-step-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        background: var(--color-primary);
+        color: white;
+        border-radius: 50%;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .guide-tip {
+        background: rgba(59, 130, 246, 0.1);
+        border-left: 3px solid var(--color-primary);
+        padding: 0.75rem 1rem;
+        border-radius: var(--radius-md);
+        margin: 1rem 0;
+    }
+    
+    .guide-warning {
+        background: rgba(239, 68, 68, 0.1);
+        border-left: 3px solid #ef4444;
+        padding: 0.75rem 1rem;
+        border-radius: var(--radius-md);
+        margin: 1rem 0;
+    }
+    
+    .guide-image {
+        margin: 1rem 0;
+        text-align: center;
+    }
+    
+    .guide-image img {
+        max-width: 100%;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--color-border-light);
+        box-shadow: var(--shadow-sm);
+    }
+    
+    .guide-image-caption {
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+        margin-top: 0.5rem;
+    }
+    
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+        margin: 1rem 0;
+    }
+    
+    .feature-card {
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-md);
+        padding: 1rem;
+        text-align: center;
+    }
+    
+    .feature-icon {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .feature-title {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+    
+    .feature-desc {
+        font-size: 0.8rem;
+        color: var(--color-text-tertiary);
+    }
+    
+    .guide-footer {
+        text-align: center;
+        padding: 2rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--color-border-light);
+        margin-top: 2rem;
+    }
+    
+    .btn-print {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        background: var(--color-primary);
+        color: white;
+        border-radius: var(--radius-md);
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    
+    .btn-print:hover {
+        background: var(--color-primary-dark);
+        transform: translateY(-2px);
+    }
+</style>
+
+<div class="guide-container">
+    <div class="guide-hero">
+        <h1>Руководство пользователя</h1>
+        <p>Всё, что нужно знать для комфортного использования платформы Поток</p>
+    </div>
+    
+    <!-- Оглавление -->
+    <div class="guide-toc">
+        <h2>Содержание</h2>
+        <div class="guide-toc-grid">
+            <a href="#section-register" class="guide-toc-link">1. Регистрация и вход</a>
+            <a href="#section-profile" class="guide-toc-link">2. Профиль и настройки</a>
+            <a href="#section-posts" class="guide-toc-link">3. Создание постов</a>
+            <a href="#section-interaction" class="guide-toc-link">4. Комментарии и лайки</a>
+            <a href="#section-friends" class="guide-toc-link">5. Друзья и подписки</a>
+            <a href="#section-communities" class="guide-toc-link">6. Сообщества</a>
+            <a href="#section-messenger" class="guide-toc-link">7. Мессенджер</a>
+            <a href="#section-music" class="guide-toc-link">8. Музыка</a>
+            <a href="#section-media" class="guide-toc-link">9. Фото и видео</a>
+            <a href="#section-bookmarks" class="guide-toc-link">10. Закладки</a>
+            <a href="#section-moderation" class="guide-toc-link">11. Модерация</a>
+        </div>
+    </div>
+    
+    <!-- 1. Регистрация и вход -->
+    <div id="section-register" class="guide-section">
+        <div class="guide-section-header">
+            <h2>1. Регистрация и вход</h2>
+        </div>
+        <div class="guide-section-content">
+            <div class="guide-step">
+                <div class="guide-step-title"><span class="guide-step-number">1</span> Регистрация</div>
+                <p>Нажмите кнопку <strong>"Регистрация"</strong> на главной странице. Заполните форму:</p>
+                <ul>
+                    <li><strong>Имя пользователя</strong> — уникальный псевдоним</li>
+                    <li><strong>Email</strong> — действующий email для подтверждения</li>
+                    <li><strong>Пароль</strong> — минимум 8 символов</li>
+                </ul>
+            </div>
+            <div class="guide-step">
+                <div class="guide-step-title"><span class="guide-step-number">2</span> Подтверждение email</div>
+                <p>На указанную почту придет код подтверждения. Введите его на странице верификации.</p>
+            </div>
+            <div class="guide-step">
+                <div class="guide-step-title"><span class="guide-step-number">3</span> Вход</div>
+                <p>После подтверждения вы можете войти, используя имя пользователя и пароль.</p>
+            </div>
+            <div class="guide-tip">
+                <strong>Совет:</strong> Если забыли пароль, используйте функцию восстановления на странице входа.
+            </div>
+        </div>
+    </div>
+    
+    <!-- 2. Профиль и настройки -->
+    <div id="section-profile" class="guide-section">
+        <div class="guide-section-header">
+            <h2>2. Профиль и настройки</h2>
+        </div>
+        <div class="guide-section-content">
+            <div class="feature-grid">
+                <div class="feature-card"><div class="feature-icon">🖼️</div><div class="feature-title">Аватар</div><div class="feature-desc">Загрузите фото профиля</div></div>
+                <div class="feature-card"><div class="feature-icon">📝</div><div class="feature-title">Биография</div><div class="feature-desc">Расскажите о себе</div></div>
+                <div class="feature-card"><div class="feature-icon">🔒</div><div class="feature-title">Приватность</div><div class="feature-desc">Настройте, кто видит ваш профиль</div></div>
+                <div class="feature-card"><div class="feature-icon">🔔</div><div class="feature-title">Уведомления</div><div class="feature-desc">Настройте какие уведомления получать</div></div>
+            </div>
+            <p>Ваш профиль — это ваша визитная карточка. Здесь вы можете:</p>
+            <ul>
+                <li>Редактировать личную информацию</li>
+                <li>Загрузить аватар и обложку</li>
+                <li>Настроить приватность (кто видит ваши посты, фото, видео)</li>
+                <li>Настроить уведомления</li>
+                <li>Управлять подписками и друзьями</li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- 3. Создание постов -->
+    <div id="section-posts" class="guide-section">
+        <div class="guide-section-header">
+            <h2>3. Создание постов</h2>
+        </div>
+        <div class="guide-section-content">
+            <div class="guide-step">
+                <div class="guide-step-title">Как создать пост?</div>
+                <p>Нажмите на поле <strong>"Поделитесь чем-нибудь..."</strong> в ленте или перейдите в раздел <strong>"Создать пост"</strong>.</p>
+            </div>
+            <div class="guide-step">
+                <div class="guide-step-title">Что можно добавить в пост?</div>
+                <ul>
+                    <li><strong>Текст</strong> — с поддержкой Markdown разметки</li>
+                    <li><strong>Изображения</strong> — JPG, PNG, GIF</li>
+                    <li><strong>Видео</strong> — MP4, WebM</li>
+                    <li><strong>Теги</strong> — для категоризации (например, #программирование)</li>
+                    <li><strong>Категорию</strong> — для группировки по темам</li>
+                </ul>
+            </div>
+            <div class="guide-tip">
+                <strong>Совет:</strong> Используйте Markdown для форматирования текста: **жирный**, *курсив*, ## заголовки.
+            </div>
+        </div>
+    </div>
+    
+    <!-- 4. Комментарии и лайки -->
+    <div id="section-interaction" class="guide-section">
+        <div class="guide-section-header">
+            <h2>4. Комментарии и лайки</h2>
+        </div>
+        <div class="guide-section-content">
+            <div class="feature-grid">
+                <div class="feature-card"><div class="feature-icon">❤️</div><div class="feature-title">Лайки</div><div class="feature-desc">Оценивайте посты и комментарии</div></div>
+                <div class="feature-card"><div class="feature-icon">💬</div><div class="feature-title">Комментарии</div><div class="feature-desc">Обсуждайте посты</div></div>
+                <div class="feature-card"><div class="feature-icon">↩️</div><div class="feature-title">Ответы</div><div class="feature-desc">Отвечайте на комментарии</div></div>
+                <div class="feature-card"><div class="feature-icon">@</div><div class="feature-title">Упоминания</div><div class="feature-desc">Используйте @username</div></div>
+            </div>
+            <p>Чтобы оставить комментарий, нажмите на иконку 💬 под постом. Вы также можете:</p>
+            <ul>
+                <li>Прикреплять изображения и видео к комментариям</li>
+                <li>Использовать эмодзи</li>
+                <li>Отвечать на чужие комментарии</li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- 5. Друзья и подписки -->
+    <div id="section-friends" class="guide-section">
+        <div class="guide-section-header">
+            <h2>5. Друзья и подписки</h2>
+        </div>
+        <div class="guide-section-content">
+            <div class="guide-step">
+                <div class="guide-step-title">Как добавить друга?</div>
+                <p>На странице профиля пользователя нажмите кнопку <strong>"+ Друг"</strong>. После подтверждения вы станете друзьями.</p>
+            </div>
+            <div class="guide-step">
+                <div class="guide-step-title">Подписки</div>
+                <p>Вы можете подписываться на пользователей, чтобы видеть их посты в ленте "Подписки".</p>
+            </div>
+            <div class="guide-tip">
+                <strong>Совет:</strong> В настройках приватности можно скрыть список друзей от посторонних.
+            </div>
+        </div>
+    </div>
+    
+    <!-- 6. Сообщества -->
+    <div id="section-communities" class="guide-section">
+        <div class="guide-section-header">
+            <h2>6. Сообщества</h2>
+        </div>
+        <div class="guide-section-content">
+            <p>Сообщества — это тематические группы, где можно обсуждать общие интересы.</p>
+            <div class="guide-step">
+                <div class="guide-step-title">Как вступить в сообщество?</div>
+                <p>Найдите сообщество через поиск или раздел "Сообщества" и нажмите <strong>"Вступить"</strong>.</p>
+            </div>
+            <div class="guide-step">
+                <div class="guide-step-title">Создание сообщества</div>
+                <p>Нажмите <strong>"Создать сообщество"</strong>, укажите название, описание и настройки.</p>
+            </div>
+            <div class="guide-warning">
+                <strong>Важно:</strong> Администраторы сообщества могут модерировать посты и участников.
+            </div>
+        </div>
+    </div>
+    
+    <!-- 7. Мессенджер -->
+    <div id="section-messenger" class="guide-section">
+        <div class="guide-section-header">
+            <h2>7. Мессенджер</h2>
+        </div>
+        <div class="guide-section-content">
+            <div class="feature-grid">
+                <div class="feature-card"><div class="feature-icon">💬</div><div class="feature-title">Личные чаты</div><div class="feature-desc">Общайтесь один на один</div></div>
+                <div class="feature-card"><div class="feature-icon">🖼️</div><div class="feature-title">Медиа</div><div class="feature-desc">Отправляйте фото и видео</div></div>
+                <div class="feature-card"><div class="feature-icon">🔔</div><div class="feature-title">Уведомления</div><div class="feature-desc">Мгновенные оповещения</div></div>
+                <div class="feature-card"><div class="feature-icon">🔒</div><div class="feature-title">Приватность</div><div class="feature-desc">Настройте кто может писать</div></div>
+            </div>
+            <p>Чтобы начать диалог, перейдите в раздел "Мессенджер" и выберите пользователя из списка друзей.</p>
+        </div>
+    </div>
+    
+    <!-- 8. Музыка -->
+    <div id="section-music" class="guide-section">
+        <div class="guide-section-header">
+            <h2>8. Музыка</h2>
+        </div>
+        <div class="guide-section-content">
+            <p>В разделе "Музыка" вы можете:</p>
+            <ul>
+                <li>Искать треки по названию или исполнителю</li>
+                <li>Сохранять понравившиеся песни в свой плейлист</li>
+                <li>Слушать музыку в фоновом режиме</li>
+                <li>Создавать свои плейлисты</li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- 9. Фото и видео -->
+    <div id="section-media" class="guide-section">
+        <div class="guide-section-header">
+            <h2>9. Фото и видео</h2>
+        </div>
+        <div class="guide-section-content">
+            <p>Все загруженные изображения и видео сохраняются в вашем медиа-хранилище.</p>
+            <ul>
+                <li><strong>Мои фото</strong> — все загруженные изображения</li>
+                <li><strong>Мои видео</strong> — все загруженные видео</li>
+                <li>Вы можете удалять или скачивать свои файлы</li>
+                <li>Изображения можно сохранять из постов других пользователей</li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- 10. Закладки -->
+    <div id="section-bookmarks" class="guide-section">
+        <div class="guide-section-header">
+            <h2>10. Закладки</h2>
+        </div>
+        <div class="guide-section-content">
+            <p>Чтобы сохранить интересный пост, нажмите на иконку 🔖 в меню поста. Все сохраненные посты доступны в разделе <strong>"Закладки"</strong>.</p>
+            <div class="guide-tip">
+                <strong>Совет:</strong> Закладки удобно использовать для сохранения полезных материалов на потом.
+            </div>
+        </div>
+    </div>
+    
+    <!-- 11. Модерация -->
+    <div id="section-moderation" class="guide-section">
+        <div class="guide-section-header">
+            <h2>11. Модерация</h2>
+        </div>
+        <div class="guide-section-content">
+            <div class="guide-step">
+                <div class="guide-step-title">Как пожаловаться на контент?</div>
+                <p>Нажмите на меню (⋯) в посте или комментарии и выберите <strong>"Пожаловаться"</strong>.</p>
+            </div>
+            <div class="guide-step">
+                <div class="guide-step-title">Что происходит после жалобы?</div>
+                <p>Модераторы рассматривают жалобу и принимают решение: скрыть контент или отклонить жалобу.</p>
+            </div>
+            <div class="guide-tip">
+                <strong>Совет:</strong> Не злоупотребляйте жалобами — они предназначены только для нарушения правил.
+            </div>
+        </div>
+    </div>
+    
+    <!-- Футер -->
+    <div class="guide-footer">
+        <p>Остались вопросы? Свяжитесь с нами через форму обратной связи.</p>
+        <button onclick="window.print()" class="btn-print">
+            <i data-feather="printer"></i>
+            <span>Сохранить как PDF</span>
+        </button>
+    </div>
+</div>
+
+<script>
+    feather.replace();
+</script>
+{% endblock %}

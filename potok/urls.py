@@ -13,6 +13,8 @@ urlpatterns = [
     path('', include('posts.urls', namespace='posts')),
     path('media-storage/', include('media_storage.urls', namespace='media_storage')),
     path('music/', include('music_app.urls', namespace='music')),
+    path('analytics/', include('analytics.urls')),
+    path('', include('pages.urls')),
 ]
 
 if settings.DEBUG:

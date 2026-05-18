@@ -70,10 +70,9 @@ urlpatterns = [
 
     # Уведомления
     path('notifications/', views.notifications_list, name='notifications'),
-    path('notifications/ajax/', views.notifications_ajax, name='notifications_ajax'),
-    path('notifications/<int:notification_id>/read/', views.notification_mark_read, name='notification_mark_read'),
-    path('notifications/read-all/', views.notification_mark_all_read, name='notification_mark_all_read'),
-    path('notifications/settings/', views.notification_settings, name='notification_settings'),
+    path('notifications/mark/<int:notification_id>/', views.notification_mark_read, name='notification_mark_read'),
+    path('notifications/mark-all/', views.notification_mark_all_read, name='notification_mark_all_read'),
+    path('notifications/unread-count/', views.get_unread_count, name='unread_count'),
 
     # Подтверждение email
     path('verify-email/', views.verify_email, name='verify_email'),
@@ -91,4 +90,7 @@ urlpatterns = [
     path('terms/', views.terms_view, name='terms'),
     path('privacy-policy/', views.privacy_view, name='privacy'),
     path('users/search/', views.user_search_api, name='user_search_api'),
+    path('notifications/unread-count/', views.get_unread_count, name='unread_count'),
+    path('friend/status/<int:user_id>/', views.get_friend_status, name='get_friend_status'),
+    path('settings/notifications/', views.notification_settings, name='notification_settings'),
 ]
