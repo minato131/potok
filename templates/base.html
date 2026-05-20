@@ -580,7 +580,113 @@ if (!document.querySelector('#notification-styles')) {
             color: #666;
             word-break: break-word;
         }
+        <!-- В base.html, после существующих стилей, добавьте: -->
+<style>
+    /* Кастомная модалка подтверждения */
+    .custom-confirm-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 20000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+    .custom-confirm-modal.active {
+        display: flex;
+    }
+    .custom-confirm-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+    }
+    .custom-confirm-content {
+        position: relative;
+        background: #fff;
+        border-radius: 24px;
+        width: 90%;
+        max-width: 380px;
+        overflow: hidden;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        transform: scale(0.95);
+        transition: transform 0.2s;
+    }
+    .custom-confirm-modal.active .custom-confirm-content {
+        transform: scale(1);
+    }
+    .custom-confirm-header {
+        padding: 20px 20px 0;
+    }
+    .custom-confirm-header h3 {
+        font-size: 18px;
+        font-weight: 700;
+        margin: 0;
+    }
+    .custom-confirm-body {
+        padding: 16px 20px;
+    }
+    .custom-confirm-body p {
+        margin: 0;
+        font-size: 14px;
+        color: #4b5563;
+        line-height: 1.5;
+    }
+    .custom-confirm-footer {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+        padding: 16px 20px 20px;
+    }
+    .custom-confirm-footer .btn {
+        padding: 8px 20px;
+        border-radius: 30px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+    .custom-confirm-footer .btn--outline {
+        background: transparent;
+        border: 1px solid #e5e7eb;
+        color: #4b5563;
+    }
+    .custom-confirm-footer .btn--danger {
+        background: #ef4444;
+        border: none;
+        color: #fff;
+    }
+    .custom-toast {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 12px 24px;
+        border-radius: 30px;
+        background: #333;
+        color: #fff;
+        font-size: 14px;
+        z-index: 10000;
+        animation: fadeInUp 0.3s ease;
+    }
+    .custom-toast--success {
+        background: #22c55e;
+    }
+    .custom-toast--error {
+        background: #ef4444;
+    }
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+        to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+</style>
     `;
+
+
     document.head.appendChild(toastStyles);
 }
 

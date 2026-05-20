@@ -40,22 +40,29 @@ def api_chat_messages(request, chat_id):
     """API: получить сообщения чата (JSON)"""
     chat = get_object_or_404(Chat, id=chat_id, participants=request.user)
 
-    messages_list = chat.messages.filter(is_deleted=False)\
-        .select_related('author', 'author__profile')\
-        .prefetch_related('reactions', 'reactions__user')\
+    messages_list = chat.messages.filter(is_deleted=False) \
+        .select_related('author', 'author__profile') \
+        .prefetch_related('reactions', 'reactions__user') \
         .order_by('-created_at')[:50]
 
     messages_list = sorted(messages_list, key=lambda m: m.created_at)
 
     participant = ChatParticipant.objects.get(user=request.user, chat=chat)
 
-    # Отмечаем прочитанными
+    from django.utils import timezone
+    now = timezone.now()
     unread = chat.messages.filter(
         created_at__gt=participant.last_read,
         is_read=False
     ).exclude(author=request.user)
-    unread.update(is_read=True)
-    participant.last_read = timezone.now()
+
+    # Обновляем статус прочтения
+    for msg in unread:
+        msg.is_read = True
+        msg.read_at = now
+    Message.objects.bulk_update(unread, ['is_read', 'read_at'])
+
+    participant.last_read = now
     participant.save()
 
     other_user = None
@@ -85,10 +92,15 @@ def api_chat_messages(request, chat_id):
             'author_avatar': msg.author.profile.avatar.url if msg.author.profile.avatar else None,
             'is_own': msg.author == request.user,
             'is_read': msg.is_read,
+            'is_delivered': msg.is_delivered,
             'is_deleted': msg.is_deleted,
             'file_url': msg.file.url if msg.file else None,
             'file_type': msg.file_type,
             'created_at': msg.created_at.strftime('%H:%M'),
+            'created_at_full': msg.created_at.isoformat(),  # Добавляем полную дату
+            'read_at': msg.read_at.isoformat() if msg.read_at else None,  # Добавляем
+            'delivered_at': msg.delivered_at.isoformat() if hasattr(msg, 'delivered_at') and msg.delivered_at else None,
+            # Добавляем
             'reactions': reactions,
         })
 
@@ -103,6 +115,16 @@ def api_chat_messages(request, chat_id):
         },
         'messages': messages_data,
     })
+
+@login_required
+@require_POST
+def mark_message_read(request, message_id):
+    """Отметить сообщение как прочитанное (AJAX fallback)"""
+    message = get_object_or_404(Message, id=message_id)
+    if message.author != request.user:
+        message.mark_as_read()
+        return JsonResponse({'status': 'ok'})
+    return JsonResponse({'status': 'error'}, status=400)
 
 
 @login_required
@@ -141,10 +163,12 @@ def send_message(request, chat_id):
         author=request.user,
         content=content,
         file=uploaded_file,
-        file_type=file_type
+        file_type=file_type,
+        is_delivered=True,
+        delivered_at=timezone.now(),
     )
 
-    # Уведомления
+    # Уведомления — ИСПРАВЛЕНА ССЫЛКА
     for p in ChatParticipant.objects.filter(chat=chat).exclude(user=request.user):
         title = 'Новое сообщение' if chat.chat_type == 'private' else f'Новое в {chat.name}'
         create_notification(
@@ -153,7 +177,7 @@ def send_message(request, chat_id):
             notification_type='message',
             title=title,
             message=f'@{request.user.username}: {content[:50] or "Файл"}',
-            link=f'/messenger/chat/{chat.id}/'
+            link=f'/messenger/?chat={chat.id}'  # ← ИСПРАВЛЕНО!
         )
 
     chat.save()
@@ -585,3 +609,23 @@ def format_date_group(dt):
         return 'вчера'
     else:
         return dt.strftime('%d %B %Y')
+
+
+@login_required
+def message_status(request, message_id):
+    """API для получения статусов сообщения (время доставки/прочтения)"""
+    message = get_object_or_404(Message, id=message_id)
+
+    # Только автор может видеть статусы
+    if message.author != request.user:
+        return JsonResponse({'status': 'error'}, status=403)
+
+    return JsonResponse({
+        'status': 'ok',
+        'is_delivered': message.is_delivered,
+        'delivered_at': message.delivered_at.strftime('%d.%m.%Y %H:%M') if hasattr(message,
+                                                                                   'delivered_at') and message.delivered_at else None,
+        'is_read': message.is_read,
+        'read_at': message.read_at.strftime('%d.%m.%Y %H:%M') if message.read_at else None,
+        'created_at': message.created_at.strftime('%d.%m.%Y %H:%M'),
+    })

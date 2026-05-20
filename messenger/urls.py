@@ -20,4 +20,6 @@ urlpatterns = [
     path('api/user/<int:user_id>/', views.api_user_profile, name='api_user_profile'),
     path('api/group/<int:chat_id>/', views.api_group_info, name='api_group_info'),
     path('api/chat/<int:chat_id>/media/', views.api_chat_media, name='api_chat_media'),
+    path('message/<int:message_id>/read/', views.mark_message_read, name='mark_message_read'),
+    path('message/<int:message_id>/status/', views.message_status, name='message_status'),
 ]

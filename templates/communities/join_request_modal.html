@@ -394,7 +394,9 @@
     
     if (messageInput && messageCounter) {
         messageInput.addEventListener('input', function() {
-            messageCounter.textContent = this.value.length;
+            const hasText = this.value.trim().length > 0;
+            const hasFile = fileInput.files.length > 0;
+            sendBtn.disabled = !hasText && !hasFile;
         });
     }
     

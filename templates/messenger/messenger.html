@@ -403,6 +403,8 @@
 
     function openChat(chatId) {
         currentChatId = chatId;
+        const sendBtn = document.getElementById('sendBtn');
+        if (sendBtn) sendBtn.disabled = false;
         document.getElementById('tgPlaceholder').style.display = 'none';
         document.getElementById('tgChatView').style.display = 'flex';
         document.getElementById('tgChatView').classList.add('active');
@@ -495,38 +497,49 @@
         showToast(notificationsMuted ? 'Уведомления отключены' : 'Уведомления включены');
     }
     async function clearChatHistory() {
-        if (!confirm('Очистить всю историю сообщений? Это действие нельзя отменить.')) return;
-
-        try {
-            const response = await fetch(`/messenger/chat/${currentChatId}/clear/`, {
-                method: 'POST',
-                headers: { 'X-CSRFToken': getCookie('csrftoken') }
-            });
-            if (response.ok) {
-                loadMessages(currentChatId);
-                showToast('История очищена');
+        // Показываем кастомное модальное окно
+        showConfirmModal(
+            'Очистить историю?',
+            'Все сообщения в этом чате будут удалены без возможности восстановления. Вы уверены?',
+            async () => {
+                try {
+                    const response = await fetch(`/messenger/chat/${currentChatId}/clear/`, {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': getCookie('csrftoken') }
+                    });
+                    if (response.ok) {
+                        loadMessages(currentChatId);
+                        showToast('История очищена', 'success');
+                        closeChatMenu();
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showToast('Ошибка при очистке', 'error');
+                }
             }
-        } catch (error) {
-            console.error('Error:', error);
-        }
-        document.getElementById('chatDropdownMenu').style.display = 'none';
+        );
     }
     async function blockUserFromMenu() {
-        if (!confirm('Заблокировать пользователя? Он не сможет писать вам.')) return;
-
-        try {
-            const response = await fetch(`/accounts/block/${currentChatData?.other_user?.id}/`, {
-                method: 'POST',
-                headers: { 'X-CSRFToken': getCookie('csrftoken') }
-            });
-            if (response.ok) {
-                showToast('Пользователь заблокирован');
-                closeChat();
+        showConfirmModal(
+            'Блокировка пользователя',
+            'Вы уверены, что хотите заблокировать этого пользователя? Он не сможет писать вам.',
+            async () => {
+                try {
+                    const response = await fetch(`/accounts/block/${currentChatData?.other_user?.id}/`, {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': getCookie('csrftoken') }
+                    });
+                    if (response.ok) {
+                        showToast('Пользователь заблокирован', 'success');
+                        closeChat();
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showToast('Ошибка при блокировке', 'error');
+                }
+                document.getElementById('chatDropdownMenu').style.display = 'none';
             }
-        } catch (error) {
-            console.error('Error:', error);
-        }
-        document.getElementById('chatDropdownMenu').style.display = 'none';
+        );
     }
 
     async function reportUserFromMenu() {
@@ -536,22 +549,27 @@
     }
 
     async function leaveGroupFromMenu() {
-        if (!confirm('Покинуть группу? Вы больше не сможете писать в ней.')) return;
-
-        try {
-            const response = await fetch(`/messenger/chat/${currentChatId}/leave/`, {
-                method: 'POST',
-                headers: { 'X-CSRFToken': getCookie('csrftoken') }
-            });
-            if (response.ok) {
-                showToast('Вы покинули группу');
-                closeChat();
-                location.reload();
+        showConfirmModal(
+            'Покинуть группу',
+            'Вы уверены, что хотите покинуть эту группу? Вы больше не сможете писать в ней.',
+            async () => {
+                try {
+                    const response = await fetch(`/messenger/chat/${currentChatId}/leave/`, {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': getCookie('csrftoken') }
+                    });
+                    if (response.ok) {
+                        showToast('Вы покинули группу', 'success');
+                        closeChat();
+                        location.reload();
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showToast('Ошибка', 'error');
+                }
+                document.getElementById('chatDropdownMenu').style.display = 'none';
             }
-        } catch (error) {
-            console.error('Error:', error);
-        }
-        document.getElementById('chatDropdownMenu').style.display = 'none';
+        );
     }
 
     function blockUser() {
@@ -622,7 +640,6 @@
             if (data.status !== 'ok') return;
             currentChatData = data.chat;
             currentChatType = data.chat.type;
-             console.log('currentChatData:', currentChatData); // ДЛЯ ОТЛАДКИ
 
             const ava = document.getElementById('tgChatAvatar');
             if (data.chat.type === 'private' && data.chat.other_user) {
@@ -632,7 +649,6 @@
                 document.getElementById('tgChatTitle').innerHTML = `
                     <span style="display:block;font-weight:600;font-size:15px">${data.chat.other_user.full_name || data.chat.other_user.username}</span>
                     <span class="tg-status">${data.chat.other_user.is_online ? 'в сети' : 'не в сети'}</span>`;
-                // Добавляем обработчик клика по шапке для открытия модалки
                 document.getElementById('tgChatTitle').onclick = () => openProfileModal(chatId);
                 document.getElementById('tgChatAvatar').onclick = () => openProfileModal(chatId);
             } else {
@@ -649,8 +665,60 @@
             container.scrollTop = container.scrollHeight;
 
             updateChatMenu();
+
+            // ===== ОБНОВЛЯЕМ СЧЕТЧИК НЕПРОЧИТАННЫХ =====
+            // Обнуляем бейдж у этого чата в списке
+            updateChatUnreadCount(chatId, 0);
+
+            // Также обновляем последнее сообщение в списке чатов
+            if (data.messages.length > 0) {
+                const lastMsg = data.messages[data.messages.length - 1];
+                updateChatLastMessage(chatId, lastMsg.content || (lastMsg.file_type === 'image' ? '📷 Фото' : lastMsg.file_type === 'video' ? '🎬 Видео' : '📎 Файл'));
+            }
+
         } catch(err) {
             console.error('loadMessages error:', err);
+        }
+    }
+
+    // Функция обновления бейджа непрочитанных
+    function updateChatUnreadCount(chatId, newCount) {
+        const chatItem = document.querySelector(`.tg-chat-item[data-chat-id="${chatId}"]`);
+        if (chatItem) {
+            const badge = chatItem.querySelector('.tg-badge');
+            if (newCount > 0) {
+                if (badge) {
+                    badge.textContent = newCount;
+                } else {
+                    const newBadge = document.createElement('span');
+                    newBadge.className = 'tg-badge';
+                    newBadge.textContent = newCount;
+                    const bottomDiv = chatItem.querySelector('.tg-chat-bottom');
+                    if (bottomDiv) bottomDiv.appendChild(newBadge);
+                }
+                chatItem.classList.add('tg-chat-unread');
+            } else {
+                if (badge) badge.remove();
+                chatItem.classList.remove('tg-chat-unread');
+            }
+        }
+    }
+
+    // Функция обновления последнего сообщения в списке чатов
+    function updateChatLastMessage(chatId, message) {
+        const chatItem = document.querySelector(`.tg-chat-item[data-chat-id="${chatId}"]`);
+        if (chatItem) {
+            const lastMsgSpan = chatItem.querySelector('.tg-chat-last');
+            if (lastMsgSpan) {
+                let displayMsg = message || 'Новое сообщение';
+                if (displayMsg.length > 30) displayMsg = displayMsg.substring(0, 30) + '...';
+                lastMsgSpan.textContent = displayMsg;
+            }
+            const timeSpan = chatItem.querySelector('.tg-chat-time');
+            if (timeSpan) {
+                const now = new Date();
+                timeSpan.textContent = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            }
         }
     }
 
@@ -883,6 +951,66 @@
                 ).join('') + '</div>';
         }
 
+        // Форматирование полной даты
+        function formatFullDate(dateString) {
+            if (!dateString) return null;
+            const date = new Date(dateString);
+            if (isNaN(date.getTime())) return null;
+            return date.toLocaleString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Статусы для своих сообщений с тултипами
+        let statusHtml = '';
+        if (isOwn) {
+            const createdFull = formatFullDate(msg.created_at_full || msg.created_at);
+
+            if (msg.is_read) {
+                const readFull = formatFullDate(msg.read_at);
+                statusHtml = `<div class="message-status read" data-message-id="${msg.id}" data-status="read">
+                    <svg class="status-read" width="16" height="16" viewBox="0 0 24 24" fill="#4fc877">
+                        <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+                    </svg>
+                    <span class="status-tooltip">
+                        <span class="tooltip-title">Прочитано</span>
+                        <span class="tooltip-time">${readFull || createdFull}</span>
+                    </span>
+                </div>`;
+            } else if (msg.is_delivered) {
+                statusHtml = `<div class="message-status delivered" data-message-id="${msg.id}" data-status="delivered">
+                    <svg class="status-delivered" width="16" height="16" viewBox="0 0 24 24" fill="#9aa7b4">
+                        <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+                    </svg>
+                    <span class="status-tooltip">
+                        <span class="tooltip-title">Доставлено</span>
+                        <span class="tooltip-time">${createdFull}</span>
+                    </span>
+                </div>`;
+            } else {
+                statusHtml = `<div class="message-status sent" data-message-id="${msg.id}" data-status="sent">
+                    <svg class="status-sent" width="16" height="16" viewBox="0 0 24 24" fill="#9aa7b4">
+                        <circle cx="12" cy="12" r="2"/>
+                    </svg>
+                    <span class="status-tooltip">
+                        <span class="tooltip-title">Отправлено</span>
+                        <span class="tooltip-time">${createdFull}</span>
+                    </span>
+                </div>`;
+            }
+        }
+
+        // Отправка ресита о прочтении при отображении чужого сообщения
+        if (!isOwn && !msg.is_read) {
+            setTimeout(() => {
+                sendReadReceipt(msg.id);
+            }, 500);
+        }
+
         return `<div class="tg-msg ${isOwn ? 'tg-msg-own' : ''}" data-id="${msg.id}" data-content="${escapeHtml(msg.content)}" data-isown="${isOwn}" oncontextmenu="showContextMenu(event, ${msg.id}, '${escapeHtml(msg.content)}', ${isOwn})">
             ${avaHtml}
             <div class="tg-msg-content">
@@ -890,10 +1018,26 @@
                 ${reactionsHtml}
                 <div class="tg-msg-meta">
                     <span class="tg-msg-time">${msg.created_at}</span>
-                    ${isOwn ? (msg.is_read ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="#4fc877"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="#9aa7b4"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>') : ''}
+                    ${statusHtml}
                 </div>
             </div>
         </div>`;
+    }
+
+    // Функция отправки ресита о прочтении
+    function sendReadReceipt(messageId) {
+        if (notificationSocket && notificationSocket.readyState === WebSocket.OPEN) {
+            notificationSocket.send(JSON.stringify({
+                type: 'read_receipt',
+                message_id: messageId
+            }));
+        } else {
+            // Fallback через AJAX
+            fetch(`/messenger/message/${messageId}/read/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            }).catch(err => console.error('Read receipt error:', err));
+        }
     }
 
     function escapeHtml(text) {
@@ -901,6 +1045,59 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+    // Кастомное модальное окно подтверждения
+    function showConfirmModal(title, message, onConfirm) {
+        // Удаляем старую модалку, если есть
+        const existingModal = document.getElementById('customConfirmModal');
+        if (existingModal) existingModal.remove();
+
+        // Создаём модалку
+        const modal = document.createElement('div');
+        modal.id = 'customConfirmModal';
+        modal.className = 'custom-confirm-modal';
+        modal.innerHTML = `
+            <div class="custom-confirm-overlay"></div>
+            <div class="custom-confirm-content">
+                <div class="custom-confirm-header">
+                    <h3>${escapeHtml(title)}</h3>
+                </div>
+                <div class="custom-confirm-body">
+                    <p>${escapeHtml(message)}</p>
+                </div>
+                <div class="custom-confirm-footer">
+                    <button class="btn btn--outline confirm-cancel">Отмена</button>
+                    <button class="btn btn--danger confirm-ok">Да, очистить</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // Анимация появления
+        setTimeout(() => modal.classList.add('active'), 10);
+
+        // Обработчики
+        const closeModal = () => {
+            modal.classList.remove('active');
+            setTimeout(() => modal.remove(), 300);
+        };
+
+        modal.querySelector('.confirm-cancel').addEventListener('click', closeModal);
+        modal.querySelector('.confirm-ok').addEventListener('click', () => {
+            closeModal();
+            if (onConfirm) onConfirm();
+        });
+        modal.querySelector('.custom-confirm-overlay').addEventListener('click', closeModal);
+
+        // Закрытие по Escape
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                document.removeEventListener('keydown', handleEscape);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
     }
 
     // === ЛАЙТБОКС ===
@@ -1244,8 +1441,16 @@
         if (!currentChatId) return;
 
         const fd = new FormData();
-        fd.append('content', messageInput.value.trim());
-        if (fileInput.files[0]) fd.append('file', fileInput.files[0]);
+        const content = messageInput.value.trim();
+        const file = fileInput.files[0];
+
+        if (!content && !file) return;
+
+        if (content) fd.append('content', content);
+        if (file) fd.append('file', file);
+
+        // Временно блокируем
+        sendBtn.disabled = true;
 
         try {
             const response = await fetch(`/messenger/chat/${currentChatId}/send/`, {
@@ -1253,15 +1458,40 @@
                 headers: { 'X-CSRFToken': getCookie('csrftoken') },
                 body: fd
             });
-            if (response.ok) {
+
+            const data = await response.json();
+
+            if (response.ok && data.status === 'ok') {
                 messageInput.value = '';
                 fileInput.value = '';
                 sendBtn.disabled = true;
-                loadMessages(currentChatId);
+
+                // Перезагружаем сообщения
+                await loadMessages(currentChatId);
+
+                // Обновляем последнее сообщение в списке чатов
+                let displayMessage = content;
+                if (!displayMessage && file) {
+                    if (file.type.startsWith('image/')) displayMessage = '📷 Фото';
+                    else if (file.type.startsWith('video/')) displayMessage = '🎬 Видео';
+                    else displayMessage = '📎 Файл';
+                }
+                updateChatLastMessage(currentChatId, displayMessage);
+
+            } else {
+                sendBtn.disabled = false;
+                showToast(data.message || 'Ошибка', 'error');
             }
-        } catch(err) {
-            console.error(err);
+        } catch (error) {
+            console.error('Send error:', error);
+            sendBtn.disabled = false;
+            showToast('Ошибка соединения', 'error');
         }
+    });
+    fileInput.addEventListener('change', function() {
+        const hasText = messageInput.value.trim().length > 0;
+        const hasFile = this.files.length > 0;
+        sendBtn.disabled = !hasText && !hasFile;
     });
 
     // === ВСТАВКА ИЗОБРАЖЕНИЙ (Ctrl+V) ===
@@ -1361,6 +1591,54 @@
             console.error('Error:', error);
             showToast('Ошибка при блокировке', 'error');
         }
+    }
+    // Обработчик клика для тултипов на мобильных устройствах
+    document.addEventListener('click', function(e) {
+        const statusDiv = e.target.closest('.message-status');
+        if (statusDiv) {
+            document.querySelectorAll('.message-status.active').forEach(s => {
+                if (s !== statusDiv) s.classList.remove('active');
+            });
+            statusDiv.classList.toggle('active');
+            e.stopPropagation();
+        } else {
+            document.querySelectorAll('.message-status.active').forEach(s => {
+                s.classList.remove('active');
+            });
+        }
+    });
+
+    let chatSocket = null;
+
+    function connectChatSocket(chatId) {
+        if (chatSocket && chatSocket.readyState === WebSocket.OPEN) {
+            chatSocket.close();
+        }
+
+        const wsScheme = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        const wsUrl = `${wsScheme}${window.location.host}/ws/chat/${chatId}/`;
+
+        chatSocket = new WebSocket(wsUrl);
+
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+
+            if (data.type === 'message_read') {
+                // Обновляем статус сообщения на "прочитано"
+                const msgElement = document.querySelector(`.tg-msg[data-id="${data.message_id}"]`);
+                if (msgElement) {
+                    const statusIcon = msgElement.querySelector('.status-delivered, .status-sent');
+                    if (statusIcon) {
+                        statusIcon.outerHTML = '<svg class="status-read" width="14" height="14" viewBox="0 0 24 24" fill="#4fc877"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>';
+                    }
+                }
+            }
+        };
+
+        chatSocket.onclose = function() {
+            console.log('Chat WebSocket disconnected');
+            setTimeout(() => connectChatSocket(chatId), 3000);
+        };
     }
 
     function reportUserFromProfile() {
@@ -2535,6 +2813,227 @@
 
     .custom-toast--error {
         background: #ef4444;
+    }
+    /* Иконки статусов сообщений */
+    .tg-msg-meta {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .status-read,
+    .status-delivered,
+    .status-sent {
+        margin-left: 4px;
+    }
+
+    .status-read {
+        color: #4fc877;
+    }
+
+    .status-delivered {
+        color: #9aa7b4;
+    }
+
+    .status-sent {
+        color: #9aa7b4;
+    }
+    /* Кастомное модальное окно подтверждения */
+    .custom-confirm-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 20000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        visibility: hidden;
+        opacity: 0;
+        transition: visibility 0.2s, opacity 0.2s;
+    }
+
+    .custom-confirm-modal.active {
+        visibility: visible;
+        opacity: 1;
+    }
+
+    .custom-confirm-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+    }
+
+    .custom-confirm-content {
+        position: relative;
+        background: var(--color-bg-surface, #fff);
+        border-radius: 24px;
+        width: 90%;
+        max-width: 380px;
+        overflow: hidden;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        transform: scale(0.95);
+        transition: transform 0.2s;
+    }
+
+    .custom-confirm-modal.active .custom-confirm-content {
+        transform: scale(1);
+    }
+
+    .custom-confirm-header {
+        padding: 20px 20px 0;
+    }
+
+    .custom-confirm-header h3 {
+        font-size: 18px;
+        font-weight: 700;
+        margin: 0;
+        color: var(--color-text-primary, #111827);
+    }
+
+    .custom-confirm-body {
+        padding: 16px 20px;
+    }
+
+    .custom-confirm-body p {
+        margin: 0;
+        font-size: 14px;
+        color: var(--color-text-secondary, #4b5563);
+        line-height: 1.5;
+    }
+
+    .custom-confirm-footer {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+        padding: 16px 20px 20px;
+    }
+
+    .custom-confirm-footer .btn {
+        padding: 8px 20px;
+        border-radius: 30px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .custom-confirm-footer .btn--outline {
+        background: transparent;
+        border: 1px solid var(--color-border, #e5e7eb);
+        color: var(--color-text-secondary, #4b5563);
+    }
+
+    .custom-confirm-footer .btn--outline:hover {
+        background: var(--color-bg-elevated, #f3f4f6);
+    }
+
+    .custom-confirm-footer .btn--danger {
+        background: #ef4444;
+        border: none;
+        color: #fff;
+    }
+
+    .custom-confirm-footer .btn--danger:hover {
+        background: #dc2626;
+    }
+    /* Статусы сообщений с тултипами */
+    .message-status {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        cursor: pointer;
+        margin-left: 4px;
+    }
+
+    .message-status svg {
+        display: block;
+    }
+
+    /* Тултип при наведении */
+    .status-tooltip {
+        position: absolute;
+        top: 100%;
+        right: -20px;
+        margin-top: 8px;
+        background: #1f2937;
+        color: #fff;
+        border-radius: 10px;
+        padding: 8px 12px;
+        font-size: 11px;
+        white-space: nowrap;
+        z-index: 100;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s, visibility 0.2s, transform 0.2s;
+        pointer-events: none;
+        font-weight: normal;
+        line-height: 1.4;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        transform: translateY(-5px);
+    }
+
+    /* Стрелка тултипа сверху */
+    .status-tooltip::before {
+        content: '';
+        position: absolute;
+        bottom: 100%;
+        right: 8px;
+        border-width: 6px;
+        border-style: solid;
+        border-color: transparent transparent #1f2937 transparent;
+    }
+
+    /* Контент тултипа */
+    .status-tooltip .tooltip-title {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 4px;
+        font-size: 12px;
+    }
+
+    .status-tooltip .tooltip-time {
+        font-size: 10px;
+        opacity: 0.8;
+    }
+
+    .message-status:hover .status-tooltip {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
+
+    /* Для мобильных устройств — по клику */
+    .message-status.active .status-tooltip {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
+
+    /* Иконки статусов */
+    .status-read {
+        color: #4fc877;
+    }
+
+    .status-delivered {
+        color: #9aa7b4;
+    }
+
+    .status-sent {
+        color: #9aa7b4;
+    }
+
+    .tg-msg-meta {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 4px;
+        margin-top: 2px;
     }
 </style>
 {% endblock %}

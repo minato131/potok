@@ -137,16 +137,16 @@ class Message(models.Model):
         verbose_name='Автор'
     )
     content = models.TextField(
-        blank=True,  # ← теперь может быть пустым (если только файл)
+        blank=True,
         verbose_name='Содержание'
     )
-    file = models.FileField(  # ← новое поле
+    file = models.FileField(
         upload_to='messenger_files/%Y/%m/%d/',
         null=True,
         blank=True,
         verbose_name='Файл'
     )
-    file_type = models.CharField(  # ← image, document, voice
+    file_type = models.CharField(
         max_length=20,
         blank=True,
         null=True,
@@ -155,6 +155,15 @@ class Message(models.Model):
     is_read = models.BooleanField(
         default=False,
         verbose_name='Прочитано'
+    )
+    is_delivered = models.BooleanField(
+        default=False,
+        verbose_name='Доставлено'
+    )
+    read_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Время прочтения'
     )
     is_edited = models.BooleanField(
         default=False,
@@ -172,6 +181,11 @@ class Message(models.Model):
         auto_now=True,
         verbose_name='Дата обновления'
     )
+    delivered_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Время доставки'
+    )
 
     class Meta:
         verbose_name = 'Сообщение'
@@ -183,8 +197,15 @@ class Message(models.Model):
 
     def mark_as_read(self):
         """Отметить сообщение как прочитанное"""
+        from django.utils import timezone
         self.is_read = True
-        self.save(update_fields=['is_read'])
+        self.read_at = timezone.now()
+        self.save(update_fields=['is_read', 'read_at'])
+
+    def mark_as_delivered(self):
+        """Отметить сообщение как доставленное"""
+        self.is_delivered = True
+        self.save(update_fields=['is_delivered'])
 
 
 # messenger/models.py — добавьте модель Reaction в конец файла
