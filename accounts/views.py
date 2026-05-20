@@ -133,50 +133,110 @@ def logout_view(request):
 @login_required
 def profile_view(request, username=None):
     if username:
-        user = get_object_or_404(User, username=username)
+        profile_user = get_object_or_404(User, username=username)
     else:
-        user = request.user
+        profile_user = request.user
 
-    posts_count = user.posts.filter(status='published', is_hidden=False).count()
-    followers_count = Follow.objects.filter(following=user).count()
-    following_count = Follow.objects.filter(follower=user).count()
-    friend_ids = set(Friendship.objects.filter(user=request.user).values_list('friend_id',flat=True)) if request.user.is_authenticated else set()
+    # Функция проверки доступа к контенту
+    def can_view(user, target_user, content_type='profile'):
+        if user == target_user:
+            return True
 
-    user_posts = user.posts.filter(status='published', is_hidden=False).order_by('-created_at')[:10]
+        # Получаем настройку приватности из профиля
+        if content_type == 'profile':
+            setting = target_user.profile.who_can_see_profile
+        elif content_type == 'photos':
+            setting = target_user.profile.who_can_see_photos
+        elif content_type == 'videos':
+            setting = target_user.profile.who_can_see_videos
+        elif content_type == 'music':
+            setting = target_user.profile.who_can_see_music
+        elif content_type == 'bookmarks':
+            setting = 'only_me'
+        else:
+            setting = 'everyone'
+
+        if setting == 'only_me':
+            return False
+        if setting == 'everyone':
+            return True
+        if setting == 'friends':
+            # Проверяем, являются ли они друзьями
+            return Friendship.objects.filter(
+                Q(user=user, friend=target_user, status='accepted') |
+                Q(user=target_user, friend=user, status='accepted')
+            ).exists()
+
+        return False
+
+    # Проверка доступа к профилю
+    if not can_view(request.user, profile_user, 'profile'):
+        return render(request, 'accounts/private_profile.html', {
+            'profile_user': profile_user,
+        })
+
+    posts_count = profile_user.posts.filter(status='published', is_hidden=False).count()
+    followers_count = Follow.objects.filter(following=profile_user).count()
+    following_count = Follow.objects.filter(follower=profile_user).count()
+    friend_ids = set(Friendship.objects.filter(user=request.user, status='accepted').values_list('friend_id',
+                                                                                                 flat=True)) if request.user.is_authenticated else set()
+
+    user_posts = profile_user.posts.filter(status='published', is_hidden=False).order_by('-created_at')[:10]
 
     from posts.models import Comment, Like, Bookmark
     from communities.models import CommunityMembership, Community
     from media_storage.models import SavedPhoto, SavedVideo
 
-    user_comments = Comment.objects.filter(author=user, is_deleted=False).select_related('post').order_by('-created_at')[:10]
-    user_communities = CommunityMembership.objects.filter(user=user, status='active').select_related('community').order_by('-joined_at')[:10]
+    user_comments = Comment.objects.filter(author=profile_user, is_deleted=False).select_related('post').order_by(
+        '-created_at')[:10]
+    user_communities = CommunityMembership.objects.filter(user=profile_user, status='active').select_related(
+        'community').order_by('-joined_at')[:10]
 
+    # Закладки — только для владельца профиля
     user_bookmarks = []
-    if request.user == user:
-        user_bookmarks = Bookmark.objects.filter(user=user, post__is_hidden=False).select_related('post', 'post__author', 'post__author__profile').order_by('-created_at')[:10]
+    if request.user == profile_user:
+        user_bookmarks = Bookmark.objects.filter(user=profile_user, post__is_hidden=False).select_related('post',
+                                                                                                          'post__author',
+                                                                                                          'post__author__profile').order_by(
+            '-created_at')[:10]
 
-    # Фото и видео пользователя
-    user_photos = SavedPhoto.objects.filter(user=user).select_related('post').order_by('-created_at')[:12]
-    user_videos = SavedVideo.objects.filter(user=user).select_related('post').order_by('-created_at')[:12]
+    # Фото — с проверкой приватности
+    if can_view(request.user, profile_user, 'photos'):
+        user_photos = SavedPhoto.objects.filter(user=profile_user).select_related('post').order_by('-created_at')[:12]
+    else:
+        user_photos = []
 
-    # В profile_view, после загрузки user_videos добавь:
+    # Видео — с проверкой приватности
+    if can_view(request.user, profile_user, 'videos'):
+        user_videos = SavedVideo.objects.filter(user=profile_user).select_related('post').order_by('-created_at')[:12]
+    else:
+        user_videos = []
+
+    # Музыка — с проверкой приватности
     from music_app.models import SavedTrack
-    user_tracks = SavedTrack.objects.filter(user=user).order_by('-created_at')[:20]
+    if can_view(request.user, profile_user, 'music'):
+        user_tracks = SavedTrack.objects.filter(user=profile_user).order_by('-created_at')[:20]
+    else:
+        user_tracks = []
 
     is_following = False
-    if request.user.is_authenticated and request.user != user:
-        is_following = Follow.objects.filter(follower=request.user, following=user).exists()
+    if request.user.is_authenticated and request.user != profile_user:
+        is_following = Follow.objects.filter(follower=request.user, following=profile_user).exists()
 
     liked_post_ids = set()
     if request.user.is_authenticated:
         post_ids = [p.id for p in user_posts]
-        liked_post_ids = set(Like.objects.filter(user=request.user, content_type='post', object_id__in=post_ids).values_list('object_id', flat=True))
+        liked_post_ids = set(
+            Like.objects.filter(user=request.user, content_type='post', object_id__in=post_ids).values_list('object_id',
+                                                                                                            flat=True))
 
-    liked_post_ids_full = Like.objects.filter(user=user, content_type='post').values_list('object_id', flat=True)
-    liked_posts = Post.objects.filter(id__in=liked_post_ids_full, status='published', is_hidden=False).select_related('author', 'author__profile').order_by('-created_at')[:10]
+    liked_post_ids_full = Like.objects.filter(user=profile_user, content_type='post').values_list('object_id',
+                                                                                                  flat=True)
+    liked_posts = Post.objects.filter(id__in=liked_post_ids_full, status='published', is_hidden=False).select_related(
+        'author', 'author__profile').order_by('-created_at')[:10]
 
-    friends_count = Friendship.objects.filter(user=user).count()
-    communities_count = Community.objects.filter(members=user).count()
+    friends_count = Friendship.objects.filter(user=profile_user, status='accepted').count()
+    communities_count = Community.objects.filter(members=profile_user).count()
 
     all_post_ids = set()
     for p in user_posts: all_post_ids.add(p.id)
@@ -185,10 +245,12 @@ def profile_view(request, username=None):
 
     liked_post_ids = set()
     if request.user.is_authenticated:
-        liked_post_ids = set(Like.objects.filter(user=request.user, content_type='post', object_id__in=all_post_ids).values_list('object_id', flat=True))
+        liked_post_ids = set(
+            Like.objects.filter(user=request.user, content_type='post', object_id__in=all_post_ids).values_list(
+                'object_id', flat=True))
 
     context = {
-        'profile_user': user,
+        'profile_user': profile_user,
         'posts_count': posts_count,
         'followers_count': followers_count,
         'following_count': following_count,
@@ -205,6 +267,11 @@ def profile_view(request, username=None):
         'liked_post_ids': liked_post_ids,
         'friend_ids': friend_ids,
         'user_tracks': user_tracks,
+        # Флаги для шаблона
+        'can_view_photos': can_view(request.user, profile_user, 'photos'),
+        'can_view_videos': can_view(request.user, profile_user, 'videos'),
+        'can_view_music': can_view(request.user, profile_user, 'music'),
+        'is_owner': request.user == profile_user,
     }
     return render(request, 'accounts/profile.html', context)
 
@@ -212,13 +279,15 @@ def profile_view(request, username=None):
 @login_required
 def privacy_settings(request):
     profile = request.user.profile
+
     if request.method == 'POST':
+        # Основные настройки приватности
         profile.who_can_see_profile = request.POST.get('who_can_see_profile', 'everyone')
         profile.who_can_see_birthdate = request.POST.get('who_can_see_birthdate', 'friends')
         profile.who_can_see_photos = request.POST.get('who_can_see_photos', 'everyone')
         profile.who_can_see_videos = request.POST.get('who_can_see_videos', 'everyone')
-        profile.who_can_see_communities = request.POST.get('who_can_see_communities', 'everyone')
         profile.who_can_see_music = request.POST.get('who_can_see_music', 'everyone')
+        profile.who_can_see_communities = request.POST.get('who_can_see_communities', 'everyone')
         profile.who_can_see_friends = request.POST.get('who_can_see_friends', 'everyone')
         profile.allow_messages = request.POST.get('allow_messages', 'everyone')
         profile.allow_comments = request.POST.get('allow_comments', 'everyone')
@@ -241,8 +310,12 @@ def privacy_settings(request):
         messages.success(request, 'Настройки приватности сохранены')
         return redirect('accounts:privacy_settings')
 
+    # Для отображения формы
     message_except_list = profile.message_except.all() if profile.allow_messages == 'friends_except' else []
-    all_friends = Friendship.objects.filter(user=request.user).select_related('friend', 'friend__profile')
+    all_friends = Friendship.objects.filter(
+        user=request.user,
+        status='accepted'
+    ).select_related('friend', 'friend__profile')
     all_friends_list = [f.friend for f in all_friends]
 
     return render(request, 'accounts/privacy_settings.html', {
@@ -250,7 +323,6 @@ def privacy_settings(request):
         'message_except_list': message_except_list,
         'all_friends': all_friends_list,
     })
-
 
 @login_required
 def security_settings(request):
@@ -1158,48 +1230,6 @@ def privacy_view(request):
     return render(request, 'accounts/privacy.html')
 
 
-@login_required
-@require_POST
-def toggle_friend(request, user_id):
-    target = get_object_or_404(User, id=user_id)
-    if target == request.user:
-        return JsonResponse({'error': 'Нельзя добавить себя'}, status=400)
-
-    friendship = Friendship.objects.filter(user=request.user, friend=target).first()
-    if friendship:
-        friendship.delete()
-        return JsonResponse({'action': 'removed'})
-    else:
-        Friendship.objects.create(user=request.user, friend=target)
-        return JsonResponse({'action': 'added'})
-
-
-def friend_list(request, username):
-    """Список друзей пользователя"""
-    profile_user = get_object_or_404(User.objects.select_related('profile'), username=username)
-    friendships = Friendship.objects.filter(user=profile_user).select_related('friend', 'friend__profile')
-
-    query = request.GET.get('q', '')
-    if query:
-        friendships = friendships.filter(
-            Q(friend__username__icontains=query) |
-            Q(friend__first_name__icontains=query) |
-            Q(friend__last_name__icontains=query)
-        )
-
-    paginator = Paginator(friendships, 20)
-    page = request.GET.get('page', 1)
-    page_obj = paginator.get_page(page)
-
-    return render(request, 'accounts/friend_list.html', {
-        'profile_user': profile_user,
-        'friendships': page_obj,
-        'page_obj': page_obj,
-        'is_paginated': page_obj.has_other_pages(),
-        'query': query,
-        'total_count': friendships.count(),
-    })
-
 
 def community_list(request, username):
     """Список сообществ пользователя"""
@@ -1226,16 +1256,268 @@ def community_list(request, username):
     })
 
 
-
+@login_required
 def user_search_api(request):
-    """API для поиска пользователей"""
+    """API поиска пользователей для чата"""
+    query = request.GET.get('q', '').strip()
+
+    if len(query) < 2:
+        return JsonResponse([], safe=False)
+
+    users = User.objects.filter(
+        Q(username__icontains=query) |
+        Q(first_name__icontains=query) |
+        Q(last_name__icontains=query)
+    ).exclude(
+        id=request.user.id
+    ).select_related('profile')[:10]
+
+    results = []
+    for user in users:
+        results.append({
+            'id': user.id,
+            'username': user.username,
+            'full_name': user.get_full_name(),
+            'avatar': user.profile.avatar.url if user.profile.avatar else '',
+            # Убираем поле url, чтобы не было ссылки!
+        })
+
+    return JsonResponse(results, safe=False)
+
+
+@login_required
+def get_friend_status(request, user_id):
+    """Получить статус дружбы с пользователем"""
+    target = get_object_or_404(User, id=user_id)
+
+    if target == request.user:
+        return JsonResponse({'status': 'self'})
+
+    # Проверяем, есть ли принятая дружба
+    if Friendship.objects.filter(
+            user=request.user, friend=target, status='accepted'
+    ).exists():
+        return JsonResponse({'status': 'friends'})
+
+    # Проверяем, отправлял ли текущий пользователь заявку
+    if Friendship.objects.filter(
+            user=request.user, friend=target, status='pending'
+    ).exists():
+        return JsonResponse({'status': 'pending_sent'})
+
+    # Проверяем, есть ли входящая заявка
+    if Friendship.objects.filter(
+            user=target, friend=request.user, status='pending'
+    ).exists():
+        return JsonResponse({'status': 'pending_received'})
+
+    return JsonResponse({'status': 'none'})
+
+
+@login_required
+@require_POST
+def send_friend_request(request, user_id):
+    """Отправить заявку в друзья"""
+    target = get_object_or_404(User, id=user_id)
+
+    if target == request.user:
+        return JsonResponse({'status': 'error', 'message': 'Нельзя добавить себя'})
+
+    # Проверяем существующую дружбу
+    existing = Friendship.objects.filter(
+        user=request.user, friend=target
+    ).first()
+
+    if existing:
+        if existing.status == 'accepted':
+            return JsonResponse({'status': 'error', 'message': 'Вы уже друзья'})
+        elif existing.status == 'pending':
+            return JsonResponse({'status': 'error', 'message': 'Заявка уже отправлена'})
+
+    # Проверяем входящую заявку
+    incoming = Friendship.objects.filter(
+        user=target, friend=request.user, status='pending'
+    ).first()
+
+    if incoming:
+        # Если есть входящая заявка, сразу принимаем
+        incoming.accept()
+        return JsonResponse({'status': 'accepted', 'message': 'Вы теперь друзья'})
+
+    # Создаём новую заявку
+    Friendship.objects.create(
+        user=request.user,
+        friend=target,
+        status='pending'
+    )
+
+    # Создаём уведомление
+    from accounts.utils import create_notification
+    create_notification(
+        recipient=target,
+        sender=request.user,
+        notification_type='friend',
+        title='Заявка в друзья 👥',
+        message=f'{request.user.username} хочет добавить вас в друзья',
+        link=f'/accounts/friends/requests/'
+    )
+
+    return JsonResponse({'status': 'pending_sent', 'message': 'Заявка отправлена'})
+
+
+@login_required
+@require_POST
+def accept_friend_request(request, request_id):
+    """Принять заявку в друзья"""
+    friendship = get_object_or_404(
+        Friendship,
+        id=request_id,
+        friend=request.user,
+        status='pending'
+    )
+
+    friendship.accept()
+
+    # Уведомление отправителю
+    from accounts.utils import create_notification
+    create_notification(
+        recipient=friendship.user,
+        sender=request.user,
+        notification_type='friend_accept',
+        title='Заявка принята 🎉',
+        message=f'{request.user.username} принял вашу заявку в друзья',
+        link=f'/accounts/profile/{request.user.username}/'
+    )
+
+    return JsonResponse({'status': 'accepted', 'message': 'Заявка принята'})
+
+
+@login_required
+@require_POST
+def reject_friend_request(request, request_id):
+    """Отклонить заявку в друзья"""
+    friendship = get_object_or_404(
+        Friendship,
+        id=request_id,
+        friend=request.user,
+        status='pending'
+    )
+
+    friendship.reject()
+    return JsonResponse({'status': 'rejected', 'message': 'Заявка отклонена'})
+
+
+@login_required
+@require_POST
+def cancel_friend_request(request, request_id):
+    """Отменить отправленную заявку"""
+    friendship = get_object_or_404(
+        Friendship,
+        id=request_id,
+        user=request.user,
+        status='pending'
+    )
+
+    friendship.cancel()
+    return JsonResponse({'status': 'cancelled', 'message': 'Заявка отменена'})
+
+
+@login_required
+@require_POST
+def remove_friend(request, user_id):
+    """Удалить из друзей"""
+    target = get_object_or_404(User, id=user_id)
+
+    # Удаляем обе записи
+    Friendship.objects.filter(
+        user=request.user, friend=target, status='accepted'
+    ).delete()
+    Friendship.objects.filter(
+        user=target, friend=request.user, status='accepted'
+    ).delete()
+
+    return JsonResponse({'status': 'removed', 'message': 'Пользователь удалён из друзей'})
+
+
+@login_required
+def friend_requests_list(request):
+    """Список входящих заявок в друзья"""
+    incoming_requests = Friendship.objects.filter(
+        friend=request.user,
+        status='pending'
+    ).select_related('user', 'user__profile').order_by('-created_at')
+
+    outgoing_requests = Friendship.objects.filter(
+        user=request.user,
+        status='pending'
+    ).select_related('friend', 'friend__profile').order_by('-created_at')
+
+    return render(request, 'accounts/friend_requests.html', {
+        'incoming_requests': incoming_requests,
+        'outgoing_requests': outgoing_requests,
+    })
+
+
+@login_required
+def friends_list(request, username=None):
+    if username:
+        profile_user = get_object_or_404(User, username=username)
+    else:
+        profile_user = request.user
+
+    # Только accepted друзья
+    friendships = Friendship.objects.filter(
+        user=profile_user,
+        status='accepted'
+    ).select_related('friend', 'friend__profile').order_by('-created_at')
+
+    # Поиск
+    query = request.GET.get('q')
+    if query:
+        friendships = friendships.filter(
+            Q(friend__username__icontains=query) |
+            Q(friend__first_name__icontains=query) |
+            Q(friend__last_name__icontains=query)
+        )
+
+    # Пагинация
+    paginator = Paginator(friendships, 20)
+    page = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page)
+
+    # Количество входящих заявок (для бейджа)
+    pending_count = Friendship.objects.filter(
+        friend=request.user,
+        status='pending'
+    ).count()
+
+    return render(request, 'accounts/friends_list.html', {
+        'profile_user': profile_user,
+        'friendships': page_obj,
+        'page_obj': page_obj,
+        'total_count': friendships.count(),
+        'pending_count': pending_count,
+        'query': query,
+        'is_paginated': page_obj.has_other_pages(),
+    })
+
+@login_required
+def friends_search_api(request):
+    """API поиска среди друзей (только accepted)"""
     query = request.GET.get('q', '').strip()
     if len(query) < 2:
         return JsonResponse([], safe=False)
 
-    users = User.objects.filter(username__icontains=query) | User.objects.filter(
-        first_name__icontains=query) | User.objects.filter(last_name__icontains=query)
-    users = users[:10]
+    friend_ids = Friendship.objects.filter(
+        user=request.user,
+        status='accepted'
+    ).values_list('friend_id', flat=True)
+
+    users = User.objects.filter(id__in=friend_ids).filter(
+        Q(username__icontains=query) |
+        Q(first_name__icontains=query) |
+        Q(last_name__icontains=query)
+    )[:10]
 
     results = []
     for u in users:
@@ -1249,15 +1531,81 @@ def user_search_api(request):
 
 
 @login_required
-def get_friend_status(request, user_id):
-    """Получить статус дружбы с пользователем"""
+@require_POST
+def cancel_friend_request_by_user(request, user_id):
+    """Отменить отправленную заявку по ID пользователя"""
     target = get_object_or_404(User, id=user_id)
 
-    if target == request.user:
-        status = 'self'
-    elif Friendship.objects.filter(user=request.user, friend=target).exists():
-        status = 'friends'
-    else:
-        status = 'none'
+    friendship = Friendship.objects.filter(
+        user=request.user,
+        friend=target,
+        status='pending'
+    ).first()
 
-    return JsonResponse({'status': status})
+    if not friendship:
+        return JsonResponse({'status': 'error', 'message': 'Заявка не найдена'})
+
+    friendship.cancel()
+    return JsonResponse({'status': 'cancelled', 'message': 'Заявка отменена'})
+
+
+def can_view_content(request, profile_user, content_type='profile'):
+    """
+    Проверяет, может ли текущий пользователь видеть контент
+    content_type: 'profile', 'photos', 'videos', 'music', 'friends'
+    """
+    if request.user == profile_user:
+        return True
+
+    # Если профиль публичный
+    if content_type == 'profile':
+        setting = profile_user.profile.who_can_see_profile
+    elif content_type == 'photos':
+        setting = profile_user.profile.who_can_see_photos
+    elif content_type == 'videos':
+        setting = profile_user.profile.who_can_see_videos
+    elif content_type == 'music':
+        setting = profile_user.profile.who_can_see_music
+    else:
+        setting = 'everyone'
+
+    if setting == 'everyone':
+        return True
+
+    if setting == 'friends':
+        # Проверяем, являются ли они друзьями
+        return Friendship.objects.filter(
+            user=request.user, friend=profile_user, status='accepted'
+        ).exists() or Friendship.objects.filter(
+            user=profile_user, friend=request.user, status='accepted'
+        ).exists()
+
+    return False
+
+
+@login_required
+def group_participants_search_api(request):
+    """API поиска пользователей для добавления в групповой чат (без ссылок)"""
+    query = request.GET.get('q', '').strip()
+
+    if len(query) < 2:
+        return JsonResponse([], safe=False)
+
+    users = User.objects.filter(
+        Q(username__icontains=query) |
+        Q(first_name__icontains=query) |
+        Q(last_name__icontains=query)
+    ).exclude(
+        id=request.user.id
+    ).select_related('profile')[:10]
+
+    results = []
+    for user in users:
+        results.append({
+            'id': user.id,
+            'username': user.username,
+            'full_name': user.get_full_name(),
+            'avatar': user.profile.avatar.url if user.profile.avatar else '',
+        })
+
+    return JsonResponse(results, safe=False)

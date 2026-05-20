@@ -24,9 +24,17 @@ urlpatterns = [
     path('<str:username>/following/', views.following_list_view, name='following'),
 
     # Друзья и сообщества
-    path('friend/<int:user_id>/toggle/', views.toggle_friend, name='toggle_friend'),
-    path('<str:username>/friends/', views.friend_list, name='friend_list'),
+    path('friends/', views.friends_list, name='friends_list'),
+    path('friends/<str:username>/', views.friends_list, name='friends_list'),
+    path('friend/requests/', views.friend_requests_list, name='friend_requests'),
+    path('friend/status/<int:user_id>/', views.get_friend_status, name='get_friend_status'),
+    path('friend/send/<int:user_id>/', views.send_friend_request, name='send_friend_request'),
+    path('friend/accept/<int:request_id>/', views.accept_friend_request, name='accept_friend_request'),
+    path('friend/reject/<int:request_id>/', views.reject_friend_request, name='reject_friend_request'),
+    path('friend/cancel/<int:request_id>/', views.cancel_friend_request, name='cancel_friend_request'),
+    path('friend/remove/<int:user_id>/', views.remove_friend, name='remove_friend'),
     path('<str:username>/communities/', views.community_list, name='community_list'),
+    path('friend/cancel-by-user/<int:user_id>/', views.cancel_friend_request_by_user, name='cancel_friend_request_by_user'),
 
     # Пользователи
     path('users/', views.user_list_view, name='user_list'),
@@ -93,4 +101,5 @@ urlpatterns = [
     path('notifications/unread-count/', views.get_unread_count, name='unread_count'),
     path('friend/status/<int:user_id>/', views.get_friend_status, name='get_friend_status'),
     path('settings/notifications/', views.notification_settings, name='notification_settings'),
+    path('group-participants/search/', views.group_participants_search_api, name='group_participants_search_api'),
 ]

@@ -78,6 +78,14 @@
                         </span>
                     </div>
                 </div>
+                <div class="form-group">
+                    <label for="initialMessage" class="form-label">
+                        <i data-feather="message-circle"></i>
+                        Первое сообщение
+                    </label>
+                    <textarea name="initial_message" id="initialMessage" class="form-textarea"
+                              placeholder="Напишите приветственное сообщение..." rows="2"></textarea>
+                </div>
             </div>
 
             <!-- Участники -->
@@ -97,7 +105,8 @@
                         <i data-feather="search"></i>
                         <input type="text" id="participantSearch"
                                placeholder="Поиск по имени или @username..."
-                               class="search-input" autocomplete="off">
+                               class="search-input group-participant-search"
+                               autocomplete="off">
                     </div>
                     <div class="search-results" id="participantResults"></div>
                 </div>
@@ -566,6 +575,14 @@
         let selectedUsers = new Map();
         let searchTimeout;
 
+        // Останавливаем глобальные обработчики
+        if (searchResults) {
+            searchResults.addEventListener('click', function(e) {
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+            });
+        }
+
         // Добавить себя автоматически
         selectedUsers.set(currentUserId, {
             username: currentUsername,
@@ -585,10 +602,10 @@
 
             searchTimeout = setTimeout(async () => {
                 try {
-                    const response = await fetch(`/accounts/users/search/?q=${encodeURIComponent(query)}`);
+                    // Используем специальный API для поиска участников группы
+                    const response = await fetch(`/accounts/group-participants/search/?q=${encodeURIComponent(query)}`);
                     const users = await response.json();
 
-                    // Фильтруем текущего пользователя
                     const filteredUsers = users.filter(u => u.id != currentUserId);
 
                     searchResults.innerHTML = filteredUsers.map(user => {
@@ -597,7 +614,8 @@
                             <div class="participant-result ${isSelected ? 'selected' : ''}"
                                  data-user-id="${user.id}"
                                  data-username="${user.username}"
-                                 data-fullname="${user.full_name || user.username}">
+                                 data-fullname="${user.full_name || user.username}"
+                                 data-avatar="${user.avatar || ''}">
                                 <div class="result-avatar">
                                     ${user.avatar ?
                                         `<img src="${user.avatar}" alt="${user.username}">` :
@@ -605,8 +623,8 @@
                                     }
                                 </div>
                                 <div class="result-info">
-                                    <div class="result-name">${user.full_name || user.username}</div>
-                                    <div class="result-username">@${user.username}</div>
+                                    <div class="result-name">${escapeHtml(user.full_name || user.username)}</div>
+                                    <div class="result-username">@${escapeHtml(user.username)}</div>
                                 </div>
                                 ${isSelected ? '<i data-feather="check" class="check-icon"></i>' : ''}
                             </div>
@@ -616,7 +634,15 @@
                     searchResults.style.display = filteredUsers.length ? 'block' : 'none';
 
                     document.querySelectorAll('.participant-result').forEach(item => {
-                        item.addEventListener('click', function() {
+                        // Создаём новый элемент, чтобы убрать старые обработчики
+                        const newItem = item.cloneNode(true);
+                        item.parentNode.replaceChild(newItem, item);
+
+                        newItem.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            e.stopImmediatePropagation();
+
                             const userId = this.dataset.userId;
 
                             if (selectedUsers.has(userId)) {
@@ -639,10 +665,16 @@
             }, 300);
         });
 
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         function updateSelectedDisplay() {
             selectedContainer.innerHTML = '';
 
-            // Сначала показываем себя
             const selfUser = selectedUsers.get(currentUserId);
             if (selfUser) {
                 const selfBadge = document.createElement('span');
@@ -651,7 +683,6 @@
                 selectedContainer.appendChild(selfBadge);
             }
 
-            // Затем остальных
             selectedUsers.forEach((user, id) => {
                 if (id !== currentUserId) {
                     const badge = document.createElement('span');

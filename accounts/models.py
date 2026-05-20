@@ -235,6 +235,8 @@ class Notification(models.Model):
         ('community_invite', 'Приглашение в сообщество'),
         ('community_request', 'Заявка в сообщество'),
         ('report', 'Жалоба рассмотрена'),
+        ('friend', 'Заявка в друзья'),
+        ('friend_accept', 'Заявка принята'),
     ]
 
     recipient = models.ForeignKey(
@@ -321,10 +323,70 @@ class Profile(models.Model):
     website = models.URLField(max_length=200, blank=True)
 
     # Настройки приватности
-    is_private = models.BooleanField(default=False)
-    show_email = models.BooleanField(default=False)
-    allow_messages = models.CharField(max_length=20, default='everyone', verbose_name='Кто может писать')
-    allow_comments = models.CharField(max_length=20, default='everyone', verbose_name='Кто может комментировать')
+    is_private = models.BooleanField(default=False, verbose_name='Закрытый профиль')
+    who_can_see_profile = models.CharField(max_length=20, default='everyone', choices=[
+        ('everyone', 'Все'),
+        ('friends', 'Только друзья'),
+        ('nobody', 'Только я'),
+    ], verbose_name='Кто видит профиль')
+    who_can_see_photos = models.CharField(max_length=20, default='everyone', choices=[
+        ('everyone', 'Все'),
+        ('friends', 'Только друзья'),
+        ('nobody', 'Только я'),
+    ], verbose_name='Кто видит фото')
+    who_can_see_videos = models.CharField(max_length=20, default='everyone', verbose_name='Кто видит видео')
+    who_can_see_music = models.CharField(max_length=20, default='everyone', verbose_name='Кто видит музыку')
+    who_can_see_birthdate = models.CharField(
+        max_length=20,
+        default='friends',
+        choices=[
+            ('everyone', 'Все'),
+            ('friends', 'Только друзья'),
+            ('nobody', 'Только я'),
+        ],
+        verbose_name='Кто видит дату рождения'
+    )
+    who_can_see_communities = models.CharField(
+        max_length=20,
+        default='everyone',
+        choices=[
+            ('everyone', 'Все'),
+            ('friends', 'Только друзья'),
+            ('nobody', 'Только я'),
+        ],
+        verbose_name='Кто видит сообщества'
+    )
+    who_can_see_friends = models.CharField(
+        max_length=20,
+        default='everyone',
+        choices=[
+            ('everyone', 'Все'),
+            ('friends', 'Только друзья'),
+            ('nobody', 'Только я'),
+        ],
+        verbose_name='Кто видит друзей'
+    )
+    allow_messages = models.CharField(
+        max_length=20,
+        default='everyone',
+        choices=[
+            ('everyone', 'Все'),
+            ('friends', 'Только друзья'),
+            ('friends_except', 'Друзья, кроме...'),
+            ('nobody', 'Только я'),
+        ],
+        verbose_name='Кто может писать сообщения'
+    )
+    allow_comments = models.CharField(
+        max_length=20,
+        default='everyone',
+        choices=[
+            ('everyone', 'Все'),
+            ('friends', 'Только друзья'),
+            ('nobody', 'Только я'),
+        ],
+        verbose_name='Кто может комментировать'
+    )
 
     # Уведомления
     notify_likes = models.BooleanField(default=True, verbose_name='Лайки')
@@ -332,6 +394,8 @@ class Profile(models.Model):
     notify_follows = models.BooleanField(default=True, verbose_name='Подписки')
     notify_messages = models.BooleanField(default=True, verbose_name='Сообщения')
     notify_email = models.BooleanField(default=False, verbose_name='Email-уведомления')
+
+    show_email = models.BooleanField(default=False, verbose_name='Показывать email в профиле')
 
     # Безопасность
     phone = models.CharField(max_length=20, blank=True, verbose_name='Телефон')
@@ -387,16 +451,53 @@ def save_user_profile(sender, instance, **kwargs):
         instance.profile.save()
 
 
+# accounts/models.py
+
 class Friendship(models.Model):
     """Модель дружбы между пользователями"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='friendships')
-    friend = models.ForeignKey(User, on_delete=models.CASCADE, related_name='friend_of')
+    STATUS_CHOICES = [
+        ('pending', 'Ожидает подтверждения'),
+        ('accepted', 'Подтверждена'),
+        ('rejected', 'Отклонена'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='friendships_sent')
+    friend = models.ForeignKey(User, on_delete=models.CASCADE, related_name='friendships_received')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = ['user', 'friend']
         verbose_name = 'Дружба'
         verbose_name_plural = 'Дружба'
+        indexes = [
+            models.Index(fields=['user', 'status']),
+            models.Index(fields=['friend', 'status']),
+        ]
 
     def __str__(self):
-        return f"{self.user.username} → {self.friend.username}"
+        return f"{self.user.username} → {self.friend.username} ({self.status})"
+
+    def accept(self):
+        """Принять заявку"""
+        self.status = 'accepted'
+        self.save()
+        # Создаём обратную запись
+        reverse_friendship, created = Friendship.objects.get_or_create(
+            user=self.friend,
+            friend=self.user,
+            defaults={'status': 'accepted'}
+        )
+        if not created and reverse_friendship.status != 'accepted':
+            reverse_friendship.status = 'accepted'
+            reverse_friendship.save()
+
+    def reject(self):
+        """Отклонить заявку"""
+        self.status = 'rejected'
+        self.save()
+
+    def cancel(self):
+        """Отменить отправленную заявку"""
+        self.delete()

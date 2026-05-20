@@ -1,0 +1,583 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Друзья {{ profile_user.get_full_name|default:profile_user.username }} · Поток{% endblock %}
+{% block page_title %}Друзья{% endblock %}
+
+{% block content %}
+<style>
+    .friends-page { max-width: 800px; margin: 0 auto; }
+
+    .friends-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .friends-count {
+        font-size: 1rem;
+        color: var(--color-text-secondary);
+        font-weight: 500;
+    }
+    .friends-count strong {
+        color: var(--color-text);
+        font-size: 1.5rem;
+        font-weight: 700;
+    }
+    .requests-badge {
+        background: #ef4444;
+        color: white;
+        border-radius: 20px;
+        padding: 4px 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-left: 12px;
+    }
+    .tabs {
+        display: flex;
+        gap: 4px;
+        background: var(--color-bg-surface);
+        padding: 4px;
+        border-radius: 12px;
+        border: 1px solid var(--color-border-light);
+        margin-bottom: 24px;
+    }
+    .tab {
+        padding: 8px 20px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        text-decoration: none;
+        color: var(--color-text-secondary);
+        transition: all 0.2s;
+    }
+    .tab:hover {
+        background: var(--color-bg-elevated);
+    }
+    .tab.active {
+        background: var(--color-primary);
+        color: white;
+    }
+    .search-wrap { position: relative; }
+    .search-wrap input {
+        padding: 10px 42px 10px 16px;
+        border: 1.5px solid var(--color-border);
+        border-radius: 12px;
+        font-size: 0.9rem;
+        outline: none;
+        width: 260px;
+        background: var(--color-bg-surface);
+        color: var(--color-text);
+        transition: all 0.2s;
+    }
+    .search-wrap input:focus {
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+    .search-wrap button {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: var(--color-text-tertiary);
+        cursor: pointer;
+        padding: 6px;
+        border-radius: 8px;
+    }
+    .search-wrap button:hover {
+        background: var(--color-bg-elevated);
+        color: var(--color-primary);
+    }
+
+    .friend-card {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 16px 18px;
+        background: var(--color-bg-surface);
+        border-radius: 16px;
+        border: 1px solid var(--color-border-light);
+        margin-bottom: 10px;
+        transition: all 0.2s;
+        position: relative;
+    }
+    .friend-card:hover {
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    .friend-avatar {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        overflow: hidden;
+        flex-shrink: 0;
+        display: block;
+        position: relative;
+    }
+    .friend-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .av-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, var(--color-primary-light), #e0e7ff);
+        color: var(--color-primary);
+        font-weight: 700;
+        font-size: 1.5rem;
+        border-radius: 50%;
+    }
+    .online-dot {
+        position: absolute;
+        bottom: 3px;
+        right: 3px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #22c55e;
+        border: 2px solid #fff;
+    }
+    .online-dot.offline {
+        background: #9ca3af;
+    }
+    .friend-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .friend-name {
+        font-weight: 600;
+        font-size: 1rem;
+        color: var(--color-text);
+        text-decoration: none;
+    }
+    .friend-name:hover {
+        color: var(--color-primary);
+    }
+    .friend-username {
+        font-size: 0.8rem;
+        color: var(--color-text-tertiary);
+        margin-left: 6px;
+    }
+    .friend-bio {
+        font-size: 0.8rem;
+        color: var(--color-text-tertiary);
+        margin-top: 6px;
+        line-height: 1.4;
+    }
+    .friend-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+        position: relative;
+    }
+    .btn-write, .btn-accept, .btn-reject {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+    .btn-write {
+        background: var(--color-primary);
+        color: #fff;
+    }
+    .btn-write:hover {
+        background: #1d4ed8;
+        transform: translateY(-1px);
+    }
+    .btn-accept {
+        background: #22c55e;
+        color: #fff;
+    }
+    .btn-accept:hover {
+        background: #16a34a;
+    }
+    .btn-reject {
+        background: #ef4444;
+        color: #fff;
+    }
+    .btn-reject:hover {
+        background: #dc2626;
+    }
+    .btn-friend-status {
+        padding: 8px 16px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        background: var(--color-bg-elevated);
+        color: var(--color-text-secondary);
+        border: 1px solid var(--color-border);
+        cursor: default;
+    }
+    .btn-friend-status.pending {
+        background: #fef3c7;
+        color: #d97706;
+        border-color: #fde68a;
+    }
+    .friend-menu-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        color: var(--color-text-tertiary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+    .friend-menu-btn:hover {
+        background: var(--color-bg-elevated);
+    }
+    .friend-menu-dropdown {
+        display: none;
+        position: absolute;
+        right: 0;
+        top: 100%;
+        margin-top: 6px;
+        background: var(--color-bg-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        z-index: 50;
+        min-width: 200px;
+        padding: 4px;
+    }
+    .friend-menu-dropdown.show {
+        display: block;
+    }
+    .friend-menu-dropdown button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 10px 14px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: 0.85rem;
+        text-align: left;
+        border-radius: 8px;
+        color: var(--color-text);
+    }
+    .friend-menu-dropdown button:hover {
+        background: var(--color-bg-elevated);
+    }
+    .friend-menu-dropdown button.danger {
+        color: #ef4444;
+    }
+    .friend-menu-dropdown button.danger:hover {
+        background: #fef2f2;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 80px 20px;
+        color: var(--color-text-tertiary);
+    }
+    .empty-state svg {
+        width: 56px;
+        height: 56px;
+        opacity: 0.3;
+        margin-bottom: 16px;
+    }
+    .pagination-wrap {
+        display: flex;
+        justify-content: center;
+        gap: 6px;
+        padding: 32px 0;
+    }
+    .pagination-wrap a, .pagination-wrap span {
+        min-width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        font-size: 0.9rem;
+        text-decoration: none;
+    }
+    .pagination-wrap a {
+        background: var(--color-bg-surface);
+        border: 1px solid var(--color-border);
+        color: var(--color-text);
+    }
+    .pagination-wrap a:hover {
+        background: var(--color-bg-elevated);
+    }
+    .pagination-wrap span {
+        background: var(--color-primary);
+        color: #fff;
+    }
+    @media (max-width: 600px) {
+        .friend-card { flex-wrap: wrap; }
+        .friend-actions { width: 100%; justify-content: flex-end; margin-top: 8px; }
+        .search-wrap input { width: 100%; }
+    }
+    .friends-count {
+        background: linear-gradient(135deg, var(--color-bg-surface), var(--color-bg-elevated));
+        padding: 12px 20px;
+        border-radius: 24px;
+        box-shadow: var(--shadow-sm);
+    }
+    .friends-count-inner {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .friends-count-inner i {
+        width: 28px;
+        height: 28px;
+        color: var(--color-primary);
+    }
+    .friends-count-label {
+        display: block;
+        font-size: 0.7rem;
+        color: var(--color-text-tertiary);
+    }
+    .friends-count-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--color-primary);
+        line-height: 1;
+    }
+</style>
+
+<div class="friends-page">
+    <!-- Вкладки -->
+    <div class="tabs">
+        <a href="{% url 'accounts:friends_list' username=profile_user.username %}" class="tab {% if request.resolver_match.url_name == 'friends_list' %}active{% endif %}">
+            Друзья
+        </a>
+        <a href="{% url 'accounts:friend_requests' %}" class="tab {% if request.resolver_match.url_name == 'friend_requests' %}active{% endif %}">
+            Заявки
+            {% if pending_count > 0 %}
+            <span class="requests-badge">{{ pending_count }}</span>
+            {% endif %}
+        </a>
+    </div>
+
+    <div class="friends-header">
+        <div class="friends-count">
+            <div class="friends-count-inner">
+                <i data-feather="users"></i>
+                <div>
+                    <span class="friends-count-label">Всего друзей</span>
+                    <span class="friends-count-value">{{ total_count }}</span>
+                </div>
+            </div>
+        </div>
+        <form class="search-wrap" method="get">
+            <input type="text" name="q" placeholder="Поиск друзей..." value="{% if query %}{{ query }}{% endif %}">
+            <button type="submit"><i data-feather="search"></i></button>
+        </form>
+    </div>
+
+    {% for friendship in friendships %}
+    {% with friend=friendship.friend %}
+    <div class="friend-card" data-user-id="{{ friend.id }}">
+        <a href="{% url 'accounts:profile_by_username' username=friend.username %}" class="friend-avatar">
+            {% if friend.profile.avatar %}
+            <img src="{{ friend.profile.avatar.url }}" alt="">
+            {% else %}
+            <div class="av-placeholder">{{ friend.username|first|upper }}</div>
+            {% endif %}
+            <span class="online-dot {% if not friend.profile.is_online %}offline{% endif %}"></span>
+        </a>
+
+        <div class="friend-info">
+            <a href="{% url 'accounts:profile_by_username' username=friend.username %}" class="friend-name">
+                {{ friend.get_full_name|default:friend.username }}
+                <span class="friend-username">@{{ friend.username }}</span>
+            </a>
+            {% if friend.profile.bio %}
+            <div class="friend-bio">{{ friend.profile.bio|truncatechars:80 }}</div>
+            {% endif %}
+        </div>
+
+        <div class="friend-actions">
+            <button class="btn-write" onclick="openChat('{{ friend.username }}')">
+                <i data-feather="message-circle"></i>
+                <span>Написать</span>
+            </button>
+
+            <div style="position:relative">
+                <button class="friend-menu-btn" onclick="toggleMenu(this)">
+                    <i data-feather="more-horizontal"></i>
+                </button>
+                <div class="friend-menu-dropdown">
+                    <button onclick="copyProfileLink('{{ friend.username }}')">
+                        <i data-feather="link"></i> Скопировать ссылку
+                    </button>
+                    <button class="danger" onclick="removeFriend({{ friend.id }}, this)">
+                        <i data-feather="user-minus"></i> Удалить из друзей
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endwith %}
+    {% empty %}
+    <div class="empty-state">
+        <i data-feather="users"></i>
+        <h3>Друзей пока нет</h3>
+        <p>Найдите друзей через поиск или в профилях пользователей</p>
+    </div>
+    {% endfor %}
+
+    {% if is_paginated %}
+    <div class="pagination-wrap">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}{% if query %}&q={{ query }}{% endif %}">←</a>{% endif %}
+        {% for n in page_obj.paginator.page_range %}
+            {% if n == page_obj.number %}<span>{{ n }}</span>
+            {% elif n > page_obj.number|add:'-3' and n < page_obj.number|add:'3' %}<a href="?page={{ n }}{% if query %}&q={{ query }}{% endif %}">{{ n }}</a>{% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}{% if query %}&q={{ query }}{% endif %}">→</a>{% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<script>
+feather.replace();
+
+function getCsrfToken() {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, 10) === ('csrftoken' + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(10));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+async function removeFriend(userId, btn) {
+    if (!confirm('Удалить этого пользователя из друзей?')) return;
+
+    try {
+        const response = await fetch(`/accounts/friend/remove/${userId}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrfToken() }
+        });
+        const data = await response.json();
+
+        if (data.status === 'removed') {
+            const card = btn.closest('.friend-card');
+            card.style.opacity = '0';
+            card.style.transform = 'translateX(20px)';
+            card.style.transition = 'all 0.3s';
+            setTimeout(() => card.remove(), 300);
+
+            // Обновляем счётчик
+            const countSpan = document.querySelector('.friends-count strong');
+            if (countSpan) {
+                const currentCount = parseInt(countSpan.textContent);
+                countSpan.textContent = currentCount - 1;
+            }
+        } else {
+            alert(data.message || 'Ошибка при удалении');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Произошла ошибка');
+    }
+}
+// Добавить друга в список после принятия заявки
+function addFriendToList(user) {
+    const container = document.querySelector('.friends-list');
+    if (!container) return;
+
+    const friendCard = `
+    <div class="friend-card" data-user-id="${user.id}">
+        <a href="/accounts/profile/${user.username}/" class="friend-avatar">
+            ${user.avatar ? `<img src="${user.avatar}" alt="">` : `<div class="av-placeholder">${user.username.charAt(0).toUpperCase()}</div>`}
+            <span class="online-dot offline"></span>
+        </a>
+        <div class="friend-info">
+            <a href="/accounts/profile/${user.username}/" class="friend-name">
+                ${user.full_name || user.username}
+                <span class="friend-username">@${user.username}</span>
+            </a>
+        </div>
+        <div class="friend-actions">
+            <button class="btn-write" onclick="openChat('${user.username}')">
+                <i data-feather="message-circle"></i> Написать
+            </button>
+            <div style="position:relative">
+                <button class="friend-menu-btn" onclick="toggleMenu(this)"><i data-feather="more-horizontal"></i></button>
+                <div class="friend-menu-dropdown">
+                    <button onclick="copyProfileLink('${user.username}')"><i data-feather="link"></i> Скопировать ссылку</button>
+                    <button class="danger" onclick="removeFriend(${user.id}, this)"><i data-feather="user-minus"></i> Удалить из друзей</button>
+                </div>
+            </div>
+        </div>
+    </div>`;
+
+    container.insertAdjacentHTML('beforeend', friendCard);
+    feather.replace();
+
+    // Обновляем счётчик
+    const countSpan = document.querySelector('.friends-count strong');
+    if (countSpan) {
+        countSpan.textContent = parseInt(countSpan.textContent) + 1;
+    }
+}
+
+async function openChat(username) {
+    try {
+        const response = await fetch('/messenger/create-or-get-chat/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify({ username: username })
+        });
+        const data = await response.json();
+        window.location.href = `/messenger/?chat=${data.chat_id}`;
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Не удалось открыть чат');
+    }
+}
+
+function copyProfileLink(username) {
+    const url = window.location.origin + '/accounts/profile/' + username + '/';
+    navigator.clipboard.writeText(url).then(() => {
+        alert('Ссылка скопирована');
+    });
+}
+
+function toggleMenu(btn) {
+    const dropdown = btn.parentElement.querySelector('.friend-menu-dropdown');
+    document.querySelectorAll('.friend-menu-dropdown.show').forEach(d => {
+        if (d !== dropdown) d.classList.remove('show');
+    });
+    dropdown.classList.toggle('show');
+}
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.friend-menu-btn') && !e.target.closest('.friend-menu-dropdown')) {
+        document.querySelectorAll('.friend-menu-dropdown.show').forEach(d => d.classList.remove('show'));
+    }
+});
+</script>
+{% endblock %}

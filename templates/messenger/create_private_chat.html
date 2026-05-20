@@ -24,17 +24,15 @@
                 <input type="text"
                        id="userSearch"
                        placeholder="Например: Иван или @ivan..."
-                       class="search-input-large"
+                       class="search-input-large chat-user-search"
                        autofocus
                        autocomplete="off">
 
-                <!-- Индикатор загрузки -->
                 <div class="search-loader" id="searchLoader" style="display: none;">
                     <i data-feather="loader"></i>
                 </div>
             </div>
 
-            <!-- Результаты поиска -->
             <div class="search-results-container" id="searchResults"></div>
         </div>
 
@@ -60,13 +58,11 @@
                         <span class="online-indicator"></span>
                         {% endif %}
                     </div>
-
                     <div class="user-info">
                         <span class="user-name">{{ contact.get_full_name|default:contact.username }}</span>
                         <span class="user-username">@{{ contact.username }}</span>
                     </div>
-
-                    <button class="btn btn--outline btn--sm message-btn" data-user-id="{{ contact.id }}">
+                    <button type="button" class="btn btn--outline btn--sm message-btn" data-user-id="{{ contact.id }}" data-user-name="{{ contact.get_full_name|default:contact.username }}" data-user-username="{{ contact.username }}" {% if contact.profile.avatar %}data-user-avatar="{{ contact.profile.avatar.url }}"{% endif %}>
                         <i data-feather="message-circle"></i>
                         Написать
                     </button>
@@ -97,7 +93,7 @@
                     </div>
                     <span class="user-name">{{ user_item.get_full_name|default:user_item.username }}</span>
                     <span class="user-username">@{{ user_item.username }}</span>
-                    <button class="btn btn--primary btn--sm message-btn" data-user-id="{{ user_item.id }}">
+                    <button type="button" class="btn btn--primary btn--sm message-btn" data-user-id="{{ user_item.id }}" data-user-name="{{ user_item.get_full_name|default:user_item.username }}" data-user-username="{{ user_item.username }}" {% if user_item.profile.avatar %}data-user-avatar="{{ user_item.profile.avatar.url }}"{% endif %}>
                         <i data-feather="message-circle"></i>
                         Написать
                     </button>
@@ -110,11 +106,12 @@
 </div>
 
 <!-- Модалка создания чата -->
+<!-- Модалка создания чата -->
 <div class="modal-overlay" id="chatModal">
     <div class="modal">
         <div class="modal-header">
             <h3>Начать чат</h3>
-            <button class="modal-close" onclick="closeChatModal()">
+            <button type="button" class="modal-close" onclick="closeChatModal()">
                 <i data-feather="x"></i>
             </button>
         </div>
@@ -130,8 +127,8 @@
             <textarea id="firstMessage" class="form-textarea" placeholder="Привет! Как дела?..." rows="3"></textarea>
         </div>
         <div class="modal-footer">
-            <button class="btn btn--outline" onclick="closeChatModal()">Отмена</button>
-            <button class="btn btn--primary" id="startChatBtn">
+            <button type="button" class="btn btn--outline" onclick="closeChatModal()">Отмена</button>
+            <button type="button" class="btn btn--primary" id="startChatBtn">
                 <i data-feather="send"></i>
                 Начать чат
             </button>
@@ -153,7 +150,6 @@
         margin: 0 auto;
     }
 
-    /* Карточки */
     .search-card,
     .recent-card,
     .suggested-card {
@@ -190,23 +186,13 @@
         font-size: 0.9375rem;
     }
 
-    /* Поиск */
     .search-wrapper-large {
         position: relative;
     }
 
-    .search-wrapper-large i {
-        position: absolute;
-        left: 1.25rem;
-        top: 50%;
-        transform: translateY(-50%);
-        color: var(--color-text-tertiary);
-        pointer-events: none;
-    }
-
     .search-input-large {
         width: 100%;
-        padding: 1rem 1.25rem 1rem 3rem;
+        padding: 1rem 1.25rem;
         border: 1.5px solid var(--color-border);
         border-radius: 16px;
         font-size: 1rem;
@@ -229,7 +215,6 @@
     }
 
     .search-loader i {
-        position: static;
         animation: spin 1s linear infinite;
     }
 
@@ -238,7 +223,6 @@
         to { transform: rotate(360deg); }
     }
 
-    /* Результаты поиска */
     .search-results-container {
         margin-top: 0.5rem;
         border: 1px solid var(--color-border);
@@ -273,7 +257,7 @@
         height: 3rem;
         border-radius: 50%;
         overflow: hidden;
-        position: relative;
+        flex-shrink: 0;
     }
 
     .user-result-item .user-avatar img {
@@ -292,17 +276,6 @@
         color: var(--color-primary);
         font-weight: 600;
         font-size: 1.25rem;
-    }
-
-    .online-indicator {
-        position: absolute;
-        bottom: 2px;
-        right: 2px;
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        background: var(--color-success);
-        border: 2px solid white;
     }
 
     .user-result-item .user-info {
@@ -326,7 +299,6 @@
         color: var(--color-text-tertiary);
     }
 
-    /* Недавние контакты */
     .recent-users-list {
         display: flex;
         flex-direction: column;
@@ -353,19 +325,24 @@
         border-radius: 50%;
         overflow: hidden;
         position: relative;
-    }
-
-    .recent-user-item .user-avatar img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
+        flex-shrink: 0;
     }
 
     .recent-user-item .user-info {
         flex: 1;
     }
 
-    /* Рекомендуемые */
+    .online-indicator {
+        position: absolute;
+        bottom: 2px;
+        right: 2px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--color-success);
+        border: 2px solid white;
+    }
+
     .suggested-users-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -398,10 +375,6 @@
         object-fit: cover;
     }
 
-    .user-avatar-large .avatar-placeholder {
-        font-size: 1.75rem;
-    }
-
     .suggested-user-card .user-name {
         margin-bottom: 0.125rem;
     }
@@ -411,7 +384,6 @@
         margin-bottom: 0.75rem;
     }
 
-    /* Модалка */
     .modal-overlay {
         position: fixed;
         top: 0;
@@ -419,11 +391,15 @@
         right: 0;
         bottom: 0;
         background: rgba(0, 0, 0, 0.5);
-        display: none;
+        display: none !important;
         align-items: center;
         justify-content: center;
-        z-index: 1000;
+        z-index: 10000;
         backdrop-filter: blur(4px);
+    }
+
+    .modal-overlay.active {
+        display: flex !important;
     }
 
     .modal {
@@ -452,6 +428,9 @@
         border-radius: 8px;
         color: var(--color-text-tertiary);
         transition: all 0.2s;
+        background: none;
+        border: none;
+        cursor: pointer;
     }
 
     .modal-close:hover {
@@ -474,6 +453,7 @@
         height: 3rem;
         border-radius: 50%;
         overflow: hidden;
+        flex-shrink: 0;
     }
 
     .selected-user .user-avatar img {
@@ -511,22 +491,16 @@
         margin-top: 1.5rem;
     }
 
-    /* Адаптивность */
     @media (max-width: 600px) {
         .create-chat-page {
             padding: 1rem;
         }
-
-        .search-card,
-        .recent-card,
-        .suggested-card {
+        .search-card, .recent-card, .suggested-card {
             padding: 1.5rem;
         }
-
         .card-header h2 {
             font-size: 1.25rem;
         }
-
         .suggested-users-grid {
             grid-template-columns: repeat(2, 1fr);
         }
@@ -536,197 +510,245 @@
 
 {% block extra_js %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    (function() {
+        // DOM элементы
         const searchInput = document.getElementById('userSearch');
         const searchResults = document.getElementById('searchResults');
         const searchLoader = document.getElementById('searchLoader');
         const chatModal = document.getElementById('chatModal');
+        const startChatBtn = document.getElementById('startChatBtn');
+        const firstMessageInput = document.getElementById('firstMessage');
+
         let selectedUserId = null;
-        let searchTimeout;
 
-        // Поиск пользователей
-        searchInput?.addEventListener('input', function() {
-            clearTimeout(searchTimeout);
-            const query = this.value.trim();
+        function log(msg, data) {
+            console.log('[Chat] ' + msg, data || '');
+        }
 
-            if (query.length < 2) {
-                searchResults.style.display = 'none';
-                searchResults.innerHTML = '';
-                return;
-            }
-
-            searchLoader.style.display = 'block';
-
-            searchTimeout = setTimeout(async () => {
-                try {
-                    const response = await fetch(`/accounts/users/search/?q=${encodeURIComponent(query)}`);
-                    const users = await response.json();
-
-                    if (users.length === 0) {
-                        searchResults.innerHTML = '<div class="empty-results">Пользователи не найдены</div>';
-                    } else {
-                        searchResults.innerHTML = users.map(user => `
-                            <div class="user-result-item" data-user-id="${user.id}" data-username="${user.username}" data-fullname="${user.full_name || user.username}" data-avatar="${user.avatar || ''}">
-                                <div class="user-avatar">
-                                    ${user.avatar ?
-                                        `<img src="${user.avatar}" alt="${user.username}">` :
-                                        `<div class="avatar-placeholder">${user.username.charAt(0).toUpperCase()}</div>`
-                                    }
-                                </div>
-                                <div class="user-info">
-                                    <span class="user-name">${user.full_name || user.username}</span>
-                                    <span class="user-username">@${user.username}</span>
-                                </div>
-                            </div>
-                        `).join('');
-
-                        document.querySelectorAll('.user-result-item').forEach(item => {
-                            item.addEventListener('click', function() {
-                                openChatModal({
-                                    id: this.dataset.userId,
-                                    username: this.dataset.username,
-                                    fullname: this.dataset.fullname,
-                                    avatar: this.dataset.avatar
-                                });
-                            });
-                        });
-                    }
-
-                    searchResults.style.display = 'block';
-                } catch (error) {
-                    console.error('Error:', error);
-                    searchResults.innerHTML = '<div class="empty-results">Ошибка поиска</div>';
-                    searchResults.style.display = 'block';
-                } finally {
-                    searchLoader.style.display = 'none';
-                }
-            }, 300);
-        });
-
-        // Скрыть результаты при клике вне
-        document.addEventListener('click', (e) => {
-            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
-                searchResults.style.display = 'none';
-            }
-        });
-
-        // Показать результаты при фокусе
-        searchInput?.addEventListener('focus', function() {
-            if (this.value.trim().length >= 2) {
-                searchResults.style.display = 'block';
-            }
-        });
-
-        // Кнопки "Написать"
-        document.querySelectorAll('.message-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const userId = this.dataset.userId;
-                const item = this.closest('.recent-user-item') || this.closest('.suggested-user-card');
-                const name = item.querySelector('.user-name').textContent;
-                const username = item.querySelector('.user-username').textContent;
-                const avatarImg = item.querySelector('.user-avatar img');
-
-                openChatModal({
-                    id: userId,
-                    username: username.replace('@', ''),
-                    fullname: name,
-                    avatar: avatarImg ? avatarImg.src : ''
-                });
-            });
-        });
-
-        // Модалка
-        window.openChatModal = function(user) {
-            selectedUserId = user.id;
-            document.getElementById('modalUserName').textContent = user.fullname;
-            document.getElementById('modalUserUsername').textContent = '@' + user.username;
-
-            const avatarDiv = document.querySelector('#selectedUserInfo .user-avatar');
-            if (user.avatar) {
-                avatarDiv.innerHTML = `<img src="${user.avatar}" alt="${user.username}">`;
-            } else {
-                avatarDiv.innerHTML = `<div class="avatar-placeholder">${user.username.charAt(0).toUpperCase()}</div>`;
-            }
-
-            chatModal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-        };
-
-        window.closeChatModal = function() {
-            chatModal.style.display = 'none';
-            document.body.style.overflow = '';
-            selectedUserId = null;
-            document.getElementById('firstMessage').value = '';
-        };
-
-        // Создание чата
-        document.getElementById('startChatBtn')?.addEventListener('click', async function() {
-            if (!selectedUserId) return;
-
-            const message = document.getElementById('firstMessage').value.trim();
-            const btn = this;
-
-            btn.disabled = true;
-            btn.innerHTML = '<i data-feather="loader"></i> Создание...';
-            feather.replace();
-
-            try {
-                const formData = new FormData();
-                formData.append('user_id', selectedUserId);
-                if (message) {
-                    formData.append('message', message);
-                }
-
-                const response = await fetch('/messenger/create/private/', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken')
-                    },
-                    body: formData
-                });
-
-                const data = await response.json();
-
-                if (data.chat_id) {
-                    window.location.href = `/messenger/?chat=${data.chat_id}`;
-                } else {
-                    alert(data.error || 'Не удалось создать чат');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Не удалось создать чат');
-            } finally {
-                btn.disabled = false;
-                btn.innerHTML = '<i data-feather="send"></i> Начать чат';
-                feather.replace();
-            }
-        });
-
-        // Закрытие модалок
-        chatModal?.addEventListener('click', (e) => {
-            if (e.target === chatModal) closeChatModal();
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && chatModal.style.display === 'flex') {
-                closeChatModal();
-            }
-        });
-
-        function getCookie(name) {
+        function getCsrfToken() {
             let cookieValue = null;
             if (document.cookie && document.cookie !== '') {
                 const cookies = document.cookie.split(';');
                 for (let i = 0; i < cookies.length; i++) {
                     const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    if (cookie.substring(0, 10) === 'csrftoken=') {
+                        cookieValue = decodeURIComponent(cookie.substring(10));
                         break;
                     }
                 }
             }
             return cookieValue;
         }
-    });
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Открыть модалку
+        window.openChatModal = function(user) {
+            log('openChatModal called', user);
+            selectedUserId = user.id;
+
+            const modalUserName = document.getElementById('modalUserName');
+            const modalUserUsername = document.getElementById('modalUserUsername');
+            const avatarDiv = document.querySelector('#selectedUserInfo .user-avatar');
+
+            if (modalUserName) modalUserName.textContent = user.fullname;
+            if (modalUserUsername) modalUserUsername.textContent = '@' + user.username;
+
+            if (avatarDiv) {
+                if (user.avatar) {
+                    avatarDiv.innerHTML = `<img src="${user.avatar}" alt="${user.username}">`;
+                } else {
+                    avatarDiv.innerHTML = `<div class="avatar-placeholder">${user.username.charAt(0).toUpperCase()}</div>`;
+                }
+            }
+
+            if (firstMessageInput) firstMessageInput.value = '';
+
+            if (chatModal) {
+                chatModal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+                log('Modal opened');
+            } else {
+                log('Modal not found!');
+            }
+        };
+
+        window.closeChatModal = function() {
+            if (chatModal) {
+                chatModal.classList.remove('active');
+                document.body.style.overflow = '';
+                selectedUserId = null;
+            }
+        };
+
+        // Поиск пользователей
+        if (searchInput) {
+            searchInput.addEventListener('input', function(e) {
+                clearTimeout(window.searchTimeout);
+                const query = this.value.trim();
+
+                if (query.length < 2) {
+                    if (searchResults) {
+                        searchResults.style.display = 'none';
+                        searchResults.innerHTML = '';
+                    }
+                    return;
+                }
+
+                if (searchLoader) searchLoader.style.display = 'block';
+
+                window.searchTimeout = setTimeout(async () => {
+                    try {
+                        const response = await fetch(`/accounts/users/search/?q=${encodeURIComponent(query)}`);
+                        const users = await response.json();
+
+                        if (!searchResults) return;
+
+                        if (users.length === 0) {
+                            searchResults.innerHTML = '<div class="empty-results">Пользователи не найдены</div>';
+                            searchResults.style.display = 'block';
+                        } else {
+                            searchResults.innerHTML = '';
+
+                            users.forEach(user => {
+                                const item = document.createElement('div');
+                                item.className = 'user-result-item';
+                                item.style.cursor = 'pointer';
+
+                                item.innerHTML = `
+                                    <div class="user-avatar">
+                                        ${user.avatar ?
+                                            `<img src="${user.avatar}" alt="${user.username}">` :
+                                            `<div class="avatar-placeholder">${user.username.charAt(0).toUpperCase()}</div>`
+                                        }
+                                    </div>
+                                    <div class="user-info">
+                                        <span class="user-name">${escapeHtml(user.full_name || user.username)}</span>
+                                        <span class="user-username">@${escapeHtml(user.username)}</span>
+                                    </div>
+                                `;
+
+                                item.onclick = (function(u) {
+                                    return function(e) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        log('User clicked', u.username);
+                                        window.openChatModal({
+                                            id: u.id,
+                                            username: u.username,
+                                            fullname: u.full_name || u.username,
+                                            avatar: u.avatar || ''
+                                        });
+                                    };
+                                })(user);
+
+                                searchResults.appendChild(item);
+                            });
+
+                            searchResults.style.display = 'block';
+                        }
+                    } catch (error) {
+                        console.error('Search error:', error);
+                        if (searchResults) {
+                            searchResults.innerHTML = '<div class="empty-results">Ошибка поиска</div>';
+                            searchResults.style.display = 'block';
+                        }
+                    } finally {
+                        if (searchLoader) searchLoader.style.display = 'none';
+                    }
+                }, 300);
+            });
+        }
+
+        // Скрыть результаты при клике вне
+        document.addEventListener('click', function(e) {
+            if (searchInput && searchResults &&
+                !searchInput.contains(e.target) &&
+                !searchResults.contains(e.target)) {
+                searchResults.style.display = 'none';
+            }
+        });
+
+        // Кнопки "Написать"
+        document.querySelectorAll('.message-btn').forEach(btn => {
+            btn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                window.openChatModal({
+                    id: this.getAttribute('data-user-id'),
+                    username: this.getAttribute('data-user-username'),
+                    fullname: this.getAttribute('data-user-name'),
+                    avatar: this.getAttribute('data-user-avatar') || ''
+                });
+            };
+        });
+
+        // Создание чата
+        if (startChatBtn) {
+            startChatBtn.onclick = async function() {
+                if (!selectedUserId) {
+                    alert('Пожалуйста, выберите пользователя');
+                    return;
+                }
+
+                const message = firstMessageInput ? firstMessageInput.value.trim() : '';
+                const btn = this;
+
+                btn.disabled = true;
+                btn.innerHTML = '<i data-feather="loader"></i> Создание...';
+                if (typeof feather !== 'undefined') feather.replace();
+
+                try {
+                    const formData = new FormData();
+                    formData.append('user_id', selectedUserId);
+                    if (message) formData.append('message', message);
+
+                    const response = await fetch('/messenger/create/private/', {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': getCsrfToken() },
+                        body: formData
+                    });
+
+                    const data = await response.json();
+
+                    if (data.chat_id) {
+                        window.location.href = `/messenger/?chat=${data.chat_id}`;
+                    } else {
+                        alert(data.error || 'Не удалось создать чат');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Произошла ошибка при создании чата');
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i data-feather="send"></i> Начать чат';
+                    if (typeof feather !== 'undefined') feather.replace();
+                }
+            };
+        }
+
+        // Закрытие модалки при клике на фон
+        if (chatModal) {
+            chatModal.addEventListener('click', function(e) {
+                if (e.target === chatModal) {
+                    closeChatModal();
+                }
+            });
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && chatModal && chatModal.classList.contains('active')) {
+                closeChatModal();
+            }
+        });
+
+        log('Script initialized');
+    })();
 </script>
 {% endblock %}

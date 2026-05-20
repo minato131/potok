@@ -37,15 +37,25 @@ def should_send_notification(user, notification_type):
     return profile.notify_messages
 
 
+# messenger/signals.py
+
+# messenger/signals.py
+
 @receiver(post_save, sender=Message)
 def create_message_notification(sender, instance, created, **kwargs):
     """Уведомление о новом сообщении"""
     if created:
-        # Определяем получателя (не отправителя)
-        if instance.sender == instance.room.user1:
-            recipient = instance.room.user2
-        else:
-            recipient = instance.room.user1
+        # Определяем отправителя (поле author)
+        sender_user = instance.author
+
+        # Определяем получателя (другой участник чата)
+        recipient = None
+        participants = instance.chat.participants.exclude(id=sender_user.id)
+        if participants.exists():
+            recipient = participants.first()
+
+        if not recipient:
+            return
 
         # Проверяем настройки уведомлений получателя
         if not should_send_notification(recipient, 'message'):
@@ -53,11 +63,11 @@ def create_message_notification(sender, instance, created, **kwargs):
 
         notification = Notification.create_notification(
             recipient=recipient,
-            sender=instance.sender,
+            sender=sender_user,
             notification_type='message',
             title='Новое сообщение ✉️',
-            message=f'{instance.sender.username}: {instance.content[:50]}',
-            link=f'/messenger/room/{instance.room.id}/'
+            message=f'{sender_user.username}: {instance.content[:50]}',
+            link=f'/messenger/chat/{instance.chat.id}/'
         )
 
         if notification:

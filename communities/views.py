@@ -546,17 +546,22 @@ def unban_community_member(request, slug):
     # Аналогично ban_community_member, но status = 'active'
     ...
 
-
 @login_required
 def friends_search_api(request):
-    """API поиска среди друзей"""
+    """API поиска среди друзей (только accepted)"""
     query = request.GET.get('q', '').strip()
     if len(query) < 2:
         return JsonResponse([], safe=False)
 
-    friend_ids = Friendship.objects.filter(user=request.user).values_list('friend_id', flat=True)
+    friend_ids = Friendship.objects.filter(
+        user=request.user,
+        status='accepted'
+    ).values_list('friend_id', flat=True)
+
     users = User.objects.filter(id__in=friend_ids).filter(
-        Q(username__icontains=query) | Q(first_name__icontains=query) | Q(last_name__icontains=query)
+        Q(username__icontains=query) |
+        Q(first_name__icontains=query) |
+        Q(last_name__icontains=query)
     )[:10]
 
     results = []

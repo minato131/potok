@@ -16,4 +16,8 @@ urlpatterns = [
     path('message/<int:message_id>/delete/', views.delete_message, name='delete_message'),
     path('message/<int:message_id>/reaction/', views.toggle_reaction, name='toggle_reaction'),
     path('create-or-get-chat/', views.create_or_get_chat, name='create_or_get_chat'),
+    path('search-users/', views.search_users_for_chat, name='search_users_for_chat'),
+    path('api/user/<int:user_id>/', views.api_user_profile, name='api_user_profile'),
+    path('api/group/<int:chat_id>/', views.api_group_info, name='api_group_info'),
+    path('api/chat/<int:chat_id>/media/', views.api_chat_media, name='api_chat_media'),
 ]

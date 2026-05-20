@@ -92,7 +92,7 @@
                     </li>
                     <li class="nav-menu__item">
                         {% if user.is_authenticated %}
-                        <a href="{% url 'accounts:friend_list' username=user.username %}" class="nav-link {% if request.resolver_match.url_name == 'friend_list' %}nav-link--active{% endif %}">
+                        <a href="{% url 'accounts:friends_list' username=user.username %}" class="nav-link {% if request.resolver_match.url_name == 'friend_list' %}nav-link--active{% endif %}">
                             <i data-feather="users"></i>
                             <span>Друзья</span>
                         </a>
@@ -246,7 +246,7 @@
             <li><a href="{% url 'communities:community_list' %}"><i data-feather="users"></i> Сообщества</a></li>
             <li><a href="{% url 'messenger:messenger' %}"><i data-feather="message-circle"></i> Мессенджер</a></li>
             {% if user.is_authenticated %}
-            <li><a href="{% url 'accounts:friend_list' username=user.username %}"><i data-feather="users"></i> Друзья</a></li>
+            <li><a href="{% url 'accounts:friends_list' username=user.username %}"><i data-feather="users"></i> Друзья</a></li>
             {% endif %}
             <li><a href="{% url 'posts:bookmarks' %}"><i data-feather="bookmark"></i> Закладки</a></li>
             <li><a href="{% url 'media_storage:photo_list' %}"><i data-feather="image"></i> Мои фото</a></li>
@@ -305,7 +305,7 @@
 
         // Мгновенный поиск
         function initInstantSearch() {
-            const searchInputs = document.querySelectorAll('.search-input, .search-input-large');
+            const searchInputs = document.querySelectorAll('.search-input:not(.group-participant-search):not(.chat-user-search), .search-input-large:not(.chat-user-search)');
             searchInputs.forEach(input => {
                 let searchTimeout;
                 let resultsContainer;

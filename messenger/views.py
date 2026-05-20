@@ -1,10 +1,12 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Max
+from django.db.models import Max, Q
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.utils import timezone
+from datetime import timedelta
+from accounts.models import Follow, Friendship
 from accounts.utils import create_notification
 from .models import Chat, Message, ChatParticipant, Reaction
 from .forms import ChatCreateForm, GroupChatCreateForm
@@ -57,8 +59,17 @@ def api_chat_messages(request, chat_id):
     participant.save()
 
     other_user = None
+    other_user_data = None
     if chat.chat_type == 'private':
         other_user = chat.participants.exclude(id=request.user.id).first()
+        if other_user:
+            other_user_data = {
+                'id': other_user.id,
+                'username': other_user.username,
+                'full_name': other_user.get_full_name() or other_user.username,
+                'avatar': other_user.profile.avatar.url if other_user.profile.avatar else None,
+                'is_online': other_user.profile.is_online if other_user.profile else False,
+            }
 
     messages_data = []
     for msg in messages_list:
@@ -87,12 +98,7 @@ def api_chat_messages(request, chat_id):
             'id': chat.id,
             'type': chat.chat_type,
             'name': chat.name or (other_user.get_full_name() or other_user.username if other_user else ''),
-            'other_user': {
-                'username': other_user.username if other_user else None,
-                'full_name': other_user.get_full_name() if other_user else None,
-                'avatar': other_user.profile.avatar.url if other_user and other_user.profile.avatar else None,
-                'is_online': other_user.profile.is_online if other_user else False,
-            } if other_user else None,
+            'other_user': other_user_data,
             'participants_count': chat.participants.count(),
         },
         'messages': messages_data,
@@ -201,18 +207,45 @@ def create_private_chat(request):
 def create_group_chat(request):
     """Создание группового чата"""
     if request.method == 'POST':
-        form = GroupChatCreateForm(request.POST, user=request.user)
-        if form.is_valid():
-            chat = Chat.objects.create(chat_type='group', name=form.cleaned_data['name'])
-            ChatParticipant.objects.create(user=request.user, chat=chat, is_admin=True)
-            for u in form.cleaned_data['participants']:
-                ChatParticipant.objects.create(user=u, chat=chat)
-            if form.cleaned_data['initial_message']:
-                Message.objects.create(chat=chat, author=request.user, content=form.cleaned_data['initial_message'])
-            return redirect('messenger:messenger')
-    else:
-        form = GroupChatCreateForm(user=request.user)
-    return render(request, 'messenger/create_group_chat.html', {'form': form})
+        name = request.POST.get('name', '').strip()
+        participants_ids = request.POST.get('participants', '').split(',')
+        initial_message = request.POST.get('initial_message', '').strip()
+
+        if not name:
+            messages.error(request, 'Введите название группы')
+            return redirect('messenger:create_group_chat')
+
+        # Создаём чат
+        chat = Chat.objects.create(
+            chat_type='group',
+            name=name
+        )
+
+        # Добавляем создателя (администратора)
+        ChatParticipant.objects.create(user=request.user, chat=chat, is_admin=True)
+
+        # Добавляем участников
+        for pid in participants_ids:
+            if pid and pid.isdigit() and int(pid) != request.user.id:
+                try:
+                    user = User.objects.get(id=int(pid))
+                    ChatParticipant.objects.create(user=user, chat=chat)
+                except User.DoesNotExist:
+                    pass
+
+        # Отправляем первое сообщение, если есть
+        if initial_message:
+            Message.objects.create(
+                chat=chat,
+                author=request.user,
+                content=initial_message
+            )
+
+        # Перенаправляем в мессенджер с открытым чатом
+        return redirect(f'/messenger/?chat={chat.id}')
+
+    # GET — показываем страницу
+    return render(request, 'messenger/create_group_chat.html')
 
 
 @login_required
@@ -396,3 +429,159 @@ def api_search_messages(request, chat_id):
         'count': len(results),
         'results': results,
     })
+
+
+# messenger/views.py
+
+@login_required
+def search_users_for_chat(request):
+    """API поиска пользователей для создания чата (AJAX)"""
+    query = request.GET.get('q', '').strip()
+
+    if len(query) < 2:
+        return JsonResponse([], safe=False)
+
+    # Получаем ID пользователей, с которыми уже есть чаты
+    existing_chats = Chat.objects.filter(
+        participants=request.user,
+        chat_type='private'
+    )
+    existing_user_ids = []
+    for chat in existing_chats:
+        for participant in chat.participants.all():
+            if participant.id != request.user.id:
+                existing_user_ids.append(participant.id)
+
+    # Ищем пользователей
+    users = User.objects.filter(
+        Q(username__icontains=query) |
+        Q(first_name__icontains=query) |
+        Q(last_name__icontains=query)
+    ).exclude(
+        id=request.user.id
+    ).exclude(
+        id__in=existing_user_ids
+    ).select_related('profile')[:10]
+
+    results = []
+    for user in users:
+        results.append({
+            'id': user.id,
+            'username': user.username,
+            'full_name': user.get_full_name(),
+            'avatar': user.profile.avatar.url if user.profile.avatar else None,
+        })
+
+    return JsonResponse(results, safe=False)
+
+
+@login_required
+def api_user_profile(request, user_id):
+    """API: получить данные пользователя для модалки"""
+    from posts.models import Post
+    from accounts.models import Follow, Friendship
+
+    target_user = get_object_or_404(User, id=user_id)
+
+    posts_count = Post.objects.filter(author=target_user, status='published', is_hidden=False).count()
+    followers_count = Follow.objects.filter(following=target_user).count()
+    friends_count = Friendship.objects.filter(user=target_user, status='accepted').count()
+
+    is_friend = False
+    if request.user != target_user:
+        is_friend = Friendship.objects.filter(
+            user=request.user, friend=target_user, status='accepted'
+        ).exists()
+
+    return JsonResponse({
+        'status': 'ok',
+        'id': target_user.id,
+        'username': target_user.username,
+        'full_name': target_user.get_full_name() or target_user.username,
+        'avatar': target_user.profile.avatar.url if target_user.profile.avatar else None,
+        'posts_count': posts_count,
+        'followers_count': followers_count,
+        'friends_count': friends_count,
+        'is_friend': is_friend,
+    })
+
+
+@login_required
+def api_group_info(request, chat_id):
+    """API: получить информацию о группе"""
+    chat = get_object_or_404(Chat, id=chat_id, participants=request.user)
+
+    if chat.chat_type != 'group':
+        return JsonResponse({'status': 'error', 'message': 'Не группа'}, status=400)
+
+    participants = ChatParticipant.objects.filter(chat=chat).select_related('user', 'user__profile')
+
+    members = []
+    for p in participants:
+        members.append({
+            'id': p.user.id,
+            'username': p.user.username,
+            'full_name': p.user.get_full_name() or p.user.username,
+            'avatar': p.user.profile.avatar.url if p.user.profile.avatar else None,
+            'is_admin': p.is_admin,
+        })
+
+    return JsonResponse({
+        'status': 'ok',
+        'id': chat.id,
+        'name': chat.name,
+        'avatar': None,  # У Chat нет avatar, пока убираем
+        'members_count': len(members),
+        'members': members,
+        'is_admin': ChatParticipant.objects.filter(chat=chat, user=request.user, is_admin=True).exists(),
+    })
+
+
+@login_required
+def api_chat_media(request, chat_id):
+    """API: получить медиафайлы чата (фото, видео)"""
+    chat = get_object_or_404(Chat, id=chat_id, participants=request.user)
+
+    media_messages = chat.messages.filter(
+        is_deleted=False,
+        file_type__in=['image', 'video']
+    ).order_by('-created_at')
+
+    results = []
+    for msg in media_messages:
+        # Форматируем дату для группировки
+        created_at = msg.created_at
+        now = timezone.now()
+        if created_at.date() == now.date():
+            display_date = 'сегодня'
+        elif created_at.date() == (now - timedelta(days=1)).date():
+            display_date = 'вчера'
+        else:
+            display_date = created_at.strftime('%d %B %Y')
+
+        results.append({
+            'id': msg.id,
+            'type': msg.file_type,
+            'url': msg.file.url,
+            'created_at': created_at.isoformat(),
+            'date_group': created_at.strftime('%Y-%m-%d'),
+            'display_date': display_date,
+        })
+
+    return JsonResponse({
+        'status': 'ok',
+        'media': results,
+        'count': len(results),
+        'has_more': False,
+    })
+
+
+def format_date_group(dt):
+    """Форматирование даты для группировки (сегодня, вчера, дата)"""
+    now = timezone.now()
+    if dt.date() == now.date():
+        return 'сегодня'
+    elif dt.date() == (now - timedelta(days=1)).date():
+        return 'вчера'
+    else:
+        return dt.strftime('%d %B %Y')

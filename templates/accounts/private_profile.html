@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Профиль закрыт · Поток{% endblock %}
+
+{% block content %}
+<div class="private-profile-container">
+    <div class="private-profile-card">
+        <i data-feather="lock" style="width: 64px; height: 64px; color: var(--color-text-tertiary); margin-bottom: 1rem;"></i>
+        <h2>Профиль закрыт</h2>
+        <p>Пользователь @{{ profile_user.username }} ограничил доступ к своему профилю.</p>
+        <p>Отправьте заявку в друзья, чтобы увидеть содержимое.</p>
+        <a href="{% url 'posts:post_list' %}" class="btn btn--primary">На главную</a>
+    </div>
+</div>
+
+<style>
+    .private-profile-container {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 60vh;
+    }
+    .private-profile-card {
+        text-align: center;
+        padding: 2rem;
+        background: var(--color-bg-surface);
+        border-radius: var(--radius-xl);
+        border: 1px solid var(--color-border-light);
+        max-width: 400px;
+    }
+    .private-profile-card h2 {
+        margin-bottom: 1rem;
+    }
+    .private-profile-card p {
+        color: var(--color-text-secondary);
+        margin-bottom: 0.5rem;
+    }
+</style>
+{% endblock %}

@@ -35,6 +35,13 @@
             </div>
         </div>
 
+        <!-- Фильтры чатов -->
+        <div class="tg-chat-filters">
+            <button class="tg-filter-btn active" data-filter="all">Все</button>
+            <button class="tg-filter-btn" data-filter="private">Личные</button>
+            <button class="tg-filter-btn" data-filter="group">Группы</button>
+        </div>
+
         <div class="tg-chats-list" id="chatsList">
             {% for chat in chats %}
             <div class="tg-chat-item {% if chat.unread > 0 %}tg-chat-unread{% endif %}"
@@ -99,8 +106,8 @@
                 <button class="tg-back-btn" onclick="closeChat()">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
                 </button>
-                <div class="tg-chat-ava-sm" id="tgChatAvatar" onclick="openProfile()" style="cursor:pointer"></div>
-                <div class="tg-chat-title" id="tgChatTitle" onclick="openProfile()" style="cursor:pointer"></div>
+                <div class="tg-chat-ava-sm" id="tgChatAvatar" style="cursor:pointer"></div>
+                <div class="tg-chat-title" id="tgChatTitle" style="cursor:pointer"></div>
                 <div class="tg-chat-header-actions">
                     <button class="tg-icon-btn" title="Поиск по чату" id="btnSearchChat">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -146,23 +153,98 @@
         </div>
     </div>
 
-    <!-- === ВСПЛЫВАЮЩИЕ ОКНА === -->
+    <!-- МОДАЛКА ПРОФИЛЯ -->
+    <div class="tg-profile-modal" id="profileModal" style="display:none">
+        <div class="tg-profile-modal-content">
+            <div class="tg-profile-header">
+                <div class="tg-profile-avatar" id="profileAvatar">
+                    <div class="avatar-placeholder">?</div>
+                </div>
+                <button class="tg-profile-close" onclick="closeProfileModal()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="tg-profile-info">
+                <h3 id="profileName"></h3>
+                <p class="tg-profile-username" id="profileUsername"></p>
+                <div class="tg-profile-stats" id="profileStats"></div>
+                <div class="tg-profile-actions">
+                    <div class="profile-action-buttons">
+                        <button class="btn btn--primary btn--sm" id="profileMessageBtn">
+                            <i data-feather="message-circle"></i> Написать сообщение
+                        </button>
+                        <button class="btn btn--outline btn--sm" id="profileFriendBtn">
+                            <i data-feather="user-plus"></i> Добавить в друзья
+                        </button>
+                    </div>
+                    <div class="profile-chat-actions">
+                        <button class="btn btn--outline btn--sm" onclick="clearChatWithUser()">
+                            <i data-feather="trash-2"></i> Очистить историю
+                        </button>
+                        <button class="btn btn--outline btn--sm" onclick="blockUserFromProfile()">
+                            <i data-feather="slash"></i> Заблокировать
+                        </button>
+                        <button class="btn btn--outline btn--sm" onclick="reportUserFromProfile()">
+                            <i data-feather="flag"></i> Пожаловаться
+                        </button>
+                    </div>
+                </div>
+            </div>
 
-    <!-- Меню трёх точек -->
+            <!-- Медиа-галерея -->
+            <div class="tg-profile-media-section">
+                <div class="tg-media-header">
+                    <h4>Медиа</h4>
+                    <span class="tg-media-count" id="mediaCount">0</span>
+                </div>
+                <div class="tg-media-grid" id="mediaGrid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка просмотра медиа -->
+    <div class="tg-media-viewer" id="mediaViewer" style="display:none">
+        <div class="tg-media-viewer-backdrop" onclick="closeMediaViewer()"></div>
+        <div class="tg-media-viewer-content">
+            <button class="tg-media-viewer-close" onclick="closeMediaViewer()">✕</button>
+            <div class="tg-media-viewer-body" id="mediaViewerBody"></div>
+            <div class="tg-media-viewer-info" id="mediaViewerInfo"></div>
+        </div>
+    </div>
+
+    <!-- Меню трёх точек (обновлённое) -->
     <div class="tg-dropdown-menu" id="chatDropdownMenu" style="display:none">
-        <button onclick="openProfile()">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Открыть профиль
-        </button>
-        <button onclick="toggleNotifications()" id="btnToggleNotifications">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
-            <span id="notifLabel">Отключить уведомления</span>
-        </button>
-        <button onclick="clearChat()" class="danger">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Очистить историю
-        </button>
-        <button onclick="leaveChat()" class="danger">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Покинуть чат
-        </button>
+        <!-- Личный чат -->
+        <div id="privateChatMenu" style="display:none">
+            <button onclick="openProfileFromMenu()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Открыть профиль
+            </button>
+            <button onclick="toggleNotificationsFromMenu()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                <span id="notifLabel">Отключить уведомления</span>
+            </button>
+            <button onclick="clearChatHistory()" class="danger">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Очистить историю
+            </button>
+            <button onclick="blockUserFromMenu()" class="danger">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg> Заблокировать
+            </button>
+            <button onclick="reportUserFromMenu()" class="danger">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4m0 4h.01M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/></svg> Пожаловаться
+            </button>
+        </div>
+        <!-- Групповой чат -->
+        <div id="groupChatMenu" style="display:none">
+            <button onclick="openGroupInfoFromMenu()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Информация о группе
+            </button>
+            <button onclick="showGroupMembersFromMenu()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Участники
+            </button>
+            <button onclick="leaveGroupFromMenu()" class="danger">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Покинуть группу
+            </button>
+        </div>
     </div>
 
     <!-- Модалка редактирования сообщения -->
@@ -220,6 +302,31 @@
         <div class="tg-emoji-grid" id="emojiGrid"></div>
     </div>
 </div>
+<!-- Модалка информации о группе -->
+<div class="tg-group-modal" id="groupModal" style="display:none">
+    <div class="tg-group-modal-content">
+        <div class="tg-group-header">
+            <div class="tg-group-avatar" id="groupAvatar">
+                <div class="avatar-placeholder">?</div>
+            </div>
+            <button class="tg-group-close" onclick="closeGroupModal()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="tg-group-info">
+            <h3 id="groupName"></h3>
+            <p class="tg-group-members-count" id="groupMembersCount"></p>
+        </div>
+
+        <div class="tg-group-members-section">
+            <div class="tg-members-header">
+                <h4>Участники</h4>
+                <span class="tg-members-count" id="membersCount">0</span>
+            </div>
+            <div class="tg-members-list" id="membersList"></div>
+        </div>
+    </div>
+</div>
 
 <script>
     window.chatConfig = {
@@ -232,19 +339,59 @@
         deleteUrl: "/messenger/message/",
         searchUrl: "/messenger/api/search/",
         chatInfoUrl: "/messenger/chat/",
+        chatMediaUrl: "/messenger/api/chat/",
     };
 
     let currentChatId = null;
     let currentChatData = null;
+    let currentChatType = null;
     let contextMessageId = null;
     let contextMessageContent = null;
     let editMessageId = null;
     let lightboxUrl = null;
     let lightboxType = null;
     let notificationsMuted = false;
+    let currentFilter = 'all';
+    let currentMediaPage = 1;
+    let hasMoreMedia = false;
 
     const EMOJIS = ['😊','😂','❤️','👍','😍','🎉','😢','😡','🤔','🙏','👋','✨','🔥','💯','⭐','😎','🤩','😇','💪','👀','🎁','🏆','🎨','🎵'];
     document.getElementById('emojiGrid').innerHTML = EMOJIS.map(e => `<button onclick="insertEmoji('${e}')">${e}</button>`).join('');
+
+    // === ФИЛЬТРАЦИЯ ЧАТОВ ===
+    function initFilters() {
+        document.querySelectorAll('.tg-filter-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                currentFilter = this.dataset.filter;
+                document.querySelectorAll('.tg-filter-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                filterChats();
+            });
+        });
+    }
+
+    function filterChats() {
+        const chatItems = document.querySelectorAll('.tg-chat-item');
+        chatItems.forEach(item => {
+            const chatType = item.dataset.chatType;
+            if (currentFilter === 'all') {
+                item.style.display = '';
+            } else if (currentFilter === 'private' && chatType === 'private') {
+                item.style.display = '';
+            } else if (currentFilter === 'group' && chatType === 'group') {
+                item.style.display = '';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `custom-toast custom-toast--${type}`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
 
     // === НАВИГАЦИЯ ===
     function toggleNewChatDropdown(e) {
@@ -263,10 +410,27 @@
         document.querySelector(`.tg-chat-item[data-chat-id="${chatId}"]`)?.classList.add('active');
         loadMessages(chatId);
         if (window.innerWidth <= 768) document.getElementById('tgSidebar').classList.add('hidden');
+
+        // Обновляем меню трёх точек в зависимости от типа чата
+        updateChatMenu();
+    }
+
+    function updateChatMenu() {
+        const privateMenu = document.getElementById('privateChatMenu');
+        const groupMenu = document.getElementById('groupChatMenu');
+
+        if (currentChatType === 'private') {
+            privateMenu.style.display = 'block';
+            groupMenu.style.display = 'none';
+        } else {
+            privateMenu.style.display = 'none';
+            groupMenu.style.display = 'block';
+        }
     }
 
     function closeChat() {
         currentChatId = null;
+        currentChatType = null;
         document.getElementById('tgChatView').style.display = 'none';
         document.getElementById('tgChatView').classList.remove('active');
         document.getElementById('tgPlaceholder').style.display = 'flex';
@@ -274,22 +438,129 @@
         if (window.innerWidth <= 768) document.getElementById('tgSidebar').classList.remove('hidden');
     }
 
-    function openProfile() {
-        if (currentChatData?.other_user?.username) {
-            window.open('/accounts/profile/' + currentChatData.other_user.username + '/', '_blank');
-        }
-    }
-
     // === МЕНЮ ТРЁХ ТОЧЕК ===
     document.getElementById('btnChatMenu').addEventListener('click', function(e) {
         e.stopPropagation();
         const menu = document.getElementById('chatDropdownMenu');
         const rect = this.getBoundingClientRect();
+
+        // Обновляем меню в зависимости от типа чата
+        const privateMenu = document.getElementById('privateChatMenu');
+        const groupMenu = document.getElementById('groupChatMenu');
+
+        if (currentChatType === 'private') {
+            privateMenu.style.display = 'block';
+            groupMenu.style.display = 'none';
+
+            // Обновляем текст уведомлений
+            const notifLabel = document.getElementById('notifLabel');
+            notifLabel.textContent = notificationsMuted ? 'Включить уведомления' : 'Отключить уведомления';
+        } else if (currentChatType === 'group') {
+            privateMenu.style.display = 'none';
+            groupMenu.style.display = 'block';
+        }
+
         menu.style.display = 'block';
         menu.style.right = (window.innerWidth - rect.right) + 'px';
         menu.style.top = rect.bottom + 'px';
+
         document.addEventListener('click', () => menu.style.display = 'none', { once: true });
     });
+
+    function openProfileFromMenu() {
+        if (currentChatData?.other_user?.username) {
+            openProfileModal(currentChatId);
+        }
+        document.getElementById('chatDropdownMenu').style.display = 'none';
+    }
+
+    async function openGroupInfoFromMenu() {
+        await openGroupInfoModal(currentChatId);
+        document.getElementById('chatDropdownMenu').style.display = 'none';
+    }
+
+    async function showGroupMembersFromMenu() {
+        await openGroupInfoModal(currentChatId);
+        // Прокручиваем к списку участников
+        const membersSection = document.querySelector('.tg-group-members-section');
+        if (membersSection) membersSection.scrollIntoView({ behavior: 'smooth' });
+        document.getElementById('chatDropdownMenu').style.display = 'none';
+    }
+    function toggleNotificationsFromMenu() {
+        notificationsMuted = !notificationsMuted;
+        const notifLabel = document.getElementById('notifLabel');
+        if (notifLabel) notifLabel.textContent = notificationsMuted ? 'Включить уведомления' : 'Отключить уведомления';
+        // TODO: сохранить настройку в localStorage или на сервере
+        document.getElementById('chatDropdownMenu').style.display = 'none';
+        showToast(notificationsMuted ? 'Уведомления отключены' : 'Уведомления включены');
+    }
+    async function clearChatHistory() {
+        if (!confirm('Очистить всю историю сообщений? Это действие нельзя отменить.')) return;
+
+        try {
+            const response = await fetch(`/messenger/chat/${currentChatId}/clear/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            if (response.ok) {
+                loadMessages(currentChatId);
+                showToast('История очищена');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+        document.getElementById('chatDropdownMenu').style.display = 'none';
+    }
+    async function blockUserFromMenu() {
+        if (!confirm('Заблокировать пользователя? Он не сможет писать вам.')) return;
+
+        try {
+            const response = await fetch(`/accounts/block/${currentChatData?.other_user?.id}/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            if (response.ok) {
+                showToast('Пользователь заблокирован');
+                closeChat();
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+        document.getElementById('chatDropdownMenu').style.display = 'none';
+    }
+
+    async function reportUserFromMenu() {
+        // TODO: открыть модалку жалобы
+        showToast('Жалоба отправлена модераторам');
+        document.getElementById('chatDropdownMenu').style.display = 'none';
+    }
+
+    async function leaveGroupFromMenu() {
+        if (!confirm('Покинуть группу? Вы больше не сможете писать в ней.')) return;
+
+        try {
+            const response = await fetch(`/messenger/chat/${currentChatId}/leave/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            if (response.ok) {
+                showToast('Вы покинули группу');
+                closeChat();
+                location.reload();
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+        document.getElementById('chatDropdownMenu').style.display = 'none';
+    }
+
+    function blockUser() {
+        if (confirm('Заблокировать пользователя? Он не сможет писать вам.')) {
+            // TODO: реализовать блокировку
+            alert('Пользователь заблокирован');
+        }
+        document.getElementById('chatDropdownMenu').style.display = 'none';
+    }
 
     function toggleNotifications() {
         notificationsMuted = !notificationsMuted;
@@ -298,13 +569,10 @@
     }
 
     function clearChat() {
+        if (confirm('Очистить историю сообщений?')) {
+            document.getElementById('tgMessages').innerHTML = '';
+        }
         document.getElementById('chatDropdownMenu').style.display = 'none';
-        if (confirm('Очистить историю сообщений?')) document.getElementById('tgMessages').innerHTML = '';
-    }
-
-    function leaveChat() {
-        document.getElementById('chatDropdownMenu').style.display = 'none';
-        if (confirm('Покинуть чат?')) closeChat();
     }
 
     // === ПОИСК ПО ЧАТУ ===
@@ -349,10 +617,12 @@
     // === ЗАГРУЗКА СООБЩЕНИЙ ===
     async function loadMessages(chatId) {
         try {
-            const r = await fetch(window.chatConfig.chatMessagesUrl + chatId + '/');
-            const data = await r.json();
+            const response = await fetch(`/messenger/api/chat/${chatId}/`);
+            const data = await response.json();
             if (data.status !== 'ok') return;
             currentChatData = data.chat;
+            currentChatType = data.chat.type;
+             console.log('currentChatData:', currentChatData); // ДЛЯ ОТЛАДКИ
 
             const ava = document.getElementById('tgChatAvatar');
             if (data.chat.type === 'private' && data.chat.other_user) {
@@ -362,17 +632,229 @@
                 document.getElementById('tgChatTitle').innerHTML = `
                     <span style="display:block;font-weight:600;font-size:15px">${data.chat.other_user.full_name || data.chat.other_user.username}</span>
                     <span class="tg-status">${data.chat.other_user.is_online ? 'в сети' : 'не в сети'}</span>`;
+                // Добавляем обработчик клика по шапке для открытия модалки
+                document.getElementById('tgChatTitle').onclick = () => openProfileModal(chatId);
+                document.getElementById('tgChatAvatar').onclick = () => openProfileModal(chatId);
             } else {
                 ava.innerHTML = `<span class="tg-av-placeholder grp">${(data.chat.name || 'Г')[0].toUpperCase()}</span>`;
                 document.getElementById('tgChatTitle').innerHTML = `
                     <span style="display:block;font-weight:600;font-size:15px">${data.chat.name}</span>
                     <span class="tg-status">${data.chat.participants_count} участников</span>`;
+                document.getElementById('tgChatTitle').onclick = () => openGroupInfoModal(chatId);
+                document.getElementById('tgChatAvatar').onclick = () => openGroupInfoModal(chatId);
             }
 
             const container = document.getElementById('tgMessages');
             container.innerHTML = data.messages.map(msg => renderMessage(msg)).join('');
             container.scrollTop = container.scrollHeight;
-        } catch(err) { console.error(err); }
+
+            updateChatMenu();
+        } catch(err) {
+            console.error('loadMessages error:', err);
+        }
+    }
+
+    // === МОДАЛКА ПРОФИЛЯ ===
+    let currentProfileUserId = null;
+
+    async function openProfileModal(chatId) {
+        console.log('openProfileModal called', chatId);
+
+        if (currentChatType !== 'private') {
+            openGroupInfoModal(chatId);
+            return;
+        }
+
+        // Получаем ID пользователя из currentChatData
+        let userId = currentChatData?.other_user?.id;
+
+        if (!userId) {
+            console.error('No user ID found in currentChatData:', currentChatData);
+            showToast('Не удалось определить пользователя', 'error');
+            return;
+        }
+
+        console.log('User ID found:', userId);
+
+        try {
+            const response = await fetch(`/messenger/api/user/${userId}/`);
+            const data = await response.json();
+            if (data.status !== 'ok') {
+                console.error('API error:', data);
+                return;
+            }
+
+            currentProfileUserId = data.id;
+
+            document.getElementById('profileName').textContent = data.full_name;
+            document.getElementById('profileUsername').textContent = '@' + data.username;
+
+            const avatarDiv = document.getElementById('profileAvatar');
+            if (data.avatar) {
+                avatarDiv.innerHTML = `<img src="${data.avatar}" alt="">`;
+            } else {
+                avatarDiv.innerHTML = `<div class="avatar-placeholder">${data.username.charAt(0).toUpperCase()}</div>`;
+            }
+
+            document.getElementById('profileStats').innerHTML = `
+                <div class="stat"><div class="stat-value">${data.posts_count}</div><div class="stat-label">Посты</div></div>
+                <div class="stat"><div class="stat-value">${data.followers_count}</div><div class="stat-label">Подписчики</div></div>
+                <div class="stat"><div class="stat-value">${data.friends_count}</div><div class="stat-label">Друзья</div></div>
+            `;
+
+            const friendBtn = document.getElementById('profileFriendBtn');
+            if (data.is_friend) {
+                friendBtn.textContent = 'Удалить из друзей';
+                friendBtn.className = 'btn btn--danger btn--sm';
+            } else {
+                friendBtn.textContent = 'Добавить в друзья';
+                friendBtn.className = 'btn btn--outline btn--sm';
+            }
+            friendBtn.onclick = () => toggleFriendFromModal(userId, data.is_friend);
+
+            // Кнопка "Написать сообщение"
+            const messageBtn = document.getElementById('profileMessageBtn');
+            messageBtn.onclick = () => {
+                closeProfileModal();
+                // Уже в чате
+            };
+
+            await loadChatMedia(chatId);
+
+            const modal = document.getElementById('profileModal');
+            if (modal) {
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+                console.log('Modal opened');
+            }
+        } catch (error) {
+            console.error('Error in openProfileModal:', error);
+            showToast('Ошибка загрузки профиля', 'error');
+        }
+    }
+
+    function closeProfileModal() {
+        const modal = document.getElementById('profileModal');
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+    }
+
+    async function loadChatMedia(chatId, page = 1) {
+        try {
+            const response = await fetch(`/messenger/api/chat/${chatId}/media/`);
+            const data = await response.json();
+
+            const mediaGrid = document.getElementById('mediaGrid');
+            const mediaCount = document.getElementById('mediaCount');
+
+            if (data.status !== 'ok') {
+                mediaGrid.innerHTML = '<div style="text-align:center;padding:20px;color:#9aa7b4">Ошибка загрузки медиа</div>';
+                return;
+            }
+
+            mediaCount.textContent = data.count;
+
+            if (data.media.length === 0) {
+                mediaGrid.innerHTML = '<div style="text-align:center;padding:20px;color:#9aa7b4">Нет медиа</div>';
+                return;
+            }
+
+            // Группировка по датам
+            const grouped = {};
+            data.media.forEach(item => {
+                if (!grouped[item.date_group]) {
+                    grouped[item.date_group] = {
+                        display_date: item.display_date,
+                        items: []
+                    };
+                }
+                grouped[item.date_group].items.push(item);
+            });
+
+            let html = '';
+            for (const [date, group] of Object.entries(grouped)) {
+                html += `<div class="media-group"><div class="media-group-date">${group.display_date}</div><div class="media-group-grid">`;
+                group.items.forEach(item => {
+                    if (item.type === 'image') {
+                        html += `<div class="tg-media-item" onclick="openMediaViewer('${item.url}', 'image')"><img src="${item.url}" loading="lazy"></div>`;
+                    } else if (item.type === 'video') {
+                        html += `<div class="tg-media-item video-item" onclick="openMediaViewer('${item.url}', 'video')"><video src="${item.url}" muted preload="metadata"></video><div class="video-play-icon">▶</div></div>`;
+                    }
+                });
+                html += `</div></div>`;
+            }
+
+            mediaGrid.innerHTML = html;
+        } catch (error) {
+            console.error('Error loading media:', error);
+            document.getElementById('mediaGrid').innerHTML = '<div style="text-align:center;padding:20px;color:#9aa7b4">Ошибка загрузки</div>';
+        }
+    }
+
+    function loadMoreMedia() {
+        if (currentChatId && hasMoreMedia) {
+            loadChatMedia(currentChatId, currentMediaPage + 1);
+        }
+    }
+
+    function openMediaViewer(url, type) {
+        const viewer = document.getElementById('mediaViewer');
+        const body = document.getElementById('mediaViewerBody');
+
+        if (type === 'image') {
+            body.innerHTML = `<img src="${url}" alt="">`;
+        } else {
+            body.innerHTML = `<video src="${url}" controls autoplay></video>`;
+        }
+
+        viewer.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeMediaViewer() {
+        document.getElementById('mediaViewer').style.display = 'none';
+        document.body.style.overflow = '';
+    }
+
+
+    async function openGroupInfoModal(chatId) {
+        console.log('openGroupInfoModal called', chatId);
+        try {
+            const response = await fetch(`/messenger/api/group/${chatId}/`);
+            const data = await response.json();
+            if (data.status !== 'ok') return;
+
+            document.getElementById('groupName').textContent = data.name;
+            document.getElementById('groupMembersCount').textContent = data.members_count + ' участников';
+            document.getElementById('membersCount').textContent = data.members_count;
+
+            const membersList = document.getElementById('membersList');
+            membersList.innerHTML = data.members.map(m => `
+                <div class="tg-member-item" onclick="window.location.href='/accounts/profile/${m.username}/'">
+                    <div class="tg-member-avatar">
+                        ${m.avatar ? `<img src="${m.avatar}" alt="">` : `<div class="avatar-initials">${(m.full_name || m.username)[0].toUpperCase()}</div>`}
+                    </div>
+                    <div class="tg-member-info">
+                        <div class="tg-member-name">${escapeHtml(m.full_name || m.username)}</div>
+                        <div class="tg-member-username">@${escapeHtml(m.username)}</div>
+                    </div>
+                    ${m.is_admin ? '<div class="tg-member-badge">Админ</div>' : ''}
+                </div>
+            `).join('');
+
+            document.getElementById('groupModal').style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        } catch(e) {
+            console.error('Error loading group info:', e);
+            showToast('Ошибка загрузки информации о группе', 'error');
+        }
+    }
+
+    function closeGroupModal() {
+        document.getElementById('groupModal').style.display = 'none';
+        document.body.style.overflow = '';
     }
 
     function renderMessage(msg) {
@@ -448,76 +930,75 @@
                 </div>`;
             btnCopy.style.display = 'none';
 
-setTimeout(() => {
-    const video = document.getElementById('lightboxVideo');
-    const seek = document.getElementById('videoSeek');
-    const volume = document.getElementById('videoVolume');
-    const time = document.getElementById('videoTime');
-    const btnPlay = document.getElementById('btnPlay');
-    const btnMute = document.getElementById('btnMute');
-    if (!video) return;
+            setTimeout(() => {
+                const video = document.getElementById('lightboxVideo');
+                const seek = document.getElementById('videoSeek');
+                const volume = document.getElementById('videoVolume');
+                const time = document.getElementById('videoTime');
+                const btnPlay = document.getElementById('btnPlay');
+                const btnMute = document.getElementById('btnMute');
+                if (!video) return;
 
-            function setupSeek() {
-                if (video.duration && isFinite(video.duration)) {
-                    seek.max = 100;
+                function setupSeek() {
+                    if (video.duration && isFinite(video.duration)) {
+                        seek.max = 100;
+                    }
                 }
-            }
 
-            video.addEventListener('loadedmetadata', setupSeek);
-            video.addEventListener('durationchange', setupSeek);
-            // Если метаданные уже загружены
-            if (video.readyState >= 1) setupSeek();
+                video.addEventListener('loadedmetadata', setupSeek);
+                video.addEventListener('durationchange', setupSeek);
+                if (video.readyState >= 1) setupSeek();
 
-            video.addEventListener('timeupdate', () => {
-                if (video.duration && !seek.dragging) {
-                    seek.value = (video.currentTime / video.duration) * 100;
-                }
-                updateTime();
-            });
+                video.addEventListener('timeupdate', () => {
+                    if (video.duration && !seek.dragging) {
+                        seek.value = (video.currentTime / video.duration) * 100;
+                    }
+                    updateTime();
+                });
 
-            let seekDragging = false;
-            seek.addEventListener('mousedown', () => seekDragging = true);
-            seek.addEventListener('mouseup', () => {
-                seekDragging = false;
-                if (video.duration) video.currentTime = (seek.value / 100) * video.duration;
-            });
-            seek.addEventListener('input', () => {
-                if (seekDragging && video.duration) video.currentTime = (seek.value / 100) * video.duration;
-            });
-            seek.addEventListener('change', () => {
-                if (video.duration) video.currentTime = (seek.value / 100) * video.duration;
-            });
+                let seekDragging = false;
+                seek.addEventListener('mousedown', () => seekDragging = true);
+                seek.addEventListener('mouseup', () => {
+                    seekDragging = false;
+                    if (video.duration) video.currentTime = (seek.value / 100) * video.duration;
+                });
+                seek.addEventListener('input', () => {
+                    if (seekDragging && video.duration) video.currentTime = (seek.value / 100) * video.duration;
+                });
+                seek.addEventListener('change', () => {
+                    if (video.duration) video.currentTime = (seek.value / 100) * video.duration;
+                });
 
-            volume.addEventListener('input', () => {
-                video.volume = volume.value / 100;
-                btnMute.textContent = video.muted || video.volume === 0 ? '🔇' : video.volume < 0.5 ? '🔉' : '🔊';
-            });
+                volume.addEventListener('input', () => {
+                    video.volume = volume.value / 100;
+                    btnMute.textContent = video.muted || video.volume === 0 ? '🔇' : video.volume < 0.5 ? '🔉' : '🔊';
+                });
 
-            window.togglePlay = function() {
-                if (video.paused) { video.play(); btnPlay.textContent = '⏸'; }
-                else { video.pause(); btnPlay.textContent = '▶'; }
-            };
-
-            window.toggleMute = function() {
-                video.muted = !video.muted;
-                btnMute.textContent = video.muted || video.volume === 0 ? '🔇' : video.volume < 0.5 ? '🔉' : '🔊';
-            };
-
-            window.toggleFullscreen = function() {
-                if (video.requestFullscreen) video.requestFullscreen();
-            };
-
-            function updateTime() {
-                const f = s => {
-                    const m = Math.floor(s / 60);
-                    const sec = Math.floor(s % 60);
-                    return m + ':' + sec.toString().padStart(2, '0');
+                window.togglePlay = function() {
+                    if (video.paused) { video.play(); btnPlay.textContent = '⏸'; }
+                    else { video.pause(); btnPlay.textContent = '▶'; }
                 };
-                time.textContent = f(video.currentTime) + ' / ' + f(video.duration || 0);
-            }
 
-            video.addEventListener('click', () => togglePlay());
-        }, 100);
+                window.toggleMute = function() {
+                    video.muted = !video.muted;
+                    btnMute.textContent = video.muted || video.volume === 0 ? '🔇' : video.volume < 0.5 ? '🔉' : '🔊';
+                };
+
+                window.toggleFullscreen = function() {
+                    if (video.requestFullscreen) video.requestFullscreen();
+                };
+
+                function updateTime() {
+                    const f = s => {
+                        const m = Math.floor(s / 60);
+                        const sec = Math.floor(s % 60);
+                        return m + ':' + sec.toString().padStart(2, '0');
+                    };
+                    time.textContent = f(video.currentTime) + ' / ' + f(video.duration || 0);
+                }
+
+                video.addEventListener('click', () => togglePlay());
+            }, 100);
         }
         lb.style.display = 'flex';
         document.body.style.overflow = 'hidden';
@@ -560,85 +1041,78 @@ setTimeout(() => {
         document.addEventListener('click', () => menu.remove(), { once: true });
     }
 
-async function downloadMediaDirect(url) {
-    try {
-        const filename = url.split('/').pop().split('?')[0] || 'file';
-        const response = await fetch(url);
-        const blob = await response.blob();
+    async function downloadMediaDirect(url) {
+        try {
+            const filename = url.split('/').pop().split('?')[0] || 'file';
+            const response = await fetch(url);
+            const blob = await response.blob();
 
-        if (window.showSaveFilePicker) {
-            const handle = await window.showSaveFilePicker({
-                suggestedName: filename,
-                types: [{
-                    description: 'Файл',
-                    accept: { 'application/octet-stream': ['.' + (filename.split('.').pop() || 'bin')] }
-                }]
-            });
-            const writable = await handle.createWritable();
-            await writable.write(blob);
-            await writable.close();
-        } else {
-            // Фолбэк для браузеров без File System Access API
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(a.href);
-        }
-    } catch(e) {
-        if (e.name !== 'AbortError') {
-            // Пользователь не отменил — пробуем старый способ
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = url.split('/').pop().split('?')[0] || 'file';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            if (window.showSaveFilePicker) {
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: filename,
+                    types: [{ description: 'Файл', accept: { 'application/octet-stream': ['.' + (filename.split('.').pop() || 'bin')] } }]
+                });
+                const writable = await handle.createWritable();
+                await writable.write(blob);
+                await writable.close();
+            } else {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(a.href);
+            }
+        } catch(e) {
+            if (e.name !== 'AbortError') {
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = url.split('/').pop().split('?')[0] || 'file';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
         }
     }
-}
 
-        async function saveMediaAsDirect(url) {
-            try {
-                const oldName = url.split('/').pop().split('?')[0] || 'file';
-                const response = await fetch(url);
-                const blob = await response.blob();
+    async function saveMediaAsDirect(url) {
+        try {
+            const oldName = url.split('/').pop().split('?')[0] || 'file';
+            const response = await fetch(url);
+            const blob = await response.blob();
 
-                if (window.showSaveFilePicker) {
-                    const handle = await window.showSaveFilePicker({
-                        suggestedName: oldName,
-                    });
-                    const writable = await handle.createWritable();
-                    await writable.write(blob);
-                    await writable.close();
-                } else {
-                    const name = prompt('Имя файла:', oldName);
-                    if (name) {
-                        const a = document.createElement('a');
-                        a.href = URL.createObjectURL(blob);
-                        a.download = name;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(a.href);
-                    }
+            if (window.showSaveFilePicker) {
+                const handle = await window.showSaveFilePicker({ suggestedName: oldName });
+                const writable = await handle.createWritable();
+                await writable.write(blob);
+                await writable.close();
+            } else {
+                const name = prompt('Имя файла:', oldName);
+                if (name) {
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(a.href);
                 }
-            } catch(e) {
-                if (e.name !== 'AbortError') {
-                    const name = prompt('Имя файла:', url.split('/').pop().split('?')[0] || 'file');
-                    if (name) {
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = name;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                    }
+            }
+        } catch(e) {
+            if (e.name !== 'AbortError') {
+                const name = prompt('Имя файла:', url.split('/').pop().split('?')[0] || 'file');
+                if (name) {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
                 }
             }
         }
+    }
 
     async function copyImageToClipboard(url) {
         try {
@@ -688,7 +1162,17 @@ async function downloadMediaDirect(url) {
     function contextReply() { const inp = document.getElementById('messageInput'); inp.value = '> ' + contextMessageContent.substring(0, 50) + '\n'; inp.focus(); closeContexts(); }
     function contextCopy() { navigator.clipboard.writeText(contextMessageContent).catch(() => {}); closeContexts(); }
     function contextEdit() { closeContexts(); openEditModal(contextMessageId, contextMessageContent); }
-    function contextDelete() { if (confirm('Удалить сообщение?')) { fetch(window.chatConfig.deleteUrl + contextMessageId + '/delete/', { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } }).then(r => { if (r.ok && currentChatId) loadMessages(currentChatId); }); } closeContexts(); }
+    async function contextDelete() {
+        if (!confirm('Удалить сообщение?')) return;
+        try {
+            const response = await fetch(`/messenger/message/${contextMessageId}/delete/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            if (response.ok && currentChatId) loadMessages(currentChatId);
+        } catch(e) { console.error(e); }
+        closeContexts();
+    }
 
     // === РЕДАКТИРОВАНИЕ ===
     function openEditModal(msgId, content) { editMessageId = msgId; document.getElementById('editMessageInput').value = content; document.getElementById('editModal').style.display = 'flex'; document.getElementById('editMessageInput').focus(); }
@@ -697,8 +1181,13 @@ async function downloadMediaDirect(url) {
     function saveEditMessage() {
         const c = document.getElementById('editMessageInput').value.trim();
         if (c && editMessageId) {
-            fetch(window.chatConfig.editUrl + editMessageId + '/edit/', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') }, body: 'content=' + encodeURIComponent(c) })
-                .then(r => { if (r.ok && currentChatId) loadMessages(currentChatId); });
+            fetch(`/messenger/message/${editMessageId}/edit/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+                body: 'content=' + encodeURIComponent(c)
+            }).then(response => {
+                if (response.ok && currentChatId) loadMessages(currentChatId);
+            }).catch(console.error);
         }
         closeEditModal();
     }
@@ -743,24 +1232,36 @@ async function downloadMediaDirect(url) {
     const fileInput = document.getElementById('fileInput');
     const clipBtn = document.getElementById('clipBtn');
 
-    messageInput.addEventListener('input', () => sendBtn.disabled = !messageInput.value.trim() && !fileInput.files.length);
-    clipBtn.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', () => sendBtn.disabled = !messageInput.value.trim() && !fileInput.files.length);
-
     messageInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!sendBtn.disabled) messageForm.dispatchEvent(new Event('submit')); }
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (!sendBtn.disabled) messageForm.dispatchEvent(new Event('submit'));
+        }
     });
 
     messageForm.addEventListener('submit', async function(e) {
         e.preventDefault();
         if (!currentChatId) return;
+
         const fd = new FormData();
         fd.append('content', messageInput.value.trim());
         if (fileInput.files[0]) fd.append('file', fileInput.files[0]);
+
         try {
-            const r = await fetch(window.chatConfig.sendMessageUrl + currentChatId + '/send/', { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }, body: fd });
-            if (r.ok) { messageInput.value = ''; fileInput.value = ''; sendBtn.disabled = true; loadMessages(currentChatId); }
-        } catch(err) { console.error(err); }
+            const response = await fetch(`/messenger/chat/${currentChatId}/send/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                body: fd
+            });
+            if (response.ok) {
+                messageInput.value = '';
+                fileInput.value = '';
+                sendBtn.disabled = true;
+                loadMessages(currentChatId);
+            }
+        } catch(err) {
+            console.error(err);
+        }
     });
 
     // === ВСТАВКА ИЗОБРАЖЕНИЙ (Ctrl+V) ===
@@ -805,8 +1306,9 @@ async function downloadMediaDirect(url) {
         if (e.key === 'Escape') {
             closeLightbox();
             if (document.getElementById('editModal').style.display === 'flex') closeEditModal();
+            closeProfileModal();
+            closeMediaViewer();
         }
-        // Управление видео с клавиатуры
         if (document.getElementById('lightbox').style.display === 'flex' && lightboxType === 'video') {
             const v = document.getElementById('lightboxVideo');
             if (v) {
@@ -823,8 +1325,54 @@ async function downloadMediaDirect(url) {
         openChat(parseInt(urlParams.get('chat')));
         window.history.replaceState({}, '', '/messenger/');
     }
+    async function clearChatWithUser() {
+        if (!confirm('Очистить всю историю сообщений с этим пользователем?')) return;
+
+        try {
+            const response = await fetch(`/messenger/chat/${currentChatId}/clear/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            if (response.ok) {
+                showToast('История очищена', 'success');
+                loadMessages(currentChatId);
+                closeProfileModal();
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showToast('Ошибка при очистке', 'error');
+        }
+    }
+
+    async function blockUserFromProfile() {
+        if (!confirm('Заблокировать пользователя? Он не сможет писать вам.')) return;
+
+        try {
+            const response = await fetch(`/accounts/block/${currentProfileUserId}/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            if (response.ok) {
+                showToast('Пользователь заблокирован', 'success');
+                closeProfileModal();
+                closeChat();
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showToast('Ошибка при блокировке', 'error');
+        }
+    }
+
+    function reportUserFromProfile() {
+        showToast('Жалоба отправлена модераторам', 'success');
+        closeProfileModal();
+    }
+
+    // Инициализация
+    initFilters();
 
     function getCookie(n) { let v = null; document.cookie.split(';').forEach(c => { const [k, val] = c.trim().split('='); if (k === n) v = decodeURIComponent(val); }); return v; }
+
 </script>
 {% endblock %}
 
@@ -887,6 +1435,38 @@ async function downloadMediaDirect(url) {
     .hdr-dropdown-menu a:hover { background: #f3f4f6; }
     .hdr-dropdown-menu a i { width: 18px; height: 18px; }
 
+    /* === ФИЛЬТРЫ === */
+    .tg-chat-filters {
+        display: flex;
+        gap: 8px;
+        padding: 12px 16px;
+        border-bottom: 1px solid #e5e7eb;
+        background: #fff;
+    }
+
+    .tg-filter-btn {
+        flex: 1;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid #e5e7eb;
+        background: #fff;
+        color: #6b7280;
+    }
+
+    .tg-filter-btn.active {
+        background: #3b82f6;
+        border-color: #3b82f6;
+        color: #fff;
+    }
+
+    .tg-filter-btn:hover:not(.active) {
+        background: #f3f4f6;
+    }
+
     /* === САМ МЕССЕНДЖЕР === */
     .tg-app {
         display: flex !important;
@@ -907,18 +1487,15 @@ async function downloadMediaDirect(url) {
     }
 
     .tg-sidebar-header { padding: 12px; border-bottom: 1px solid #e5e7eb; flex-shrink: 0; }
-
     .tg-search-box {
         display: flex; align-items: center; gap: 8px;
         padding: 8px 12px; background: #f3f4f6; border-radius: 10px;
     }
-
     .tg-search-input {
         flex: 1; border: none; background: transparent;
         font-size: 14px; font-family: inherit; outline: none; color: #111827;
     }
     .tg-search-input::placeholder { color: #9aa7b4; }
-
     .tg-chats-list { flex: 1; overflow-y: auto; }
 
     .tg-chat-item {
@@ -1152,6 +1729,581 @@ async function downloadMediaDirect(url) {
         background: none; cursor: pointer; font-size: 18px; flex-shrink: 0;
     }
 
+    /* === МОДАЛКА ПРОФИЛЯ (УЛУЧШЕННАЯ) === */
+    .tg-profile-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(8px);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .tg-profile-modal-content {
+        background: var(--color-bg-surface, #fff);
+        border-radius: 32px;
+        width: 90%;
+        max-width: 520px;
+        max-height: 85vh;
+        overflow-y: auto;
+        position: relative;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        animation: modalSlideIn 0.3s ease;
+    }
+
+    @keyframes modalSlideIn {
+        from {
+            opacity: 0;
+            transform: scale(0.95) translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+
+    .tg-profile-header {
+        position: relative;
+        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        padding: 48px 24px 32px;
+        border-radius: 32px 32px 0 0;
+        text-align: center;
+    }
+
+    .tg-profile-avatar {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        overflow: hidden;
+        margin: 0 auto;
+        border: 4px solid #fff;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        background: #fff;
+    }
+
+    .tg-profile-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .tg-profile-avatar .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+        font-size: 48px;
+        font-weight: 600;
+    }
+
+    .tg-profile-close {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: #fff;
+        transition: all 0.2s;
+    }
+
+    .tg-profile-close:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: scale(1.05);
+    }
+
+    .tg-profile-info {
+        padding: 24px;
+        text-align: center;
+    }
+
+    .tg-profile-info h3 {
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 4px;
+        color: var(--color-text-primary, #111827);
+    }
+
+    .tg-profile-username {
+        color: #6b7280;
+        margin-bottom: 20px;
+        font-size: 14px;
+    }
+
+    .tg-profile-stats {
+        display: flex;
+        justify-content: center;
+        gap: 32px;
+        margin-bottom: 24px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .tg-profile-stats .stat {
+        text-align: center;
+    }
+
+    .tg-profile-stats .stat-value {
+        font-weight: 700;
+        font-size: 22px;
+        color: #3b82f6;
+    }
+
+    .tg-profile-stats .stat-label {
+        font-size: 12px;
+        color: #6b7280;
+        margin-top: 4px;
+    }
+
+    .tg-profile-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .profile-action-buttons {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+    }
+
+    .profile-action-buttons .btn {
+        padding: 10px 20px;
+        font-size: 14px;
+        border-radius: 30px;
+    }
+
+    .profile-chat-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        flex-wrap: wrap;
+        padding-top: 12px;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .profile-chat-actions .btn {
+        font-size: 12px;
+        padding: 6px 14px;
+        border-radius: 20px;
+    }
+
+    /* Медиа-галерея */
+    .tg-profile-media-section {
+        padding: 0 20px 24px;
+    }
+
+    .tg-media-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+        padding: 0 4px;
+    }
+
+    .tg-media-header h4 {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--color-text-primary, #111827);
+    }
+
+    .tg-media-count {
+        font-size: 14px;
+        color: #6b7280;
+        background: #f3f4f6;
+        padding: 4px 10px;
+        border-radius: 20px;
+    }
+
+    .tg-media-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+    }
+
+    .media-group {
+        margin-bottom: 24px;
+    }
+
+    .media-group-date {
+        font-size: 13px;
+        font-weight: 500;
+        color: #4b5563;
+        margin-bottom: 12px;
+        padding-left: 4px;
+    }
+
+    .media-group-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+
+    .tg-media-item {
+        aspect-ratio: 1;
+        border-radius: 16px;
+        overflow: hidden;
+        cursor: pointer;
+        background: #f3f4f6;
+        transition: transform 0.2s, box-shadow 0.2s;
+        position: relative;
+    }
+
+    .tg-media-item:hover {
+        transform: scale(1.02);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .tg-media-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .tg-media-item.video-item {
+        position: relative;
+    }
+
+    .tg-media-item.video-item video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .video-play-icon {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 18px;
+        backdrop-filter: blur(4px);
+        transition: all 0.2s;
+    }
+
+    .tg-media-item:hover .video-play-icon {
+        transform: translate(-50%, -50%) scale(1.1);
+        background: rgba(0, 0, 0, 0.8);
+    }
+
+    .tg-media-load-more {
+        text-align: center;
+        margin-top: 12px;
+    }
+
+    .tg-media-load-more button {
+        padding: 8px 16px;
+        background: #f3f4f6;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 13px;
+    }
+
+    /* Медиа-вьювер (лайтбокс) */
+    .tg-media-viewer {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 11000;
+        background: rgba(0, 0, 0, 0.95);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .tg-media-viewer-content {
+        position: relative;
+        max-width: 90vw;
+        max-height: 90vh;
+    }
+
+    .tg-media-viewer-body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .tg-media-viewer-body img,
+    .tg-media-viewer-body video {
+        max-width: 85vw;
+        max-height: 80vh;
+        border-radius: 16px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    .tg-media-viewer-close {
+        position: absolute;
+        top: -50px;
+        right: 0;
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        cursor: pointer;
+        color: #fff;
+        font-size: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+
+    .tg-media-viewer-close:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: scale(1.05);
+    }
+
+    .tg-media-viewer-info {
+        margin-top: 16px;
+        color: #fff;
+        text-align: center;
+        font-size: 14px;
+    }
+
+    /* === МОДАЛКА ГРУППЫ (УЛУЧШЕННАЯ) === */
+    .tg-group-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(8px);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .tg-group-modal-content {
+        background: #fff;
+        border-radius: 32px;
+        width: 90%;
+        max-width: 480px;
+        max-height: 85vh;
+        overflow-y: auto;
+        animation: modalSlideIn 0.3s ease;
+    }
+
+    .tg-group-header {
+        position: relative;
+        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        padding: 48px 24px 32px;
+        border-radius: 32px 32px 0 0;
+        text-align: center;
+    }
+
+    .tg-group-avatar {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        overflow: hidden;
+        margin: 0 auto;
+        border: 4px solid #fff;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        background: #fff;
+    }
+
+    .tg-group-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .tg-group-avatar .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+        font-size: 48px;
+        font-weight: 600;
+    }
+
+    .tg-group-close {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        cursor: pointer;
+        color: #fff;
+        transition: all 0.2s;
+    }
+
+    .tg-group-close:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: scale(1.05);
+    }
+
+    .tg-group-info {
+        padding: 24px;
+        text-align: center;
+    }
+
+    .tg-group-info h3 {
+        font-size: 22px;
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+    .tg-group-members-count {
+        color: #6b7280;
+        font-size: 14px;
+    }
+
+    .tg-group-members-section {
+        padding: 0 20px 24px;
+    }
+
+    .tg-members-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+    }
+
+    .tg-members-header h4 {
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .tg-members-count {
+        font-size: 13px;
+        color: #6b7280;
+        background: #f3f4f6;
+        padding: 4px 10px;
+        border-radius: 20px;
+    }
+
+    .tg-members-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .tg-member-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px;
+        border-radius: 16px;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .tg-member-item:hover {
+        background: #f3f4f6;
+    }
+
+    .tg-member-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .tg-member-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .tg-member-avatar .avatar-initials {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: #fff;
+        font-size: 18px;
+        font-weight: 600;
+    }
+
+    .tg-member-info {
+        flex: 1;
+    }
+
+    .tg-member-name {
+        font-weight: 600;
+        font-size: 15px;
+    }
+
+    .tg-member-username {
+        font-size: 12px;
+        color: #6b7280;
+    }
+
+    .tg-member-badge {
+        font-size: 11px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        background: #eef2ff;
+        color: #3b82f6;
+        font-weight: 500;
+    }
+
+    /* Стилизация скроллбара */
+    .tg-profile-modal-content::-webkit-scrollbar,
+    .tg-group-modal-content::-webkit-scrollbar,
+    .tg-members-list::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .tg-profile-modal-content::-webkit-scrollbar-track,
+    .tg-group-modal-content::-webkit-scrollbar-track,
+    .tg-members-list::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+
+    .tg-profile-modal-content::-webkit-scrollbar-thumb,
+    .tg-group-modal-content::-webkit-scrollbar-thumb,
+    .tg-members-list::-webkit-scrollbar-thumb {
+        background: #c1c1c1;
+        border-radius: 10px;
+    }
+
+    .tg-profile-modal-content::-webkit-scrollbar-thumb:hover,
+    .tg-group-modal-content::-webkit-scrollbar-thumb:hover,
+    .tg-members-list::-webkit-scrollbar-thumb:hover {
+        background: #a1a1a1;
+    }
+
     /* === ВСПЛЫВАЮЩИЕ ОКНА === */
     .tg-dropdown-menu {
         position: fixed; background: #fff; border-radius: 12px;
@@ -1327,6 +2479,24 @@ async function downloadMediaDirect(url) {
             bottom: 60px !important; border-radius: 16px 16px 0 0 !important;
         }
         .main-content__header { padding: 0 12px !important; }
+        .tg-profile-modal-content,
+        .tg-group-modal-content {
+            width: 95%;
+            max-height: 90vh;
+        }
+        .tg-profile-stats {
+            gap: 20px;
+        }
+        .tg-profile-stats .stat-value {
+            font-size: 18px;
+        }
+        .media-group-grid {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+        }
+        .tg-media-item {
+            border-radius: 12px;
+        }
     }
 
     #tgChatView {
@@ -1343,6 +2513,28 @@ async function downloadMediaDirect(url) {
 
     #tgChatView:not(.active) {
         display: none !important;
+    }
+
+    .custom-toast {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 12px 24px;
+        border-radius: 30px;
+        background: #333;
+        color: #fff;
+        font-size: 14px;
+        z-index: 10000;
+        animation: fadeInUp 0.3s ease;
+    }
+
+    .custom-toast--success {
+        background: #22c55e;
+    }
+
+    .custom-toast--error {
+        background: #ef4444;
     }
 </style>
 {% endblock %}

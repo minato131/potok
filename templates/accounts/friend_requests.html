@@ -1,0 +1,249 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Заявки в друзья · Поток{% endblock %}
+{% block page_title %}Заявки в друзья{% endblock %}
+
+{% block content %}
+<style>
+    .requests-page { max-width: 800px; margin: 0 auto; }
+    .tabs {
+        display: flex;
+        gap: 4px;
+        background: var(--color-bg-surface);
+        padding: 4px;
+        border-radius: 12px;
+        border: 1px solid var(--color-border-light);
+        margin-bottom: 24px;
+    }
+    .tab {
+        padding: 8px 20px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        text-decoration: none;
+        color: var(--color-text-secondary);
+    }
+    .tab:hover { background: var(--color-bg-elevated); }
+    .tab.active {
+        background: var(--color-primary);
+        color: white;
+    }
+    .request-card {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px 18px;
+        background: var(--color-bg-surface);
+        border-radius: 16px;
+        border: 1px solid var(--color-border-light);
+        margin-bottom: 10px;
+    }
+    .request-avatar {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+    .request-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .request-info { flex: 1; }
+    .request-name {
+        font-weight: 600;
+        font-size: 1rem;
+        color: var(--color-text);
+        text-decoration: none;
+    }
+    .request-name:hover { color: var(--color-primary); }
+    .request-date {
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+        margin-top: 4px;
+    }
+    .request-actions {
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+    }
+    .btn-accept, .btn-reject, .btn-cancel {
+        padding: 8px 20px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+    }
+    .btn-accept {
+        background: #22c55e;
+        color: white;
+    }
+    .btn-accept:hover { background: #16a34a; }
+    .btn-reject, .btn-cancel {
+        background: #ef4444;
+        color: white;
+    }
+    .btn-reject:hover, .btn-cancel:hover { background: #dc2626; }
+    .empty-state {
+        text-align: center;
+        padding: 80px 20px;
+        color: var(--color-text-tertiary);
+    }
+    .section-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 20px 0 12px;
+        color: var(--color-text);
+    }
+</style>
+
+<div class="requests-page">
+    <div class="tabs">
+        <a href="{% url 'accounts:friends_list' username=user.username %}" class="tab">Друзья</a>
+        <a href="{% url 'accounts:friend_requests' %}" class="tab active">Заявки</a>
+    </div>
+
+    <!-- Входящие заявки -->
+    <div class="section-title">Входящие заявки</div>
+    {% for req in incoming_requests %}
+    <div class="request-card" data-request-id="{{ req.id }}">
+        <div class="request-avatar">
+            {% if req.user.profile.avatar %}
+            <img src="{{ req.user.profile.avatar.url }}" alt="">
+            {% else %}
+            <div class="av-placeholder" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:var(--color-primary-light);color:var(--color-primary);font-weight:700;font-size:1.2rem">{{ req.user.username|first|upper }}</div>
+            {% endif %}
+        </div>
+        <div class="request-info">
+            <a href="{% url 'accounts:profile_by_username' username=req.user.username %}" class="request-name">
+                {{ req.user.get_full_name|default:req.user.username }}
+                <span style="font-size:0.8rem;color:var(--color-text-tertiary)">@{{ req.user.username }}</span>
+            </a>
+            <div class="request-date">Заявка отправлена {{ req.created_at|date:"d.m.Y H:i" }}</div>
+        </div>
+        <div class="request-actions">
+            <button class="btn-accept" onclick="acceptRequest({{ req.id }}, this)">Принять</button>
+            <button class="btn-reject" onclick="rejectRequest({{ req.id }}, this)">Отклонить</button>
+        </div>
+    </div>
+    {% empty %}
+    <div class="empty-state">Нет входящих заявок</div>
+    {% endfor %}
+
+    <!-- Исходящие заявки -->
+    <div class="section-title">Исходящие заявки</div>
+    {% for req in outgoing_requests %}
+    <div class="request-card" data-request-id="{{ req.id }}">
+        <div class="request-avatar">
+            {% if req.friend.profile.avatar %}
+            <img src="{{ req.friend.profile.avatar.url }}" alt="">
+            {% else %}
+            <div class="av-placeholder" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:var(--color-primary-light);color:var(--color-primary);font-weight:700;font-size:1.2rem">{{ req.friend.username|first|upper }}</div>
+            {% endif %}
+        </div>
+        <div class="request-info">
+            <a href="{% url 'accounts:profile_by_username' username=req.friend.username %}" class="request-name">
+                {{ req.friend.get_full_name|default:req.friend.username }}
+                <span style="font-size:0.8rem;color:var(--color-text-tertiary)">@{{ req.friend.username }}</span>
+            </a>
+            <div class="request-date">Заявка отправлена {{ req.created_at|date:"d.m.Y H:i" }}</div>
+        </div>
+        <div class="request-actions">
+            <button class="btn-cancel" onclick="cancelRequest({{ req.id }}, this)">Отменить</button>
+        </div>
+    </div>
+    {% empty %}
+    <div class="empty-state">Нет исходящих заявок</div>
+    {% endfor %}
+</div>
+
+<script>
+function getCsrfToken() {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, 10) === ('csrftoken' + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(10));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+async function acceptRequest(requestId, btn) {
+    try {
+        const response = await fetch(`/accounts/friend/accept/${requestId}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrfToken() }
+        });
+        const data = await response.json();
+
+        if (data.status === 'accepted') {
+            const card = btn.closest('.request-card');
+            const userId = card.dataset.userId || btn.closest('.request-card').querySelector('.request-avatar a')?.href.split('/').pop() || data.user_id;
+
+            card.remove();
+            showToast('✅ Заявка принята!');
+
+            // Добавляем друга в список на странице друзей (если открыта)
+            if (window.opener || window.parent) {
+                // Если страница друзей открыта в другой вкладке
+            } else {
+                // Перезагружаем страницу друзей, если она открыта
+                if (window.location.pathname.includes('/friends/')) {
+                    location.reload();
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+async function rejectRequest(requestId, btn) {
+    if (!confirm('Отклонить заявку?')) return;
+    
+    try {
+        const response = await fetch(`/accounts/friend/reject/${requestId}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrfToken() }
+        });
+        const data = await response.json();
+        
+        if (data.status === 'rejected') {
+            const card = btn.closest('.request-card');
+            card.remove();
+        } else {
+            alert(data.message || 'Ошибка');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Произошла ошибка');
+    }
+}
+
+async function cancelRequest(requestId, btn) {
+    if (!confirm('Отменить заявку?')) return;
+    
+    try {
+        const response = await fetch(`/accounts/friend/cancel/${requestId}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCsrfToken() }
+        });
+        const data = await response.json();
+        
+        if (data.status === 'cancelled') {
+            const card = btn.closest('.request-card');
+            card.remove();
+        } else {
+            alert(data.message || 'Ошибка');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Произошла ошибка');
+    }
+}
+</script>
+{% endblock %}
