@@ -14,7 +14,10 @@ from .models import Community, CommunityMembership, CommunityPost, CommunityJoin
 from .forms import CommunityForm, CommunityPostForm, CommunityJoinRequestForm
 from posts.models import Post
 from django.utils import timezone
-
+from django.db.models import Count, Q
+from django.utils import timezone
+from datetime import timedelta
+from posts.models import Comment, Like
 from django.shortcuts import render
 from django.db.models import Q, Count
 from .models import Community
@@ -68,7 +71,7 @@ def community_list(request):
 
 def community_detail(request, slug):
     """
-    Детальная страница сообщества
+    Детальная страница сообщества со статистикой
     """
     community = get_object_or_404(
         Community.objects.select_related('creator'),
@@ -95,13 +98,13 @@ def community_detail(request, slug):
     # Получаем посты сообщества
     posts = CommunityPost.objects.filter(
         community=community,
-        post__is_hidden=False
+        post__is_hidden=False,
+        post__status='published'
     ).select_related(
         'post', 'post__author'
     ).prefetch_related(
         'post__tags'
     ).order_by('-is_pinned', '-post__created_at')
-
 
     paginator = Paginator(posts, 10)
     page_number = request.GET.get('page')
@@ -132,12 +135,134 @@ def community_detail(request, slug):
 
     community.update_stats()
 
+    # ========== СТАТИСТИКА СООБЩЕСТВА ==========
+    now = timezone.now()
+    week_ago = now - timedelta(days=7)
+    month_ago = now - timedelta(days=30)
+
+    # ID постов сообщества (через CommunityPost)
+    community_post_ids = list(CommunityPost.objects.filter(
+        community=community,
+        post__is_hidden=False,
+        post__status='published'
+    ).values_list('post_id', flat=True))
+
+    # Лайкнутые посты текущего пользователя
+    liked_post_ids = set()
+    if request.user.is_authenticated:
+        liked_post_ids = set(Like.objects.filter(
+            user=request.user,
+            content_type='post',
+            object_id__in=community_post_ids
+        ).values_list('object_id', flat=True))
+
+    # Статистика по постам
+    total_posts = len(community_post_ids)
+    posts_this_week = Post.objects.filter(
+        id__in=community_post_ids,
+        created_at__gte=week_ago
+    ).count()
+    posts_this_month = Post.objects.filter(
+        id__in=community_post_ids,
+        created_at__gte=month_ago
+    ).count()
+
+    # Статистика по комментариям
+    total_comments = Comment.objects.filter(
+        post_id__in=community_post_ids,
+        is_deleted=False,
+        is_hidden=False
+    ).count()
+
+    comments_this_week = Comment.objects.filter(
+        post_id__in=community_post_ids,
+        is_deleted=False,
+        is_hidden=False,
+        created_at__gte=week_ago
+    ).count()
+
+    # Статистика по лайкам
+    total_likes = Like.objects.filter(
+        content_type='post',
+        object_id__in=community_post_ids
+    ).count()
+
+    likes_this_week = Like.objects.filter(
+        content_type='post',
+        object_id__in=community_post_ids,
+        created_at__gte=week_ago
+    ).count()
+
+    # Топ участников
+    top_members = Post.objects.filter(
+        id__in=community_post_ids
+    ).values('author__username', 'author__id', 'author__profile__avatar').annotate(
+        post_count=Count('id')
+    ).order_by('-post_count')[:5]
+
+    # Рост участников
+    new_members_this_week = CommunityMembership.objects.filter(
+        community=community,
+        status='active',
+        joined_at__gte=week_ago
+    ).count()
+
+    new_members_this_month = CommunityMembership.objects.filter(
+        community=community,
+        status='active',
+        joined_at__gte=month_ago
+    ).count()
+
+    # Динамика по дням
+    last_7_days = []
+    for i in range(6, -1, -1):
+        day = now - timedelta(days=i)
+        day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+        posts_count = Post.objects.filter(
+            id__in=community_post_ids,
+            created_at__range=(day_start, day_end)
+        ).count()
+
+        last_7_days.append({
+            'date': day.strftime('%d.%m'),
+            'posts': posts_count,
+            'day_name': day.strftime('%a')
+        })
+
+    max_posts = max([d['posts'] for d in last_7_days]) if last_7_days and max(
+        d['posts'] for d in last_7_days) > 0 else 1
+
+    engagement_rate = 0
+    if total_posts > 0:
+        engagement_rate = round(((total_likes + total_comments) / total_posts), 1)
+
+    stats = {
+        'total_posts': total_posts,
+        'posts_this_week': posts_this_week,
+        'posts_this_month': posts_this_month,
+        'total_comments': total_comments,
+        'comments_this_week': comments_this_week,
+        'total_likes': total_likes,
+        'likes_this_week': likes_this_week,
+        'total_members': community.members_count,
+        'new_members_this_week': new_members_this_week,
+        'new_members_this_month': new_members_this_month,
+        'top_members': top_members,
+        'weekly_activity': last_7_days,
+        'engagement_rate': engagement_rate,
+        'max_posts_in_week': max_posts,
+    }
+
     context = {
         'community': community,
         'page_obj': page_obj,
         'user_membership': user_membership,
         'pending_request': pending_request,
         'admins': admins,
+        'stats': stats,
+        'liked_post_ids': liked_post_ids,  # <-- ДОБАВЛЕНО
     }
     return render(request, 'communities/community_detail.html', context)
 

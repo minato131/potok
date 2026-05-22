@@ -6,19 +6,79 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.core.validators import RegexValidator
 from .models import Profile
 
+from django import forms
+from django.contrib.auth.forms import UserCreationForm, UserChangeForm
+from django.core.exceptions import ValidationError
+from .models import User
+from django.contrib.auth.forms import PasswordChangeForm
+from django.core.validators import RegexValidator, EmailValidator
+from .models import Profile
+import re
+
+# Список запрещённых доменов (временные почты)
+BLOCKED_EMAIL_DOMAINS = [
+    'tempmail.com', '10minutemail.com', 'guerrillamail.com',
+    'mailinator.com', 'yopmail.com', 'throwawaymail.com',
+    'temp-mail.org', 'fakeinbox.com', 'trashmail.com',
+    'getairmail.com', 'sharklasers.com', 'guerrillamail.net',
+    'tempinbox.com', 'throwaway.email', 'fakemailgenerator.com',
+    'emailondeck.com', 'getnada.com', 'mailnator.com'
+]
+
+
+def validate_email_format(value):
+    """Проверка формата email"""
+    # Базовая проверка через EmailValidator
+    EmailValidator(message='Введите корректный email адрес')(value)
+
+    # Дополнительная проверка на недопустимые символы
+    if '..' in value:
+        raise ValidationError('Email содержит недопустимые символы')
+
+    # Проверка длины
+    if len(value) > 100:
+        raise ValidationError('Email не может быть длиннее 100 символов')
+
+    # Проверка на недопустимые домены верхнего уровня
+    allowed_tlds = ['com', 'ru', 'net', 'org', 'ua', 'by', 'kz', 'fr', 'de', 'it', 'es', 'uk', 'pl', 'ca', 'au', 'jp',
+                    'kr', 'br', 'in', 'nl', 'se', 'no', 'dk', 'fi', 'ch', 'be', 'at', 'cz', 'gr', 'hu', 'ie', 'il',
+                    'mx', 'nz', 'ph', 'sg', 'tr', 'vn', 'za', 'ro', 'hr', 'lt', 'lv', 'ee', 'sk', 'si', 'bg', 'is',
+                    'lu', 'mt', 'cy', 'al', 'ba', 'mk', 'rs', 'me']
+    domain = value.split('@')[-1].lower()
+    tld = domain.split('.')[-1]
+    if tld not in allowed_tlds and len(value.split('@')) > 1:
+        # Не блокируем, а только предупреждение (не строгая проверка)
+        pass
+
+
+def validate_email_domain(value):
+    """Проверка, что email не с временного домена"""
+    domain = value.split('@')[-1].lower()
+    if domain in BLOCKED_EMAIL_DOMAINS:
+        raise ValidationError(
+            f'Использование почты с доменом {domain} запрещено. Пожалуйста, используйте основной email.')
+
+
 class CustomUserCreationForm(UserCreationForm):
     """
-    Форма для регистрации нового пользователя
+    Форма для регистрации нового пользователя с валидацией email
     """
     email = forms.EmailField(
         required=True,
         label='Email',
-        widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Введите email'})
+        widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Введите email'}),
+        validators=[validate_email_format, validate_email_domain]
     )
     username = forms.CharField(
         required=True,
         label='Логин',
-        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Введите логин'})
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Введите логин'}),
+        validators=[
+            RegexValidator(
+                regex=r'^[\w.@+-]+$',
+                message='Имя пользователя может содержать только буквы, цифры и символы @/./+/-/_'
+            )
+        ]
     )
     password1 = forms.CharField(
         label='Пароль',
@@ -43,16 +103,83 @@ class CustomUserCreationForm(UserCreationForm):
         model = User
         fields = ('username', 'email', 'first_name', 'last_name', 'password1', 'password2')
 
+    def clean_username(self):
+        """Проверка имени пользователя"""
+        username = self.cleaned_data.get('username')
+
+        # Запрещённые имена
+        forbidden_usernames = ['admin', 'moderator', 'support', 'root', 'system', 'administrator', 'moderator']
+        if username.lower() in forbidden_usernames:
+            raise ValidationError('Это имя пользователя зарезервировано')
+
+        # Минимальная длина
+        if len(username) < 3:
+            raise ValidationError('Имя пользователя должно содержать минимум 3 символа')
+
+        # Максимальная длина
+        if len(username) > 30:
+            raise ValidationError('Имя пользователя не может быть длиннее 30 символов')
+
+        return username
+
     def clean_email(self):
-        """Проверка уникальности email"""
+        """Проверка уникальности email и дополнительная валидация"""
         email = self.cleaned_data.get('email')
+
+        # Проверка на уникальность
         if User.objects.filter(email=email).exists():
             raise ValidationError('Пользователь с таким email уже существует')
+
+        # Дополнительная проверка на типичные ошибки
+        if email.count('@') != 1:
+            raise ValidationError('Email должен содержать ровно один символ @')
+
+        local_part, domain = email.split('@')
+
+        # Проверка локальной части
+        if len(local_part) < 1:
+            raise ValidationError('Локальная часть email не может быть пустой')
+
+        if len(local_part) > 64:
+            raise ValidationError('Локальная часть email слишком длинная')
+
+        # Проверка домена
+        if not domain or '.' not in domain:
+            raise ValidationError('Email должен содержать домен (например, @gmail.com)')
+
+        if len(domain) < 4:  # Минимум "a.com" - 4 символа
+            raise ValidationError('Домен email слишком короткий')
+
         return email
+
+    def clean_password2(self):
+        """Дополнительная проверка пароля"""
+        password1 = self.cleaned_data.get('password1')
+        password2 = self.cleaned_data.get('password2')
+
+        if password1 and password2 and password1 != password2:
+            raise ValidationError('Пароли не совпадают')
+
+        # Проверка сложности пароля
+        if password1:
+            if len(password1) < 8:
+                raise ValidationError('Пароль должен содержать минимум 8 символов')
+
+            if not any(c.isdigit() for c in password1):
+                raise ValidationError('Пароль должен содержать хотя бы одну цифру')
+
+            if not any(c.isupper() for c in password1):
+                raise ValidationError('Пароль должен содержать хотя бы одну заглавную букву')
+
+            if not any(c.islower() for c in password1):
+                raise ValidationError('Пароль должен содержать хотя бы одну строчную букву')
+
+        return password2
 
     def save(self, commit=True):
         user = super().save(commit=False)
         user.email = self.cleaned_data['email']
+        user.username = self.cleaned_data['username']
         if commit:
             user.save()
         return user

@@ -1,7 +1,7 @@
 <!-- templates/communities/community_detail.html -->
 {% extends 'base.html' %}
 {% load static %}
-
+{% load humanize %}
 {% block title %}{{ community.name }} · Поток{% endblock %}
 {% block page_title %}{{ community.name }}{% endblock %}
 
@@ -74,16 +74,24 @@
         <!-- Статистика -->
         <div class="community-stats">
             <div class="stat-item">
-                <span class="stat-value">{{ community.members.count }}</span>
+                <span class="stat-value">{{ stats.total_members|default:community.members.count }}</span>
                 <span class="stat-label">Участников</span>
             </div>
             <div class="stat-item">
-                <span class="stat-value">{{ community.posts.count }}</span>
+                <span class="stat-value">{{ stats.total_posts|default:community.posts.count }}</span>
                 <span class="stat-label">Постов</span>
             </div>
             <div class="stat-item">
-                <span class="stat-value">{{ community.created_at|date:"M Y" }}</span>
-                <span class="stat-label">Создано</span>
+                <span class="stat-value">{{ stats.total_comments|default:0 }}</span>
+                <span class="stat-label">Комментариев</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value">{{ stats.total_likes|default:0 }}</span>
+                <span class="stat-label">Лайков</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value">{{ stats.engagement_rate|default:0 }}%</span>
+                <span class="stat-label">Вовлечённость</span>
             </div>
         </div>
 
@@ -106,6 +114,80 @@
             </div>
             {% endif %}
         </div>
+        <!-- Расширенная статистика -->
+        <div class="community-stats-card">
+            <h3 class="stats-title">📊 Статистика сообщества</h3>
+
+            <!-- Дополнительные метрики -->
+            <div class="stats-grid">
+                <div class="stat-item-mini">
+                    <span class="stat-value-mini">{{ stats.posts_this_week|default:0 }}</span>
+                    <span class="stat-label-mini">постов за неделю</span>
+                </div>
+                <div class="stat-item-mini">
+                    <span class="stat-value-mini">{{ stats.comments_this_week|default:0 }}</span>
+                    <span class="stat-label-mini">комментариев за неделю</span>
+                </div>
+                <div class="stat-item-mini">
+                    <span class="stat-value-mini">{{ stats.likes_this_week|default:0 }}</span>
+                    <span class="stat-label-mini">лайков за неделю</span>
+                </div>
+                <div class="stat-item-mini">
+                    <span class="stat-value-mini">+{{ stats.new_members_this_week|default:0 }}</span>
+                    <span class="stat-label-mini">новых участников</span>
+                </div>
+            </div>
+
+            <!-- График активности за неделю -->
+            <div class="activity-chart">
+                <h4>📈 Активность за неделю</h4>
+                <div class="chart-bars">
+                    {% for day in stats.weekly_activity %}
+                    <div class="chart-bar-item">
+                        <div class="chart-bar" style="height: {% widthratio day.posts stats.max_posts_in_week|default:1 100 %}px; min-height: 4px;"></div>
+                        <div class="chart-label">
+                            {% if day.day_name == 'Mon' %}Пн
+                            {% elif day.day_name == 'Tue' %}Вт
+                            {% elif day.day_name == 'Wed' %}Ср
+                            {% elif day.day_name == 'Thu' %}Чт
+                            {% elif day.day_name == 'Fri' %}Пт
+                            {% elif day.day_name == 'Sat' %}Сб
+                            {% elif day.day_name == 'Sun' %}Вс
+                            {% else %}{{ day.day_name }}{% endif %}
+                        </div>
+                        <div class="chart-value">{{ day.posts }}</div>
+                    </div>
+                    {% empty %}
+                    <div class="chart-empty">Нет данных за неделю</div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Топ участников -->
+            {% if stats.top_members %}
+            <div class="top-members">
+                <h4>🏆 Топ авторов</h4>
+                <div class="top-members-list">
+                    {% for member in stats.top_members %}
+                    <div class="top-member">
+                        <span class="top-member-rank">{{ forloop.counter }}</span>
+                        <div class="top-member-avatar">
+                            {% if member.author__profile__avatar %}
+                            <img src="{{ member.author__profile__avatar }}" alt="">
+                            {% else %}
+                            <div class="avatar-placeholder-tiny">{{ member.author__username|first|upper }}</div>
+                            {% endif %}
+                        </div>
+                        <a href="{% url 'accounts:profile_by_username' username=member.author__username %}" class="top-member-name">
+                            @{{ member.author__username }}
+                        </a>
+                        <span class="top-member-count">{{ member.post_count }} пост{{ member.post_count|pluralize:"а,ов" }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
     </div>
 
     <!-- Правила -->
@@ -124,9 +206,13 @@
             <div class="mod-item">
                 <a href="{% url 'accounts:profile_by_username' username=admin.user.username %}">
                     <span class="mod-name">@{{ admin.user.username }}</span>
-                    <span class="mod-badge {% if admin.role == 'admin' %}creator{% endif %}">{{ admin.get_role_display }}</span>
+                    <span class="mod-badge {% if admin.role == 'admin' %}creator{% endif %}">
+                        {% if admin.role == 'admin' %}Админ{% else %}Модератор{% endif %}
+                    </span>
                 </a>
             </div>
+            {% empty %}
+            <div class="mod-item">Нет назначенных модераторов</div>
             {% endfor %}
         </div>
     </div>
@@ -194,9 +280,11 @@
 
                 <div class="post-item-footer">
                     <div class="post-item-stats">
-                        <button class="post-stat-btn like-btn" data-post-id="{{ post.post.id }}">
-                            <i data-feather="heart" class="{% if user in post.post.likes.all %}liked{% endif %}"></i>
-                            <span>{{ post.post.likes.count }}</span>
+                        <button class="post-stat-btn like-btn {% if post.post.id in liked_post_ids %}liked{% endif %}" data-post-id="{{ post.post.id }}">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                            </svg>
+                            <span class="likes-count">{{ post.post.likes_count }}</span>
                         </button>
                         <a href="{% url 'posts:post_detail' pk=post.post.id %}" class="post-stat-btn">
                             <i data-feather="message-circle"></i>
@@ -299,6 +387,18 @@
                 <textarea name="message" placeholder="Сообщение модераторам (необязательно)" rows="3"></textarea>
                 <button type="submit" class="btn btn--primary" style="width:100%;margin-top:12px">Отправить заявку</button>
             </form>
+        </div>
+    </div>
+</div>
+<!-- Модалка со списком лайкнувших -->
+<div id="likesModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:10000; align-items:center; justify-content:center;">
+    <div style="background:var(--color-bg-surface); border-radius:16px; width:90%; max-width:400px; max-height:80vh; overflow:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:16px; border-bottom:1px solid var(--color-border);">
+            <h3 style="margin:0; font-size:1.1rem;">❤️ Понравилось <span id="likesModalCount">0</span></h3>
+            <button onclick="closeLikesModal()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--color-text-tertiary);">&times;</button>
+        </div>
+        <div id="likesModalList" style="padding:8px 0;">
+            <div style="text-align:center; padding:20px;">Загрузка...</div>
         </div>
     </div>
 </div>
@@ -495,13 +595,211 @@
         .community-stats { gap: 16px; }
     }
     .liked { fill: #ef4444 !important; color: #ef4444 !important; stroke: #ef4444 !important; }
+    /* Расширенная статистика */
+    .community-stats-card {
+        background: var(--color-bg-surface);
+        border-radius: 16px;
+        border: 1px solid var(--color-border-light);
+        padding: 20px 24px;
+        margin-bottom: 20px;
+    }
+
+    .stats-title {
+        font-size: 1rem;
+        font-weight: 700;
+        margin-bottom: 16px;
+        color: var(--color-text);
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+
+    .stat-item-mini {
+        text-align: center;
+        padding: 10px;
+        background: var(--color-bg-elevated);
+        border-radius: 12px;
+    }
+
+    .stat-value-mini {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--color-primary);
+        display: block;
+    }
+
+    .stat-label-mini {
+        font-size: 0.65rem;
+        color: var(--color-text-tertiary);
+        margin-top: 4px;
+        display: block;
+    }
+
+    /* График активности */
+    .activity-chart {
+        margin-bottom: 24px;
+    }
+
+    .activity-chart h4 {
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 16px;
+        color: var(--color-text-secondary);
+    }
+
+    .chart-bars {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-around;
+        gap: 8px;
+        height: 140px;
+        padding: 10px 0;
+    }
+
+    .chart-bar-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .chart-bar {
+        width: 100%;
+        max-width: 40px;
+        background: linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+        border-radius: 6px 6px 0 0;
+        transition: height 0.3s ease;
+        min-height: 4px;
+    }
+
+    .chart-label {
+        font-size: 0.65rem;
+        font-weight: 500;
+        color: var(--color-text-tertiary);
+    }
+
+    .chart-value {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--color-text-secondary);
+    }
+
+    .chart-empty {
+        text-align: center;
+        padding: 30px;
+        color: var(--color-text-tertiary);
+        font-size: 0.8rem;
+    }
+
+    /* Топ участников */
+    .top-members h4 {
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 12px;
+        color: var(--color-text-secondary);
+    }
+
+    .top-members-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .top-member {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 12px;
+        background: var(--color-bg-elevated);
+        border-radius: 12px;
+        transition: all 0.2s;
+    }
+
+    .top-member:hover {
+        background: var(--color-bg-hover);
+        transform: translateX(4px);
+    }
+
+    .top-member-rank {
+        width: 28px;
+        height: 28px;
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.75rem;
+        flex-shrink: 0;
+    }
+
+    .top-member-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .top-member-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .avatar-placeholder-tiny {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+        font-weight: 600;
+        font-size: 0.7rem;
+    }
+
+    .top-member-name {
+        flex: 1;
+        color: var(--color-text);
+        text-decoration: none;
+        font-weight: 500;
+        font-size: 0.85rem;
+    }
+
+    .top-member-name:hover {
+        color: var(--color-primary);
+    }
+
+    .top-member-count {
+        font-size: 0.7rem;
+        color: var(--color-text-tertiary);
+        background: var(--color-bg-surface);
+        padding: 2px 8px;
+        border-radius: 20px;
+    }
+    .like-btn.liked svg {
+        fill: #ef4444 !important;
+        stroke: #ef4444 !important;
+        color: #ef4444 !important;
+    }
+
+    .like-btn .likes-count {
+        margin-left: 4px;
+    }
 </style>
 {% endblock %}
 
 {% block extra_js %}
 <script>
-function G(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
-function T(m){const t=document.createElement('div');t.style.cssText='position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:10px;font-size:.8rem;font-weight:600;color:#fff;z-index:9999;background:#7c3aed;box-shadow:0 8px 24px rgba(0,0,0,.2);animation:toastIn .25s';t.textContent=m;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='all .3s';setTimeout(()=>t.remove(),300)},2000)}
+function getCookie(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
+function showToast(m){const t=document.createElement('div');t.style.cssText='position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:10px;font-size:.8rem;font-weight:600;color:#fff;z-index:9999;background:#7c3aed;box-shadow:0 8px 24px rgba(0,0,0,.2);animation:toastIn .25s';t.textContent=m;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='all .3s';setTimeout(()=>t.remove(),300)},2000)}
 
 document.addEventListener('DOMContentLoaded', function() {
     feather.replace();
@@ -523,7 +821,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const slug = '{{ community.slug }}';
             const action = this.dataset.action;
 
-            // Для закрытых — модалка
             if (action === 'join' && '{{ community.privacy }}' !== 'public') {
                 document.getElementById('joinModal').style.display = 'flex';
                 return;
@@ -531,49 +828,139 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const r = await fetch(`/communities/${slug}/${action === 'join' ? 'join' : 'leave'}/`, {
                 method: 'POST',
-                headers: { 'X-CSRFToken': G('csrftoken') }
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
             });
             if (r.ok) location.reload();
         });
     }
 
-    // Закрытие модалки
     window.closeJoinModal = function() {
         document.getElementById('joinModal').style.display = 'none';
     };
 
-    // Отправка заявки
     document.getElementById('joinForm')?.addEventListener('submit', async function(e) {
         e.preventDefault();
         const fd = new FormData(this);
         const r = await fetch('/communities/{{ community.slug }}/join/', {
             method: 'POST',
-            headers: { 'X-CSRFToken': G('csrftoken') },
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
             body: fd
         });
         if (r.ok) location.reload();
     });
 
-    // Лайки
-    document.querySelectorAll('.like-btn').forEach(b => {
-        b.addEventListener('click', async function() {
-            const pid = this.dataset.postId;
-            const r = await fetch('/like/toggle/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': G('csrftoken') },
-                body: 'content_type=post&object_id=' + pid + '&like_type=like'
-            });
-            const d = await r.json();
-            this.querySelector('span').textContent = d.likes_count;
-            const icon = this.querySelector('i');
-            if (d.liked) {
-                icon.classList.add('liked');
-                icon.setAttribute('fill', '#ef4444');
-            } else {
-                icon.classList.remove('liked');
-                icon.setAttribute('fill', 'none');
+    // ========== ЛАЙКИ ==========
+    document.querySelectorAll('.like-btn').forEach(btn => {
+        // Удаляем старые обработчики через клонирование
+        const newBtn = btn.cloneNode(true);
+        btn.parentNode.replaceChild(newBtn, btn);
+
+        newBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const postId = this.dataset.postId;
+            const countSpan = this.querySelector('.likes-count');
+
+            try {
+                const response = await fetch('/like/toggle/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: `content_type=post&object_id=${postId}&like_type=like`
+                });
+
+                const data = await response.json();
+
+                if (data.action === 'added') {
+                    this.classList.add('liked');
+                } else if (data.action === 'removed') {
+                    this.classList.remove('liked');
+                }
+
+                if (countSpan && data.likes_count !== undefined) {
+                    countSpan.textContent = data.likes_count;
+                }
+            } catch (error) {
+                console.error('Like error:', error);
             }
-            feather.replace();
+        });
+    });
+
+    // ========== МОДАЛКА ЛАЙКОВ ==========
+    window.openLikesModal = async function(postId) {
+        const modal = document.getElementById('likesModal');
+        const listContainer = document.getElementById('likesModalList');
+        const countSpan = document.getElementById('likesModalCount');
+
+        if (!modal) return;
+
+        modal.style.display = 'flex';
+        listContainer.innerHTML = '<div style="text-align:center; padding:20px;">Загрузка...</div>';
+
+        try {
+            const response = await fetch(`/post/${postId}/likes/`);
+            const data = await response.json();
+
+            countSpan.textContent = data.total;
+
+            if (data.users.length === 0) {
+                listContainer.innerHTML = '<div style="text-align:center; padding:20px; color:var(--color-text-tertiary);">Пока никто не лайкнул</div>';
+            } else {
+                listContainer.innerHTML = data.users.map(user => `
+                    <a href="${user.profile_url}" style="display:flex; align-items:center; gap:12px; padding:10px 16px; text-decoration:none; color:inherit; transition:background 0.2s; border-bottom:1px solid var(--color-border-light);">
+                        <div style="width:44px; height:44px; border-radius:50%; overflow:hidden; flex-shrink:0; background:var(--color-primary-light); display:flex; align-items:center; justify-content:center;">
+                            ${user.avatar
+                                ? `<img src="${user.avatar}" style="width:100%; height:100%; object-fit:cover;">`
+                                : `<span style="font-size:1.2rem; font-weight:600;">${escapeHtml(user.username.charAt(0).toUpperCase())}</span>`
+                            }
+                        </div>
+                        <div style="flex:1;">
+                            <div style="font-weight:600;">${escapeHtml(user.full_name)}</div>
+                            <div style="font-size:0.75rem; color:var(--color-text-tertiary);">@${escapeHtml(user.username)}</div>
+                        </div>
+                    </a>
+                `).join('');
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            listContainer.innerHTML = '<div style="text-align:center; padding:20px; color:red;">Ошибка загрузки</div>';
+        }
+    };
+
+    window.closeLikesModal = function() {
+        const modal = document.getElementById('likesModal');
+        if (modal) modal.style.display = 'none';
+    };
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Закрытие по клику на фон
+    document.getElementById('likesModal')?.addEventListener('click', function(e) {
+        if (e.target === this) closeLikesModal();
+    });
+
+    // Закрытие по Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeLikesModal();
+    });
+
+    // Навешиваем открытие модалки на счётчики лайков
+    document.querySelectorAll('.likes-count').forEach(el => {
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const postId = this.closest('.like-btn')?.dataset.postId;
+            if (postId) {
+                openLikesModal(postId);
+            }
         });
     });
 
@@ -583,10 +970,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const pid = this.dataset.postId;
             const r = await fetch('/bookmark/' + pid + '/toggle/', {
                 method: 'POST',
-                headers: { 'X-CSRFToken': G('csrftoken') }
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
             });
             const d = await r.json();
-            T(d.action === 'added' ? 'Добавлено в закладки' : 'Удалено из закладок');
+            showToast(d.action === 'added' ? 'Добавлено в закладки' : 'Удалено из закладок');
         });
     });
 });

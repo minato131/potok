@@ -99,11 +99,12 @@
 
     <div class="post-vk-footer">
         <div class="post-vk-footer-left">
+            <!-- ИСПРАВЛЕННАЯ КНОПКА ЛАЙКА -->
             <button class="post-vk-stat like-btn-vk {% if post.id in liked_post_ids %}liked{% endif %}" data-post-id="{{ post.id }}">
                 <svg width="22" height="20" viewBox="0 0 22 20">
                     <path d="M11 19C11 19 1 13.5 1 6.5C1 3.5 3.5 1 6.5 1C8.5 1 10 2 11 3.5C12 2 13.5 1 15.5 1C18.5 1 21 3.5 21 6.5C21 13.5 11 19 11 19Z" stroke="currentColor" stroke-width="1.8"/>
                 </svg>
-                <span>{{ post.likes_count }}</span>
+                <span class="likes-count" style="cursor:pointer">{{ post.likes_count }}</span>
             </button>
             <span class="post-vk-stat" onclick="event.stopPropagation();toggleComments({{ post.id }})" style="cursor:pointer">
                 <i data-feather="message-circle"></i> <span>{{ post.comments_count }}</span>

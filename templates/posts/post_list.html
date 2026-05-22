@@ -310,6 +310,18 @@
         </div>
     </div>
 </div>
+<!-- Модалка со списком лайкнувших -->
+<div id="likesModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:10000; align-items:center; justify-content:center;">
+    <div style="background:var(--color-bg-surface); border-radius:16px; width:90%; max-width:400px; max-height:80vh; overflow:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:16px; border-bottom:1px solid var(--color-border);">
+            <h3 style="margin:0; font-size:1.1rem;">❤️ Понравилось <span id="likesModalCount">0</span></h3>
+            <button onclick="closeLikesModal()" style="background:none; border:none; font-size:1.5rem; cursor:pointer; color:var(--color-text-tertiary);">&times;</button>
+        </div>
+        <div id="likesModalList" style="padding:8px 0;">
+            <!-- Список пользователей будет здесь -->
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -414,7 +426,125 @@ window.openPostModal=async function(postId){document.getElementById('postModalOv
 window.closePostModal=function(){document.getElementById('postModalOverlay').classList.remove('open')};
 document.getElementById('postModalOverlay').addEventListener('click',function(e){if(e.target===this)closePostModal()});
 document.addEventListener('keydown',function(e){if(e.key==='Escape')closePostModal()});
-function initModalHandlers(){}
+function initModalHandlers() {
+    // ========== 1. РЕНДЕР MARKDOWN ==========
+    const markdownDiv = document.querySelector('#postModal .markdown-content');
+    if (markdownDiv && typeof marked !== 'undefined') {
+        const rawContent = markdownDiv.dataset.raw || '';
+        if (rawContent) {
+            let html = marked.parse(rawContent);
+            html = html.replace(/\|\|(.+?)\|\|/g, '<span class="spoiler" onclick="this.classList.toggle(\'revealed\')">$1</span>');
+            markdownDiv.innerHTML = html;
+            console.log('✅ Markdown отрендерен в модалке');
+        } else {
+            console.log('⚠️ Нет данных в data-raw');
+        }
+    } else {
+        console.log('⚠️ .markdown-content не найден или marked не загружен');
+    }
+
+    // ========== 2. КНОПКА ЛАЙКА ==========
+    const likeBtn = document.querySelector('#postModal .like-btn-vk');
+    if (likeBtn) {
+        const newLikeBtn = likeBtn.cloneNode(true);
+        likeBtn.parentNode.replaceChild(newLikeBtn, likeBtn);
+
+        newLikeBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const postId = this.dataset.postId;
+            const countSpan = this.querySelector('.likes-count');
+
+            try {
+                const response = await fetch('/like/toggle/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: `content_type=post&object_id=${postId}&like_type=like`
+                });
+
+                const data = await response.json();
+
+                if (data.action === 'added') {
+                    newLikeBtn.classList.add('liked');
+                } else if (data.action === 'removed') {
+                    newLikeBtn.classList.remove('liked');
+                }
+
+                if (countSpan && data.likes_count !== undefined) {
+                    countSpan.textContent = data.likes_count;
+                }
+            } catch (error) {
+                console.error('Like error:', error);
+            }
+        });
+    }
+
+    // ========== 3. ОТКРЫТИЕ МОДАЛКИ ЛАЙКОВ ПО КЛИКУ НА СЧЁТЧИК ==========
+    const likesCountSpan = document.querySelector('#postModal .likes-count');
+    if (likesCountSpan) {
+        likesCountSpan.style.cursor = 'pointer';
+        likesCountSpan.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const postId = this.closest('.like-btn-vk')?.dataset.postId;
+            if (postId) {
+                openLikesModal(postId);
+            }
+        });
+    }
+
+    // ========== 4. КНОПКА ПОДПИСКИ ==========
+    const subscribeBtn = document.querySelector('#postModal .pd-subscribe');
+    if (subscribeBtn) {
+        const newSubscribeBtn = subscribeBtn.cloneNode(true);
+        subscribeBtn.parentNode.replaceChild(newSubscribeBtn, subscribeBtn);
+        newSubscribeBtn.addEventListener('click', async function() {
+            const r = await fetch(`/accounts/follow/${this.dataset.authorId}/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            if (r.ok) {
+                this.classList.toggle('subscribed');
+                this.textContent = this.classList.contains('subscribed') ? 'Вы подписаны' : 'Подписаться';
+            }
+        });
+    }
+
+    // ========== 5. КНОПКА ЗАКЛАДКИ ==========
+    const bookmarkBtn = document.querySelector('#postModal .bookmark-btn-vk');
+    if (bookmarkBtn) {
+        const newBookmarkBtn = bookmarkBtn.cloneNode(true);
+        bookmarkBtn.parentNode.replaceChild(newBookmarkBtn, bookmarkBtn);
+        newBookmarkBtn.addEventListener('click', async function() {
+            const r = await fetch(`/bookmark/${this.dataset.postId}/toggle/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken'), 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const d = await r.json();
+            this.classList.toggle('bookmarked', d.action === 'added');
+        });
+    }
+
+    // ========== 6. КНОПКА ШЕРИНГА ==========
+    const shareBtn = document.querySelector('#postModal .share-btn-vk');
+    if (shareBtn) {
+        const newShareBtn = shareBtn.cloneNode(true);
+        shareBtn.parentNode.replaceChild(newShareBtn, shareBtn);
+        newShareBtn.addEventListener('click', () => {
+            if (navigator.share) {
+                navigator.share({ url: location.href });
+            } else {
+                navigator.clipboard.writeText(location.href).then(() => showToast('Ссылка скопирована'));
+            }
+        });
+    }
+
+    // Обновляем иконки
+    feather.replace();
+}
 
 document.querySelectorAll('.vk-video-player').forEach(p=>{const v=p.querySelector('video'),ov=p.querySelector('.vk-video-player__overlay'),pb=p.querySelector('.vk-video-player__play-btn');function toggle(){if(v.paused){v.play();ov.style.display='none'}else{v.pause();ov.style.display='flex'}}pb?.addEventListener('click',e=>{e.stopPropagation();toggle()});v?.addEventListener('ended',()=>ov.style.display='flex');p.addEventListener('click',e=>{if(!e.target.closest('.vk-video-player__play-btn'))toggle()})});
 document.querySelectorAll('[data-period]').forEach(b=>b.addEventListener('click',function(){const u=new URL(location);u.searchParams.set('period',this.dataset.period);location=u}));
@@ -497,6 +627,106 @@ document.querySelectorAll('.post-vk-friend, .pd-friend').forEach(async btn => {
         }
     });
 });
+// ========== МОДАЛКА ЛАЙКОВ ДЛЯ ЛЕНТЫ ==========
+async function openLikesModal(postId) {
+    const modal = document.getElementById('likesModal');
+    const listContainer = document.getElementById('likesModalList');
+    const countSpan = document.getElementById('likesModalCount');
+
+    if (!modal) {
+        console.error('Модалка не найдена');
+        return;
+    }
+
+    // Показываем модалку с загрузкой
+    modal.style.display = 'flex';
+    listContainer.innerHTML = '<div style="text-align:center; padding:20px;">Загрузка...</div>';
+
+    try {
+        const response = await fetch(`/post/${postId}/likes/`);
+        const data = await response.json();
+
+        countSpan.textContent = data.total;
+
+        if (data.users.length === 0) {
+            listContainer.innerHTML = '<div style="text-align:center; padding:20px; color:var(--color-text-tertiary);">Пока никто не лайкнул</div>';
+        } else {
+            listContainer.innerHTML = data.users.map(user => `
+                <a href="${user.profile_url}" style="display:flex; align-items:center; gap:12px; padding:10px 16px; text-decoration:none; color:inherit; transition:background 0.2s; border-bottom:1px solid var(--color-border-light);">
+                    <div style="width:44px; height:44px; border-radius:50%; overflow:hidden; flex-shrink:0; background:var(--color-primary-light); display:flex; align-items:center; justify-content:center;">
+                        ${user.avatar
+                            ? `<img src="${user.avatar}" style="width:100%; height:100%; object-fit:cover;">`
+                            : `<span style="font-size:1.2rem; font-weight:600;">${escapeHtml(user.username.charAt(0).toUpperCase())}</span>`
+                        }
+                    </div>
+                    <div style="flex:1;">
+                        <div style="font-weight:600;">${escapeHtml(user.full_name)}</div>
+                        <div style="font-size:0.75rem; color:var(--color-text-tertiary);">@${escapeHtml(user.username)}</div>
+                    </div>
+                </a>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Ошибка:', error);
+        listContainer.innerHTML = '<div style="text-align:center; padding:20px; color:red;">Ошибка загрузки</div>';
+    }
+}
+
+function closeLikesModal() {
+    const modal = document.getElementById('likesModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Закрытие по клику на фон
+document.getElementById('likesModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeLikesModal();
+});
+
+// Закрытие по Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeLikesModal();
+});
+
+// Навешиваем открытие модалки на счётчики лайков в ленте
+function initLikesModalTriggers() {
+    document.querySelectorAll('.like-btn-vk .likes-count').forEach(el => {
+        el.style.cursor = 'pointer';
+        el.removeEventListener('click', handleLikesClick);
+        el.addEventListener('click', handleLikesClick);
+    });
+}
+
+function handleLikesClick(e) {
+    e.stopPropagation();
+    e.preventDefault();
+    const postId = this.closest('.like-btn-vk')?.dataset.postId;
+    if (postId) {
+        openLikesModal(postId);
+    }
+}
+
+// Запускаем инициализацию
+document.addEventListener('DOMContentLoaded', function() {
+    initLikesModalTriggers();
+});
+
+// Также переинициализируем после подгрузки постов через AJAX
+const observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+        if (mutation.addedNodes.length) {
+            initLikesModalTriggers();
+        }
+    });
+});
+
+observer.observe(document.getElementById('posts-container') || document.body, { childList: true, subtree: true });
 
 window.savePhoto=async function(postId){const r=await fetch('/media-storage/save-from-post/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`post_id=${postId}&media_type=photo`});const d=await r.json();notify(d.success?'Фото сохранено':'Ошибка')};
 window.saveVideo=async function(postId){const r=await fetch('/media-storage/save-from-post/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`post_id=${postId}&media_type=video`});const d=await r.json();notify(d.success?'Видео сохранено':'Ошибка')};

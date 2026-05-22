@@ -1043,3 +1043,35 @@ def recommended_posts_api(request):
         'has_more': len(recommendations) > end,
         'next_page': page + 1 if len(recommendations) > end else None
     })
+
+
+def post_likes_modal(request, post_id):
+    """Возвращает JSON со списком лайкнувших"""
+    from django.http import JsonResponse
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    post = get_object_or_404(Post, id=post_id)
+
+    # Получаем пользователей, которые лайкнули пост
+    likes = Like.objects.filter(
+        content_type='post',
+        object_id=post.id
+    ).select_related('user', 'user__profile').order_by('-created_at')
+
+    # Формируем список пользователей
+    users_list = []
+    for like in likes:
+        user = like.user
+        users_list.append({
+            'id': user.id,
+            'username': user.username,
+            'full_name': user.get_full_name() or user.username,
+            'avatar': user.profile.avatar.url if user.profile.avatar else None,
+            'profile_url': f'/accounts/profile/{user.username}/'
+        })
+
+    return JsonResponse({
+        'users': users_list,
+        'total': len(users_list)
+    })

@@ -366,6 +366,19 @@ class Profile(models.Model):
         ],
         verbose_name='Кто видит друзей'
     )
+
+    # НОВОЕ ПОЛЕ - Статистика
+    who_can_see_stats = models.CharField(
+        max_length=20,
+        default='everyone',
+        choices=[
+            ('everyone', 'Все'),
+            ('friends', 'Только друзья'),
+            ('nobody', 'Только я'),
+        ],
+        verbose_name='Кто видит статистику'
+    )
+
     allow_messages = models.CharField(
         max_length=20,
         default='everyone',

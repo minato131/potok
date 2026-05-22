@@ -19,7 +19,23 @@
         {% if form.errors %}
         <div class="auth-alert auth-alert--error">
             <i data-feather="alert-circle"></i>
-            <span>Пожалуйста, исправьте ошибки в форме</span>
+            <div>
+                <strong>Пожалуйста, исправьте следующие ошибки:</strong>
+                <ul style="margin-top: 8px; margin-bottom: 0; padding-left: 20px;">
+                    {% for field, errors in form.errors.items %}
+                        {% for error in errors %}
+                            <li>
+                                {% if field == 'username' %}Имя пользователя
+                                {% elif field == 'email' %}Email
+                                {% elif field == 'password1' %}Пароль
+                                {% elif field == 'password2' %}Подтверждение пароля
+                                {% else %}{{ field }}
+                                {% endif %}: {{ error }}
+                            </li>
+                        {% endfor %}
+                    {% endfor %}
+                </ul>
+            </div>
         </div>
         {% endif %}
 
@@ -54,6 +70,10 @@
                     <span class="field-error">{{ form.email.errors.0 }}</span>
                     {% endif %}
                 </div>
+            </div>
+            <div class="field-hint" style="font-size: 0.75rem; color: var(--color-text-tertiary); margin-top: 4px;">
+                <i data-feather="info" style="width: 12px; height: 12px; display: inline;"></i>
+                Используйте действующий email. Временные почты (tempmail.com, mailinator.com и т.д.) запрещены.
             </div>
 
             <div class="form-row form-row--double">
@@ -518,6 +538,91 @@
                     strengthDiv.textContent = '';
                 }
             });
+        }
+
+        // ========== ВАЛИДАЦИЯ EMAIL НА КЛИЕНТЕ ==========
+        const emailInput = document.getElementById('{{ form.email.id_for_label }}');
+        if (emailInput) {
+            const blockedDomains = ['tempmail.com', '10minutemail.com', 'guerrillamail.com',
+                'mailinator.com', 'yopmail.com', 'throwawaymail.com', 'temp-mail.org',
+                'fakeinbox.com', 'trashmail.com', 'getairmail.com', 'sharklasers.com',
+                'guerrillamail.net', 'tempinbox.com', 'throwaway.email', 'fakemailgenerator.com'];
+
+            function validateEmail() {
+                const email = emailInput.value;
+
+                if (!email) return true;
+
+                // Проверка формата
+                if (!email.includes('@')) {
+                    showEmailError('Email должен содержать символ @');
+                    return false;
+                }
+
+                if (email.indexOf('@') !== email.lastIndexOf('@')) {
+                    showEmailError('Email должен содержать ровно один символ @');
+                    return false;
+                }
+
+                const parts = email.split('@');
+                if (parts.length !== 2) {
+                    showEmailError('Неверный формат email');
+                    return false;
+                }
+
+                const localPart = parts[0];
+                const domain = parts[1];
+
+                if (localPart.length < 1) {
+                    showEmailError('Локальная часть email не может быть пустой');
+                    return false;
+                }
+
+                if (localPart.length > 64) {
+                    showEmailError('Локальная часть email слишком длинная');
+                    return false;
+                }
+
+                if (!domain || domain.indexOf('.') === -1) {
+                    showEmailError('Email должен содержать домен (например, @gmail.com)');
+                    return false;
+                }
+
+                if (domain.length < 4) {
+                    showEmailError('Домен email слишком короткий');
+                    return false;
+                }
+
+                // Проверка на запрещённые домены
+                const domainLower = domain.toLowerCase();
+                if (blockedDomains.includes(domainLower)) {
+                    showEmailError(`Использование почты с доменом ${domainLower} запрещено. Пожалуйста, используйте основной email.`);
+                    return false;
+                }
+
+                clearEmailError();
+                return true;
+            }
+
+            function showEmailError(message) {
+                let errorSpan = emailInput.closest('.form-field').querySelector('.field-error');
+                if (!errorSpan) {
+                    errorSpan = document.createElement('span');
+                    errorSpan.className = 'field-error';
+                    emailInput.closest('.form-field').appendChild(errorSpan);
+                }
+                errorSpan.textContent = message;
+                emailInput.style.borderColor = '#ef4444';
+            }
+
+            function clearEmailError() {
+                const errorSpan = emailInput.closest('.form-field').querySelector('.field-error');
+                if (errorSpan) errorSpan.remove();
+                emailInput.style.borderColor = '';
+            }
+
+            emailInput.addEventListener('input', validateEmail);
+            emailInput.addEventListener('blur', validateEmail);
         }
     });
 </script>

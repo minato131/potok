@@ -59,7 +59,7 @@ logger = logging.getLogger(__name__)
 
 def register_view(request):
     """
-    Регистрация нового пользователя
+    Регистрация нового пользователя с валидацией email
     """
     if request.user.is_authenticated:
         return redirect('posts:post_list')
@@ -67,7 +67,17 @@ def register_view(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            # Создаем пользователя
+            # Дополнительная проверка email (на случай если валидатор пропустил)
+            email = form.cleaned_data.get('email')
+
+            # Проверка на временные домены (ещё раз на всякий случай)
+            blocked_domains = ['tempmail.com', '10minutemail.com', 'mailinator.com', 'yopmail.com']
+            domain = email.split('@')[-1].lower() if '@' in email else ''
+            if domain in blocked_domains:
+                form.add_error('email', 'Использование временной почты запрещено')
+                return render(request, 'accounts/register.html', {'form': form})
+
+            # Создаём пользователя
             user = form.save(commit=False)
             user.email_verified = False
             user.save()
@@ -77,7 +87,7 @@ def register_view(request):
             # Генерируем и отправляем код
             code = generate_verification_code()
             user.email_verification_code = code
-            user.email_verification_sent = timezone.now()  # теперь работает
+            user.email_verification_sent = timezone.now()
             user.save(update_fields=['email_verification_code', 'email_verification_sent'])
 
             # Отправляем email
@@ -90,7 +100,10 @@ def register_view(request):
                 user.delete()
                 messages.error(request, 'Ошибка отправки письма. Попробуйте позже.')
         else:
-            messages.error(request, 'Пожалуйста, исправьте ошибки в форме')
+            # Выводим все ошибки формы
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f'{field}: {error}')
     else:
         form = CustomUserCreationForm()
 
@@ -137,7 +150,6 @@ def profile_view(request, username=None):
     else:
         profile_user = request.user
 
-    # Функция проверки доступа к контенту
     def can_view(user, target_user, content_type='profile'):
         if user == target_user:
             return True
@@ -151,6 +163,8 @@ def profile_view(request, username=None):
             setting = target_user.profile.who_can_see_videos
         elif content_type == 'music':
             setting = target_user.profile.who_can_see_music
+        elif content_type == 'stats':  # НОВОЕ - для статистики
+            setting = getattr(target_user.profile, 'who_can_see_stats', 'everyone')
         elif content_type == 'bookmarks':
             setting = 'only_me'
         else:
@@ -175,12 +189,117 @@ def profile_view(request, username=None):
             'profile_user': profile_user,
         })
 
+    # ========== ОСНОВНАЯ СТАТИСТИКА ==========
+    from django.utils import timezone
+    from datetime import timedelta
+    from django.db.models import Count, Q
+    from posts.models import Comment, Like
+
+    now = timezone.now()
+    week_ago = now - timedelta(days=7)
+    month_ago = now - timedelta(days=30)
+
+    # Базовые метрики
     posts_count = profile_user.posts.filter(status='published', is_hidden=False).count()
     followers_count = Follow.objects.filter(following=profile_user).count()
     following_count = Follow.objects.filter(follower=profile_user).count()
     friend_ids = set(Friendship.objects.filter(user=request.user, status='accepted').values_list('friend_id',
                                                                                                  flat=True)) if request.user.is_authenticated else set()
 
+    # ID постов пользователя
+    user_post_ids = list(profile_user.posts.filter(status='published', is_hidden=False).values_list('id', flat=True))
+
+    # Статистика по лайкам на постах пользователя
+    total_likes_on_posts = Like.objects.filter(
+        content_type='post',
+        object_id__in=user_post_ids
+    ).count()
+
+    likes_this_week = Like.objects.filter(
+        content_type='post',
+        object_id__in=user_post_ids,
+        created_at__gte=week_ago
+    ).count()
+
+    # Статистика по комментариям на постах пользователя
+    total_comments_on_posts = Comment.objects.filter(
+        post_id__in=user_post_ids,
+        is_deleted=False,
+        is_hidden=False
+    ).count()
+
+    comments_this_week = Comment.objects.filter(
+        post_id__in=user_post_ids,
+        is_deleted=False,
+        is_hidden=False,
+        created_at__gte=week_ago
+    ).count()
+
+    # Посты пользователя за период
+    posts_this_week = profile_user.posts.filter(
+        status='published',
+        is_hidden=False,
+        created_at__gte=week_ago
+    ).count()
+
+    posts_this_month = profile_user.posts.filter(
+        status='published',
+        is_hidden=False,
+        created_at__gte=month_ago
+    ).count()
+
+    # Новые подписчики за неделю
+    new_followers_this_week = Follow.objects.filter(
+        following=profile_user,
+        created_at__gte=week_ago
+    ).count() if hasattr(Follow, 'created_at') else 0
+
+    # Вовлечённость (лайки + комментарии на пост)
+    engagement_rate = 0
+    if posts_count > 0:
+        engagement_rate = round(((total_likes_on_posts + total_comments_on_posts) / posts_count), 1)
+
+    # Динамика по дням (для графика) - за последние 7 дней
+    last_7_days = []
+    for i in range(6, -1, -1):
+        day = now - timedelta(days=i)
+        day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+        posts_count_day = profile_user.posts.filter(
+            created_at__range=(day_start, day_end),
+            status='published',
+            is_hidden=False
+        ).count()
+
+        last_7_days.append({
+            'date': day.strftime('%d.%m'),
+            'posts': posts_count_day,
+            'day_name': day.strftime('%a')
+        })
+
+    max_posts = max([d['posts'] for d in last_7_days]) if last_7_days and max(
+        d['posts'] for d in last_7_days) > 0 else 1
+
+    # Статистика для шаблона
+    stats = {
+        'total_posts': posts_count,
+        'total_followers': followers_count,
+        'total_following': following_count,
+        'total_likes_on_posts': total_likes_on_posts,
+        'total_comments_on_posts': total_comments_on_posts,
+        'posts_this_week': posts_this_week,
+        'posts_this_month': posts_this_month,
+        'likes_this_week': likes_this_week,
+        'comments_this_week': comments_this_week,
+        'new_followers_this_week': new_followers_this_week,
+        'engagement_rate': engagement_rate,
+        'weekly_activity': last_7_days,
+        'max_posts_in_week': max_posts,
+        'join_date': profile_user.date_joined,
+    }
+
+    # ========== ОСТАЛЬНЫЕ ДАННЫЕ ==========
     user_posts = profile_user.posts.filter(status='published', is_hidden=False).order_by('-created_at')[:10]
 
     from posts.models import Comment, Like, Bookmark
@@ -225,10 +344,10 @@ def profile_view(request, username=None):
 
     liked_post_ids = set()
     if request.user.is_authenticated:
-        post_ids = [p.id for p in user_posts]
+        all_post_ids = set(user_post_ids)
         liked_post_ids = set(
-            Like.objects.filter(user=request.user, content_type='post', object_id__in=post_ids).values_list('object_id',
-                                                                                                            flat=True))
+            Like.objects.filter(user=request.user, content_type='post', object_id__in=all_post_ids).values_list(
+                'object_id', flat=True))
 
     liked_post_ids_full = Like.objects.filter(user=profile_user, content_type='post').values_list('object_id',
                                                                                                   flat=True)
@@ -237,17 +356,6 @@ def profile_view(request, username=None):
 
     friends_count = Friendship.objects.filter(user=profile_user, status='accepted').count()
     communities_count = Community.objects.filter(members=profile_user).count()
-
-    all_post_ids = set()
-    for p in user_posts: all_post_ids.add(p.id)
-    for p in liked_posts: all_post_ids.add(p.id)
-    for b in user_bookmarks: all_post_ids.add(b.post.id)
-
-    liked_post_ids = set()
-    if request.user.is_authenticated:
-        liked_post_ids = set(
-            Like.objects.filter(user=request.user, content_type='post', object_id__in=all_post_ids).values_list(
-                'object_id', flat=True))
 
     context = {
         'profile_user': profile_user,
@@ -267,11 +375,12 @@ def profile_view(request, username=None):
         'liked_post_ids': liked_post_ids,
         'friend_ids': friend_ids,
         'user_tracks': user_tracks,
-        # Флаги для шаблона
         'can_view_photos': can_view(request.user, profile_user, 'photos'),
         'can_view_videos': can_view(request.user, profile_user, 'videos'),
         'can_view_music': can_view(request.user, profile_user, 'music'),
+        'can_view_stats': can_view(request.user, profile_user, 'stats'),
         'is_owner': request.user == profile_user,
+        'stats': stats,
     }
     return render(request, 'accounts/profile.html', context)
 
@@ -289,6 +398,7 @@ def privacy_settings(request):
         profile.who_can_see_music = request.POST.get('who_can_see_music', 'everyone')
         profile.who_can_see_communities = request.POST.get('who_can_see_communities', 'everyone')
         profile.who_can_see_friends = request.POST.get('who_can_see_friends', 'everyone')
+        profile.who_can_see_stats = request.POST.get('who_can_see_stats', 'everyone')  # НОВОЕ
         profile.allow_messages = request.POST.get('allow_messages', 'everyone')
         profile.allow_comments = request.POST.get('allow_comments', 'everyone')
 

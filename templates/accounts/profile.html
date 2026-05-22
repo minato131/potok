@@ -1,7 +1,7 @@
 <!-- templates/accounts/profile.html -->
 {% extends 'base.html' %}
 {% load static %}
-
+{% load humanize %}
 {% block title %}{{ profile_user.username }} · Поток{% endblock %}
 {% block page_title %}{{ profile_user.get_full_name|default:profile_user.username }}{% endblock %}
 
@@ -124,6 +124,88 @@
                         <span class="stat-label">Посты</span>
                     </div>
                 </div>
+                <!-- Блок статистики профиля -->
+                {% if is_owner or can_view_stats %}
+                <div class="profile-stats-card">
+                    <h3 class="stats-title">Статистика</h3>
+
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value">{{ stats.total_posts }}</div>
+                            <div class="stat-label">Постов</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">{{ stats.total_followers }}</div>
+                            <div class="stat-label">Подписчиков</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">{{ stats.total_following }}</div>
+                            <div class="stat-label">Подписок</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">{{ stats.total_likes_on_posts }}</div>
+                            <div class="stat-label">Лайков (на постах)</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">{{ stats.total_comments_on_posts }}</div>
+                            <div class="stat-label">Комментариев</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">{{ stats.engagement_rate }}%</div>
+                            <div class="stat-label">Вовлечённость</div>
+                        </div>
+                    </div>
+
+                    <div class="stats-subgrid">
+                        <div class="stat-item-mini">
+                            <span class="stat-value-mini">{{ stats.posts_this_week }}</span>
+                            <span class="stat-label-mini">постов за неделю</span>
+                        </div>
+                        <div class="stat-item-mini">
+                            <span class="stat-value-mini">{{ stats.comments_this_week }}</span>
+                            <span class="stat-label-mini">комментариев</span>
+                        </div>
+                        <div class="stat-item-mini">
+                            <span class="stat-value-mini">{{ stats.likes_this_week }}</span>
+                            <span class="stat-label-mini">лайков</span>
+                        </div>
+                        <div class="stat-item-mini">
+                            <span class="stat-value-mini">+{{ stats.new_followers_this_week }}</span>
+                            <span class="stat-label-mini">подписчиков</span>
+                        </div>
+                    </div>
+
+                    <!-- График активности -->
+                    <div class="activity-chart">
+                        <h4>Активность за неделю</h4>
+                        <div class="chart-bars">
+                            {% for day in stats.weekly_activity %}
+                            <div class="chart-bar-item">
+                                <div class="chart-bar" style="height: {% widthratio day.posts stats.max_posts_in_week|default:1 80 %}px; min-height: 4px;"></div>
+                                <div class="chart-label">
+                                    {% if day.day_name == 'Mon' %}Пн
+                                    {% elif day.day_name == 'Tue' %}Вт
+                                    {% elif day.day_name == 'Wed' %}Ср
+                                    {% elif day.day_name == 'Thu' %}Чт
+                                    {% elif day.day_name == 'Fri' %}Пт
+                                    {% elif day.day_name == 'Sat' %}Сб
+                                    {% elif day.day_name == 'Sun' %}Вс
+                                    {% else %}{{ day.day_name }}{% endif %}
+                                </div>
+                                <div class="chart-value">{{ day.posts }}</div>
+                            </div>
+                            {% empty %}
+                            <div class="chart-empty">Нет данных за неделю</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="profile-join-date">
+                        <i data-feather="calendar"></i>
+                        <span>На сайте с {{ stats.join_date|date:"d F Y" }}</span>
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -624,6 +706,135 @@
         .media-grid { grid-template-columns: repeat(3, 1fr); }
         .profile-actions { flex-wrap: wrap; }
         .follow-btn, .btn-friend { padding: 6px 14px; font-size: 0.8rem; }
+    }
+    /* Блок статистики профиля */
+    .profile-stats-card {
+        background: var(--color-bg-surface);
+        border-radius: 16px;
+        border: 1px solid var(--color-border-light);
+        padding: 20px 24px;
+        margin-bottom: 20px;
+    }
+
+    .stats-title {
+        font-size: 1rem;
+        font-weight: 700;
+        margin-bottom: 16px;
+        color: var(--color-text);
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    .stats-subgrid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+
+    .stat-item-mini {
+        text-align: center;
+        padding: 10px;
+        background: var(--color-bg-elevated);
+        border-radius: 12px;
+    }
+
+    .stat-value-mini {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--color-primary);
+        display: block;
+    }
+
+    .stat-label-mini {
+        font-size: 0.65rem;
+        color: var(--color-text-tertiary);
+        margin-top: 4px;
+    }
+
+    .activity-chart {
+        margin-bottom: 20px;
+    }
+
+    .activity-chart h4 {
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 16px;
+        color: var(--color-text-secondary);
+    }
+
+    .chart-bars {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-around;
+        gap: 8px;
+        height: 120px;
+        padding: 10px 0;
+    }
+
+    .chart-bar-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .chart-bar {
+        width: 100%;
+        max-width: 40px;
+        background: linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+        border-radius: 6px 6px 0 0;
+        transition: height 0.3s ease;
+        min-height: 4px;
+    }
+
+    .chart-label {
+        font-size: 0.65rem;
+        font-weight: 500;
+        color: var(--color-text-tertiary);
+    }
+
+    .chart-value {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--color-text-secondary);
+    }
+
+    .chart-empty {
+        text-align: center;
+        padding: 20px;
+        color: var(--color-text-tertiary);
+        font-size: 0.8rem;
+    }
+
+    .profile-join-date {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-top: 12px;
+        border-top: 1px solid var(--color-border-light);
+        font-size: 0.8rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .profile-join-date i {
+        width: 16px;
+        height: 16px;
+    }
+
+    @media (max-width: 640px) {
+        .stats-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+        .stats-subgrid {
+            grid-template-columns: repeat(2, 1fr);
+        }
     }
 </style>
 {% endblock %}

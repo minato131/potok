@@ -48,4 +48,6 @@ urlpatterns = [
     path('tag/<slug:slug>/', views.tag_detail, name='tag_detail'),
     path('tags/', views.tag_list, name='tag_list'),
     path('recommended/api/', views.recommended_posts_api, name='recommended_api'),
+    # Модальное окно со списком лайкнувших
+    path('post/<int:post_id>/likes/', views.post_likes_modal, name='post_likes_modal'),
 ]

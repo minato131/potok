@@ -199,7 +199,7 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
             </svg>
-            <span>{{ post.likes_count }}</span>
+            <span class="likes-count">{{ post.likes_count }}</span>
         </button>
         <span class="pd-act"><i data-feather="message-circle"></i> <span>{{ comments.count }}</span></span>
         <button class="pd-act bookmark-btn-vk {% if is_bookmarked %}bookmarked{% endif %}" data-post-id="{{ post.id }}"><i data-feather="bookmark"></i></button>
@@ -290,6 +290,18 @@
                 </div>
                 <textarea id="cmtReportDescription" placeholder="Опишите причину жалобы..." rows="3" style="width:100%;margin-top:12px;padding:10px;border:1px solid #d1d5db;border-radius:10px;font-family:inherit;font-size:0.88rem;resize:vertical"></textarea>
                 <button class="btn btn--primary" style="width:100%;margin-top:12px" onclick="submitCommentReport()">Отправить жалобу</button>
+            </div>
+        </div>
+    </div>
+    <!-- Простая модалка для списка лайков -->
+    <div id="likesModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:1000; align-items:center; justify-content:center;">
+        <div style="background:var(--color-bg-surface); border-radius:16px; width:90%; max-width:400px; max-height:80vh; overflow:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:16px; border-bottom:1px solid var(--color-border);">
+                <h3 style="margin:0; font-size:1.1rem;">❤️ Понравилось <span id="likesModalCount">0</span></h3>
+                <button onclick="closeLikesModal()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+            </div>
+            <div id="likesModalList" style="padding:8px 0;">
+                <!-- Список пользователей будет здесь -->
             </div>
         </div>
     </div>
@@ -545,6 +557,106 @@ async function submitCommentReport() {
         notify('❌ Ошибка');
     }
 }
+// Рендер Markdown на странице поста
+document.addEventListener('DOMContentLoaded', function() {
+    const markdownDiv = document.querySelector('.markdown-content');
+    if (markdownDiv && typeof marked !== 'undefined') {
+        const rawContent = markdownDiv.dataset.raw || '';
+        if (rawContent) {
+            let html = marked.parse(rawContent);
+            html = html.replace(/\|\|(.+?)\|\|/g, '<span class="spoiler" onclick="this.classList.toggle(\'revealed\')">$1</span>');
+            markdownDiv.innerHTML = html;
+        }
+    }
+});
+
+async function openLikesModal(postId) {
+    console.log('Открываем модалку для поста:', postId);
+
+    // Создаём простую модалку
+    const modalHtml = `
+        <div id="tempLikesModal" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:10000; display:flex; align-items:center; justify-content:center;">
+            <div style="background:white; border-radius:16px; width:90%; max-width:400px; max-height:80vh; overflow:auto;">
+                <div style="display:flex; justify-content:space-between; padding:16px; border-bottom:1px solid #ddd;">
+                    <h3 style="margin:0;">❤️ Загружается...</h3>
+                    <button onclick="this.closest('#tempLikesModal').remove()" style="background:none; border:none; font-size:24px; cursor:pointer;">&times;</button>
+                </div>
+                <div id="tempLikesList" style="padding:16px;">Загрузка...</div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    try {
+        // ПРАВИЛЬНЫЙ URL - без /posts в начале
+        const response = await fetch(`/post/${postId}/likes/`);
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        const modal = document.getElementById('tempLikesModal');
+        const title = modal.querySelector('h3');
+        const listDiv = document.getElementById('tempLikesList');
+
+        title.innerHTML = `❤️ Понравилось (${data.total})`;
+
+        if (data.users && data.users.length > 0) {
+            listDiv.innerHTML = data.users.map(user => `
+                <a href="${user.profile_url}" style="display:flex; align-items:center; gap:12px; padding:10px 0; text-decoration:none; color:inherit; border-bottom:1px solid #eee;">
+                    <div style="width:44px; height:44px; border-radius:50%; background:#e0e7ff; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                        ${user.avatar
+                            ? `<img src="${user.avatar}" style="width:100%; height:100%; object-fit:cover;">`
+                            : `<span style="font-size:20px; font-weight:600;">${user.username.charAt(0).toUpperCase()}</span>`
+                        }
+                    </div>
+                    <div>
+                        <div style="font-weight:600;">${escapeHtml(user.full_name)}</div>
+                        <div style="font-size:12px; color:#666;">@${escapeHtml(user.username)}</div>
+                    </div>
+                </a>
+            `).join('');
+        } else {
+            listDiv.innerHTML = '<div style="text-align:center; color:#666;">Пока никто не лайкнул</div>';
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки модалки:', error);
+        const listDiv = document.getElementById('tempLikesList');
+        if (listDiv) listDiv.innerHTML = '<div style="text-align:center; color:red;">Ошибка загрузки</div>';
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+// ========== ОТКРЫТИЕ МОДАЛКИ ПО КЛИКУ НА СЧЁТЧИК ЛАЙКОВ ==========
+function initLikesModalTrigger() {
+    const likesCountSpan = document.querySelector('.like-btn-vk .likes-count');
+    if (likesCountSpan) {
+        likesCountSpan.style.cursor = 'pointer';
+        likesCountSpan.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const postId = this.closest('.like-btn-vk')?.dataset.postId;
+            if (postId) {
+                openLikesModal(postId);
+            }
+        });
+        console.log('Обработчик счётчика лайков добавлен');
+    } else {
+        console.log('Счётчик .likes-count не найден');
+    }
+}
+
+// Запускаем после загрузки страницы
+document.addEventListener('DOMContentLoaded', function() {
+    initLikesModalTrigger();
+});
 document.getElementById('reportCommentModal')?.addEventListener('click',function(e){if(e.target===this)closeReportCommentModal()});
 
 window.copyCommentLink=function(cid){const url=location.origin+location.pathname+'#comment-'+cid;navigator.clipboard.writeText(url).then(()=>showToast('Ссылка скопирована'))};
