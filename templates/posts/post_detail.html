@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
-
+{% block content_container_class %}content-container--narrow{% endblock %}
 {% block title %}{{ post.author.username }} · Пост · Поток{% endblock %}
 {% block page_title %}Пост{% endblock %}
 

@@ -34,10 +34,6 @@ class CommunityForm(forms.ModelForm):
         choices=Community.PRIVACY_CHOICES,
         widget=forms.Select(attrs={'class': 'form-select'})
     )
-    community_type = forms.ChoiceField(
-        choices=Community.COMMUNITY_TYPE_CHOICES,
-        widget=forms.Select(attrs={'class': 'form-select'})
-    )
     category = forms.ModelChoiceField(
         queryset=None,  # будет установлено в __init__
         required=False,
@@ -55,7 +51,7 @@ class CommunityForm(forms.ModelForm):
     class Meta:
         model = Community
         fields = ['name', 'slug', 'description', 'avatar', 'cover', 'privacy',
-                  'community_type', 'category', 'posts_need_approval', 'rules',
+                   'category', 'posts_need_approval', 'rules',
                   'website', 'discord', 'telegram']
 
     def __init__(self, *args, **kwargs):

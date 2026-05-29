@@ -1,6 +1,7 @@
 <!-- templates/posts/post_list.html -->
 {% extends 'base.html' %}
 {% load static %}
+{% block content_container_class %}content-container--medium{% endblock %}
 {% load post_filters %}
 
 {% block title %}{% if category %}{{ category.name }}{% elif tag %}#{{ tag.name }}{% else %}Главная · Поток{% endif %}{% endblock %}

@@ -40,7 +40,12 @@ class Community(models.Model):
     members = models.ManyToManyField(User, through='CommunityMembership', related_name='communities', verbose_name='Участники')
 
     privacy = models.CharField(max_length=20, choices=PRIVACY_CHOICES, default='public', verbose_name='Приватность')
-    community_type = models.CharField(max_length=20, choices=COMMUNITY_TYPE_CHOICES, default='public', verbose_name='Тип сообщества')
+    community_type = models.CharField(
+        max_length=20,
+        choices=COMMUNITY_TYPE_CHOICES,
+        default='public',  # ← добавить эту строку
+        verbose_name='Тип сообщества'
+    )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active', verbose_name='Статус')
 
     posts_need_approval = models.BooleanField(default=False, verbose_name='Посты требуют одобрения')

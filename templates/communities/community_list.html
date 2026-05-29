@@ -17,7 +17,6 @@
 <style>
     .cl-page { max-width: 1100px; margin: 0 auto; }
 
-    /* Шапка */
     .cl-hero {
         background: linear-gradient(135deg, #6366f1, #8b5cf6);
         border-radius: 20px; padding: 28px 32px; margin-bottom: 24px;
@@ -28,7 +27,6 @@
     .cl-hero-stat { text-align: center; background: rgba(255,255,255,0.15); border-radius: 14px; padding: 16px 24px; backdrop-filter: blur(10px); }
     .cl-hero-stat span { display: block; font-size: 2rem; font-weight: 700; }
 
-    /* Поиск и фильтры */
     .cl-bar {
         background: var(--color-bg-surface); border-radius: 16px; padding: 16px 20px;
         border: 1px solid var(--color-border-light); margin-bottom: 20px;
@@ -56,52 +54,83 @@
         font-size: 0.82rem; background: var(--color-bg-surface); cursor: pointer;
     }
 
-    /* Сетка */
     .cl-grid {
-        display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-        gap: 16px; margin-bottom: 24px;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
     }
     .cl-card {
-        background: var(--color-bg-surface); border-radius: 16px; overflow: hidden;
-        border: 1px solid var(--color-border-light); transition: all 0.2s;
+        background: var(--color-bg-surface);
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid var(--color-border-light);
+        transition: all 0.2s;
     }
     .cl-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
     .cl-cover {
-        height: 90px; background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        height: 90px;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
         position: relative;
     }
     .cl-cover img { width: 100%; height: 100%; object-fit: cover; }
     .cl-privacy {
-        position: absolute; top: 8px; right: 8px; padding: 4px 8px;
-        background: rgba(0,0,0,0.5); border-radius: 6px; color: #fff; font-size: 0.7rem;
+        position: absolute; top: 8px; right: 8px;
+        padding: 4px 8px;
+        background: rgba(0,0,0,0.5);
+        border-radius: 6px;
+        color: #fff;
+        font-size: 0.7rem;
     }
     .cl-avatar {
-        width: 64px; height: 64px; border-radius: 16px; overflow: hidden;
-        border: 3px solid #fff; margin: -32px auto 0; position: relative; z-index: 1;
+        width: 64px; height: 64px;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 3px solid #fff;
+        margin: -32px auto 0;
+        position: relative;
+        z-index: 1;
     }
     .cl-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .cl-avatar-placeholder {
-        width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
-        background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; font-size: 1.5rem; font-weight: 700;
+        width: 100%; height: 100%;
+        display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: #fff;
+        font-size: 1.5rem;
+        font-weight: 700;
     }
     .cl-body { padding: 12px 18px 18px; text-align: center; }
     .cl-name { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; }
     .cl-name a { color: var(--color-text); text-decoration: none; }
     .cl-name a:hover { color: var(--color-primary); }
     .cl-desc {
-        font-size: 0.82rem; color: var(--color-text-secondary); line-height: 1.4;
-        margin-bottom: 12px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        font-size: 0.82rem;
+        color: var(--color-text-secondary);
+        line-height: 1.4;
+        margin-bottom: 12px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
     }
     .cl-stats {
-        display: flex; justify-content: center; gap: 20px;
-        padding: 10px 0; border-top: 1px solid var(--color-border-light); margin-bottom: 10px;
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        padding: 10px 0;
+        border-top: 1px solid var(--color-border-light);
+        margin-bottom: 10px;
     }
     .cl-stat { text-align: center; }
     .cl-stat-val { font-weight: 700; font-size: 0.95rem; }
     .cl-stat-lbl { font-size: 0.7rem; color: var(--color-text-tertiary); }
     .cl-footer {
-        display: flex; justify-content: center; gap: 8px;
-        padding-top: 10px; border-top: 1px solid var(--color-border-light);
+        display: flex;
+        justify-content: center;
+        gap: 8px;
+        padding-top: 10px;
+        border-top: 1px solid var(--color-border-light);
     }
     .cl-empty { grid-column: 1/-1; text-align: center; padding: 60px 20px; color: var(--color-text-tertiary); }
 
@@ -166,19 +195,8 @@
                 </div>
                 <div class="cl-footer">
                     {% if user.is_authenticated %}
-                        {% with membership=user.communitymembership_set.all %}
-                            {% for m in membership %}
-                                {% if m.community_id == community.id and m.status == 'active' %}
-                                <span class="btn btn--outline btn--sm" style="color:#16a34a;border-color:#86efac">✓ Вы участник</span>
-                                <a href="{% url 'communities:community_detail' slug=community.slug %}" class="btn btn--primary btn--sm">Перейти</a>
-                                {% elif m.community_id == community.id and m.status == 'pending' %}
-                                <span class="btn btn--outline btn--sm" style="color:#d97706">⏳ Заявка</span>
-                                {% endif %}
-                            {% empty %}
-                                <button class="btn btn--primary btn--sm join-btn" data-community-slug="{{ community.slug }}">Вступить</button>
-                                <a href="{% url 'communities:community_detail' slug=community.slug %}" class="btn btn--outline btn--sm">Подробнее</a>
-                            {% endfor %}
-                        {% endwith %}
+                        <button class="btn btn--primary btn--sm join-btn" data-community-slug="{{ community.slug }}">Вступить</button>
+                        <a href="{% url 'communities:community_detail' slug=community.slug %}" class="btn btn--outline btn--sm">Подробнее</a>
                     {% else %}
                         <a href="{% url 'accounts:login' %}" class="btn btn--outline btn--sm">Войти</a>
                     {% endif %}
@@ -206,15 +224,128 @@
 </div>
 
 <script>
-function G(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
+function getCookie(n){
+    let v=null;
+    document.cookie.split(';').forEach(c=>{
+        const[k,val]=c.trim().split('=');
+        if(k===n) v=decodeURIComponent(val)
+    });
+    return v
+}
+
+function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: ${type === 'success' ? '#22c55e' : '#ef4444'};
+        color: white;
+        padding: 12px 20px;
+        border-radius: 10px;
+        z-index: 9999;
+        animation: fadeInOut 2s ease;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
+}
+
+// Фильтры
 document.querySelectorAll('.cl-filt').forEach(b => b.addEventListener('click', function() {
     document.getElementById('filterInput').value = this.dataset.filter;
     document.getElementById('filterForm').submit();
 }));
-document.querySelectorAll('.join-btn').forEach(btn => btn.addEventListener('click', async function() {
-    const slug = this.dataset.communitySlug;
-    const r = await fetch(`/communities/${slug}/join/`, { method: 'POST', headers: { 'X-CSRFToken': G('csrftoken') } });
-    if (r.ok) { const d = await r.json(); location.reload(); }
-}));
+
+// Кнопки вступления (AJAX)
+// Кнопки вступления (AJAX)
+document.querySelectorAll('.join-btn').forEach(btn => {
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+
+    newBtn.addEventListener('click', async function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const slug = this.dataset.communitySlug;
+        const originalText = this.innerHTML;
+
+        this.innerHTML = '<i data-feather="loader"></i> Загрузка...';
+        this.disabled = true;
+        feather.replace();
+
+        try {
+            const response = await fetch(`/communities/${slug}/join/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                // Полностью заменяем содержимое футера
+                const footer = this.closest('.cl-footer');
+                footer.innerHTML = `
+                    <button class="btn btn--danger btn--sm leave-btn" data-community-slug="${slug}">Покинуть</button>
+                    <a href="/communities/${slug}/" class="btn btn--outline btn--sm">Перейти</a>
+                `;
+                feather.replace();
+                showToast(data.message || '✅ Вы вступили в сообщество!');
+            } else {
+                showToast(data.error || '❌ Ошибка', 'error');
+                this.innerHTML = originalText;
+                this.disabled = false;
+                feather.replace();
+            }
+        } catch (error) {
+            showToast('❌ Ошибка сервера', 'error');
+            this.innerHTML = originalText;
+            this.disabled = false;
+            feather.replace();
+        }
+    });
+});
+// Обработчик для кнопки "Покинуть"
+document.querySelectorAll('.leave-btn').forEach(btn => {
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+
+    newBtn.addEventListener('click', async function(e) {
+        e.preventDefault();
+        const slug = this.dataset.communitySlug;
+
+        const response = await fetch(`/communities/${slug}/leave/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+
+        if (response.ok) {
+            const footer = this.closest('.cl-footer');
+            footer.innerHTML = `
+                <button class="btn btn--primary btn--sm join-btn" data-community-slug="${slug}">Вступить</button>
+                <a href="/communities/${slug}/" class="btn btn--outline btn--sm">Подробнее</a>
+            `;
+            feather.replace();
+            showToast('Вы покинули сообщество');
+        }
+    });
+});
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes fadeInOut {
+        0% { opacity: 0; transform: translateX(20px); }
+        10% { opacity: 1; transform: translateX(0); }
+        90% { opacity: 1; transform: translateX(0); }
+        100% { opacity: 0; transform: translateX(20px); }
+    }
+`;
+document.head.appendChild(style);
 </script>
 {% endblock %}

@@ -226,6 +226,13 @@ class Post(models.Model):
         self.views_count += 1
         self.save(update_fields=['views_count'])
 
+    def delete(self, *args, **kwargs):
+        if self.image:
+            self.image.delete(save=False)
+        if self.video:
+            self.video.delete(save=False)
+        super().delete(*args, **kwargs)
+
 
 class Comment(models.Model):
     """

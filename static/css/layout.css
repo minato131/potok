@@ -52,8 +52,14 @@
 /* Основной контент */
 .main-content {
     padding: 1.5rem 2rem;
-    max-width: 100%;
-    overflow-x: hidden;
+    width: 100%;
+    overflow-x: auto;
+}
+/* Для очень широких экранов — можно добавить отступы */
+@media (min-width: 1600px) {
+    .main-content {
+        padding: 1.5rem 3rem;
+    }
 }
 
 .main-content__header {
@@ -78,8 +84,9 @@
 }
 
 .content-container {
-    max-width: var(--content-max-width);
-    margin: 0 auto;
+    width: 100%;
+    margin: 0;
+    padding: 0;
 }
 
 /* Правая боковая панель */
@@ -163,4 +170,25 @@
 
 .mobile-nav__close:hover {
     background-color: var(--color-bg-elevated);
+}
+
+/* Для страниц, где нужна узкая центрированная ширина (например, пост, профиль) */
+.content-container--narrow {
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* Для страниц, где нужна средняя ширина */
+.content-container--medium {
+    max-width: 1000px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* Для страниц на всю ширину (аналитика, сообщества) */
+.content-container--full {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
 }

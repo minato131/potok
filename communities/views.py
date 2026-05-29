@@ -272,6 +272,10 @@ def community_create(request):
     """Создание нового сообщества"""
     if request.method == 'POST':
         form = CommunityForm(request.POST, request.FILES)
+        print("=" * 50)
+        print("ОШИБКИ ФОРМЫ:", form.errors)
+        print("POST:", request.POST)
+        print("=" * 50)
         if form.is_valid():
             community = form.save(commit=False)
             community.creator = request.user
@@ -344,22 +348,28 @@ def community_edit(request, slug):
 def community_join(request, slug):
     community = get_object_or_404(Community, slug=slug)
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    print(f"DEBUG: community_join called, slug={slug}, is_ajax={is_ajax}")
 
     membership = CommunityMembership.objects.filter(user=request.user, community=community).first()
 
     if membership:
         if membership.status == 'banned':
-            return JsonResponse({'error': 'Заблокированы'}, status=403) if is_ajax else redirect(...)
+            if is_ajax:
+                return JsonResponse({'error': 'Заблокированы'}, status=403)
+            messages.error(request, 'Вы заблокированы в этом сообществе')
+            return redirect('communities:community_detail', slug=community.slug)
         elif membership.status == 'active':
-            return JsonResponse({'error': 'Уже участник'}, status=400) if is_ajax else redirect(...)
+            if is_ajax:
+                return JsonResponse({'error': 'Уже участник'}, status=400)
+            messages.info(request, 'Вы уже состоите в сообществе')
+            return redirect('communities:community_detail', slug=community.slug)
 
     # Публичное — сразу вступаем
     if community.privacy == 'public':
         CommunityMembership.objects.create(user=request.user, community=community, role='member', status='active')
         community.update_stats()
-        if is_ajax: return JsonResponse({'joined': True})
-        messages.success(request, 'Вы вступили!')
-        return redirect('communities:community_detail', slug=community.slug)
+        if is_ajax:
+            return JsonResponse({'joined': True, 'members_count': community.members_count})
 
     # Закрытое — заявка
     if request.method == 'POST':
@@ -378,6 +388,7 @@ def community_join(request, slug):
 @login_required
 def community_leave(request, slug):
     community = get_object_or_404(Community, slug=slug)
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'  # ← добавить эту строку
 
     membership = CommunityMembership.objects.filter(
         user=request.user,
@@ -386,6 +397,8 @@ def community_leave(request, slug):
     ).first()
 
     if not membership:
+        if is_ajax:
+            return JsonResponse({'error': 'Вы не состоите в сообществе'}, status=400)
         messages.error(request, 'Вы не состоите в этом сообществе')
         return redirect('communities:community_detail', slug=community.slug)
 
@@ -398,11 +411,10 @@ def community_leave(request, slug):
         ).count()
 
         if admin_count <= 1:
+            if is_ajax:
+                return JsonResponse({'error': 'Вы единственный администратор'}, status=400)
             messages.error(request, 'Вы единственный администратор. Назначьте другого администратора перед выходом.')
             return redirect('communities:community_detail', slug=community.slug)
-
-    # Удаляем членство
-    membership.delete()
 
     # Удаляем все старые заявки этого пользователя (чтобы можно было подать новую)
     CommunityJoinRequest.objects.filter(
@@ -410,8 +422,11 @@ def community_leave(request, slug):
         user=request.user
     ).delete()
 
-    # Обновляем статистику
+    membership.delete()
     community.update_stats()
+
+    if is_ajax:
+        return JsonResponse({'left': True, 'members_count': community.members_count})
 
     messages.success(request, f'Вы покинули сообщество "{community.name}"')
     return redirect('communities:community_detail', slug=community.slug)

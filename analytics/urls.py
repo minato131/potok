@@ -7,4 +7,5 @@ urlpatterns = [
     path('', views.dashboard, name='dashboard'),
     path('data/', views.data, name='data'),
     path('export/pdf/', views.export_pdf, name='export_pdf'),
+    path('export/json/', views.export_analytics_json, name='export_json'),
 ]

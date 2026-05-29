@@ -84,8 +84,8 @@
                 <div class="cover-edit-group">
                     <label class="form-label">Обложка</label>
                     <div class="image-preview cover-preview" id="coverPreview">
-                        {% if community.cover_image %}
-                        <img src="{{ community.cover_image.url }}" alt="Текущая обложка">
+                        {% if community.cover %}
+                        <img src="{{ community.cover.url }}" alt="Текущая обложка">
                         {% else %}
                         <div class="preview-placeholder">
                             <i data-feather="image"></i>
@@ -98,7 +98,7 @@
                         </div>
                         {{ form.cover_image }}
                     </div>
-                    {% if community.cover_image %}
+                    {% if community.cover %}
                     <label class="checkbox-label" style="margin-top: 0.5rem;">
                         {{ form.clear_cover }}
                         <span>Удалить текущую обложку</span>

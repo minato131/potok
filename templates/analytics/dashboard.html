@@ -1,18 +1,40 @@
 {% extends 'base.html' %}
 {% load static %}
-
+{% block content_container_class %}content-container--full{% endblock %}
 {% block title %}Аналитика · Поток{% endblock %}
 {% block page_title %}Аналитика{% endblock %}
 
 {% block header_actions %}
-<div class="header-actions" style="display: flex; gap: 12px; align-items: center;">
+<div class="header-actions" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
     <div class="period-selector">
         <button class="period-btn active" data-days="7">7 дней</button>
         <button class="period-btn" data-days="30">30 дней</button>
         <button class="period-btn" data-days="90">90 дней</button>
         <button class="period-btn" data-days="365">Год</button>
     </div>
-    <a href="{% url 'analytics:export_pdf' %}?days=30" class="btn btn--outline btn--sm" id="exportPdfBtn">
+
+    <div class="date-range-picker" style="display: flex; gap: 8px; align-items: center;">
+        <input type="date" id="dateFrom" class="form-input" style="padding: 0.5rem; font-size: 0.85rem;">
+        <span>—</span>
+        <input type="date" id="dateTo" class="form-input" style="padding: 0.5rem; font-size: 0.85rem;">
+        <button id="applyDateRange" class="btn btn--outline btn--sm">Применить</button>
+    </div>
+
+    <select id="exportTypeSelect" class="form-input" style="width: auto; padding: 0.5rem;">
+        <option value="full">Полный отчёт</option>
+        <option value="summary">Краткий отчёт</option>
+        <option value="users">Топ пользователей</option>
+        <option value="posts">Топ постов</option>
+        <option value="communities">Топ сообществ</option>
+        <option value="daily">Ежедневная статистика</option>
+    </select>
+
+    <button id="exportJsonBtn" class="btn btn--primary btn--sm">
+        <i data-feather="file-text"></i>
+        <span>Экспорт JSON</span>
+    </button>
+
+    <a href="#" id="exportPdfBtn" class="btn btn--outline btn--sm">
         <i data-feather="download"></i>
         <span>PDF</span>
     </a>
@@ -21,167 +43,44 @@
 
 {% block content %}
 <style>
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-        gap: 1rem;
-        margin-bottom: 2rem;
-    }
-    .stat-card {
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-lg);
-        padding: 1.25rem;
-        border: 1px solid var(--color-border-light);
-        text-align: center;
-    }
-    .stat-card__value {
-        font-size: 1.75rem;
-        font-weight: 700;
-        color: var(--color-primary);
-    }
-    .stat-card__label {
-        font-size: 0.8rem;
-        color: var(--color-text-tertiary);
-        margin-top: 0.25rem;
-    }
-    .chart-container {
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-lg);
-        padding: 1.5rem;
-        border: 1px solid var(--color-border-light);
-        margin-bottom: 1.5rem;
-    }
-    .chart-container h3 {
-        margin-bottom: 1rem;
-        font-size: 1rem;
-        font-weight: 600;
-    }
-    .tables-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1.5rem;
-        margin-bottom: 1.5rem;
-    }
-    .data-table {
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-lg);
-        border: 1px solid var(--color-border-light);
-        overflow: hidden;
-        width: 100%;
-    }
-    .data-table h3 {
-        padding: 1rem 1.25rem;
-        margin: 0;
-        font-size: 1rem;
-        font-weight: 600;
-        border-bottom: 1px solid var(--color-border-light);
-        background: var(--color-bg-elevated);
-    }
-    .table-wrapper {
-        overflow-x: auto;
-        width: 100%;
-    }
-    .data-table table {
-        width: 100%;
-        min-width: 500px;
-        border-collapse: collapse;
-    }
-    .data-table th,
-    .data-table td {
-        padding: 0.75rem 1.25rem;
-        text-align: left;
-        border-bottom: 1px solid var(--color-border-light);
-        white-space: nowrap;
-    }
-    /* Для заголовка поста разрешаем перенос, но не длиннее */
-    .data-table td:first-child,
-    .data-table th:first-child {
-        white-space: normal;
-        max-width: 250px;
-        min-width: 180px;
-    }
-    .data-table th {
-        font-weight: 600;
-        color: var(--color-text-secondary);
-        font-size: 0.8rem;
-        background: var(--color-bg-elevated);
-    }
-    .data-table tr:last-child td {
-        border-bottom: none;
-    }
-    .data-table tr:hover td {
-        background: rgba(59, 130, 246, 0.05);
-    }
-    .rank-number {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 28px;
-        height: 28px;
-        background: var(--color-bg-elevated);
-        border-radius: 50%;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: var(--color-primary);
-    }
-    .period-selector {
-        display: flex;
-        gap: 0.5rem;
-        background: var(--color-bg-surface);
-        padding: 0.25rem;
-        border-radius: var(--radius-md);
-        border: 1px solid var(--color-border-light);
-    }
-    .period-btn {
-        padding: 0.5rem 1rem;
-        border-radius: var(--radius-sm);
-        font-size: 0.85rem;
-        font-weight: 500;
-        background: transparent;
-        border: none;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-    .period-btn:hover {
-        background: var(--color-bg-elevated);
-    }
-    .period-btn.active {
-        background: var(--color-primary);
-        color: white;
-    }
-    .username-cell {
-        font-weight: 500;
-        color: var(--color-text);
-        text-decoration: none;
-    }
-    .username-cell:hover {
-        color: var(--color-primary);
-    }
-    .post-title-link {
-        color: var(--color-text);
-        text-decoration: none;
-        font-weight: 500;
-        display: block;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    .post-title-link:hover {
-        color: var(--color-primary);
-    }
-    .stat-number {
-        font-weight: 600;
-        text-align: center;
-    }
-    @media (max-width: 900px) {
-        .tables-grid {
-            grid-template-columns: 1fr;
-        }
-    }
+    .analytics-container { max-width: 1400px; margin: 0 auto; padding: 0 1rem; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .stat-card { background: var(--color-bg-surface); border-radius: var(--radius-lg); padding: 1.25rem; border: 1px solid var(--color-border-light); text-align: center; }
+    .stat-card__value { font-size: 2rem; font-weight: 700; color: var(--color-primary); }
+    .stat-card__label { font-size: 0.85rem; color: var(--color-text-tertiary); margin-top: 0.25rem; }
+    .chart-row { display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 2rem; }
+    .chart-container { background: var(--color-bg-surface); border-radius: var(--radius-lg); padding: 1.5rem; border: 1px solid var(--color-border-light); }
+    .chart-container h3 { margin-bottom: 1rem; font-size: 1.1rem; font-weight: 600; }
+    .chart-wrapper { position: relative; width: 100%; min-height: 350px; }
+    .chart-wrapper canvas { max-height: 350px; width: 100%; }
+    .tables-grid { display: flex; flex-direction: column; gap: 1.5rem; }
+    .data-table { background: var(--color-bg-surface); border-radius: var(--radius-lg); border: 1px solid var(--color-border-light); overflow: hidden; width: 100%; }
+    .data-table h3 { padding: 1rem 1.25rem; margin: 0; font-size: 1rem; font-weight: 600; border-bottom: 1px solid var(--color-border-light); background: var(--color-bg-elevated); }
+    .table-wrapper { overflow-x: auto; width: 100%; }
+    .data-table table { width: 100%; border-collapse: collapse; table-layout: auto; }
+    .data-table th, .data-table td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--color-border-light); vertical-align: middle; }
+    .data-table th { font-weight: 600; color: var(--color-text-secondary); font-size: 0.85rem; background: var(--color-bg-elevated); white-space: nowrap; }
+    .data-table td { white-space: nowrap; }
+    .data-table td:nth-child(2) { white-space: normal; word-break: break-word; max-width: 350px; }
+    .rank-number { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: var(--color-bg-elevated); border-radius: 50%; font-size: 0.75rem; font-weight: 600; color: var(--color-primary); }
+    .period-selector { display: flex; gap: 0.5rem; background: var(--color-bg-surface); padding: 0.25rem; border-radius: var(--radius-md); border: 1px solid var(--color-border-light); }
+    .period-btn { padding: 0.5rem 1rem; border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 500; background: transparent; border: none; cursor: pointer; transition: all 0.2s; }
+    .period-btn:hover { background: var(--color-bg-elevated); }
+    .period-btn.active { background: var(--color-primary); color: white; }
+    .username-cell { font-weight: 500; color: var(--color-text); text-decoration: none; }
+    .username-cell:hover { color: var(--color-primary); }
+    .post-title-link { color: var(--color-text); text-decoration: none; font-weight: 500; }
+    .post-title-link:hover { color: var(--color-primary); }
+    .stat-number { font-weight: 600; text-align: center; }
+    .date-range-picker { background: var(--color-bg-surface); padding: 0.25rem 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--color-border-light); }
+    .date-range-picker input { border: 1px solid var(--color-border); border-radius: 6px; font-size: 0.8rem; }
+    #exportTypeSelect { background: var(--color-bg-surface); border: 1px solid var(--color-border-light); border-radius: var(--radius-md); font-size: 0.85rem; cursor: pointer; }
+    @keyframes fadeInOut { 0% { opacity: 0; transform: translateX(20px); } 10% { opacity: 1; transform: translateX(0); } 90% { opacity: 1; transform: translateX(0); } 100% { opacity: 0; transform: translateX(20px); } }
+    @media (max-width: 900px) { .header-actions { flex-wrap: wrap; gap: 10px; } }
+    @media (max-width: 768px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
 </style>
 
 <div class="analytics-container">
-    <!-- Статистика -->
     <div class="stats-grid" id="statsGrid">
         <div class="stat-card"><div class="stat-card__value" id="statUsers">-</div><div class="stat-card__label">Пользователей</div></div>
         <div class="stat-card"><div class="stat-card__value" id="statPosts">-</div><div class="stat-card__label">Постов</div></div>
@@ -192,62 +91,15 @@
         <div class="stat-card"><div class="stat-card__value" id="statBans">-</div><div class="stat-card__label">Блокировок</div></div>
     </div>
 
-    <!-- Графики -->
-    <div class="chart-container">
-        <h3>📈 Новые пользователи</h3>
-        <canvas id="usersChart" style="max-height: 300px; width: 100%;"></canvas>
-    </div>
-    <div class="chart-container">
-        <h3>📝 Посты и комментарии</h3>
-        <canvas id="postsCommentsChart" style="max-height: 300px; width: 100%;"></canvas>
-    </div>
-    <div class="chart-container">
-        <h3>❤️ Лайки</h3>
-        <canvas id="likesChart" style="max-height: 300px; width: 100%;"></canvas>
+    <div class="chart-row">
+        <div class="chart-container"><h3>📈 Новые пользователи</h3><div class="chart-wrapper"><canvas id="usersChart"></canvas></div></div>
+        <div class="chart-container"><h3>📝 Посты и комментарии</h3><div class="chart-wrapper"><canvas id="postsCommentsChart"></canvas></div></div>
+        <div class="chart-container"><h3>❤️ Лайки</h3><div class="chart-wrapper"><canvas id="likesChart"></canvas></div></div>
     </div>
 
-    <!-- Таблицы -->
     <div class="tables-grid">
-        <!-- Топ пользователей -->
-        <div class="data-table">
-            <h3>🏆 Топ-10 активных пользователей</h3>
-            <div class="table-wrapper">
-                <table id="topUsersTable">
-                    <thead>
-                        <tr>
-                            <th style="width: 60px;">#</th>
-                            <th>Пользователь</th>
-                            <th style="width: 80px; text-align: center;">📝 Посты</th>
-                            <th style="width: 100px; text-align: center;">💬 Комментарии</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td colspan="4" style="text-align: center;">Загрузка...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Топ постов -->
-        <div class="data-table">
-            <h3>🔥 Топ-10 популярных постов</h3>
-            <div class="table-wrapper">
-                <table id="topPostsTable">
-                    <thead>
-                        <tr>
-                            <th style="width: 60px;">#</th>
-                            <th>Заголовок</th>
-                            <th style="width: 80px; text-align: center;">❤️ Лайки</th>
-                            <th style="width: 90px; text-align: center;">💬 Комментарии</th>
-                            <th style="width: 90px; text-align: center;">👁️ Просмотры</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td colspan="5" style="text-align: center;">Загрузка...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+        <div class="data-table"><h3>Топ-10 активных пользователей</h3><div class="table-wrapper"><table id="topUsersTable"><thead><tr><th>#</th><th>Пользователь</th><th>📝 Посты</th><th>💬 Комментарии</th></tr></thead><tbody><tr><td colspan="4" style="text-align: center;">Загрузка...</td></tr></tbody></table></div></div>
+        <div class="data-table"><h3>Топ-10 популярных постов</h3><div class="table-wrapper"><table id="topPostsTable"><thead><tr><th>#</th><th>Заголовок</th><th>❤️ Лайки</th><th>💬 Комментарии</th><th>👁️ Просмотры</th></tr></thead><tbody><tr><td colspan="5" style="text-align: center;">Загрузка...</td></tr></tbody></table></div></div>
     </div>
 </div>
 
@@ -255,137 +107,239 @@
 <script>
 let usersChart, postsCommentsChart, likesChart;
 let currentDays = 30;
+let currentDateFrom = null;
+let currentDateTo = null;
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showNotification(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed; bottom: 20px; right: 20px;
+        background: ${type === 'success' ? '#22c55e' : '#ef4444'};
+        color: white; padding: 12px 20px; border-radius: 10px;
+        z-index: 9999; animation: fadeInOut 2s ease;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
+}
 
 async function loadAnalytics(days) {
     try {
         const response = await fetch(`/analytics/data/?days=${days}`);
         const data = await response.json();
 
-        // Обновляем статистику
         document.getElementById('statUsers').textContent = data.total_stats.users;
         document.getElementById('statPosts').textContent = data.total_stats.posts;
         document.getElementById('statComments').textContent = data.total_stats.comments;
         document.getElementById('statLikes').textContent = data.total_stats.likes;
         document.getElementById('statCommunities').textContent = data.total_stats.communities;
         document.getElementById('statReports').textContent = data.total_stats.reports;
-        document.getElementById('statBans').textContent = data.total_stats.bans;
+        document.getElementById('statBans').textContent = data.total_stats.bans || 0;
 
-        // Обновляем графики
         if (usersChart) usersChart.destroy();
         if (postsCommentsChart) postsCommentsChart.destroy();
         if (likesChart) likesChart.destroy();
 
-        usersChart = new Chart(document.getElementById('usersChart'), {
+        const usersCtx = document.getElementById('usersChart').getContext('2d');
+        usersChart = new Chart(usersCtx, {
             type: 'line',
-            data: {
-                labels: data.dates,
-                datasets: [{
-                    label: 'Новые пользователи',
-                    data: data.users_data,
-                    borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
+            data: { labels: data.dates, datasets: [{ label: 'Новые пользователи', data: data.users_data, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', fill: true, tension: 0.4, pointRadius: 3 }] },
             options: { responsive: true, maintainAspectRatio: true }
         });
 
-        postsCommentsChart = new Chart(document.getElementById('postsCommentsChart'), {
+        const postsCtx = document.getElementById('postsCommentsChart').getContext('2d');
+        postsCommentsChart = new Chart(postsCtx, {
             type: 'line',
-            data: {
-                labels: data.dates,
-                datasets: [
-                    {
-                        label: 'Посты',
-                        data: data.posts_data,
-                        borderColor: '#10b981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    },
-                    {
-                        label: 'Комментарии',
-                        data: data.comments_data,
-                        borderColor: '#f59e0b',
-                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                        fill: true,
-                        tension: 0.4
-                    }
-                ]
-            },
+            data: { labels: data.dates, datasets: [{ label: 'Посты', data: data.posts_data, borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.4 }, { label: 'Комментарии', data: data.comments_data, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', fill: true, tension: 0.4 }] },
             options: { responsive: true, maintainAspectRatio: true }
         });
 
-        likesChart = new Chart(document.getElementById('likesChart'), {
+        const likesCtx = document.getElementById('likesChart').getContext('2d');
+        likesChart = new Chart(likesCtx, {
             type: 'line',
-            data: {
-                labels: data.dates,
-                datasets: [{
-                    label: 'Лайки',
-                    data: data.likes_data,
-                    borderColor: '#ef4444',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
+            data: { labels: data.dates, datasets: [{ label: 'Лайки', data: data.likes_data, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)', fill: true, tension: 0.4 }] },
             options: { responsive: true, maintainAspectRatio: true }
         });
 
-        // Таблица пользователей
         const usersTable = document.querySelector('#topUsersTable tbody');
-        if (data.top_users.length > 0) {
+        if (data.top_users && data.top_users.length > 0) {
             usersTable.innerHTML = data.top_users.map((u, i) => `
-                <tr>
-                    <td><span class="rank-number">${i+1}</span></td>
-                    <td><a href="/accounts/profile/${u.username}/" class="username-cell" target="_blank">${u.username}</a></td>
-                    <td class="stat-number">${u.posts_count}</td>
-                    <td class="stat-number">${u.comments_count}</td>
-                </tr>
+                <tr><td style="text-align: center;"><span class="rank-number">${i+1}</span></td>
+                <td><a href="/accounts/profile/${u.username}/" class="username-cell" target="_blank">${escapeHtml(u.username)}</a></td>
+                <td class="stat-number">${u.posts_count}</td>
+                <td class="stat-number">${u.comments_count}</td></tr>
             `).join('');
         } else {
             usersTable.innerHTML = '<tr><td colspan="4" style="text-align: center;">Нет данных</td></tr>';
         }
 
-        // Таблица постов
         const postsTable = document.querySelector('#topPostsTable tbody');
-        if (data.top_posts.length > 0) {
+        if (data.top_posts && data.top_posts.length > 0) {
             postsTable.innerHTML = data.top_posts.map((p, i) => `
-                <tr>
-                    <td><span class="rank-number">${i+1}</span></td>
-                    <td><a href="/post/${p.id}/" class="post-title-link" target="_blank" title="${p.title.replace(/"/g, '&quot;')}">${p.title.length > 50 ? p.title.substring(0, 50) + '...' : p.title}</a></td>
-                    <td class="stat-number">${p.likes_count}</td>
-                    <td class="stat-number">${p.comments_count}</td>
-                    <td class="stat-number">${p.views_count}</td>
-                </tr>
+                <tr><td style="text-align: center;"><span class="rank-number">${i+1}</span></td>
+                <td><a href="/post/${p.id}/" class="post-title-link" target="_blank">${escapeHtml(p.title.length > 60 ? p.title.substring(0,60)+'...' : p.title)}</a></td>
+                <td class="stat-number">${p.likes_count}</td>
+                <td class="stat-number">${p.comments_count}</td>
+                <td class="stat-number">${p.views_count}</td></tr>
             `).join('');
         } else {
             postsTable.innerHTML = '<tr><td colspan="5" style="text-align: center;">Нет данных</td></tr>';
         }
-
     } catch (error) {
         console.error('Error loading analytics:', error);
+        showNotification('Ошибка загрузки данных', 'error');
     }
 }
 
-// Выбор периода
+async function loadAnalyticsWithDateRange(dateFrom, dateTo) {
+    try {
+        const response = await fetch(`/analytics/data/?date_from=${dateFrom}&date_to=${dateTo}`);
+        const data = await response.json();
+
+        document.getElementById('statUsers').textContent = data.total_stats.users;
+        document.getElementById('statPosts').textContent = data.total_stats.posts;
+        document.getElementById('statComments').textContent = data.total_stats.comments;
+        document.getElementById('statLikes').textContent = data.total_stats.likes;
+        document.getElementById('statCommunities').textContent = data.total_stats.communities;
+        document.getElementById('statReports').textContent = data.total_stats.reports;
+        document.getElementById('statBans').textContent = data.total_stats.bans || 0;
+
+        if (usersChart) usersChart.destroy();
+        if (postsCommentsChart) postsCommentsChart.destroy();
+        if (likesChart) likesChart.destroy();
+
+        const usersCtx = document.getElementById('usersChart').getContext('2d');
+        usersChart = new Chart(usersCtx, { type: 'line', data: { labels: data.dates, datasets: [{ label: 'Новые пользователи', data: data.users_data, borderColor: '#3b82f6', fill: true, tension: 0.4 }] } });
+
+        const postsCtx = document.getElementById('postsCommentsChart').getContext('2d');
+        postsCommentsChart = new Chart(postsCtx, { type: 'line', data: { labels: data.dates, datasets: [{ label: 'Посты', data: data.posts_data, borderColor: '#10b981', fill: true }, { label: 'Комментарии', data: data.comments_data, borderColor: '#f59e0b', fill: true }] } });
+
+        const likesCtx = document.getElementById('likesChart').getContext('2d');
+        likesChart = new Chart(likesCtx, { type: 'line', data: { labels: data.dates, datasets: [{ label: 'Лайки', data: data.likes_data, borderColor: '#ef4444', fill: true }] } });
+
+        const usersTable = document.querySelector('#topUsersTable tbody');
+        if (data.top_users && data.top_users.length > 0) {
+            usersTable.innerHTML = data.top_users.map((u, i) => `<tr><td><span class="rank-number">${i+1}</span></td><td><a href="/accounts/profile/${u.username}/" target="_blank">${escapeHtml(u.username)}</a></td><td class="stat-number">${u.posts_count}</td><td class="stat-number">${u.comments_count}</td></tr>`).join('');
+        }
+
+        const postsTable = document.querySelector('#topPostsTable tbody');
+        if (data.top_posts && data.top_posts.length > 0) {
+            postsTable.innerHTML = data.top_posts.map((p, i) => `<tr><td><span class="rank-number">${i+1}</span></td><td><a href="/post/${p.id}/" target="_blank">${escapeHtml(p.title.length > 60 ? p.title.substring(0,60)+'...' : p.title)}</a></td><td class="stat-number">${p.likes_count}</td><td class="stat-number">${p.comments_count}</td><td class="stat-number">${p.views_count}</td></tr>`).join('');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showNotification('Ошибка загрузки данных', 'error');
+    }
+}
+
+// Период
 document.querySelectorAll('.period-btn').forEach(btn => {
     btn.addEventListener('click', function() {
         document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
         this.classList.add('active');
         currentDays = parseInt(this.dataset.days);
+        currentDateFrom = null;
+        currentDateTo = null;
+        if (document.getElementById('dateFrom')) document.getElementById('dateFrom').value = '';
+        if (document.getElementById('dateTo')) document.getElementById('dateTo').value = '';
         loadAnalytics(currentDays);
     });
 });
 
-const exportBtn = document.getElementById('exportPdfBtn');
-if (exportBtn) {
-    exportBtn.addEventListener('click', function(e) {
+// Кастомный диапазон
+const applyDateRange = document.getElementById('applyDateRange');
+if (applyDateRange) {
+    applyDateRange.addEventListener('click', function() {
+        const dateFrom = document.getElementById('dateFrom').value;
+        const dateTo = document.getElementById('dateTo').value;
+        if (dateFrom && dateTo) {
+            currentDateFrom = dateFrom;
+            currentDateTo = dateTo;
+            currentDays = null;
+            document.querySelectorAll('.period-btn').forEach(btn => btn.classList.remove('active'));
+            loadAnalyticsWithDateRange(dateFrom, dateTo);
+        } else {
+            showNotification('Выберите обе даты', 'error');
+        }
+    });
+}
+
+// Экспорт JSON
+const exportJsonBtn = document.getElementById('exportJsonBtn');
+const exportTypeSelect = document.getElementById('exportTypeSelect');
+if (exportJsonBtn) {
+    exportJsonBtn.addEventListener('click', async function() {
+        let url = '/analytics/export/json/?';
+        if (currentDateFrom && currentDateTo) {
+            url += `date_from=${currentDateFrom}&date_to=${currentDateTo}`;
+        } else {
+            url += `days=${currentDays || 30}`;
+        }
+        const exportType = exportTypeSelect ? exportTypeSelect.value : 'full';
+        url += `&type=${exportType}`;
+
+        const originalText = this.innerHTML;
+        this.innerHTML = '<i data-feather="loader"></i> Загрузка...';
+        feather.replace();
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const downloadUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            let fileName = `analytics`;
+            if (currentDateFrom && currentDateTo) {
+                fileName += `_${currentDateFrom}_to_${currentDateTo}`;
+            } else {
+                fileName += `_${currentDays || 30}days`;
+            }
+            fileName += `_${exportType}_${new Date().toISOString().split('T')[0]}.json`;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(downloadUrl);
+            showNotification(`Экспорт "${exportTypeSelect.options[exportTypeSelect.selectedIndex].text}" завершён`, 'success');
+        } catch (error) {
+            console.error('Export error:', error);
+            showNotification('Ошибка экспорта', 'error');
+        } finally {
+            this.innerHTML = originalText;
+            feather.replace();
+        }
+    });
+}
+
+// Экспорт PDF
+const exportPdfBtn = document.getElementById('exportPdfBtn');
+if (exportPdfBtn) {
+    exportPdfBtn.addEventListener('click', function(e) {
         e.preventDefault();
-        const activePeriod = document.querySelector('.period-btn.active');
-        const days = activePeriod ? activePeriod.dataset.days : 30;
-        window.location.href = `/analytics/export/pdf/?days=${days}`;
+
+        let url = '/analytics/export/pdf/?';
+        if (currentDateFrom && currentDateTo) {
+            url += `date_from=${currentDateFrom}&date_to=${currentDateTo}`;
+        } else {
+            url += `days=${currentDays || 30}`;
+        }
+
+        // Добавляем тип экспорта для PDF
+        const exportType = exportTypeSelect ? exportTypeSelect.value : 'full';
+        url += `&type=${exportType}`;
+
+        window.location.href = url;
     });
 }
 

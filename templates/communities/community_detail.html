@@ -1,6 +1,7 @@
 <!-- templates/communities/community_detail.html -->
 {% extends 'base.html' %}
 {% load static %}
+{% block content_container_class %}content-container--medium{% endblock %}
 {% load humanize %}
 {% block title %}{{ community.name }} · Поток{% endblock %}
 {% block page_title %}{{ community.name }}{% endblock %}
@@ -16,7 +17,7 @@
 
     {% if user.is_authenticated %}
         {% if user_membership and user_membership.status == 'active' %}
-        <button class="btn btn--outline btn--sm join-leave-btn" data-action="leave">
+        <button class="btn btn--outline btn--sm join-leave-btn" data-action="leave" data-slug="{{ community.slug }}">
             <i data-feather="check"></i>
             <span>Вы участник</span>
         </button>
@@ -26,7 +27,7 @@
             <span>Заявка отправлена</span>
         </button>
         {% else %}
-        <button class="btn btn--primary btn--sm join-leave-btn" data-action="join">
+        <button class="btn btn--primary btn--sm join-leave-btn" data-action="join" data-slug="{{ community.slug }}">
             <i data-feather="plus"></i>
             <span>Вступить</span>
         </button>
@@ -45,8 +46,8 @@
     <!-- Обложка и аватар -->
     <div class="community-cover-section">
         <div class="community-cover">
-            {% if community.cover_image %}
-            <img src="{{ community.cover_image.url }}" alt="{{ community.name }}">
+            {% if community.cover %}
+            <img src="{{ community.cover.url }}" alt="{{ community.name }}">
             {% else %}
             <div class="cover-gradient"></div>
             {% endif %}
@@ -413,7 +414,7 @@
     /* Обложка */
     .community-cover-section { position: relative; margin-bottom: 60px; }
     .community-cover {
-        height: 160px; border-radius: 16px; overflow: hidden;
+        height: 280px; border-radius: 16px; overflow: hidden;
         background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
     }
     .community-cover img { width: 100%; height: 100%; object-fit: cover; }
@@ -814,23 +815,73 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Вступить / Выйти
-    const joinBtn = document.querySelector('.join-leave-btn');
-    if (joinBtn) {
-        joinBtn.addEventListener('click', async function() {
-            const slug = '{{ community.slug }}';
+    // ========== ВСТУПИТЬ / ВЫЙТИ (AJAX) ==========
+    // Вступить / Выйти (AJAX)
+    const joinLeaveBtn = document.querySelector('.join-leave-btn');
+    if (joinLeaveBtn && joinLeaveBtn.dataset.slug) {
+        // Убираем старые обработчики
+        const newBtn = joinLeaveBtn.cloneNode(true);
+        joinLeaveBtn.parentNode.replaceChild(newBtn, joinLeaveBtn);
+
+        newBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+
+            const slug = this.dataset.slug;
             const action = this.dataset.action;
+            const originalHtml = this.innerHTML;
 
-            if (action === 'join' && '{{ community.privacy }}' !== 'public') {
-                document.getElementById('joinModal').style.display = 'flex';
-                return;
+            this.innerHTML = '<i data-feather="loader"></i> Загрузка...';
+            this.disabled = true;
+            feather.replace();
+
+            try {
+                const response = await fetch(`/communities/${slug}/${action === 'join' ? 'join' : 'leave'}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    if (action === 'join') {
+                        // Меняем кнопку на "Вы участник"
+                        this.dataset.action = 'leave';
+                        this.classList.remove('btn--primary');
+                        this.classList.add('btn--outline');
+                        this.innerHTML = '<i data-feather="check"></i> Вы участник';
+                        showToast('✅ Вы вступили в сообщество!');
+                    } else {
+                        // Меняем кнопку на "Вступить"
+                        this.dataset.action = 'join';
+                        this.classList.remove('btn--outline');
+                        this.classList.add('btn--primary');
+                        this.innerHTML = '<i data-feather="plus"></i> Вступить';
+                        showToast('👋 Вы покинули сообщество');
+                    }
+                    feather.replace();
+
+                    // Обновляем счетчик участников
+                    const memberCountSpan = document.querySelector('.community-stats .stat-item:first-child .stat-value');
+                    if (memberCountSpan && data.members_count !== undefined) {
+                        memberCountSpan.textContent = data.members_count;
+                    }
+                } else {
+                    showToast(data.error || '❌ Ошибка', 'error');
+                    this.innerHTML = originalHtml;
+                    this.disabled = false;
+                    feather.replace();
+                }
+            } catch (error) {
+                showToast('❌ Ошибка сервера', 'error');
+                this.innerHTML = originalHtml;
+                this.disabled = false;
+                feather.replace();
+            } finally {
+                this.disabled = false;
             }
-
-            const r = await fetch(`/communities/${slug}/${action === 'join' ? 'join' : 'leave'}/`, {
-                method: 'POST',
-                headers: { 'X-CSRFToken': getCookie('csrftoken') }
-            });
-            if (r.ok) location.reload();
         });
     }
 
@@ -977,5 +1028,25 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+if (response.ok) {
+    console.log('OK, action =', action);
+    console.log('Кнопка до:', this.innerHTML);
+    if (action === 'join') {
+        this.dataset.action = 'leave';
+        this.classList.remove('btn--primary');
+        this.classList.add('btn--outline');
+        this.innerHTML = '<i data-feather="check"></i> Вы участник';
+        console.log('Кнопка после JOIN:', this.innerHTML);
+    } else {
+        this.dataset.action = 'join';
+        this.classList.remove('btn--outline');
+        this.classList.add('btn--primary');
+        this.innerHTML = '<i data-feather="plus"></i> Вступить';
+        console.log('Кнопка после LEAVE:', this.innerHTML);
+    }
+    feather.replace();
+} else {
+    console.log('NOT OK, status =', response.status);
+}
 </script>
 {% endblock %}

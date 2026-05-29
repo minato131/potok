@@ -18,6 +18,8 @@
     {% endif %}
 {% endblock %}
 
+{% block content_container_class %}content-container--full{% endblock %}
+
 {% block content %}
 <div class="community-form-container">
     <form method="post" enctype="multipart/form-data" class="community-form" novalidate id="communityForm">
@@ -122,8 +124,8 @@
                             <i data-feather="edit-2"></i>
                             <span>Изменить</span>
                         </div>
-                        {{ form.avatar }}
                     </div>
+                    <input type="file" name="avatar" id="id_avatar" accept="image/*" style="display: none;">
                     <div class="field-hint">Рекомендуемый размер: 400x400</div>
                     {% if form.avatar.errors %}
                     <div class="form-error">{{ form.avatar.errors.0 }}</div>
@@ -152,8 +154,8 @@
                             <i data-feather="edit-2"></i>
                             <span>Изменить</span>
                         </div>
-                        {{ form.cover_image }}
                     </div>
+                    <input type="file" name="cover" id="id_cover" accept="image/*" style="display: none;">
                     <div class="field-hint">Рекомендуемый размер: 1200x400</div>
                     {% if form.cover_image.errors %}
                     <div class="form-error">{{ form.cover_image.errors.0 }}</div>
@@ -180,42 +182,34 @@
                 <div class="setting-item">
                     <div class="setting-info">
                         <span class="setting-label">Тип сообщества</span>
-                        <span class="setting-description">Кто может видеть и публиковать посты</span>
+                        <span class="setting-description">Кто может видеть и вступать в сообщество</span>
                     </div>
-                    {{ form.community_type }}
-                </div>
-
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <span class="setting-label">Модерация постов</span>
-                        <span class="setting-description">Посты требуют одобрения модератора</span>
+                    <div class="radio-group">
+                        <label class="radio-option">
+                            <input type="radio" name="privacy" value="public" {% if form.privacy.value == 'public' or not form.privacy.value %}checked{% endif %}>
+                            <span>Открытое</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="privacy" value="private" {% if form.privacy.value == 'private' %}checked{% endif %}>
+                            <span>Закрытое</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="privacy" value="hidden" {% if form.privacy.value == 'hidden' %}checked{% endif %}>
+                            <span>Скрытое</span>
+                        </label>
                     </div>
-                    <label class="toggle-switch">
-                        {{ form.posts_need_approval }}
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <span class="setting-label">Закрытое сообщество</span>
-                        <span class="setting-description">Требуется одобрение заявки на вступление</span>
+                    <div class="privacy-hint" id="privacyHint">
+                        {% if form.privacy.value == 'private' %}
+                            Вступление по заявкам, контент виден только участникам
+                        {% elif form.privacy.value == 'hidden' %}
+                            Не отображается в поиске, вступление только по приглашению
+                        {% else %}
+                            Открытое сообщество — может вступить любой желающий
+                        {% endif %}
                     </div>
-                    <label class="toggle-switch">
-                        {{ form.is_private }}
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <span class="setting-label">Скрытое сообщество</span>
-                        <span class="setting-description">Не отображается в поиске и каталоге</span>
-                    </div>
-                    <label class="toggle-switch">
-                        {{ form.is_hidden }}
-                        <span class="toggle-slider"></span>
-                    </label>
+                    {% if form.privacy.errors %}
+                    <div class="form-error">{{ form.privacy.errors.0 }}</div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -303,7 +297,7 @@
                 <div class="preview-community">
                     <div class="preview-cover" id="previewCover">
                         {% if form.instance.cover_image %}
-                        <img src="{{ form.instance.cover_image.url }}" alt="Preview">
+                        <img src="{{ form.instance.cover.url }}" alt="Preview">
                         {% endif %}
                     </div>
                     <div class="preview-info">
@@ -349,21 +343,35 @@
 
 {% block extra_css %}
 <style>
+    /* Убираем ВСЕ ограничения ширины */
+    .content-container,
+    .content-container--full {
+        max-width: 100% !important;
+        width: 100% !important;
+        padding: 0 2rem !important;
+        margin: 0 !important;
+    }
+
+    .main-content {
+        padding: 1.5rem 0 !important;
+    }
+
     .community-form-container {
         display: grid;
         grid-template-columns: 1fr 320px;
         gap: 2rem;
-        max-width: 1200px;
-        margin: 0 auto;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
 
     .community-form {
-        background: var(--color-bg-surface);
-        border-radius: var(--radius-xl);
-        padding: 2rem;
-        border: 1px solid var(--color-border-light);
+        width: 100% !important;
+        min-width: 0 !important;
     }
 
+    /* Остальные стили (без изменений) */
     .form-section {
         margin-bottom: 2rem;
         padding-bottom: 2rem;
@@ -485,14 +493,6 @@
         font-family: monospace;
     }
 
-    .slug-status.available {
-        color: var(--color-success);
-    }
-
-    .slug-status.unavailable {
-        color: var(--color-danger);
-    }
-
     .image-upload-grid {
         display: grid;
         grid-template-columns: 1fr 2fr;
@@ -561,16 +561,6 @@
         opacity: 1;
     }
 
-    .image-preview input[type="file"] {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        opacity: 0;
-        cursor: pointer;
-    }
-
     .checkbox-label {
         display: flex;
         align-items: center;
@@ -590,6 +580,8 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
     }
 
     .setting-info {
@@ -607,49 +599,41 @@
         color: var(--color-text-tertiary);
     }
 
-    .toggle-switch {
-        position: relative;
-        display: inline-block;
-        width: 48px;
-        height: 24px;
+    .radio-group {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
     }
 
-    .toggle-switch input {
-        opacity: 0;
-        width: 0;
-        height: 0;
-    }
-
-    .toggle-slider {
-        position: absolute;
+    .radio-option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
         cursor: pointer;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: var(--color-border);
-        transition: .3s;
-        border-radius: 24px;
+        padding: 0.5rem 1rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        transition: all 0.2s;
     }
 
-    .toggle-slider:before {
-        position: absolute;
-        content: "";
-        height: 20px;
-        width: 20px;
-        left: 2px;
-        bottom: 2px;
-        background-color: white;
-        transition: .3s;
-        border-radius: 50%;
+    .radio-option:hover {
+        border-color: var(--color-primary);
+        background: rgba(37,99,235,0.05);
     }
 
-    input:checked + .toggle-slider {
-        background-color: var(--color-primary);
+    .radio-option input {
+        width: auto;
+        margin: 0;
     }
 
-    input:checked + .toggle-slider:before {
-        transform: translateX(24px);
+    .privacy-hint {
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+        margin-top: 0.5rem;
+        padding: 0.5rem;
+        background: var(--color-bg-elevated);
+        border-radius: var(--radius-sm);
+        width: 100%;
     }
 
     .form-actions {
@@ -772,34 +756,32 @@
         .community-form-container {
             grid-template-columns: 1fr;
         }
-
         .preview-sidebar {
             display: none;
         }
     }
 
     @media (max-width: 768px) {
+        .content-container,
+        .content-container--full {
+            padding: 0 1rem !important;
+        }
         .community-form {
             padding: 1.5rem;
         }
-
         .image-upload-grid {
             grid-template-columns: 1fr;
         }
-
         .form-actions {
             flex-direction: column;
             gap: 1rem;
         }
-
         .form-actions-right {
             width: 100%;
         }
-
         .setting-item {
             flex-direction: column;
             align-items: flex-start;
-            gap: 1rem;
         }
     }
 </style>
@@ -830,12 +812,12 @@
             });
         }
 
-        // Предпросмотр
+        // Предпросмотр текста
         function updatePreview() {
             const name = nameInput?.value || '';
             const description = document.querySelector('textarea[name="description"]')?.value || '';
 
-            document.getElementById('previewName').textContent = name ? `c/${name}` : 'Название';
+            document.getElementById('previewName').textContent = name || 'Название';
             document.getElementById('previewDescription').textContent = description || 'Описание сообщества...';
 
             const firstChar = name.charAt(0).toUpperCase() || '?';
@@ -848,30 +830,43 @@
         }
         document.querySelector('textarea[name="description"]')?.addEventListener('input', updatePreview);
 
-        // Предпросмотр аватара
-        const avatarInput = document.querySelector('input[name="avatar"]');
+        // ========== АВАТАР — ПРАВИЛЬНЫЙ ФИКС ДВОЙНОГО ОТКРЫТИЯ ==========
         const avatarPreview = document.getElementById('avatarPreview');
+        const avatarInput = document.getElementById('id_avatar');
         const previewAvatar = document.getElementById('previewAvatar');
 
-        if (avatarInput) {
+        if (avatarPreview && avatarInput) {
+            // Убираем все существующие обработчики
+            const newAvatarPreview = avatarPreview.cloneNode(true);
+            avatarPreview.parentNode.replaceChild(newAvatarPreview, avatarPreview);
+
+            newAvatarPreview.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                avatarInput.click();
+            });
+
+            avatarInput.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+
             avatarInput.addEventListener('change', function(e) {
                 const file = e.target.files[0];
                 if (file) {
                     const reader = new FileReader();
                     reader.onload = function(e) {
-                        avatarPreview.innerHTML = `
+                        newAvatarPreview.innerHTML = `
                             <img src="${e.target.result}" alt="Preview">
                             <div class="image-overlay">
                                 <i data-feather="edit-2"></i>
                                 <span>Изменить</span>
                             </div>
                         `;
-                        avatarPreview.appendChild(avatarInput);
+                        newAvatarPreview.style.cursor = 'pointer';
 
                         if (previewAvatar) {
                             previewAvatar.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
                         }
-
                         feather.replace();
                     };
                     reader.readAsDataURL(file);
@@ -879,30 +874,43 @@
             });
         }
 
-        // Предпросмотр обложки
-        const coverInput = document.querySelector('input[name="cover_image"]');
+        // ========== ОБЛОЖКА — ПРАВИЛЬНЫЙ ФИКС ДВОЙНОГО ОТКРЫТИЯ ==========
         const coverPreview = document.getElementById('coverPreview');
+        const coverInput = document.getElementById('id_cover');
         const previewCover = document.getElementById('previewCover');
 
-        if (coverInput) {
+        if (coverPreview && coverInput) {
+            // Убираем все существующие обработчики
+            const newCoverPreview = coverPreview.cloneNode(true);
+            coverPreview.parentNode.replaceChild(newCoverPreview, coverPreview);
+
+            newCoverPreview.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                coverInput.click();
+            });
+
+            coverInput.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+
             coverInput.addEventListener('change', function(e) {
                 const file = e.target.files[0];
                 if (file) {
                     const reader = new FileReader();
                     reader.onload = function(e) {
-                        coverPreview.innerHTML = `
+                        newCoverPreview.innerHTML = `
                             <img src="${e.target.result}" alt="Preview">
                             <div class="image-overlay">
                                 <i data-feather="edit-2"></i>
                                 <span>Изменить</span>
                             </div>
                         `;
-                        coverPreview.appendChild(coverInput);
+                        newCoverPreview.style.cursor = 'pointer';
 
                         if (previewCover) {
                             previewCover.innerHTML = `<img src="${e.target.result}" alt="Preview">`;
                         }
-
                         feather.replace();
                     };
                     reader.readAsDataURL(file);
@@ -929,8 +937,31 @@
             descCounter.textContent = descInput.value.length;
         }
 
-        // Инициализация предпросмотра
+        // Обновление подсказки при выборе типа приватности
+        const privacyRadios = document.querySelectorAll('input[name="privacy"]');
+        const privacyHint = document.getElementById('privacyHint');
+
+        function updatePrivacyHint() {
+            const selected = document.querySelector('input[name="privacy"]:checked');
+            if (selected) {
+                const value = selected.value;
+                if (value === 'private') {
+                    privacyHint.innerHTML = 'Закрытое сообщество: вступление по заявкам, контент виден только участникам';
+                } else if (value === 'hidden') {
+                    privacyHint.innerHTML = 'Скрытое сообщество: не отображается в поиске, вступление только по приглашению';
+                } else {
+                    privacyHint.innerHTML = 'Открытое сообщество: может вступить любой желающий, контент виден всем';
+                }
+            }
+        }
+
+        privacyRadios.forEach(radio => {
+            radio.addEventListener('change', updatePrivacyHint);
+        });
+
+        // Инициализация
         updatePreview();
+        updatePrivacyHint();
     });
 </script>
 {% endblock %}

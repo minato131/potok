@@ -225,7 +225,7 @@
             </div>
             {% endif %}
 
-            <div class="content-container">
+            <div class="content-container {% block content_container_class %}{% endblock %}">
                 {% block content %}{% endblock %}
             </div>
         </main>
@@ -787,24 +787,24 @@ document.addEventListener('DOMContentLoaded', function() {
     setInterval(updateNotificationDot, 30000);
 });
 
-// Также обновляем при получении WebSocket уведомления
-// Добавьте это в существующий WebSocket onmessage:
-if (data.type === 'new_notification') {
-    // ... существующий код ...
-    const dot = document.getElementById('notificationDot');
-    if (dot) dot.style.display = 'block';
-}
-
-if (data.type === 'counter_update') {
-    const dot = document.getElementById('notificationDot');
-    if (dot) {
-        if (data.count > 0) {
-            dot.style.display = 'block';
-        } else {
-            dot.style.display = 'none';
-        }
-    }
-}
+// // Также обновляем при получении WebSocket уведомления
+// // Добавьте это в существующий WebSocket onmessage:
+// if (data.type === 'new_notification') {
+//     // ... существующий код ...
+//     const dot = document.getElementById('notificationDot');
+//     if (dot) dot.style.display = 'block';
+// }
+//
+// if (data.type === 'counter_update') {
+//     const dot = document.getElementById('notificationDot');
+//     if (dot) {
+//         if (data.count > 0) {
+//             dot.style.display = 'block';
+//         } else {
+//             dot.style.display = 'none';
+//         }
+//     }
+// }
 </script>
 </body>
 </html>
