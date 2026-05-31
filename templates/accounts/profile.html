@@ -4,6 +4,7 @@
 {% load humanize %}
 {% block title %}{{ profile_user.username }} · Поток{% endblock %}
 {% block page_title %}{{ profile_user.get_full_name|default:profile_user.username }}{% endblock %}
+{% load duration_filters %}
 
 {% block header_actions %}
 {% if user == profile_user %}
@@ -443,7 +444,7 @@
                     <div style="font-weight:600;font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ track.title }}</div>
                     <div style="font-size:0.8rem;color:var(--color-text-tertiary)">{{ track.artist }}</div>
                 </div>
-                <span style="font-size:0.75rem;color:var(--color-text-tertiary)">{{ track.duration|floatformat:0 }} сек</span>
+            <span style="font-size:0.75rem;color:var(--color-text-tertiary)">{{ track.duration|duration_format }}</span>
             </div>
             {% endfor %}
         </div>

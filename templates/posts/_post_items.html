@@ -39,7 +39,7 @@
                 <i data-feather="more-horizontal"></i>
             </button>
             <div class="post-menu-dropdown" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--color-bg-surface);border:1px solid var(--color-border);border-radius:12px;box-shadow:var(--shadow-lg);min-width:180px;z-index:30;padding:4px">
-                {% if user == post.author %}
+                {% if user == post.author or user.is_staff or user.is_platform_moderator or user in post.community.moderators.all %}
                     <a href="{% url 'posts:post_edit' pk=post.id %}" class="menu-item" onclick="event.stopPropagation()"><i data-feather="edit"></i> Редактировать</a>
                     <button class="menu-item danger" onclick="event.stopPropagation();deletePost({{ post.id }})"><i data-feather="trash-2"></i> Удалить</button>
                     <div class="menu-divider"></div>
@@ -62,7 +62,7 @@
 
     <h3 class="post-vk-title" onclick="openPostModal({{ post.id }})">{{ post.title }}</h3>
     <div class="post-vk-text" onclick="event.stopPropagation()">
-        <div class="markdown-content markdown-preview" data-full="{{ post.content|escapejs }}"></div>
+        <div class="markdown-content markdown-preview" data-full="{{ post.get_clean_content|escapejs }}"></div>
     </div>
 
     {% if post.image %}
@@ -166,4 +166,19 @@
     <h3>Лента пуста</h3>
     <p>Подпишитесь на пользователей или создайте пост</p>
 </div>
+<style>
+/* Увеличиваем z-index для меню, чтобы оно было поверх всего */
+.post-menu-dropdown {
+    z-index: 100000 !important;
+}
+
+/* Убираем overflow hidden у родительских контейнеров */
+.post-card-vk,
+.post-vk-comments,
+.comments-inner,
+.cmt-card,
+.post-item {
+    overflow: visible !important;
+}
+</style>
 {% endfor %}

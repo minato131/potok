@@ -1,71 +1,93 @@
+# communities/forms.py
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import Community, CommunityPost
-from posts.models import Post
-
-
-from django import forms
-from django.core.exceptions import ValidationError
-from .models import Community, CommunityPost
-from posts.models import Post
+from django.utils.text import slugify
+from .models import Community, CommunityPost, CommunityJoinRequest
+from posts.models import Post, Tag
 
 
 class CommunityForm(forms.ModelForm):
     """
     Форма создания/редактирования сообщества
     """
-    # Поля вручную с нужными классами
-    name = forms.CharField(
-        max_length=100,
-        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Название сообщества'})
-    )
-    slug = forms.CharField(
-        max_length=120,
-        required=False,
-        widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'url-soobshchestva'})
-    )
-    description = forms.CharField(
-        required=False,
-        widget=forms.Textarea(attrs={'class': 'form-textarea', 'rows': 4, 'placeholder': 'Опишите сообщество...'})
-    )
-    avatar = forms.ImageField(required=False)
-    cover = forms.ImageField(required=False)
-    privacy = forms.ChoiceField(
-        choices=Community.PRIVACY_CHOICES,
-        widget=forms.Select(attrs={'class': 'form-select'})
-    )
-    category = forms.ModelChoiceField(
-        queryset=None,  # будет установлено в __init__
-        required=False,
-        widget=forms.Select(attrs={'class': 'form-select'})
-    )
-    posts_need_approval = forms.BooleanField(required=False)
-    rules = forms.CharField(
-        required=False,
-        widget=forms.Textarea(attrs={'class': 'form-textarea', 'rows': 4, 'placeholder': 'Правила сообщества...'})
-    )
-    website = forms.URLField(required=False, widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'https://...'}))
-    discord = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'discord.gg/...'}))
-    telegram = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-input', 'placeholder': '@username или t.me/...'}))
 
     class Meta:
         model = Community
-        fields = ['name', 'slug', 'description', 'avatar', 'cover', 'privacy',
-                   'category', 'posts_need_approval', 'rules',
-                  'website', 'discord', 'telegram']
+        fields = ['name', 'slug', 'description', 'rules', 'avatar', 'cover',
+                  'community_type', 'privacy', 'website', 'discord', 'telegram',
+                  'category', 'posts_need_approval']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'Название сообщества'
+            }),
+            'slug': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'url-адрес (оставьте пустым для автоматической генерации)'
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-textarea',
+                'rows': 4,
+                'placeholder': 'Описание сообщества'
+            }),
+            'rules': forms.Textarea(attrs={
+                'class': 'form-textarea',
+                'rows': 6,
+                'placeholder': 'Правила сообщества...'
+            }),
+            'community_type': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'privacy': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'website': forms.URLInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'https://example.com'
+            }),
+            'discord': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'Discord ссылка или ID'
+            }),
+            'telegram': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': '@username или ссылка'
+            }),
+            'category': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'posts_need_approval': forms.CheckboxInput(attrs={
+                'class': 'checkbox-input'
+            }),
+        }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        from posts.models import Category
-        self.fields['category'].queryset = Category.objects.all()
+    def clean_slug(self):
+        slug = self.cleaned_data.get('slug')
+        if slug:
+            slug = slugify(slug)
+            # Проверяем уникальность, исключая текущий объект
+            if self.instance.pk:
+                if Community.objects.exclude(pk=self.instance.pk).filter(slug=slug).exists():
+                    raise ValidationError('Сообщество с таким URL уже существует')
+            else:
+                if Community.objects.filter(slug=slug).exists():
+                    raise ValidationError('Сообщество с таким URL уже существует')
+        return slug
 
     def clean_name(self):
         name = self.cleaned_data.get('name')
-        if len(name) < 3:
-            raise ValidationError('Название должно содержать минимум 3 символа')
+        if name:
+            # Проверяем уникальность имени
+            if self.instance.pk:
+                if Community.objects.exclude(pk=self.instance.pk).filter(name__iexact=name).exists():
+                    raise ValidationError('Сообщество с таким названием уже существует')
+            else:
+                if Community.objects.filter(name__iexact=name).exists():
+                    raise ValidationError('Сообщество с таким названием уже существует')
         return name
 
-class CommunityPostForm(forms.ModelForm):
+
+class CommunityPostForm(forms.Form):
     """
     Форма создания поста в сообществе
     """
@@ -73,80 +95,105 @@ class CommunityPostForm(forms.ModelForm):
         max_length=200,
         widget=forms.TextInput(attrs={
             'class': 'form-input',
-            'placeholder': 'Заголовок поста'
+            'placeholder': 'Заголовок поста',
+            'id': 'id_title'
         })
     )
     content = forms.CharField(
+        required=False,
         widget=forms.Textarea(attrs={
             'class': 'form-textarea',
-            'rows': 10,
-            'placeholder': 'Содержание поста...'
+            'rows': 8,
+            'placeholder': 'Содержание поста...',
+            'id': 'id_content'
         })
     )
     image = forms.ImageField(
         required=False,
         widget=forms.FileInput(attrs={
             'class': 'form-input',
-            'accept': 'image/*'
+            'accept': 'image/*',
+            'id': 'id_image'
         })
     )
     video = forms.FileField(
         required=False,
         widget=forms.FileInput(attrs={
             'class': 'form-input',
-            'accept': 'video/*'
+            'accept': 'video/*',
+            'id': 'id_video'
         })
     )
-    is_pinned = forms.BooleanField(
+    tags = forms.CharField(
         required=False,
-        widget=forms.CheckboxInput(attrs={
-            'class': 'checkbox-input'
-        })
-    )
-    is_announcement = forms.BooleanField(
-        required=False,
-        widget=forms.CheckboxInput(attrs={
-            'class': 'checkbox-input'
+        widget=forms.TextInput(attrs={
+            'class': 'form-input',
+            'placeholder': 'python, django, программирование',
+            'id': 'id_tags'
         })
     )
 
-    class Meta:
-        model = Post
-        fields = ['title', 'content', 'image', 'video']
+    def clean_title(self):
+        title = self.cleaned_data.get('title')
+        if not title or len(title.strip()) < 3:
+            raise ValidationError('Заголовок должен быть не менее 3 символов')
+        return title.strip()
 
     def clean_content(self):
         content = self.cleaned_data.get('content')
-        if not content or len(content.strip()) < 10:
-            raise ValidationError('Содержание поста должно быть не менее 10 символов')
+        # Контент не обязателен, если есть медиа
+        if not content and not self.cleaned_data.get('image') and not self.cleaned_data.get('video'):
+            raise ValidationError('Добавьте текст или медиафайл')
         return content
 
-    def save(self, community, author, commit=True):
-        post = super().save(commit=False)
-        post.author = author
-        post.status = 'published'
+    def save(self, community, author):
+        """
+        Сохраняет пост и связывает с сообществом
+        """
+        from posts.models import Post, Tag
+        from .models import CommunityPost
 
-        if commit:
-            post.save()
-            # Создаем связь с сообществом
-            CommunityPost.objects.create(
-                post=post,
-                community=community,
-                is_pinned=self.cleaned_data.get('is_pinned', False),
-                is_announcement=self.cleaned_data.get('is_announcement', False)
-            )
+        # Создаем пост
+        post = Post.objects.create(
+            title=self.cleaned_data['title'],
+            content=self.cleaned_data.get('content', ''),
+            author=author,
+            image=self.cleaned_data.get('image'),
+            video=self.cleaned_data.get('video'),
+            status='published'
+        )
+
+        # Обработка тегов
+        tags_data = self.cleaned_data.get('tags', '')
+        if tags_data:
+            tag_names = [tag.strip().lower() for tag in tags_data.split(',') if tag.strip()]
+            for tag_name in tag_names:
+                tag, created = Tag.objects.get_or_create(name=tag_name)
+                post.tags.add(tag)
+
+        # Связываем с сообществом
+        CommunityPost.objects.create(
+            community=community,
+            post=post,
+            is_pinned=False,
+            is_announcement=False
+        )
+
         return post
 
 
-class CommunityJoinRequestForm(forms.Form):
+class CommunityJoinRequestForm(forms.ModelForm):
     """
-    Форма заявки на вступление
+    Форма заявки на вступление в закрытое сообщество
     """
-    message = forms.CharField(
-        max_length=500,
-        required=False,
-        widget=forms.Textarea(attrs={
-            'class': 'form-control',
-            'rows': 3,
-            'placeholder': 'Расскажите, почему вы хотите вступить (необязательно)'
-        })
-    )
+
+    class Meta:
+        model = CommunityJoinRequest
+        fields = ['message']
+        widgets = {
+            'message': forms.Textarea(attrs={
+                'class': 'form-textarea',
+                'rows': 3,
+                'placeholder': 'Расскажите о себе...'
+            })
+        }

@@ -1,15 +1,17 @@
 import json
 
 from django.shortcuts import render, get_object_or_404, redirect
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage  # ← добавь PageNotAnInteger, EmptyPage
 from django.db.models import Q, Count
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-
+from django.db.models import Value, IntegerField
 from accounts.models import Friendship
 from accounts.utils import create_notification
+from moderation.models import UnbanTicket
+from moderation.views import is_moderator
 from .models import Community, CommunityMembership, CommunityPost, CommunityJoinRequest, User
 from .forms import CommunityForm, CommunityPostForm, CommunityJoinRequestForm
 from posts.models import Post
@@ -46,6 +48,14 @@ def community_list(request):
     else:
         communities = communities.order_by('name')
 
+    # Добавляем аннотацию для проверки членства пользователя
+    if request.user.is_authenticated:
+        communities = communities.annotate(
+            user_is_member=Count('members', filter=Q(members=request.user, communitymembership__status='active'))
+        )
+    else:
+        communities = communities.annotate(user_is_member=Value(0, output_field=IntegerField()))
+
     # Пагинация
     paginator = Paginator(communities, 12)
     page = request.GET.get('page', 1)
@@ -56,6 +66,13 @@ def community_list(request):
         communities_page = paginator.page(1)
     except EmptyPage:
         communities_page = paginator.page(paginator.num_pages)
+
+    # Добавляем флаг user_is_member в каждый объект
+    for community in communities_page:
+        if request.user.is_authenticated:
+            community.user_is_member = getattr(community, 'user_is_member', 0) > 0
+        else:
+            community.user_is_member = False
 
     context = {
         'communities': communities_page,
@@ -318,6 +335,7 @@ def community_create(request):
 def community_edit(request, slug):
     community = get_object_or_404(Community, slug=slug)
 
+    # Проверка прав
     membership = CommunityMembership.objects.filter(
         user=request.user, community=community,
         role__in=['admin', 'moderator'], status='active'
@@ -337,10 +355,19 @@ def community_edit(request, slug):
     else:
         form = CommunityForm(instance=community)
 
-    return render(request, 'communities/community_form.html', {
+    # Получаем модераторов
+    moderators = User.objects.filter(
+        communitymembership__community=community,
+        communitymembership__role='moderator',
+        communitymembership__status='active'
+    ).exclude(id=community.creator.id)
+
+    return render(request, 'communities/community_edit.html', {
         'form': form,
         'community': community,
-        'title': f'Редактирование "{community.name}"'
+        'moderators': moderators,
+        # ЯВНО передаём user в контекст
+        'user': request.user,
     })
 
 
@@ -348,19 +375,18 @@ def community_edit(request, slug):
 def community_join(request, slug):
     community = get_object_or_404(Community, slug=slug)
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-    print(f"DEBUG: community_join called, slug={slug}, is_ajax={is_ajax}")
 
     membership = CommunityMembership.objects.filter(user=request.user, community=community).first()
 
     if membership:
         if membership.status == 'banned':
             if is_ajax:
-                return JsonResponse({'error': 'Заблокированы'}, status=403)
+                return JsonResponse({'error': 'Вы заблокированы в этом сообществе'}, status=403)
             messages.error(request, 'Вы заблокированы в этом сообществе')
             return redirect('communities:community_detail', slug=community.slug)
         elif membership.status == 'active':
             if is_ajax:
-                return JsonResponse({'error': 'Уже участник'}, status=400)
+                return JsonResponse({'error': 'Вы уже участник'}, status=400)
             messages.info(request, 'Вы уже состоите в сообществе')
             return redirect('communities:community_detail', slug=community.slug)
 
@@ -370,17 +396,23 @@ def community_join(request, slug):
         community.update_stats()
         if is_ajax:
             return JsonResponse({'joined': True, 'members_count': community.members_count})
+        messages.success(request, f'Вы вступили в сообщество "{community.name}"')
+        return redirect('communities:community_detail', slug=community.slug)
 
-    # Закрытое — заявка
+    # Закрытое — обрабатываем заявку
     if request.method == 'POST':
         message = request.POST.get('message', '')
-        CommunityJoinRequest.objects.filter(community=community, user=request.user, approved=False).delete()
+        # Удаляем старые необработанные заявки
+        CommunityJoinRequest.objects.filter(community=community, user=request.user, approved__isnull=True).delete()
         CommunityJoinRequest.objects.create(community=community, user=request.user, message=message)
-        if is_ajax: return JsonResponse({'joined': False, 'message': 'Заявка отправлена'})
+        if is_ajax:
+            return JsonResponse({'joined': False, 'message': f'Заявка на вступление в "{community.name}" отправлена!'})
         messages.success(request, 'Заявка отправлена!')
         return redirect('communities:community_detail', slug=community.slug)
 
-    community.update_stats()
+    # GET запрос - показываем модалку
+    if is_ajax:
+        return JsonResponse({'needs_modal': True, 'community_name': community.name})
 
     return render(request, 'communities/join_request_modal.html', {'community': community})
 
@@ -449,26 +481,47 @@ def community_post_create(request, slug):
     if request.method == 'POST':
         form = CommunityPostForm(request.POST, request.FILES)
         if form.is_valid():
-            post = form.save(community, request.user)
-            community.update_stats()
-            messages.success(request, 'Пост успешно опубликован в сообществе!')
-            return redirect('posts:post_detail', pk=post.pk)
+            try:
+                post = form.save(community, request.user)
+                community.update_stats()
+
+                # ========== УВЕДОМЛЕНИЕ УЧАСТНИКАМ СООБЩЕСТВА ==========
+                from accounts.utils import create_notification
+
+                # Получаем активных участников сообщества (кроме автора)
+                members = CommunityMembership.objects.filter(
+                    community=community,
+                    status='active'
+                ).exclude(user=request.user).select_related('user')[:50]  # Ограничим 50, чтобы не спамить
+
+                for member in members:
+                    create_notification(
+                        recipient=member.user,
+                        sender=request.user,
+                        notification_type='community_post',
+                        title='📝 Новый пост в сообществе',
+                        message=f'{request.user.username} опубликовал пост в "{community.name}": {post.title[:50]}',
+                        link=f'/post/{post.pk}/'
+                    )
+
+                messages.success(request, 'Пост успешно опубликован в сообществе!')
+                return redirect('posts:post_detail', pk=post.pk)
+            except Exception as e:
+                messages.error(request, f'Ошибка при сохранении: {str(e)}')
+                print("Ошибка сохранения:", e)
         else:
-            # Выводим ошибки формы для отладки
             for field, errors in form.errors.items():
                 for error in errors:
                     messages.error(request, f'{field}: {error}')
-            print("Ошибки формы:", form.errors)  # Отладка
+            print("Ошибки формы:", form.errors)
     else:
-        form = CommunityPostForm()
-
-    community.update_stats()
+        initial_data = {}
+        form = CommunityPostForm(initial=initial_data)
 
     return render(request, 'communities/community_post_create.html', {
         'form': form,
         'community': community
     })
-
 
 @login_required
 def community_members(request, slug):
@@ -663,29 +716,194 @@ def change_member_role(request, slug):
 
 @login_required
 def ban_community_member(request, slug):
+    """Заблокировать участника в сообществе"""
     community = get_object_or_404(Community, slug=slug)
+
+    # Проверка прав - только администраторы и модераторы могут блокировать
     membership = CommunityMembership.objects.filter(
-        user=request.user, community=community, role__in=['admin', 'moderator'], status='active'
+        user=request.user,
+        community=community,
+        role__in=['admin', 'moderator'],
+        status='active'
     ).first()
-    if not membership:
-        return JsonResponse({'error': 'Нет прав'}, status=403)
 
-    data = json.loads(request.body)
-    user_id = data.get('user_id')
+    if not membership and request.user != community.creator:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'У вас нет прав на блокировку участников'}, status=403)
+        messages.error(request, 'У вас нет прав на блокировку участников')
+        return redirect('communities:community_detail', slug=community.slug)
 
-    member = CommunityMembership.objects.filter(community=community, user_id=user_id).first()
-    if member and member.user != community.creator:
-        member.status = 'banned'
-        member.save()
-        return JsonResponse({'status': 'ok'})
-    return JsonResponse({'error': 'Ошибка'}, status=400)
+    try:
+        data = json.loads(request.body)
+        user_id = data.get('user_id')
+    except:
+        user_id = request.POST.get('user_id') or request.GET.get('user_id')
+
+    if not user_id:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'ID пользователя не указан'}, status=400)
+        messages.error(request, 'ID пользователя не указан')
+        return redirect('communities:community_members', slug=community.slug)
+
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'Пользователь не найден'}, status=404)
+        messages.error(request, 'Пользователь не найден')
+        return redirect('communities:community_members', slug=community.slug)
+
+    # Нельзя заблокировать создателя сообщества
+    if user == community.creator:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'Нельзя заблокировать создателя сообщества'}, status=400)
+        messages.error(request, 'Нельзя заблокировать создателя сообщества')
+        return redirect('communities:community_members', slug=community.slug)
+
+    # Нельзя заблокировать самого себя
+    if user == request.user:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'Нельзя заблокировать самого себя'}, status=400)
+        messages.error(request, 'Нельзя заблокировать самого себя')
+        return redirect('communities:community_members', slug=community.slug)
+
+    # Находим членство пользователя
+    target_membership = CommunityMembership.objects.filter(
+        community=community,
+        user=user
+    ).first()
+
+    if target_membership:
+        # Если уже заблокирован
+        if target_membership.status == 'banned':
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'error': 'Пользователь уже заблокирован'}, status=400)
+            messages.error(request, 'Пользователь уже заблокирован')
+            return redirect('communities:community_members', slug=community.slug)
+
+        # Блокируем
+        target_membership.status = 'banned'
+        target_membership.save()
+    else:
+        # Если нет членства, создаем заблокированное
+        CommunityMembership.objects.create(
+            user=user,
+            community=community,
+            role='member',
+            status='banned'
+        )
+
+    # Удаляем активные заявки пользователя
+    CommunityJoinRequest.objects.filter(
+        community=community,
+        user=user,
+        approved__isnull=True
+    ).delete()
+
+    # Создаем уведомление пользователю о блокировке
+    from accounts.utils import create_notification
+    create_notification(
+        recipient=user,
+        sender=request.user,
+        notification_type='community',
+        title='Блокировка в сообществе',
+        message=f'Вы были заблокированы в сообществе "{community.name}"',
+        link=f'/communities/{community.slug}/'
+    )
+
+    # Обновляем статистику сообщества
+    community.update_stats()
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            'success': True,
+            'message': f'Пользователь @{user.username} заблокирован',
+            'members_count': community.members_count
+        })
+
+    messages.success(request, f'Пользователь @{user.username} заблокирован')
+    return redirect('communities:community_members', slug=community.slug)
 
 
 @login_required
 def unban_community_member(request, slug):
-    # Аналогично ban_community_member, но status = 'active'
-    ...
+    """Разблокировать участника в сообществе"""
+    community = get_object_or_404(Community, slug=slug)
 
+    # Проверка прав - только администраторы и модераторы могут разблокировать
+    membership = CommunityMembership.objects.filter(
+        user=request.user,
+        community=community,
+        role__in=['admin', 'moderator'],
+        status='active'
+    ).first()
+
+    if not membership and request.user != community.creator:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'У вас нет прав на разблокировку участников'}, status=403)
+        messages.error(request, 'У вас нет прав на разблокировку участников')
+        return redirect('communities:community_detail', slug=community.slug)
+
+    try:
+        data = json.loads(request.body)
+        user_id = data.get('user_id')
+    except:
+        user_id = request.POST.get('user_id') or request.GET.get('user_id')
+
+    if not user_id:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'ID пользователя не указан'}, status=400)
+        messages.error(request, 'ID пользователя не указан')
+        return redirect('communities:community_members', slug=community.slug)
+
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'Пользователь не найден'}, status=404)
+        messages.error(request, 'Пользователь не найден')
+        return redirect('communities:community_members', slug=community.slug)
+
+    # Находим заблокированное членство
+    banned_membership = CommunityMembership.objects.filter(
+        community=community,
+        user=user,
+        status='banned'
+    ).first()
+
+    if not banned_membership:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'Пользователь не заблокирован в этом сообществе'}, status=400)
+        messages.error(request, 'Пользователь не заблокирован в этом сообществе')
+        return redirect('communities:community_members', slug=community.slug)
+
+    # Разблокируем - меняем статус на active
+    banned_membership.status = 'active'
+    banned_membership.save()
+
+    # Создаем уведомление пользователю о разблокировке
+    from accounts.utils import create_notification
+    create_notification(
+        recipient=user,
+        sender=request.user,
+        notification_type='community',
+        title='Разблокировка в сообществе',
+        message=f'Вы были разблокированы в сообществе "{community.name}"',
+        link=f'/communities/{community.slug}/'
+    )
+
+    # Обновляем статистику сообщества
+    community.update_stats()
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            'success': True,
+            'message': f'Пользователь @{user.username} разблокирован',
+            'members_count': community.members_count
+        })
+
+    messages.success(request, f'Пользователь @{user.username} разблокирован')
+    return redirect('communities:community_members', slug=community.slug)
 @login_required
 def friends_search_api(request):
     """API поиска среди друзей (только accepted)"""
@@ -713,3 +931,303 @@ def friends_search_api(request):
             'avatar': u.profile.avatar.url if hasattr(u, 'profile') and u.profile.avatar else None,
         })
     return JsonResponse(results, safe=False)
+
+
+@login_required
+def add_moderator(request, slug):
+    """Назначить пользователя модератором"""
+    community = get_object_or_404(Community, slug=slug)
+
+    # Проверка прав - только создатель может назначать модераторов
+    if request.user != community.creator:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'Только создатель сообщества может назначать модераторов'}, status=403)
+        messages.error(request, 'Только создатель сообщества может назначать модераторов')
+        return redirect('communities:community_detail', slug=community.slug)
+
+    try:
+        data = json.loads(request.body)
+        user_id = data.get('user_id')
+    except:
+        user_id = request.POST.get('user_id') or request.GET.get('user_id')
+
+    if not user_id:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'ID пользователя не указан'}, status=400)
+        messages.error(request, 'ID пользователя не указан')
+        return redirect('communities:community_members', slug=community.slug)
+
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'Пользователь не найден'}, status=404)
+        messages.error(request, 'Пользователь не найден')
+        return redirect('communities:community_members', slug=community.slug)
+
+    # Проверяем, является ли пользователь участником
+    membership = CommunityMembership.objects.filter(
+        community=community,
+        user=user,
+        status='active'
+    ).first()
+
+    if not membership:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'Пользователь не является участником сообщества'}, status=400)
+        messages.error(request, 'Пользователь не является участником сообщества')
+        return redirect('communities:community_members', slug=community.slug)
+
+    # Если уже модератор
+    if membership.role == 'moderator':
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'Пользователь уже является модератором'}, status=400)
+        messages.error(request, 'Пользователь уже является модератором')
+        return redirect('communities:community_members', slug=community.slug)
+
+    # Назначаем модератором
+    membership.role = 'moderator'
+    membership.save()
+
+    # Создаем уведомление
+    from accounts.utils import create_notification
+    create_notification(
+        recipient=user,
+        sender=request.user,
+        notification_type='community',
+        title='Назначение модератором',
+        message=f'Вы назначены модератором сообщества "{community.name}"',
+        link=f'/communities/{community.slug}/members/'
+    )
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'message': f'Пользователь @{user.username} назначен модератором'})
+
+    messages.success(request, f'Пользователь @{user.username} назначен модератором')
+    return redirect('communities:community_members', slug=community.slug)
+
+
+@login_required
+def remove_moderator(request, slug, user_id):
+    """Снять статус модератора"""
+    community = get_object_or_404(Community, slug=slug)
+
+    # Проверка прав - только создатель может снимать модераторов
+    if request.user != community.creator:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Только создатель сообщества может снимать модераторов'},
+                                status=403)
+        messages.error(request, 'Только создатель сообщества может снимать модераторов')
+        return redirect('communities:community_detail', slug=community.slug)
+
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Пользователь не найден'}, status=404)
+        messages.error(request, 'Пользователь не найден')
+        return redirect('communities:community_members', slug=community.slug)
+
+    # Нельзя снять создателя
+    if user == community.creator:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Нельзя снять статус создателя'}, status=400)
+        messages.error(request, 'Нельзя снять статус создателя')
+        return redirect('communities:community_members', slug=community.slug)
+
+    membership = CommunityMembership.objects.filter(
+        community=community,
+        user=user,
+        status='active'
+    ).first()
+
+    if not membership:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Пользователь не является участником'}, status=400)
+        messages.error(request, 'Пользователь не является участником')
+        return redirect('communities:community_members', slug=community.slug)
+
+    # Если не модератор
+    if membership.role != 'moderator':
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'error': 'Пользователь не является модератором'}, status=400)
+        messages.error(request, 'Пользователь не является модератором')
+        return redirect('communities:community_members', slug=community.slug)
+
+    # Снимаем статус модератора
+    membership.role = 'member'
+    membership.save()
+
+    # Создаем уведомление
+    from accounts.utils import create_notification
+    create_notification(
+        recipient=user,
+        sender=request.user,
+        notification_type='community',
+        title='Снятие статуса модератора',
+        message=f'У вас снят статус модератора в сообществе "{community.name}"',
+        link=f'/communities/{community.slug}/members/'
+    )
+
+    # ВАЖНО: Всегда возвращаем JSON для AJAX запросов
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            'success': True,
+            'message': f'У пользователя @{user.username} снят статус модератора'
+        })
+
+    messages.success(request, f'У пользователя @{user.username} снят статус модератора')
+    return redirect('communities:community_members', slug=community.slug)
+
+
+@login_required
+def approve_join_request(request, request_id):
+    """Одобрить заявку на вступление"""
+    join_request = get_object_or_404(CommunityJoinRequest, id=request_id)
+    community = join_request.community
+
+    # Проверка прав
+    is_moderator = CommunityMembership.objects.filter(
+        user=request.user,
+        community=community,
+        role__in=['admin', 'moderator'],
+        status='active'
+    ).exists()
+
+    if not is_moderator and request.user != community.creator:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'У вас нет прав'}, status=403)
+        messages.error(request, 'У вас нет прав на одобрение заявок')
+        return redirect('communities:community_detail', slug=community.slug)
+
+    # Проверяем, не вступил ли уже пользователь
+    existing_membership = CommunityMembership.objects.filter(
+        user=join_request.user,
+        community=community
+    ).first()
+
+    if existing_membership and existing_membership.status == 'active':
+        join_request.approved = False
+        join_request.processed_at = timezone.now()
+        join_request.processed_by = request.user
+        join_request.save()
+
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'Пользователь уже является участником'}, status=400)
+        messages.warning(request, 'Пользователь уже является участником')
+        return redirect('communities:community_members', slug=community.slug)
+
+    # Создаем членство
+    CommunityMembership.objects.create(
+        user=join_request.user,
+        community=community,
+        role='member',
+        status='active'
+    )
+
+    # Обновляем заявку
+    join_request.approved = True
+    join_request.processed_at = timezone.now()
+    join_request.processed_by = request.user
+    join_request.save()
+
+    # Обновляем статистику
+    community.update_stats()
+
+    # Уведомление пользователю
+    from accounts.utils import create_notification
+    create_notification(
+        recipient=join_request.user,
+        sender=request.user,
+        notification_type='community',
+        title='Заявка одобрена',
+        message=f'Ваша заявка на вступление в сообщество "{community.name}" одобрена',
+        link=f'/communities/{community.slug}/'
+    )
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'message': 'Заявка одобрена'})
+
+    messages.success(request, f'Заявка от {join_request.user.username} одобрена')
+    return redirect('communities:community_members', slug=community.slug)
+
+
+@login_required
+def reject_join_request(request, request_id):
+    """Отклонить заявку на вступление"""
+    join_request = get_object_or_404(CommunityJoinRequest, id=request_id)
+    community = join_request.community
+
+    # Проверка прав
+    is_moderator = CommunityMembership.objects.filter(
+        user=request.user,
+        community=community,
+        role__in=['admin', 'moderator'],
+        status='active'
+    ).exists()
+
+    if not is_moderator and request.user != community.creator:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'У вас нет прав'}, status=403)
+        messages.error(request, 'У вас нет прав на отклонение заявок')
+        return redirect('communities:community_detail', slug=community.slug)
+
+    # Отклоняем заявку
+    join_request.approved = False
+    join_request.processed_at = timezone.now()
+    join_request.processed_by = request.user
+    join_request.save()
+
+    # Уведомление пользователю
+    from accounts.utils import create_notification
+    create_notification(
+        recipient=join_request.user,
+        sender=request.user,
+        notification_type='community',
+        title='Заявка отклонена',
+        message=f'Ваша заявка на вступление в сообщество "{community.name}" отклонена',
+        link=f'/communities/{community.slug}/'
+    )
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'success': True, 'message': 'Заявка отклонена'})
+
+    messages.info(request, f'Заявка от {join_request.user.username} отклонена')
+    return redirect('communities:community_members', slug=community.slug)
+
+
+@login_required
+@user_passes_test(is_moderator)
+def unban_tickets(request):
+    tickets = UnbanTicket.objects.select_related('user', 'ban').filter(
+        status='pending'
+    ).order_by('-created_at')
+
+    return render(request, 'moderation/unban_tickets.html', {'tickets': tickets})
+
+
+@login_required
+def community_delete(request, slug):
+    """Удаление сообщества (только создатель или супер admin)"""
+    community = get_object_or_404(Community, slug=slug)
+
+    # Проверка прав: только создатель или супер admin
+    if request.user != community.creator and not request.user.is_superuser:
+        messages.error(request, 'Только создатель сообщества может его удалить')
+        return redirect('communities:community_detail', slug=community.slug)
+
+    if request.method == 'POST':
+        # Сохраняем имя для сообщения
+        community_name = community.name
+
+        # Мягкое удаление (меняем статус)
+        community.status = 'deleted'
+        community.save()
+
+        # Удаляем все членства (опционально, но лучше оставить для истории)
+        # CommunityMembership.objects.filter(community=community).delete()
+
+        messages.success(request, f'Сообщество "{community_name}" успешно удалено')
+        return redirect('communities:community_list')
+
+    return redirect('communities:community_detail', slug=community.slug)

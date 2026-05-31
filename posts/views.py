@@ -12,6 +12,12 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib.auth import get_user_model
 from unicodedata import category
+from django.shortcuts import render, get_object_or_404
+from django.core.paginator import Paginator
+from django.contrib import messages
+from django.urls import reverse
+from django.http import HttpResponseRedirect
+from .models import Post, Tag, Comment
 import json
 from accounts.models import Friendship
 from accounts.models import Notification
@@ -226,22 +232,72 @@ def post_create(request):
 
     return render(request, 'posts/post_form.html', {'form': form})
 
+
+# posts/views.py - в функции post_edit
 @login_required
 def post_edit(request, pk):
-    """
-    Редактирование поста
-    """
     post = get_object_or_404(Post, pk=pk)
 
     # Проверка прав
-    if post.author != request.user:
+    if not (post.author == request.user or request.user.is_staff or request.user.is_platform_moderator):
         messages.error(request, 'Вы не можете редактировать этот пост')
         return redirect('posts:post_detail', pk=post.pk)
 
     if request.method == 'POST':
         form = PostForm(request.POST, request.FILES, instance=post)
         if form.is_valid():
-            post = form.save()
+            post = form.save(commit=False)
+            was_hidden = post.is_hidden
+
+            # Если пост был скрыт модерацией и автор его редактирует - снимаем блокировку
+            if was_hidden and request.user == post.author:
+                post.is_hidden = False
+
+                # ========== ОБНОВЛЯЕМ СТАТУС ВСЕХ ЖАЛОБ НА ЭТОТ ПОСТ ==========
+                from moderation.models import Report
+                from django.contrib.contenttypes.models import ContentType
+                from accounts.utils import create_notification
+
+                post_ct = ContentType.objects.get_for_model(Post)
+
+                # Обновляем ВСЕ жалобы на этот пост (не только approved)
+                # pending тоже переносим в снятые, потому что контент уже исправлен
+                reports = Report.objects.filter(
+                    content_type=post_ct,
+                    object_id=post.id
+                ).exclude(status='rejected')  # отклонённые не трогаем
+
+                for report in reports:
+                    old_status = report.status
+                    report.status = 'lifted'
+                    report.moderation_comment = 'Контент исправлен автором, жалоба снята'
+                    report.save()
+
+                    # Уведомляем автора жалобы, если она была approved или pending
+                    if old_status in ['approved', 'pending']:
+                        create_notification(
+                            recipient=report.reporter,
+                            sender=post.author,
+                            notification_type='moderation',
+                            title='📋 Жалоба снята',
+                            message=f'Пользователь @{post.author.username} отредактировал пост "{post.title}", на который вы жаловались. Жалоба закрыта.',
+                            link=f'/post/{post.id}/'
+                        )
+
+                # Уведомляем модераторов (только по approved)
+                for report in reports.filter(status='approved'):
+                    if report.moderated_by:
+                        create_notification(
+                            recipient=report.moderated_by,
+                            sender=post.author,
+                            notification_type='moderation',
+                            title='📝 Контент исправлен',
+                            message=f'Пользователь {post.author.username} отредактировал пост "{post.title}", который был скрыт модерацией. Пост восстановлен.',
+                            link=f'/post/{post.id}/'
+                        )
+
+            post.save()
+            form.save_m2m()
             messages.success(request, 'Пост успешно обновлен!')
             return redirect('posts:post_detail', pk=post.pk)
     else:
@@ -252,7 +308,6 @@ def post_edit(request, pk):
         'post': post,
         'title': 'Редактировать пост'
     })
-
 
 @login_required
 def post_delete(request, pk):
@@ -296,30 +351,6 @@ def comment_create(request, post_pk):
             comment.parent = parent
 
         comment.save()
-
-        # Уведомление автору поста
-        if post.author != request.user:
-            create_notification(
-                recipient=post.author,
-                sender=request.user,
-                notification_type='comment',
-                title='Новый комментарий',
-                message=f'@{request.user.username} прокомментировал ваш пост: "{comment.content[:50]}..."',
-                link=f'/posts/post/{post.pk}/#comment-{comment.pk}',
-                content_object=comment
-            )
-
-        # Уведомление автору родительского комментария (если это ответ)
-        if parent_id and parent.author != request.user:
-            create_notification(
-                recipient=parent.author,
-                sender=request.user,
-                notification_type='comment',
-                title='Ответ на комментарий',
-                message=f'@{request.user.username} ответил на ваш комментарий: "{comment.content[:50]}..."',
-                link=f'/posts/post/{post.pk}/#comment-{comment.pk}',
-                content_object=comment
-            )
 
         # Проверка на упоминания (@username)
         import re
@@ -691,6 +722,36 @@ def category_edit(request, slug):
         'category': category,
         'title': f'Редактирование "{category.name}"'
     })
+
+
+def tag_posts(request, tag_name):
+    """Страница постов по тегу"""
+    from django.core.paginator import Paginator
+    from .models import Post, Tag
+
+    try:
+        tag = Tag.objects.get(name__iexact=tag_name)
+    except Tag.DoesNotExist:
+        messages.error(request, f'Тег "{tag_name}" не найден')
+        return HttpResponseRedirect(reverse('posts:post_list'))
+
+    posts = Post.objects.filter(
+        tags=tag,
+        status='published',
+        is_hidden=False
+    ).select_related('author').prefetch_related('tags').order_by('-created_at')
+
+    paginator = Paginator(posts, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'tag': tag,
+        'page_obj': page_obj,
+        'posts': page_obj,
+    }
+
+    return render(request, 'posts/tag_posts.html', context)
 
 
 def tag_list(request):
@@ -1075,3 +1136,111 @@ def post_likes_modal(request, post_id):
         'users': users_list,
         'total': len(users_list)
     })
+
+
+@login_required
+def comment_edit(request, comment_id):
+    """Редактирование комментария"""
+    from posts.models import Comment
+    from django.shortcuts import get_object_or_404, redirect
+    from django.contrib import messages
+
+    comment = get_object_or_404(Comment, id=comment_id)
+    post = comment.post
+
+    # Проверка прав
+    if not (comment.author == request.user or request.user.is_staff or request.user.is_platform_moderator):
+        messages.error(request, 'Вы не можете редактировать этот комментарий')
+        return redirect('posts:post_detail', pk=post.id)
+
+    # Получаем информацию о блокировке
+    moderation_info = None
+    if comment.is_hidden:
+        from moderation.models import Report
+        from django.contrib.contenttypes.models import ContentType
+        ct = ContentType.objects.get_for_model(Comment)
+        reports = Report.objects.filter(
+            content_type=ct,
+            object_id=comment.id,
+            status='approved'
+        ).select_related('moderated_by')
+        if reports.exists():
+            report = reports.first()
+            moderation_info = {
+                'reason': report.get_report_type_display(),
+                'comment': report.moderation_comment,
+                'moderator': report.moderated_by,
+                'date': report.moderated_at,
+            }
+
+    if request.method == 'POST':
+        content = request.POST.get('content', '')
+        if content.strip():
+            was_hidden = comment.is_hidden
+            comment.content = content
+
+            # Если комментарий был скрыт модерацией и автор его редактирует - снимаем блокировку
+            if was_hidden and request.user == comment.author:
+                comment.is_hidden = False
+
+                # Обновляем статус жалоб
+                from moderation.models import Report
+                from django.contrib.contenttypes.models import ContentType
+                from accounts.utils import create_notification
+
+                ct = ContentType.objects.get_for_model(Comment)
+                reports = Report.objects.filter(
+                    content_type=ct,
+                    object_id=comment.id
+                ).exclude(status='rejected')
+
+                for report in reports:
+                    report.status = 'lifted'
+                    report.moderation_comment = 'Комментарий исправлен автором, жалоба снята'
+                    report.save()
+
+                    # Уведомляем автора жалобы
+                    if report.reporter != request.user:
+                        create_notification(
+                            recipient=report.reporter,
+                            sender=comment.author,
+                            notification_type='moderation',
+                            title='📋 Жалоба снята',
+                            message=f'Пользователь @{comment.author.username} отредактировал комментарий, на который вы жаловались. Жалоба закрыта.',
+                            link=f'/post/{post.id}/#comment-{comment.id}'
+                        )
+
+            comment.save()
+            messages.success(request, 'Комментарий обновлён')
+        else:
+            messages.error(request, 'Комментарий не может быть пустым')
+
+        return redirect('posts:post_detail', pk=post.id)
+
+    return render(request, 'posts/comment_edit.html', {
+        'comment': comment,
+        'post': post,
+        'moderation_info': moderation_info,
+    })
+
+
+@login_required
+def comment_delete(request, comment_id):
+    """Удаление комментария (для автора, модератора, админа)"""
+    comment = get_object_or_404(Comment, id=comment_id)
+    post_id = comment.post.id
+
+    # Проверка прав
+    if not (request.user == comment.author or request.user.is_staff or request.user.is_platform_moderator):
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': 'У вас нет прав'}, status=403)
+        messages.error(request, 'У вас нет прав на удаление этого комментария')
+        return redirect('posts:post_detail', pk=post_id)
+
+    comment.delete()
+
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'status': 'ok'})
+
+    messages.success(request, 'Комментарий удалён')
+    return redirect('posts:post_detail', pk=post_id)

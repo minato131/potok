@@ -320,6 +320,43 @@
             </div>
         </div>
     </form>
+    <!-- Вставь этот код после закрывающего тега </form> или в отдельную колонку -->
+    <div class="post-form-sidebar">
+        {% if moderation_info %}
+        <div class="moderation-warning-sidebar">
+            <div class="warning-card">
+                <div class="warning-card-header">
+                    <i data-feather="alert-triangle"></i>
+                    <h3>Пост скрыт модерацией</h3>
+                </div>
+                <div class="warning-card-body">
+                    <div class="warning-item">
+                        <span class="warning-label">Причина:</span>
+                        <span class="warning-value">{{ moderation_info.reason }}</span>
+                    </div>
+                    {% if moderation_info.comment %}
+                    <div class="warning-item">
+                        <span class="warning-label">Комментарий:</span>
+                        <span class="warning-value">{{ moderation_info.comment }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="warning-item">
+                        <span class="warning-label">Модератор:</span>
+                        <span class="warning-value">@{{ moderation_info.moderator.username }}</span>
+                    </div>
+                    <div class="warning-item">
+                        <span class="warning-label">Дата:</span>
+                        <span class="warning-value">{{ moderation_info.date|date:"d.m.Y H:i" }}</span>
+                    </div>
+                </div>
+                <div class="warning-card-footer">
+                    <i data-feather="info"></i>
+                    <span>После редактирования пост восстановится автоматически</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
 
     <!-- Справка по Markdown -->
     <div class="markdown-help" id="markdownHelp" style="display: none;">
@@ -620,6 +657,105 @@
         .form-actions { flex-direction: column; gap: 1rem; }
         .form-actions-right { width: 100%; flex-direction: column; }
         .help-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    /* Модерационное предупреждение - сайдбар */
+    .moderation-warning-sidebar {
+        margin-top: 1.5rem;
+    }
+
+    .warning-card {
+        background: #fef3c7;
+        border-left: 4px solid #f59e0b;
+        border-radius: 16px;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+
+    .warning-card-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem 1.25rem;
+        background: #fde68a;
+        border-bottom: 1px solid #fcd34d;
+    }
+
+    .warning-card-header i {
+        width: 1.25rem;
+        height: 1.25rem;
+        color: #d97706;
+    }
+
+    .warning-card-header h3 {
+        margin: 0;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #92400e;
+    }
+
+    .warning-card-body {
+        padding: 1rem 1.25rem;
+    }
+
+    .warning-item {
+        display: flex;
+        margin-bottom: 0.75rem;
+        font-size: 0.85rem;
+    }
+
+    .warning-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .warning-label {
+        width: 100px;
+        flex-shrink: 0;
+        font-weight: 600;
+        color: #92400e;
+    }
+
+    .warning-value {
+        flex: 1;
+        color: #78350f;
+        word-break: break-word;
+    }
+
+    .warning-card-footer {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        background: #fde68a;
+        border-top: 1px solid #fcd34d;
+        font-size: 0.75rem;
+        color: #92400e;
+    }
+
+    .warning-card-footer i {
+        width: 0.875rem;
+        height: 0.875rem;
+    }
+
+    /* Если форма и сайдбар в две колонки */
+    .post-form-layout {
+        display: flex;
+        gap: 2rem;
+        max-width: 1100px;
+        margin: 0 auto;
+    }
+
+    .post-form-main {
+        flex: 2;
+    }
+
+    .post-form-sidebar {
+        flex: 1;
+    }
+
+    @media (max-width: 768px) {
+        .post-form-layout {
+            flex-direction: column;
+        }
     }
 </style>
 {% endblock %}

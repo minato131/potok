@@ -88,8 +88,8 @@
             <a href="?status=rejected" class="rp-tab {% if current_status == 'rejected' %}active{% endif %}">
                 Отклонённые <span class="rp-count">{{ dismissed_count }}</span>
             </a>
-            <a href="?status=lifted" class="rp-tab {% if current_status == 'lifted' %}active{% endif %}">
-                Снятые <span class="rp-count">{{ lifted_count }}</span>
+            <a href="?status=lifted" class="btn btn--sm {% if current_status == 'lifted' %}btn--primary{% else %}btn--outline{% endif %}">
+                Снятые ({{ lifted_count }})
             </a>
         </div>
         <div class="rp-selects">

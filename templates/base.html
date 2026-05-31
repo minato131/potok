@@ -131,6 +131,14 @@
                             </a>
                         </li>
                         {% endif %}
+                    {% if user.is_superuser or user.is_staff %}
+                    <li class="nav-menu__item">
+                        <a href="{% url 'admin:index' %}" class="nav-link">
+                            <i data-feather="settings"></i>
+                            <span>Админ-панель</span>
+                        </a>
+                    </li>
+                    {% endif %}
 
                         {% for membership in user.communitymembership_set.all %}
                             {% if membership.status == 'active' and membership.role == 'admin' or membership.role == 'moderator' %}
@@ -151,7 +159,7 @@
                         </a>
                     </li>
                     {% endif %}
-                    {% if user.is_staff or user.is_superuser %}
+                    {% if  user.is_superuser %}
                     <li class="nav-menu__item">
                         <a href="{% url 'analytics:dashboard' %}" class="nav-link">
                             <i data-feather="bar-chart-2"></i>
@@ -274,6 +282,7 @@
     </nav>
 
     <!-- Скрипты -->
+    <!-- Скрипты -->
     <script src="{% static 'js/main.js' %}"></script>
     <script>
         feather.replace();
@@ -355,165 +364,170 @@
         document.head.appendChild(style);
         document.addEventListener('DOMContentLoaded', initInstantSearch);
     </script>
-    {% block extra_js %}{% endblock %}
 
-<script>
-// Глобальная переменная для WebSocket
-window.isAuthenticated = {% if user.is_authenticated %}true{% else %}false{% endif %};
+    <!-- ГЛОБАЛЬНЫЕ ФУНКЦИИ -->
+    <script>
+    // Глобальная функция для показа модального окна подтверждения
+    window.showConfirmModal = function(options) {
+        // Удаляем существующую модалку
+        var existingModal = document.querySelector('.custom-confirm-overlay');
+        if (existingModal) existingModal.remove();
 
-// WebSocket для уведомлений в реальном времени
-let notificationSocket = null;
-let reconnectAttempts = 0;
-const maxReconnectAttempts = 10;
+        var title = options.title || 'Подтверждение';
+        var message = options.message || '';
+        var confirmText = options.confirmText || 'Подтвердить';
+        var cancelText = options.cancelText || 'Отмена';
+        var onConfirm = options.onConfirm || function(){};
+        var onCancel = options.onCancel || function(){};
 
-function connectNotificationWebSocket() {
-    if (!window.isAuthenticated) return;
+        var modalHtml = `
+            <div class="custom-confirm-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:10002;">
+                <div style="background:var(--color-bg-surface);border-radius:16px;width:90%;max-width:380px;padding:20px;">
+                    <h3 style="margin:0 0 12px 0;font-size:1.1rem;">${escapeHtml(title)}</h3>
+                    <p style="margin:0 0 20px 0;color:var(--color-text-secondary);">${escapeHtml(message)}</p>
+                    <div style="display:flex;gap:12px;justify-content:flex-end;">
+                        <button class="confirm-cancel" style="padding:8px 20px;border-radius:8px;border:1px solid var(--color-border);background:transparent;cursor:pointer;">${escapeHtml(cancelText)}</button>
+                        <button class="confirm-ok" style="padding:8px 20px;border-radius:8px;background:#ef4444;color:white;border:none;cursor:pointer;">${escapeHtml(confirmText)}</button>
+                    </div>
+                </div>
+            </div>
+        `;
 
-    const wsScheme = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-    const wsUrl = `${wsScheme}${window.location.host}/ws/notifications/`;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        var modal = document.querySelector('.custom-confirm-overlay');
 
-    notificationSocket = new WebSocket(wsUrl);
-
-    notificationSocket.onopen = function() {
-        console.log('WebSocket connected');
-        reconnectAttempts = 0;
+        modal.querySelector('.confirm-cancel').onclick = function() {
+            modal.remove();
+            onCancel();
+        };
+        modal.querySelector('.confirm-ok').onclick = function() {
+            modal.remove();
+            onConfirm();
+        };
+        modal.onclick = function(e) {
+            if (e.target === modal) {
+                modal.remove();
+                onCancel();
+            }
+        };
     };
 
-    notificationSocket.onmessage = function(e) {
-        const data = JSON.parse(e.data);
-        console.log('WebSocket message:', data);
-
-        if (data.type === 'new_notification') {
-            // Показываем всплывающее уведомление
-            showNotificationToast(data.notification);
-            // Показываем красную точку
-            const dot = document.getElementById('notificationDot');
-            if (dot) {
-                dot.style.display = 'block';
-            }
-        } else if (data.type === 'counter_update') {
-            // Обновляем красную точку
-            const dot = document.getElementById('notificationDot');
-            if (dot) {
-                if (data.count > 0) {
-                    dot.style.display = 'block';
-                } else {
-                    dot.style.display = 'none';
-                }
-            }
-        } else if (data.type === 'initial_notifications') {
-            // Начальные уведомления - показываем точку если есть непрочитанные
-            const dot = document.getElementById('notificationDot');
-            if (dot) {
-                if (data.count > 0) {
-                    dot.style.display = 'block';
-                } else {
-                    dot.style.display = 'none';
-                }
-            }
-        }
-    };
-
-    notificationSocket.onclose = function() {
-        console.log('WebSocket disconnected');
-        if (reconnectAttempts < maxReconnectAttempts) {
-            setTimeout(() => {
-                reconnectAttempts++;
-                connectNotificationWebSocket();
-            }, 5000);
-        }
-    };
-
-    notificationSocket.onerror = function(error) {
-        console.error('WebSocket error:', error);
-    };
-}
-
-// Функция для обновления точки через API (резервный вариант)
-async function updateNotificationDot() {
-    if (!window.isAuthenticated) return;
-
-    try {
-        const response = await fetch('/accounts/notifications/unread-count/');
-        const data = await response.json();
-        const dot = document.getElementById('notificationDot');
-
-        if (dot) {
-            if (data.count > 0) {
-                dot.style.display = 'block';
-            } else {
-                dot.style.display = 'none';
-            }
-        }
-    } catch (error) {
-        console.error('Error fetching notification count:', error);
+    function escapeHtml(text) {
+        if (!text) return '';
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
-}
 
-// Запускаем обновление точки при загрузке
-document.addEventListener('DOMContentLoaded', function() {
-    updateNotificationDot();
-    // Обновляем каждые 30 секунд на случай, если WebSocket отключился
-    setInterval(updateNotificationDot, 30000);
-});
+    // WebSocket и уведомления
+    window.isAuthenticated = {% if user.is_authenticated %}true{% else %}false{% endif %};
 
-// Показать всплывающее уведомление
-function showNotificationToast(notification) {
-    const toast = document.createElement('div');
-    toast.className = 'notification-toast';
-    toast.innerHTML = `
-        <div class="toast-icon">
-            ${getNotificationIcon(notification.notification_type)}
-        </div>
-        <div class="toast-content">
-            <div class="toast-title">${escapeHtml(notification.title)}</div>
-            <div class="toast-message">${escapeHtml(notification.message)}</div>
-        </div>
-    `;
+    let notificationSocket = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 10;
 
-    toast.onclick = () => {
-        if (notification.link && notification.link !== '#') {
-            window.location.href = notification.link;
-        } else {
-            window.location.href = '/accounts/notifications/';
+    function connectNotificationWebSocket() {
+        if (!window.isAuthenticated) return;
+
+        const wsScheme = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        const wsUrl = `${wsScheme}${window.location.host}/ws/notifications/`;
+
+        notificationSocket = new WebSocket(wsUrl);
+
+        notificationSocket.onopen = function() {
+            console.log('WebSocket connected');
+            reconnectAttempts = 0;
+        };
+
+        notificationSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            console.log('WebSocket message:', data);
+
+            if (data.type === 'new_notification') {
+                showNotificationToast(data.notification);
+                const dot = document.getElementById('notificationDot');
+                if (dot) dot.style.display = 'block';
+            } else if (data.type === 'counter_update') {
+                const dot = document.getElementById('notificationDot');
+                if (dot) dot.style.display = data.count > 0 ? 'block' : 'none';
+            } else if (data.type === 'initial_notifications') {
+                const dot = document.getElementById('notificationDot');
+                if (dot) dot.style.display = data.count > 0 ? 'block' : 'none';
+            }
+        };
+
+        notificationSocket.onclose = function() {
+            console.log('WebSocket disconnected');
+            if (reconnectAttempts < maxReconnectAttempts) {
+                setTimeout(() => {
+                    reconnectAttempts++;
+                    connectNotificationWebSocket();
+                }, 5000);
+            }
+        };
+
+        notificationSocket.onerror = function(error) {
+            console.error('WebSocket error:', error);
+        };
+    }
+
+    async function updateNotificationDot() {
+        if (!window.isAuthenticated) return;
+        try {
+            const response = await fetch('/accounts/notifications/unread-count/');
+            const data = await response.json();
+            const dot = document.getElementById('notificationDot');
+            if (dot) dot.style.display = data.count > 0 ? 'block' : 'none';
+        } catch (error) {
+            console.error('Error fetching notification count:', error);
         }
-    };
+    }
 
-    document.body.appendChild(toast);
+    function showNotificationToast(notification) {
+        const toast = document.createElement('div');
+        toast.className = 'notification-toast';
+        toast.innerHTML = `
+            <div class="toast-icon">${getNotificationIcon(notification.notification_type)}</div>
+            <div class="toast-content">
+                <div class="toast-title">${escapeHtml(notification.title)}</div>
+                <div class="toast-message">${escapeHtml(notification.message)}</div>
+            </div>
+        `;
+        toast.onclick = () => {
+            if (notification.link && notification.link !== '#') {
+                window.location.href = notification.link;
+            } else {
+                window.location.href = '/accounts/notifications/';
+            }
+        };
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }
+        }, 5000);
+    }
 
-    setTimeout(() => {
-        if (toast.parentNode) {
-            toast.style.animation = 'slideOutRight 0.3s ease';
-            setTimeout(() => toast.remove(), 300);
+    function getNotificationIcon(type) {
+        const icons = {
+            'like': '❤️', 'comment': '💬', 'message': '✉️', 'follow': '👥',
+            'mention': '@', 'community_invite': '🏘️', 'community_request': '📝', 'report': '⚠️'
+        };
+        return icons[type] || '🔔';
+    }
+
+    // Запускаем WebSocket и обновление точки
+    document.addEventListener('DOMContentLoaded', function() {
+        if (window.isAuthenticated) {
+            connectNotificationWebSocket();
+            updateNotificationDot();
+            setInterval(updateNotificationDot, 30000);
         }
-    }, 5000);
-}
+    });
+    </script>
 
-function getNotificationIcon(type) {
-    const icons = {
-        'like': '❤️',
-        'comment': '💬',
-        'message': '✉️',
-        'follow': '👥',
-        'mention': '@',
-        'community_invite': '🏘️',
-        'community_request': '📝',
-        'report': '⚠️'
-    };
-    return icons[type] || '🔔';
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-
-// Добавляем стили для toast (если ещё нет)
-if (!document.querySelector('#notification-styles')) {
-    const toastStyles = document.createElement('style');
-    toastStyles.id = 'notification-styles';
-    toastStyles.textContent = `
+    <style>
         .notification-toast {
             position: fixed;
             bottom: 20px;
@@ -531,280 +545,111 @@ if (!document.querySelector('#notification-styles')) {
             animation: slideInRight 0.3s ease;
             border-left: 4px solid #3b82f6;
             cursor: pointer;
-            transition: all 0.2s;
         }
-
         .notification-toast:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 16px rgba(0,0,0,0.2);
         }
-
         @keyframes slideInRight {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
-
         @keyframes slideOutRight {
-            from {
-                transform: translateX(0);
-                opacity: 1;
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+        .toast-icon { font-size: 24px; }
+        .toast-content { flex: 1; }
+        .toast-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+        .toast-message { font-size: 13px; color: #666; word-break: break-word; }
+        .custom-confirm-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 10002;
+        }
+        .btn--danger {
+            background: #ef4444;
+            color: white;
+            border: none;
+        }
+        .btn--danger:hover {
+            background: #dc2626;
+        }
+            /* Глобальные стили спойлеров — тёмный фон всегда */
+        /* Стили для спойлеров — пепельно-серый фон */
+        .spoiler {
+            background: #e5e7eb !important;  /* светло-пепельно-серый */
+            color: transparent !important;
+            border-radius: 6px;
+            padding: 2px 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+            display: inline-block;
+        }
+
+        .spoiler:hover {
+            background: #d1d5db !important;  /* чуть темнее при наведении */
+            opacity: 0.9;
+        }
+
+        /* Раскрытый спойлер — нормальный текст, фон прозрачный */
+        .spoiler.revealed {
+            background: transparent !important;
+            color: inherit !important;
+            cursor: default;
+            padding: 2px 0 !important;
+        }
+
+        /* Тёмная тема */
+        @media (prefers-color-scheme: dark) {
+            .spoiler {
+                background: #374151 !important;  /* тёмно-пепельный */
             }
-            to {
-                transform: translateX(100%);
-                opacity: 0;
+            .spoiler:hover {
+                background: #4b5563 !important;
+            }
+            .spoiler.revealed {
+                background: transparent !important;
+                color: inherit !important;
             }
         }
 
-        .toast-icon {
-            font-size: 24px;
+        /* Для явной тёмной темы через атрибут */
+        [data-theme="dark"] .spoiler {
+            background: #374151 !important;
         }
 
-        .toast-content {
-            flex: 1;
+        [data-theme="dark"] .spoiler:hover {
+            background: #4b5563 !important;
         }
 
-        .toast-title {
-            font-weight: 600;
-            font-size: 14px;
-            margin-bottom: 4px;
+        [data-theme="dark"] .spoiler.revealed {
+            background: transparent !important;
+            color: inherit !important;
         }
+    </style>
 
-        .toast-message {
-            font-size: 13px;
-            color: #666;
-            word-break: break-word;
-        }
-        <!-- В base.html, после существующих стилей, добавьте: -->
-<style>
-    /* Кастомная модалка подтверждения */
-    .custom-confirm-modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 20000;
-        display: none;
-        align-items: center;
-        justify-content: center;
-    }
-    .custom-confirm-modal.active {
-        display: flex;
-    }
-    .custom-confirm-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
-        backdrop-filter: blur(4px);
-    }
-    .custom-confirm-content {
-        position: relative;
-        background: #fff;
-        border-radius: 24px;
-        width: 90%;
-        max-width: 380px;
-        overflow: hidden;
-        box-shadow: 0 20px 40px rgba(0,0,0,0.2);
-        transform: scale(0.95);
-        transition: transform 0.2s;
-    }
-    .custom-confirm-modal.active .custom-confirm-content {
-        transform: scale(1);
-    }
-    .custom-confirm-header {
-        padding: 20px 20px 0;
-    }
-    .custom-confirm-header h3 {
-        font-size: 18px;
-        font-weight: 700;
-        margin: 0;
-    }
-    .custom-confirm-body {
-        padding: 16px 20px;
-    }
-    .custom-confirm-body p {
-        margin: 0;
-        font-size: 14px;
-        color: #4b5563;
-        line-height: 1.5;
-    }
-    .custom-confirm-footer {
-        display: flex;
-        gap: 12px;
-        justify-content: flex-end;
-        padding: 16px 20px 20px;
-    }
-    .custom-confirm-footer .btn {
-        padding: 8px 20px;
-        border-radius: 30px;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-    }
-    .custom-confirm-footer .btn--outline {
-        background: transparent;
-        border: 1px solid #e5e7eb;
-        color: #4b5563;
-    }
-    .custom-confirm-footer .btn--danger {
-        background: #ef4444;
-        border: none;
-        color: #fff;
-    }
-    .custom-toast {
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        padding: 12px 24px;
-        border-radius: 30px;
-        background: #333;
-        color: #fff;
-        font-size: 14px;
-        z-index: 10000;
-        animation: fadeInUp 0.3s ease;
-    }
-    .custom-toast--success {
-        background: #22c55e;
-    }
-    .custom-toast--error {
-        background: #ef4444;
-    }
-    @keyframes fadeInUp {
-        from { opacity: 0; transform: translateX(-50%) translateY(10px); }
-        to { opacity: 1; transform: translateX(-50%) translateY(0); }
-    }
-</style>
-    `;
-
-
-    document.head.appendChild(toastStyles);
-}
-
-// Запускаем WebSocket при загрузке
-document.addEventListener('DOMContentLoaded', function() {
-    if (window.isAuthenticated) {
-        connectNotificationWebSocket();
-    }
-
-    // Функция обновления счетчика (fallback)
-    window.updateNotificationCounter = async function() {
-        if (!window.isAuthenticated) return;
-        try {
-            const response = await fetch('/accounts/notifications/unread-count/');
-            const data = await response.json();
-            const counterElement = document.getElementById('unreadNotificationsCount');
-            if (counterElement) {
-                if (data.count > 0) {
-                    counterElement.textContent = data.count > 99 ? '99+' : data.count;
-                    counterElement.classList.remove('hidden');
-                } else {
-                    counterElement.classList.add('hidden');
-                }
-            }
-        } catch (error) {
-            console.error('Error updating counter:', error);
-        }
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+    // Глобальная функция для обычных уведомлений (тосты)
+    window.showToast = function(message, type) {
+        if (!message) message = 'Готово';
+        var toast = document.createElement('div');
+        toast.textContent = message;
+        toast.style.cssText = 'position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:10px;font-size:0.8rem;font-weight:600;color:#fff;z-index:9999;background:' + (type === 'error' ? '#ef4444' : '#22c55e') + ';box-shadow:0 8px 24px rgba(0,0,0,0.2);animation:toastIn 0.25s';
+        document.body.appendChild(toast);
+        setTimeout(function(){
+            toast.style.opacity = '0';
+            toast.style.transition = 'all 0.3s';
+            setTimeout(function(){ if(toast.parentNode) toast.remove(); }, 300);
+        }, 3000);
     };
-});
-
-// CSRF токен для fetch запросов
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
-// Функция обновления счетчика уведомлений
-async function updateNotificationCounter() {
-    if (!window.isAuthenticated) return;
-
-    try {
-        const response = await fetch('/accounts/notifications/unread-count/');
-        const data = await response.json();
-        const counter = document.getElementById('unreadNotificationsCount');
-        if (counter) {
-            if (data.count > 0) {
-                counter.textContent = data.count > 99 ? '99+' : data.count;
-                counter.style.display = 'flex';
-                counter.classList.remove('hidden');
-            } else {
-                counter.style.display = 'none';
-                counter.classList.add('hidden');
-            }
-        }
-    } catch (error) {
-        console.error('Error fetching notification count:', error);
-    }
-}
-
-// Запускаем при загрузке и каждые 30 секунд
-document.addEventListener('DOMContentLoaded', function() {
-    updateNotificationCounter();
-    setInterval(updateNotificationCounter, 30000);
-});
-// Красная точка для уведомлений
-async function updateNotificationDot() {
-    if (!window.isAuthenticated) return;
-
-    try {
-        const response = await fetch('/accounts/notifications/unread-count/');
-        const data = await response.json();
-        const dot = document.getElementById('notificationDot');
-
-        if (dot) {
-            if (data.count > 0) {
-                dot.style.display = 'block';
-            } else {
-                dot.style.display = 'none';
-            }
-        }
-    } catch (error) {
-        console.error('Error:', error);
-    }
-}
-
-// Обновляем при загрузке и каждые 30 секунд
-document.addEventListener('DOMContentLoaded', function() {
-    updateNotificationDot();
-    setInterval(updateNotificationDot, 30000);
-});
-
-// // Также обновляем при получении WebSocket уведомления
-// // Добавьте это в существующий WebSocket onmessage:
-// if (data.type === 'new_notification') {
-//     // ... существующий код ...
-//     const dot = document.getElementById('notificationDot');
-//     if (dot) dot.style.display = 'block';
-// }
-//
-// if (data.type === 'counter_update') {
-//     const dot = document.getElementById('notificationDot');
-//     if (dot) {
-//         if (data.count > 0) {
-//             dot.style.display = 'block';
-//         } else {
-//             dot.style.display = 'none';
-//         }
-//     }
-// }
-</script>
+    </script>
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

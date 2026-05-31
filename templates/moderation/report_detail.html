@@ -91,11 +91,12 @@
         <div class="actions-card">
             <h3>Действия</h3>
             <div class="action-group">
-                <button class="btn btn--success btn--block" onclick="handleReport('approve')">
+                <button id="approveReportBtn" class="btn btn--success btn--block">
                     <i data-feather="check"></i>
                     Одобрить жалобу
                 </button>
-                <button class="btn btn--outline btn--block" onclick="handleReport('reject')">
+
+                <button id="rejectReportBtn" class="btn btn--outline btn--block">
                     <i data-feather="x"></i>
                     Отклонить жалобу
                 </button>
@@ -274,20 +275,132 @@
 
 {% block extra_js %}
 <script>
-    function G(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
-    function T(m){const t=document.createElement('div');t.style.cssText='position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:10px;font-size:.8rem;font-weight:600;color:#fff;z-index:9999;background:#7c3aed;box-shadow:0 8px 24px rgba(0,0,0,.2);animation:toastIn .25s';t.textContent=m;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='all .3s';setTimeout(()=>t.remove(),300)},2000)}
-
-    async function handleReport(action) {
-        if (!confirm(action === 'approve' ? 'Одобрить жалобу? Контент будет скрыт.' : 'Отклонить жалобу?')) return;
-        const r = await fetch(`/moderation/report/{{ report.id }}/`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': G('csrftoken') },
-            body: `action=${action}&comment=`
-        });
-        if (r.ok) {
-            T(action === 'approve' ? 'Жалоба одобрена' : 'Жалоба отклонена');
-            setTimeout(() => location.reload(), 800);
+    // Переопределяем showToast (заменяем конфликтующую версию из main.js)
+    window.showToast = function(message, type) {
+        if (!message || message === 'undefined') {
+            message = type === 'error' ? '❌ Ошибка' : '✅ Готово';
         }
+        var toast = document.createElement('div');
+        toast.textContent = message;
+        toast.style.cssText = 'position:fixed;bottom:24px;right:24px;padding:12px 20px;background:' + (type === 'error' ? '#ef4444' : '#22c55e') + ';color:white;border-radius:10px;z-index:999999;font-size:14px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.15);';
+        document.body.appendChild(toast);
+        setTimeout(function() { if (toast && toast.parentNode) toast.remove(); }, 3000);
+    };
+
+    function getCsrfToken() {
+        let value = null;
+        document.cookie.split(';').forEach(c => {
+            const [key, val] = c.trim().split('=');
+            if (key === 'csrftoken') value = decodeURIComponent(val);
+        });
+        return value;
     }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Кастомная модалка
+    window.showConfirmModal = function(title, message, onConfirm) {
+        var existingModal = document.querySelector('.custom-confirm-modal');
+        if (existingModal) existingModal.remove();
+
+        var modalHtml = `
+            <div class="custom-confirm-modal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:20000;">
+                <div style="background:white;border-radius:16px;width:90%;max-width:380px;overflow:hidden;">
+                    <div style="padding:20px 20px 0;">
+                        <h3 style="margin:0;font-size:1.1rem;font-weight:600;">${escapeHtml(title)}</h3>
+                    </div>
+                    <div style="padding:16px 20px;">
+                        <p style="margin:0;font-size:0.9rem;color:#4b5563;">${escapeHtml(message)}</p>
+                    </div>
+                    <div style="padding:16px 20px 20px;display:flex;gap:12px;justify-content:flex-end;">
+                        <button id="modalCancelBtn" style="padding:8px 20px;border-radius:8px;border:1px solid #e5e7eb;background:transparent;cursor:pointer;">Отмена</button>
+                        <button id="modalConfirmBtn" style="padding:8px 20px;border-radius:8px;background:#ef4444;color:white;border:none;cursor:pointer;">Подтвердить</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        var modal = document.querySelector('.custom-confirm-modal');
+        var closeModal = function() { if (modal) modal.remove(); };
+        var cancelBtn = document.getElementById('modalCancelBtn');
+        var confirmBtn = document.getElementById('modalConfirmBtn');
+        if (cancelBtn) cancelBtn.onclick = closeModal;
+        if (confirmBtn) confirmBtn.onclick = function() { closeModal(); if (onConfirm) onConfirm(); };
+        if (modal) modal.onclick = function(e) { if (e.target === modal) closeModal(); };
+    };
+
+    // Одобрение
+    window.approveReport = function(reportId) {
+        window.showConfirmModal('Одобрение жалобы', 'Вы уверены, что хотите одобрить эту жалобу? Контент будет скрыт.', async function() {
+            try {
+                var response = await fetch('/moderation/report/' + reportId + '/approve/', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCsrfToken(), 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                var data = await response.json();
+                if (response.ok && data.status === 'ok') {
+                    window.showToast(data.message || '✅ Жалоба одобрена');
+                    setTimeout(function() { location.reload(); }, 1000);
+                } else {
+                    window.showToast(data.message || data.error || '❌ Ошибка', 'error');
+                }
+            } catch(err) {
+                window.showToast('❌ Ошибка сервера', 'error');
+            }
+        });
+    };
+
+    // Отклонение
+    window.rejectReport = function(reportId) {
+        window.showConfirmModal('Отклонение жалобы', 'Вы уверены, что хотите отклонить эту жалобу?', async function() {
+            try {
+                var response = await fetch('/moderation/report/' + reportId + '/reject/', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCsrfToken(), 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                var data = await response.json();
+                if (response.ok && data.status === 'ok') {
+                    window.showToast(data.message || '✅ Жалоба отклонена');
+                    setTimeout(function() { location.reload(); }, 1000);
+                } else {
+                    window.showToast(data.message || data.error || '❌ Ошибка', 'error');
+                }
+            } catch(err) {
+                window.showToast('❌ Ошибка сервера', 'error');
+            }
+        });
+    };
+
+    // Навешиваем обработчики
+    document.addEventListener('DOMContentLoaded', function() {
+        var approveBtn = document.getElementById('approveReportBtn');
+        var rejectBtn = document.getElementById('rejectReportBtn');
+        var reportId = {{ report.id }};
+
+        if (approveBtn) approveBtn.onclick = function(e) { e.preventDefault(); approveReport(reportId); };
+        if (rejectBtn) rejectBtn.onclick = function(e) { e.preventDefault(); rejectReport(reportId); };
+    });
+
+    // Принудительно переопределяем showToast после загрузки всех скриптов
+    setTimeout(function() {
+        window.showToast = function(message, type) {
+            console.log('Финальная версия showToast, message=', message);
+            if (!message || message === 'undefined') {
+                message = type === 'error' ? '❌ Ошибка' : '✅ Готово';
+            }
+            var toast = document.createElement('div');
+            toast.textContent = message;
+            toast.style.cssText = 'position:fixed;bottom:24px;right:24px;padding:12px 20px;background:' + (type === 'error' ? '#ef4444' : '#22c55e') + ';color:white;border-radius:10px;z-index:999999;font-size:14px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.15);';
+            document.body.appendChild(toast);
+            setTimeout(function() { if (toast && toast.parentNode) toast.remove(); }, 3000);
+        };
+        console.log('showToast переопределена');
+    }, 100);
 </script>
 {% endblock %}

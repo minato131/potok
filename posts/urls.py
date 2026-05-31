@@ -35,12 +35,13 @@ urlpatterns = [
     # Посты
     path('post/create/', views.post_create, name='post_create'),
     path('post/<int:pk>/', views.post_detail, name='post_detail'),
-    path('post/<int:pk>/edit/', views.post_edit, name='post_edit'),
     path('post/<int:pk>/delete/', views.post_delete, name='post_delete'),
+    path('posts/<int:pk>/edit/', views.post_edit, name='post_edit'),
 
     # Комментарии и лайки
     path('post/<int:post_pk>/comment/', views.comment_create, name='comment_create'),
     path('like/toggle/', views.like_toggle, name='like_toggle'),
+    path('comment/<int:comment_id>/edit/', views.comment_edit, name='comment_edit'),
 
     # Избранное
     path('bookmark/<int:post_pk>/toggle/', views.bookmark_toggle, name='bookmark_toggle'),
@@ -50,4 +51,7 @@ urlpatterns = [
     path('recommended/api/', views.recommended_posts_api, name='recommended_api'),
     # Модальное окно со списком лайкнувших
     path('post/<int:post_id>/likes/', views.post_likes_modal, name='post_likes_modal'),
+    path('tag/<str:tag_name>/', views.tag_posts, name='tag_posts'),
+
+    path('post/comment/<int:comment_id>/edit/', views.comment_edit, name='comment_edit_old'),
 ]

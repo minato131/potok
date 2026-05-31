@@ -227,14 +227,17 @@ class Notification(models.Model):
     Модель уведомлений пользователя
     """
     NOTIFICATION_TYPES = [
-        ('like', 'Лайк'),
+        ('like', 'Лайк на посте'),
+        ('like_comment', 'Лайк на комментарии'),
         ('comment', 'Комментарий'),
+        ('reply', 'Ответ на комментарий'),
         ('follow', 'Подписка'),
         ('mention', 'Упоминание'),
         ('message', 'Сообщение'),
         ('community_invite', 'Приглашение в сообщество'),
         ('community_request', 'Заявка в сообщество'),
-        ('report', 'Жалоба рассмотрена'),
+        ('community_post', 'Новый пост в сообществе'),
+        ('report_resolved', 'Жалоба рассмотрена'),
         ('friend', 'Заявка в друзья'),
         ('friend_accept', 'Заявка принята'),
     ]

@@ -93,6 +93,7 @@
     <div class="custom-confirm-content">
         <div class="custom-confirm-header">
             <h3 id="confirmTitle">Подтверждение</h3>
+            <button class="modal-close" id="confirmClose">✕</button>
         </div>
         <div class="custom-confirm-body">
             <p id="confirmMessage"></p>
@@ -265,7 +266,6 @@
         right: 0;
         bottom: 0;
         background: rgba(0, 0, 0, 0.5);
-        backdrop-filter: blur(4px);
     }
 
     .custom-confirm-content {
@@ -350,6 +350,78 @@
             opacity: 0;
         }
     }
+    body.modal-open {
+        overflow: hidden;
+    }
+    .custom-confirm-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 20px 0;
+    }
+
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 1.2rem;
+        cursor: pointer;
+        color: var(--color-text-tertiary);
+    }
+
+    .modal-close:hover {
+        color: var(--color-text);
+    }
+    /* Кастомная модалка подтверждения */
+    .custom-confirm-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 20000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .custom-confirm-modal.active {
+        display: flex;
+    }
+
+    .custom-confirm-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+    }
+
+    .custom-confirm-content {
+        position: relative;
+        background: var(--color-bg-surface, #fff);
+        border-radius: 24px;
+        width: 90%;
+        max-width: 380px;
+        overflow: hidden;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+        z-index: 20001;
+    }
+
+    .custom-confirm-content button {
+        position: relative;
+        z-index: 20002;
+        pointer-events: auto;
+    }
+
+    .custom-confirm-footer {
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+        padding: 16px 20px 20px;
+        position: relative;
+        z-index: 20002;
+    }
 </style>
 {% endblock %}
 
@@ -361,27 +433,44 @@ document.addEventListener('DOMContentLoaded', function() {
         const modal = document.getElementById('customConfirmModal');
         const titleEl = document.getElementById('confirmTitle');
         const messageEl = document.getElementById('confirmMessage');
-        const cancelBtn = document.getElementById('confirmCancel');
-        const okBtn = document.getElementById('confirmOk');
 
         if (!modal) return;
 
         titleEl.textContent = title;
         messageEl.textContent = message;
 
+        // Функция закрытия модалки
         const closeModal = () => {
             modal.classList.remove('active');
             setTimeout(() => {
                 modal.style.display = 'none';
-                document.body.style.overflow = '';
             }, 200);
+            document.body.style.overflow = '';
+            document.body.classList.remove('modal-open');
+            // Принудительно убираем любое затемнение
+            const overlay = modal.querySelector('.custom-confirm-overlay');
+            if (overlay) {
+                overlay.style.background = '';
+            }
         };
 
-        // Убираем старые обработчики
+        // Получаем все кнопки внутри модалки
+        const cancelBtn = modal.querySelector('#confirmCancel');
+        const okBtn = modal.querySelector('#confirmOk');
+        const closeBtn = modal.querySelector('#confirmClose');
+        const overlay = modal.querySelector('.custom-confirm-overlay');
+
+        // Убираем старые обработчики через клонирование
         const newCancelBtn = cancelBtn.cloneNode(true);
         const newOkBtn = okBtn.cloneNode(true);
         cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
         okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+
+        if (closeBtn) {
+            const newCloseBtn = closeBtn.cloneNode(true);
+            closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+            newCloseBtn.onclick = closeModal;
+        }
 
         newCancelBtn.onclick = () => {
             closeModal();
@@ -393,16 +482,20 @@ document.addEventListener('DOMContentLoaded', function() {
             if (onConfirm) onConfirm();
         };
 
-        modal.style.display = 'flex';
-        setTimeout(() => modal.classList.add('active'), 10);
-        document.body.style.overflow = 'hidden';
+        if (overlay) {
+            const newOverlay = overlay.cloneNode(true);
+            overlay.parentNode.replaceChild(newOverlay, overlay);
+            newOverlay.onclick = closeModal;
+        }
 
-        // Закрытие по клику на overlay
-        const overlay = modal.querySelector('.custom-confirm-overlay');
-        overlay.onclick = () => {
-            closeModal();
-            if (onCancel) onCancel();
-        };
+        // Показываем модалку
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        document.body.classList.add('modal-open');
+
+        setTimeout(() => {
+            modal.classList.add('active');
+        }, 10);
 
         // Закрытие по Escape
         const handleEscape = (e) => {
@@ -415,32 +508,37 @@ document.addEventListener('DOMContentLoaded', function() {
         document.addEventListener('keydown', handleEscape);
     };
 
-    // Функция обновления кнопки "Отметить все"
+    function getCsrfToken() {
+        let value = null;
+        document.cookie.split(';').forEach(c => {
+            const [key, val] = c.trim().split('=');
+            if (key === 'csrftoken') value = decodeURIComponent(val);
+        });
+        return value;
+    }
+
+    function showToast(message, type = 'success') {
+        const toast = document.createElement('div');
+        toast.textContent = message;
+        toast.style.cssText = 'position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:10px;font-size:0.8rem;font-weight:600;color:#fff;z-index:9999;background:' + (type === 'error' ? '#ef4444' : '#22c55e') + ';box-shadow:0 8px 24px rgba(0,0,0,0.2);';
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+
     function updateMarkAllButton() {
         const unreadItems = document.querySelectorAll('.notification-item.unread');
         const markAllBtn = document.getElementById('markAllReadBtn');
         if (markAllBtn) {
-            if (unreadItems.length === 0) {
-                markAllBtn.style.display = 'none';
-            } else {
-                markAllBtn.style.display = 'inline-flex';
-            }
+            markAllBtn.style.display = unreadItems.length === 0 ? 'none' : 'inline-flex';
         }
     }
 
-    // Функция обновления счетчика в шапке
     async function updateHeaderCounter() {
         try {
             const response = await fetch('/accounts/notifications/unread-count/');
             const data = await response.json();
             const dot = document.getElementById('notificationDot');
-            if (dot) {
-                if (data.count > 0) {
-                    dot.style.display = 'block';
-                } else {
-                    dot.style.display = 'none';
-                }
-            }
+            if (dot) dot.style.display = data.count > 0 ? 'block' : 'none';
             return data.count;
         } catch (error) {
             console.error('Error:', error);
@@ -448,18 +546,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Клик по уведомлению - переход по ссылке
+    // Клик по уведомлению
     document.querySelectorAll('.notification-item').forEach(item => {
         item.addEventListener('click', function(e) {
             if (e.target.closest('.mark-read-btn')) return;
             const link = this.dataset.link;
-            if (link && link !== '#') {
-                window.location.href = link;
-            }
+            if (link && link !== '#') window.location.href = link;
         });
     });
 
-    // Отметить одно уведомление как прочитанное
+    // Отметить одно уведомление
     document.querySelectorAll('.mark-read-btn').forEach(btn => {
         btn.addEventListener('click', async function(e) {
             e.stopPropagation();
@@ -467,12 +563,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const item = this.closest('.notification-item');
 
             try {
-                const response = await fetch(`/accounts/notifications/mark/${notificationId}/`, {
+                const response = await fetch(`/accounts/notifications/${notificationId}/mark-read/`, {
                     method: 'POST',
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken'),
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
+                    headers: { 'X-CSRFToken': getCsrfToken(), 'X-Requested-With': 'XMLHttpRequest' }
                 });
 
                 if (response.ok) {
@@ -482,11 +575,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     await updateHeaderCounter();
                     updateMarkAllButton();
 
-                    if (notificationSocket && notificationSocket.readyState === WebSocket.OPEN) {
-                        notificationSocket.send(JSON.stringify({
-                            action: 'mark_as_read',
-                            notification_id: notificationId
-                        }));
+                    if (window.notificationSocket && window.notificationSocket.readyState === WebSocket.OPEN) {
+                        window.notificationSocket.send(JSON.stringify({ action: 'mark_as_read', notification_id: notificationId }));
                     }
                 }
             } catch (error) {
@@ -495,26 +585,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Отметить все как прочитанные
+    // Отметить все
     const markAllBtn = document.getElementById('markAllReadBtn');
     if (markAllBtn) {
         markAllBtn.addEventListener('click', async function() {
             const unreadItems = document.querySelectorAll('.notification-item.unread');
-            const unreadCount = unreadItems.length;
-            if (unreadCount === 0) return;
+            if (unreadItems.length === 0) return;
 
-            // Используем кастомную модалку вместо confirm
-            showConfirmModal(
+            window.showConfirmModal(
                 'Отметить все прочитанными',
-                `Вы уверены, что хотите отметить все ${unreadCount} уведомлений как прочитанные?`,
+                `Вы уверены, что хотите отметить все ${unreadItems.length} уведомлений как прочитанные?`,
                 async () => {
                     try {
-                        const response = await fetch('/accounts/notifications/mark-all/', {
+                        const response = await fetch('/accounts/notifications/mark-all-read/', {
                             method: 'POST',
-                            headers: {
-                                'X-CSRFToken': getCookie('csrftoken'),
-                                'X-Requested-With': 'XMLHttpRequest'
-                            }
+                            headers: { 'X-CSRFToken': getCsrfToken(), 'X-Requested-With': 'XMLHttpRequest' }
                         });
 
                         if (response.ok) {
@@ -524,17 +609,13 @@ document.addEventListener('DOMContentLoaded', function() {
                                 const btn = item.querySelector('.mark-read-btn');
                                 if (btn) btn.remove();
                             });
-
                             await updateHeaderCounter();
                             markAllBtn.style.display = 'none';
+                            showToast('Все уведомления отмечены как прочитанные');
 
-                            if (notificationSocket && notificationSocket.readyState === WebSocket.OPEN) {
-                                notificationSocket.send(JSON.stringify({
-                                    action: 'mark_all_read'
-                                }));
+                            if (window.notificationSocket && window.notificationSocket.readyState === WebSocket.OPEN) {
+                                window.notificationSocket.send(JSON.stringify({ action: 'mark_all_read' }));
                             }
-
-                            showToast('Все уведомления отмечены как прочитанные', 'success');
                         }
                     } catch (error) {
                         console.error('Error:', error);
@@ -545,12 +626,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Инициализация
     updateMarkAllButton();
     updateHeaderCounter();
 });
 
-// CSRF токен
 function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
@@ -564,14 +643,6 @@ function getCookie(name) {
         }
     }
     return cookieValue;
-}
-
-function showToast(message, type = 'info') {
-    const toast = document.createElement('div');
-    toast.className = `custom-toast custom-toast--${type}`;
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
 }
 </script>
 {% endblock %}

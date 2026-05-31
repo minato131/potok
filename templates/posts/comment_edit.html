@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Редактировать комментарий · Поток{% endblock %}
+{% block page_title %}Редактирование комментария{% endblock %}
+
+{% block content %}
+<div class="comment-edit-container">
+    <div class="edit-header">
+        <a href="{% url 'posts:post_detail' pk=post.id %}" class="back-link">
+            <i data-feather="arrow-left"></i>
+            Вернуться к посту
+        </a>
+    </div>
+
+    <!-- Блок с причиной блокировки - ПОСТОЯННЫЙ, НЕ ИСЧЕЗАЕТ -->
+    {% if moderation_info %}
+    <div class="moderation-warning" style="background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+        <div style="display: flex; gap: 12px;">
+            <i data-feather="alert-triangle" style="color: #d97706; flex-shrink: 0;"></i>
+            <div style="flex: 1;">
+                <strong style="display: block; margin-bottom: 8px; color: #92400e;">⚠️ Этот комментарий был скрыт модерацией</strong>
+                <p style="margin: 4px 0; font-size: 0.85rem; color: #92400e;"><strong>Причина:</strong> {{ moderation_info.reason }}</p>
+                {% if moderation_info.comment %}
+                <p style="margin: 4px 0; font-size: 0.85rem; color: #92400e;"><strong>Комментарий модератора:</strong> {{ moderation_info.comment }}</p>
+                {% endif %}
+                <p style="margin: 4px 0; font-size: 0.85rem; color: #92400e;"><strong>Модератор:</strong> @{{ moderation_info.moderator.username }}</p>
+                <p style="margin: 4px 0; font-size: 0.85rem; color: #92400e;"><strong>Дата блокировки:</strong> {{ moderation_info.date|date:"d.m.Y H:i" }}</p>
+                <p style="margin-top: 8px; font-size: 0.8rem; color: #b45309;">Отредактируйте комментарий в соответствии с правилами. После сохранения комментарий будет автоматически восстановлен.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <form method="post" class="comment-form">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label class="form-label">Комментарий</label>
+            <textarea name="content" class="form-textarea" rows="5" required>{{ comment.content }}</textarea>
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'posts:post_detail' pk=post.id %}" class="btn btn--outline">Отмена</a>
+            <button type="submit" class="btn btn--primary">Сохранить изменения</button>
+        </div>
+    </form>
+</div>
+
+<style>
+    .comment-edit-container {
+        max-width: 700px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .edit-header {
+        margin-bottom: 20px;
+    }
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--color-text-secondary);
+        text-decoration: none;
+    }
+
+    .comment-form {
+        background: var(--color-bg-surface);
+        border-radius: 16px;
+        padding: 24px;
+        border: 1px solid var(--color-border-light);
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+
+    .form-textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--color-border);
+        border-radius: 10px;
+        font-family: inherit;
+        resize: vertical;
+        font-size: 0.9rem;
+    }
+
+    .form-textarea:focus {
+        outline: none;
+        border-color: var(--color-primary);
+    }
+
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 24px;
+    }
+</style>
+
+<script>
+    feather.replace();
+</script>
+{% endblock %}

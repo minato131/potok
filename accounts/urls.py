@@ -38,6 +38,8 @@ urlpatterns = [
 
     # Пользователи
     path('users/', views.user_list_view, name='user_list'),
+    path('users/search/', views.user_search_api, name='user_search_api'),
+    path('group-participants/search/', views.group_participants_search_api, name='group_participants_search_api'),
 
     # Смена пароля
     path('password-change/', auth_views.PasswordChangeView.as_view(
@@ -56,31 +58,32 @@ urlpatterns = [
              success_url='/accounts/password-reset/done/'
          ),
          name='password_reset'),
-
     path('password-reset/done/',
          auth_views.PasswordResetDoneView.as_view(
              template_name='accounts/password_reset_done.html'
          ),
          name='password_reset_done'),
-
     path('password-reset-confirm/<uidb64>/<token>/',
          auth_views.PasswordResetConfirmView.as_view(
              template_name='accounts/password_reset_confirm.html',
              success_url='/accounts/password-reset-complete/'
          ),
          name='password_reset_confirm'),
-
     path('password-reset-complete/',
          auth_views.PasswordResetCompleteView.as_view(
              template_name='accounts/password_reset_complete.html'
          ),
          name='password_reset_complete'),
 
-    # Уведомления
+    # Уведомления - ИСПРАВЛЕННЫЕ МАРШРУТЫ
     path('notifications/', views.notifications_list, name='notifications'),
-    path('notifications/mark/<int:notification_id>/', views.notification_mark_read, name='notification_mark_read'),
-    path('notifications/mark-all/', views.notification_mark_all_read, name='notification_mark_all_read'),
+    path('notifications/<int:notification_id>/mark-read/', views.notification_mark_read, name='notification_mark_read'),
+    path('notifications/mark-all-read/', views.notification_mark_all_read, name='notification_mark_all_read'),
     path('notifications/unread-count/', views.get_unread_count, name='unread_count'),
+    path('notifications/ajax/', views.notifications_ajax, name='notifications_ajax'),
+
+    # Настройки уведомлений
+    path('settings/notifications/', views.notification_settings, name='notification_settings'),
 
     # Подтверждение email
     path('verify-email/', views.verify_email, name='verify_email'),
@@ -97,9 +100,4 @@ urlpatterns = [
     # Юридические страницы
     path('terms/', views.terms_view, name='terms'),
     path('privacy-policy/', views.privacy_view, name='privacy'),
-    path('users/search/', views.user_search_api, name='user_search_api'),
-    path('notifications/unread-count/', views.get_unread_count, name='unread_count'),
-    path('friend/status/<int:user_id>/', views.get_friend_status, name='get_friend_status'),
-    path('settings/notifications/', views.notification_settings, name='notification_settings'),
-    path('group-participants/search/', views.group_participants_search_api, name='group_participants_search_api'),
 ]

@@ -202,6 +202,7 @@ class Post(models.Model):
         verbose_name='Дата публикации'
     )
     is_hidden = models.BooleanField(default=False, verbose_name='Скрыт модерацией')
+    moderation_reason = models.TextField(blank=True, null=True, verbose_name='Причина блокировки модерацией')
 
     class Meta:
         verbose_name = 'Пост'
@@ -232,6 +233,20 @@ class Post(models.Model):
         if self.video:
             self.video.delete(save=False)
         super().delete(*args, **kwargs)
+
+    def get_clean_content(self):
+        """Возвращает контент с правильными переносами строк"""
+        if not self.content:
+            return ''
+        # Заменяем все варианты переносов строк на \n
+        import re
+        content = self.content
+        # Убираем \u000D\u000A и \r\n
+        content = content.replace('\\u000D\\u000A', '\n')
+        content = content.replace('\\r\\n', '\n')
+        content = content.replace('\r\n', '\n')
+        content = content.replace('\r', '\n')
+        return content
 
 
 class Comment(models.Model):

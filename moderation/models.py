@@ -184,6 +184,11 @@ class Ban(models.Model):
         related_name='bans_lifted',
         verbose_name='Снял блокировку'
     )
+    moderator_note = models.TextField(
+        max_length=500,
+        blank=True,
+        verbose_name='Заметка для модераторов'
+    )
 
     class Meta:
         verbose_name = 'Блокировка'

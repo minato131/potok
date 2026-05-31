@@ -54,26 +54,96 @@
     <div class="user-mod-card">
         <h3><i data-feather="shield"></i> Активные блокировки</h3>
         {% if active_bans %}
-        <div class="user-mod-list">
+        <div class="bans-list">
             {% for ban in active_bans %}
-            <div class="ban-row">
-                <div class="ban-row-info">
-                    <span class="ban-type-badge {% if ban.ban_type == 'permanent' %}ban-permanent{% endif %}">
-                        {% if ban.ban_type == 'permanent' %}Навсегда{% else %}Временная{% endif %}
-                    </span>
-                    <span>{{ ban.reason|truncatechars:60 }}</span>
+            <div class="ban-card {% if ban.ban_type == 'permanent' %}ban-permanent-card{% endif %}">
+                <div class="ban-card-header">
+                    <div class="ban-card-badge">
+                        <span class="ban-badge {% if ban.ban_type == 'permanent' %}badge-danger{% else %}badge-warning{% endif %}">
+                            {% if ban.ban_type == 'permanent' %}
+                            Постоянная блокировка
+                            {% else %}
+                            ⏱Временная блокировка
+                            {% endif %}
+                        </span>
+                        {% if ban.expires_at %}
+                        <span class="ban-expires">
+                            Действует до: {{ ban.expires_at|date:'d.m.Y H:i' }}
+                        </span>
+                        {% else %}
+                        <span class="ban-expires permanent">
+                            Блокировка навсегда
+                        </span>
+                        {% endif %}
+                    </div>
                 </div>
-                <div class="ban-row-actions">
-                    {% if ban.expires_at %}<span class="ban-expires">До {{ ban.expires_at|date:'d.m.Y' }}</span>{% endif %}
-                    <button class="btn btn--outline btn--sm lift-ban-btn" data-ban-id="{{ ban.id }}">
-                        <i data-feather="unlock"></i> Снять
-                    </button>
+                <div class="ban-card-body">
+                    <div class="ban-reason">
+                        <strong>Причина блокировки:</strong>
+                        <p>{{ ban.reason|linebreaks }}</p>
+                    </div>
+                    <div class="ban-meta">
+                        <span>Заблокировал: @{{ ban.banned_by.username|default:"Система" }}</span>
+                        <span>Дата блокировки: {{ ban.created_at|date:'d.m.Y H:i' }}</span>
+                    </div>
                 </div>
+                {% if ban.moderator_note and user.is_staff or user.is_platform_moderator %}
+                <div class="moderator-note">
+                    <strong>📝 Заметка для модераторов:</strong>
+                    <p>{{ ban.moderator_note|linebreaks }}</p>
+                </div>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
         {% else %}
-        <p class="user-mod-empty">Нет активных блокировок</p>
+        <div class="user-mod-empty">
+            <i data-feather="shield-off"></i>
+            <p>Нет активных блокировок</p>
+        </div>
+        {% endif %}
+    </div>
+    <!-- Тикеты на разбан -->
+    <div class="user-mod-card">
+        <h3><i data-feather="mail"></i> Заявки на разбан</h3>
+        {% if tickets %}
+        <div class="tickets-list">
+            {% for ticket in tickets %}
+            <div class="ticket-item {% if ticket.status == 'pending' %}ticket-pending{% elif ticket.status == 'approved' %}ticket-approved{% else %}ticket-rejected{% endif %}">
+                <div class="ticket-header">
+                    <div class="ticket-status status-{{ ticket.status }}">
+                        {% if ticket.status == 'pending' %}⏳ На рассмотрении
+                        {% elif ticket.status == 'approved' %}✅ Одобрена
+                        {% else %}❌ Отклонена{% endif %}
+                    </div>
+                    <div class="ticket-date">{{ ticket.created_at|date:"d.m.Y H:i" }}</div>
+                </div>
+                <div class="ticket-message">
+                    <strong>Сообщение:</strong>
+                    <p>{{ ticket.message|truncatewords:30 }}</p>
+                </div>
+                {% if ticket.status == 'pending' %}
+                <div class="ticket-actions">
+                    <button class="btn btn--success btn--sm approve-ticket-btn" data-ticket-id="{{ ticket.id }}">
+                        <i data-feather="check"></i> Одобрить
+                    </button>
+                    <button class="btn btn--danger btn--sm reject-ticket-btn" data-ticket-id="{{ ticket.id }}">
+                        <i data-feather="x"></i> Отклонить
+                    </button>
+                </div>
+                {% elif ticket.review_comment %}
+                <div class="ticket-review-comment">
+                    <strong>Комментарий модератора:</strong>
+                    <p>{{ ticket.review_comment }}</p>
+                </div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <p class="user-mod-empty">Нет заявок на разбан</p>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="user-mod-empty">Нет заявок на разбан</p>
         {% endif %}
     </div>
 
@@ -111,18 +181,6 @@
     </div>
 </div>
 
-<script>
-    function G(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
-    document.querySelectorAll('.lift-ban-btn').forEach(btn => {
-        btn.addEventListener('click', async function() {
-            if (!confirm('Снять блокировку?')) return;
-            const r = await fetch(`/moderation/ban/${this.dataset.banId}/lift/`, {
-                method: 'POST', headers: { 'X-CSRFToken': G('csrftoken') }
-            });
-            if (r.ok) location.reload();
-        });
-    });
-</script>
 {% endblock %}
 
 {% block extra_css %}
@@ -168,5 +226,330 @@
         .user-mod-stats { grid-template-columns: repeat(2, 1fr); }
         .ban-row { flex-direction: column; align-items: flex-start; gap: 8px; }
     }
+    /* Бан-карточки */
+    .bans-list {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .ban-card {
+        background: var(--color-bg-elevated);
+        border-radius: 16px;
+        border-left: 4px solid #f59e0b;
+        overflow: hidden;
+        transition: all 0.2s;
+    }
+
+    .ban-card.ban-permanent-card {
+        border-left-color: #ef4444;
+        background: linear-gradient(135deg, var(--color-bg-elevated) 0%, rgba(239, 68, 68, 0.05) 100%);
+    }
+
+    .ban-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        background: rgba(0,0,0,0.02);
+        border-bottom: 1px solid var(--color-border-light);
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .ban-card-badge {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .ban-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .badge-warning {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .badge-danger {
+        background: #fee2e2;
+        color: #ef4444;
+    }
+
+    .ban-expires {
+        font-size: 0.75rem;
+        color: var(--color-text-secondary);
+        background: var(--color-bg-surface);
+        padding: 4px 12px;
+        border-radius: 20px;
+    }
+
+    .ban-expires.permanent {
+        background: #fee2e2;
+        color: #ef4444;
+    }
+
+    .ban-card-body {
+        padding: 16px 20px;
+    }
+
+    .ban-reason {
+        margin-bottom: 12px;
+    }
+
+    .ban-reason strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 0.85rem;
+    }
+
+    .ban-reason p {
+        background: var(--color-bg-surface);
+        padding: 12px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        line-height: 1.5;
+        color: var(--color-text-secondary);
+        margin: 0;
+    }
+
+    .ban-meta {
+        display: flex;
+        gap: 16px;
+        font-size: 0.7rem;
+        color: var(--color-text-tertiary);
+        flex-wrap: wrap;
+    }
+
+    .ban-meta span {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .user-mod-empty {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--color-text-tertiary);
+    }
+
+    .user-mod-empty i {
+        width: 40px;
+        height: 40px;
+        margin-bottom: 12px;
+        opacity: 0.4;
+    }
+
+    @media (max-width: 600px) {
+        .ban-card-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .ban-card-badge {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .ban-meta {
+            flex-direction: column;
+            gap: 8px;
+        }
+    }
+    .moderator-note {
+        margin-top: 12px;
+        padding: 10px 12px;
+        background: #f0fdf4;
+        border-left: 3px solid #22c55e;
+        border-radius: 8px;
+    }
+
+    .moderator-note strong {
+        display: block;
+        margin-bottom: 6px;
+        color: #166534;
+    }
+
+    .moderator-note p {
+        margin: 0;
+        color: var(--color-text-secondary);
+        font-size: 0.8rem;
+    }
+    .ticket-item {
+        background: var(--color-bg-elevated);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+        border-left: 4px solid;
+    }
+
+    .ticket-pending {
+        border-left-color: #f59e0b;
+    }
+
+    .ticket-approved {
+        border-left-color: #22c55e;
+    }
+
+    .ticket-rejected {
+        border-left-color: #ef4444;
+    }
+
+    .ticket-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .ticket-status {
+        display: inline-block;
+        padding: 2px 10px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+
+    .ticket-date {
+        font-size: 0.7rem;
+        color: var(--color-text-tertiary);
+    }
+
+    .ticket-message p {
+        margin: 8px 0 0 0;
+        font-size: 0.85rem;
+        color: var(--color-text-secondary);
+        background: var(--color-bg-surface);
+        padding: 10px;
+        border-radius: 8px;
+    }
+
+    .ticket-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    .ticket-review-comment {
+        margin-top: 12px;
+        padding: 10px;
+        background: #f0fdf4;
+        border-radius: 8px;
+        font-size: 0.8rem;
+    }
+
+    .btn--success {
+        background: #22c55e;
+        color: white;
+    }
+
+    .btn--success:hover {
+        background: #16a34a;
+    }
 </style>
+<script>
+    function getCsrfToken() {
+        let value = null;
+        document.cookie.split(';').forEach(c => {
+            const [key, val] = c.trim().split('=');
+            if (key === 'csrftoken') value = decodeURIComponent(val);
+        });
+        return value;
+    }
+
+    // Ждём полной загрузки DOM
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM загружен, ищем кнопки...');
+        console.log('approve кнопок:', document.querySelectorAll('.approve-ticket-btn').length);
+
+        // Навешиваем обработчики напрямую на кнопки
+        document.querySelectorAll('.approve-ticket-btn').forEach(btn => {
+            console.log('Навешиваем обработчик на approve кнопку', btn.dataset.ticketId);
+            btn.onclick = async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const ticketId = this.dataset.ticketId;
+                console.log('КЛИК ПО APPROVE! ticketId:', ticketId);
+
+                const comment = prompt("Введите комментарий для пользователя (причина одобрения):");
+                if (comment === null) return;
+
+                try {
+                    const response = await fetch(`/moderation/unban-tickets/${ticketId}/approve/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCsrfToken(),
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ comment: comment || '' })
+                    });
+
+                    const data = await response.json();
+                    console.log('Ответ:', data);
+
+                    if (response.ok && data.status === 'ok') {
+                        alert('✅ Заявка одобрена! Пользователь разблокирован.');
+                        location.reload();
+                    } else {
+                        alert('❌ Ошибка: ' + (data.message || 'Неизвестная ошибка'));
+                    }
+                } catch (error) {
+                    console.error('Ошибка:', error);
+                    alert('❌ Ошибка сервера');
+                }
+            };
+        });
+
+        document.querySelectorAll('.reject-ticket-btn').forEach(btn => {
+            console.log('Навешиваем обработчик на reject кнопку', btn.dataset.ticketId);
+            btn.onclick = async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const ticketId = this.dataset.ticketId;
+                console.log('КЛИК ПО REJECT! ticketId:', ticketId);
+
+                const comment = prompt("Введите комментарий для пользователя (причина отклонения):");
+                if (comment === null) return;
+
+                try {
+                    const response = await fetch(`/moderation/unban-tickets/${ticketId}/reject/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCsrfToken(),
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ comment: comment || '' })
+                    });
+
+                    const data = await response.json();
+                    console.log('Ответ:', data);
+
+                    if (response.ok && data.status === 'ok') {
+                        alert('❌ Заявка отклонена.');
+                        location.reload();
+                    } else {
+                        alert('❌ Ошибка: ' + (data.message || 'Неизвестная ошибка'));
+                    }
+                } catch (error) {
+                    console.error('Ошибка:', error);
+                    alert('❌ Ошибка сервера');
+                }
+            };
+        });
+    });
+</script>
 {% endblock %}

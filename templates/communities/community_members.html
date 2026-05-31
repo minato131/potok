@@ -26,7 +26,6 @@
     .mem-header h2 { font-size: 1.2rem; margin-bottom: 2px; }
     .mem-header p { font-size: 0.85rem; color: var(--color-text-tertiary); }
 
-    /* Табы */
     .mem-tabs {
         display: flex; gap: 4px; background: var(--color-bg-surface);
         border-radius: 12px; padding: 4px; border: 1px solid var(--color-border-light);
@@ -47,7 +46,6 @@
     .mem-tab.active .mem-badge { background: rgba(255,255,255,0.25); }
     .mem-badge-warn { background: #fef3c7; color: #92400e; }
 
-    /* Поиск */
     .mem-search { position: relative; margin-bottom: 16px; }
     .mem-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9aa7b4; width: 18px; height: 18px; }
     .mem-search input {
@@ -56,20 +54,15 @@
     }
     .mem-search input:focus { outline: none; border-color: var(--color-primary); }
 
-    /* Контент табов */
     .mem-content { display: none; }
     .mem-content.active { display: block; }
 
-    /* Карточки */
     .mem-list { display: flex; flex-direction: column; gap: 2px; }
     .mem-row {
         display: flex; align-items: center; gap: 14px; padding: 12px 16px;
         background: var(--color-bg-surface); border-radius: 14px; transition: all 0.15s;
         border: 1px solid transparent;
     }
-    .mem-row:first-child { border-radius: 14px 14px 4px 4px; }
-    .mem-row:last-child { border-radius: 4px 4px 14px 14px; }
-    .mem-row:only-child { border-radius: 14px; }
     .mem-row:hover { background: var(--color-bg-elevated); border-color: var(--color-border); }
     .mem-row.hidden { display: none; }
 
@@ -93,7 +86,6 @@
     }
     .mem-badge-creator { background: #eef2ff; color: #6366f1; }
     .mem-badge-mod { background: #dcfce7; color: #16a34a; }
-    .mem-badge-banned { background: #fef2f2; color: #ef4444; }
 
     .mem-row-actions { display: flex; gap: 6px; flex-shrink: 0; }
     .mem-action-btn {
@@ -116,7 +108,6 @@
 </style>
 
 <div class="mem-page">
-    <!-- Шапка -->
     <div class="mem-header">
         <div class="mem-ava">
             {% if community.avatar %}<img src="{{ community.avatar.url }}" alt="">
@@ -124,18 +115,13 @@
         </div>
         <div>
             <h2>{{ community.name }}</h2>
-            <p>{{ total_members }} {{ total_members|pluralize:'участник,участника,участников' }}</p>
+            <p>{{ total_members }} участников</p>
         </div>
     </div>
 
-    <!-- Табы -->
     <div class="mem-tabs">
-        <button class="mem-tab active" data-tab="all">
-            Все <span class="mem-badge">{{ total_members }}</span>
-        </button>
-        <button class="mem-tab" data-tab="moderators">
-            Модераторы <span class="mem-badge">{{ moderators|length|add:"1" }}</span>
-        </button>
+        <button class="mem-tab active" data-tab="all">Все <span class="mem-badge">{{ total_members }}</span></button>
+        <button class="mem-tab" data-tab="moderators">Модераторы <span class="mem-badge">{{ moderators|length|add:"1" }}</span></button>
         {% if user in community.moderators.all or user == community.creator %}
         <button class="mem-tab" data-tab="requests">
             Заявки
@@ -146,7 +132,6 @@
         {% endif %}
     </div>
 
-    <!-- Поиск -->
     <div class="mem-search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input type="text" id="memSearch" placeholder="Поиск по имени...">
@@ -176,14 +161,20 @@
                     <a href="{% url 'accounts:profile_by_username' username=member.username %}" class="mem-action-btn" title="Профиль">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                     </a>
-                    {% if user == community.creator and member != community.creator and member not in moderators %}
-                    <button class="mem-action-btn" onclick="makeModerator({{ member.id }})" title="Сделать модератором">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                    </button>
+                    {% if user == community.creator and member != community.creator %}
+                        {% if member in moderators %}
+                        <button class="mem-action-btn remove-moderator-btn" data-user-id="{{ member.id }}" data-user-name="{{ member.get_full_name|default:member.username }}" data-user-username="{{ member.username }}" title="Снять с модератора">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+                        </button>
+                        {% else %}
+                        <button class="mem-action-btn make-moderator-btn" data-user-id="{{ member.id }}" data-user-name="{{ member.get_full_name|default:member.username }}" data-user-username="{{ member.username }}" title="Сделать модератором">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                        </button>
+                        {% endif %}
                     {% endif %}
                     {% if user in community.moderators.all or user == community.creator %}
                         {% if member != community.creator and member != user %}
-                        <button class="mem-action-btn danger" onclick="banMember({{ member.id }})" title="Заблокировать">
+                        <button class="mem-action-btn danger ban-btn" data-user-id="{{ member.id }}" data-user-name="{{ member.get_full_name|default:member.username }}" data-user-username="{{ member.username }}" title="Заблокировать">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
                         </button>
                         {% endif %}
@@ -237,10 +228,10 @@
                     {% if req.message %}<div style="font-size:0.8rem;color:var(--color-text-secondary);margin-top:2px">💬 {{ req.message|truncatechars:60 }}</div>{% endif %}
                 </div>
                 <div class="mem-row-actions">
-                    <button class="mem-action-btn success" onclick="approveRequest({{ req.id }})" title="Одобрить">
+                    <button class="mem-action-btn success approve-request-btn" data-request-id="{{ req.id }}" data-user-name="{{ req.user.get_full_name|default:req.user.username }}" data-user-username="{{ req.user.username }}" title="Одобрить">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
                     </button>
-                    <button class="mem-action-btn danger" onclick="rejectRequest({{ req.id }})" title="Отклонить">
+                    <button class="mem-action-btn danger reject-request-btn" data-request-id="{{ req.id }}" data-user-name="{{ req.user.get_full_name|default:req.user.username }}" data-user-username="{{ req.user.username }}" title="Отклонить">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
                 </div>
@@ -255,57 +246,320 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
-function G(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
+(function() {
+    function getCsrfToken() {
+        let value = null;
+        document.cookie.split(';').forEach(c => {
+            const [key, val] = c.trim().split('=');
+            if (key === 'csrftoken') value = decodeURIComponent(val);
+        });
+        return value;
+    }
 
-// Табы
-document.querySelectorAll('.mem-tab[data-tab]').forEach(b => {
-    b.addEventListener('click', function() {
-        document.querySelectorAll('.mem-tab').forEach(t => t.classList.remove('active'));
-        this.classList.add('active');
-        document.querySelectorAll('.mem-content').forEach(c => c.classList.remove('active'));
-        document.getElementById('tab-' + this.dataset.tab).classList.add('active');
-    });
-});
+    function showToast(message, type = 'success') {
+        if (!message) return;
+        const toast = document.createElement('div');
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed; bottom: 24px; right: 24px;
+            background: ${type === 'success' ? '#22c55e' : '#ef4444'};
+            color: white; padding: 12px 20px; border-radius: 12px;
+            font-size: 0.875rem; font-weight: 500; z-index: 10001;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            animation: slideInRight 0.3s ease;
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(100px)';
+            toast.style.transition = 'all 0.3s ease';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
 
-// Поиск
-document.getElementById('memSearch').addEventListener('input', function() {
-    const q = this.value.toLowerCase();
-    document.querySelectorAll('.mem-row[data-search]').forEach(r => {
-        r.classList.toggle('hidden', q && !r.dataset.search.toLowerCase().includes(q));
-    });
-});
+    function showConfirmModal(options) {
+        const { title, message, confirmText = 'Подтвердить', cancelText = 'Отмена', onConfirm, user = null } = options;
 
-// Функции
-async function makeModerator(userId) {
-    const r = await fetch('/communities/{{ community.slug }}/add-moderator/', {
-        method: 'POST', headers: {'Content-Type':'application/json','X-CSRFToken':G('csrftoken')},
-        body: JSON.stringify({user_id: userId})
-    });
-    if (r.ok) location.reload();
-}
+        const existingModal = document.querySelector('.custom-modal-overlay');
+        if (existingModal) existingModal.remove();
 
-async function banMember(userId) {
-    if (!confirm('Заблокировать пользователя?')) return;
-    const r = await fetch(`/communities/{{ community.slug }}/ban/${userId}/`, {
-        method: 'POST', headers: {'X-CSRFToken':G('csrftoken')}
-    });
-    if (r.ok) location.reload();
-}
+        let userHtml = '';
+        if (user) {
+            userHtml = `
+                <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--color-bg-elevated);border-radius:12px;margin-top:12px;">
+                    <div style="width:40px;height:40px;border-radius:50%;background:var(--color-primary-light);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--color-primary);">
+                        ${user.username ? user.username.charAt(0).toUpperCase() : 'U'}
+                    </div>
+                    <div style="flex:1;">
+                        <div style="font-weight:600;color:var(--color-text);">${escapeHtml(user.name || user.username)}</div>
+                        <div style="font-size:0.75rem;color:var(--color-text-tertiary);">@${escapeHtml(user.username)}</div>
+                    </div>
+                </div>
+            `;
+        }
 
-async function approveRequest(reqId) {
-    const r = await fetch(`/communities/requests/${reqId}/approve/`, {
-        method: 'POST', headers: {'X-CSRFToken':G('csrftoken')}
-    });
-    if (r.ok) location.reload();
-}
+        const modalHtml = `
+            <div class="custom-modal-overlay" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:10002;">
+                <div style="background:var(--color-bg-surface);border-radius:20px;width:90%;max-width:400px;overflow:hidden;">
+                    <div style="padding:20px 24px 0 24px;">
+                        <h3 style="margin:0;font-size:1.2rem;font-weight:600;">${escapeHtml(title)}</h3>
+                    </div>
+                    <div style="padding:16px 24px;color:var(--color-text-secondary);line-height:1.5;">
+                        ${escapeHtml(message)}
+                        ${userHtml}
+                    </div>
+                    <div style="padding:16px 24px 24px;display:flex;gap:12px;justify-content:flex-end;">
+                        <button class="modal-cancel-btn" style="padding:8px 20px;border-radius:10px;border:1px solid var(--color-border);background:transparent;cursor:pointer;">${escapeHtml(cancelText)}</button>
+                        <button class="modal-confirm-btn" style="padding:8px 20px;border-radius:10px;background:#6366f1;color:#fff;border:none;cursor:pointer;">${escapeHtml(confirmText)}</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        const modal = document.querySelector('.custom-modal-overlay');
+        const closeModal = () => modal.remove();
+        modal.querySelector('.modal-cancel-btn').onclick = closeModal;
+        modal.querySelector('.modal-confirm-btn').onclick = () => { closeModal(); if (onConfirm) onConfirm(); };
+        modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+    }
 
-async function rejectRequest(reqId) {
-    const r = await fetch(`/communities/requests/${reqId}/reject/`, {
-        method: 'POST', headers: {'X-CSRFToken':G('csrftoken')}
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInRight { from { opacity: 0; transform: translateX(100px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .hidden { display: none !important; }
+    `;
+    document.head.appendChild(style);
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Табы
+        document.querySelectorAll('.mem-tab[data-tab]').forEach(b => {
+            b.addEventListener('click', function() {
+                document.querySelectorAll('.mem-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                document.querySelectorAll('.mem-content').forEach(c => c.classList.remove('active'));
+                document.getElementById('tab-' + this.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Поиск
+        const searchInput = document.getElementById('memSearch');
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const q = this.value.toLowerCase();
+                document.querySelectorAll('.mem-row[data-search]').forEach(r => {
+                    r.classList.toggle('hidden', q && !r.dataset.search?.toLowerCase().includes(q));
+                });
+            });
+        }
+
+        // Снятие с модератора
+        document.querySelectorAll('.remove-moderator-btn').forEach(btn => {
+            btn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const userId = this.dataset.userId;
+                const userName = this.dataset.userName || 'пользователя';
+                const userUsername = this.dataset.userUsername;
+                if (!userId) { showToast('Ошибка: ID пользователя не найден', 'error'); return; }
+                const originalHtml = this.innerHTML;
+                showConfirmModal({
+                    title: 'Снятие с модератора',
+                    message: 'Вы действительно хотите снять статус модератора с пользователя?',
+                    confirmText: 'Снять',
+                    cancelText: 'Отмена',
+                    user: { name: userName, username: userUsername },
+                    onConfirm: async () => {
+                        this.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>';
+                        this.disabled = true;
+                        try {
+                            const response = await fetch(`/communities/{{ community.slug }}/remove-moderator/${userId}/`, {
+                                method: 'POST',
+                                headers: { 'X-CSRFToken': getCsrfToken(), 'X-Requested-With': 'XMLHttpRequest' }
+                            });
+                            const data = await response.json();
+                            if (response.ok && data.success) {
+                                showToast(data.message || 'Статус модератора снят');
+                                setTimeout(() => location.reload(), 1000);
+                            } else {
+                                showToast(data.error || 'Ошибка', 'error');
+                                this.innerHTML = originalHtml;
+                                this.disabled = false;
+                            }
+                        } catch (error) {
+                            showToast('Ошибка сервера', 'error');
+                            this.innerHTML = originalHtml;
+                            this.disabled = false;
+                        }
+                    }
+                });
+            });
+        });
+
+        // Назначение модератора
+        document.querySelectorAll('.make-moderator-btn').forEach(btn => {
+            btn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const userId = this.dataset.userId;
+                const userName = this.dataset.userName || 'пользователя';
+                const userUsername = this.dataset.userUsername;
+                if (!userId) { showToast('Ошибка: ID пользователя не найден', 'error'); return; }
+                const originalHtml = this.innerHTML;
+                showConfirmModal({
+                    title: 'Назначение модератором',
+                    message: 'Вы действительно хотите назначить пользователя модератором?',
+                    confirmText: 'Назначить',
+                    cancelText: 'Отмена',
+                    user: { name: userName, username: userUsername },
+                    onConfirm: async () => {
+                        this.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>';
+                        this.disabled = true;
+                        try {
+                            const response = await fetch(`/communities/{{ community.slug }}/add-moderator/`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken(), 'X-Requested-With': 'XMLHttpRequest' },
+                                body: JSON.stringify({ user_id: parseInt(userId) })
+                            });
+                            const data = await response.json();
+                            if (response.ok && data.success) {
+                                showToast(data.message || 'Пользователь назначен модератором');
+                                setTimeout(() => location.reload(), 1000);
+                            } else {
+                                showToast(data.error || 'Ошибка', 'error');
+                                this.innerHTML = originalHtml;
+                                this.disabled = false;
+                            }
+                        } catch (error) {
+                            showToast('Ошибка сервера', 'error');
+                            this.innerHTML = originalHtml;
+                            this.disabled = false;
+                        }
+                    }
+                });
+            });
+        });
+
+        // Блокировка
+        document.querySelectorAll('.ban-btn').forEach(btn => {
+            btn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const userId = this.dataset.userId;
+                const userName = this.dataset.userName || 'пользователя';
+                const userUsername = this.dataset.userUsername;
+                if (!userId) { showToast('Ошибка: ID пользователя не найден', 'error'); return; }
+                showConfirmModal({
+                    title: 'Блокировка пользователя',
+                    message: 'Вы действительно хотите заблокировать пользователя?',
+                    confirmText: 'Заблокировать',
+                    cancelText: 'Отмена',
+                    user: { name: userName, username: userUsername },
+                    onConfirm: async () => {
+                        try {
+                            const response = await fetch(`/communities/{{ community.slug }}/ban-member/`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken(), 'X-Requested-With': 'XMLHttpRequest' },
+                                body: JSON.stringify({ user_id: parseInt(userId) })
+                            });
+                            const data = await response.json();
+                            if (response.ok && data.success) {
+                                showToast(data.message || 'Пользователь заблокирован');
+                                setTimeout(() => location.reload(), 1000);
+                            } else {
+                                showToast(data.error || 'Ошибка', 'error');
+                            }
+                        } catch (error) {
+                            showToast('Ошибка сервера', 'error');
+                        }
+                    }
+                });
+            });
+        });
+
+        // Одобрение заявки
+        document.querySelectorAll('.approve-request-btn').forEach(btn => {
+            btn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const requestId = this.dataset.requestId;
+                const userName = this.dataset.userName || 'пользователя';
+                const userUsername = this.dataset.userUsername;
+                if (!requestId) { showToast('Ошибка: ID заявки не найден', 'error'); return; }
+                showConfirmModal({
+                    title: 'Одобрение заявки',
+                    message: 'Одобрить заявку на вступление?',
+                    confirmText: 'Одобрить',
+                    cancelText: 'Отмена',
+                    user: { name: userName, username: userUsername },
+                    onConfirm: async () => {
+                        try {
+                            const response = await fetch(`/communities/requests/${requestId}/approve/`, {
+                                method: 'POST',
+                                headers: { 'X-CSRFToken': getCsrfToken(), 'X-Requested-With': 'XMLHttpRequest' }
+                            });
+                            const data = await response.json();
+                            if (response.ok && data.success) {
+                                showToast(data.message || 'Заявка одобрена');
+                                setTimeout(() => location.reload(), 1000);
+                            } else {
+                                showToast(data.error || 'Ошибка', 'error');
+                            }
+                        } catch (error) {
+                            showToast('Ошибка сервера', 'error');
+                        }
+                    }
+                });
+            });
+        });
+
+        // Отклонение заявки
+        document.querySelectorAll('.reject-request-btn').forEach(btn => {
+            btn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const requestId = this.dataset.requestId;
+                const userName = this.dataset.userName || 'пользователя';
+                const userUsername = this.dataset.userUsername;
+                if (!requestId) { showToast('Ошибка: ID заявки не найден', 'error'); return; }
+                showConfirmModal({
+                    title: 'Отклонение заявки',
+                    message: 'Отклонить заявку на вступление?',
+                    confirmText: 'Отклонить',
+                    cancelText: 'Отмена',
+                    user: { name: userName, username: userUsername },
+                    onConfirm: async () => {
+                        try {
+                            const response = await fetch(`/communities/requests/${requestId}/reject/`, {
+                                method: 'POST',
+                                headers: { 'X-CSRFToken': getCsrfToken(), 'X-Requested-With': 'XMLHttpRequest' }
+                            });
+                            const data = await response.json();
+                            if (response.ok && data.success) {
+                                showToast(data.message || 'Заявка отклонена');
+                                setTimeout(() => location.reload(), 1000);
+                            } else {
+                                showToast(data.error || 'Ошибка', 'error');
+                            }
+                        } catch (error) {
+                            showToast('Ошибка сервера', 'error');
+                        }
+                    }
+                });
+            });
+        });
     });
-    if (r.ok) location.reload();
-}
+})();
 </script>
 {% endblock %}

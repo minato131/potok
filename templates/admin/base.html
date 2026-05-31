@@ -1,0 +1,13 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="icon" type="image/x-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><text x='0' y='20' font-size='20'>🌊</text></svg>">
+{% endblock %}
+
+{% block footer %}
+<div style="text-align: center; padding: 20px; color: #000000; font-size: 0.8rem; border-top: 1px solid #e5e7eb; margin-top: 20px;">
+    <p>Поток — Административная панель</p>
+    <p>Версия 1.0 | <a href="/" style="color: #000000;">Перейти на сайт</a></p>
+</div>
+{% endblock %}

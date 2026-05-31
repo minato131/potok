@@ -81,16 +81,25 @@ def video_delete(request, video_id):
 @require_POST
 def save_media_from_post(request):
     post_id = request.POST.get('post_id')
-    media_type = request.POST.get('media_type')  # 'photo' или 'video'
+    media_type = request.POST.get('media_type')
 
     post = get_object_or_404(Post, id=post_id)
 
     if media_type == 'photo' and post.image:
+        # Проверяем, не сохранял ли пользователь уже это фото
+        existing = SavedPhoto.objects.filter(user=request.user, post=post).first()
+        if existing:
+            return JsonResponse({'success': False, 'already_exists': True, 'error': 'Фото уже сохранено'})
+
         photo = SavedPhoto.objects.create(user=request.user, post=post)
         photo.image.save(post.image.name, post.image.file, save=True)
         return JsonResponse({'success': True})
 
     elif media_type == 'video' and post.video:
+        existing = SavedVideo.objects.filter(user=request.user, post=post).first()
+        if existing:
+            return JsonResponse({'success': False, 'already_exists': True, 'error': 'Видео уже сохранено'})
+
         video = SavedVideo.objects.create(user=request.user, post=post)
         video.file.save(post.video.name, post.video.file, save=True)
         return JsonResponse({'success': True})

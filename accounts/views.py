@@ -982,20 +982,27 @@ def follow_view(request, user_id):
     if current_profile.following.filter(id=target_user.id).exists():
         current_profile.following.remove(target_user)
         status = 'unfollowed'
-        print(f'UNFOLLOWED. Now following: {current_profile.following.count()}')
     else:
         current_profile.following.add(target_user)
         status = 'followed'
-        print(f'FOLLOWED. Now following: {current_profile.following.count()}')
+
+        # ========== УВЕДОМЛЕНИЕ О ПОДПИСКЕ ==========
+        from accounts.utils import create_notification
+        create_notification(
+            recipient=target_user,
+            sender=request.user,
+            notification_type='follow',
+            title='👤 Новый подписчик',
+            message=f'{request.user.username} подписался на вас',
+            link=f'/accounts/profile/{request.user.username}/'
+        )
 
     follower_count = target_user.profile_followers.count()
-    print(f'Followers count: {follower_count}')
 
     return JsonResponse({
         'status': status,
         'followers_count': follower_count,
     })
-
 @login_required
 def followers_list_view(request, username):
     """

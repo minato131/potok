@@ -102,9 +102,34 @@
     .markdown-content blockquote{border-left:3px solid var(--color-primary);padding-left:12px;color:var(--color-text-secondary);margin:8px 0}
     .markdown-content a{color:var(--color-primary);text-decoration:underline}
     .markdown-content img{max-width:100%;border-radius:8px;margin:8px 0}
-    .spoiler{background:var(--color-text);color:transparent;border-radius:4px;padding:1px 4px;cursor:pointer;transition:all 0.2s;user-select:none}
-    .spoiler:hover{opacity:0.85}
-    .spoiler.revealed{background:var(--color-bg-elevated);color:var(--color-text);cursor:default}
+    .spoiler {
+        background: #2d2d2d !important;
+        color: transparent !important;
+        border-radius: 6px;
+        padding: 2px 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        user-select: none;
+        display: inline-block;
+    }
+    .spoiler:hover {
+        opacity: 0.8;
+    }
+    .spoiler.revealed {
+        background: #eef2ff !important;
+        color: inherit !important;
+        cursor: default;
+    }
+    /* Тёмная тема */
+    @media (prefers-color-scheme: dark) {
+        .spoiler {
+            background: #1e1e1e !important;
+        }
+        .spoiler.revealed {
+            background: #2a2a2a !important;
+            color: #e0e0e0 !important;
+        }
+    }
     .cmt-menu-dropdown .menu-item { display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;border:none;background:transparent;font-size:0.82rem;color:var(--color-text);cursor:pointer;border-radius:6px;text-align:left;font-family:inherit }
     .cmt-menu-dropdown .menu-item:hover { background:var(--color-bg-elevated) }
     .cmt-menu-dropdown .menu-item.danger { color:var(--color-danger) }
@@ -142,6 +167,19 @@
     .pd-act.like-btn-vk:hover {
         background: rgba(231, 76, 60, 0.1);
     }
+    /* Увеличиваем z-index для меню, чтобы оно было поверх всего */
+    .post-menu-dropdown {
+        z-index: 100000 !important;
+    }
+
+    /* Убираем overflow hidden у родительских контейнеров */
+    .post-card-vk,
+    .post-vk-comments,
+    .comments-inner,
+    .cmt-card,
+    .post-item {
+        overflow: visible !important;
+    }
 </style>
 
 <div class="pd-wrap">
@@ -169,7 +207,7 @@
                     <i data-feather="more-horizontal"></i>
                 </button>
                 <div class="post-menu-dropdown" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--color-bg-surface);border:1px solid var(--color-border);border-radius:12px;box-shadow:var(--shadow-lg);min-width:180px;z-index:30;padding:4px">
-                    {% if user == post.author %}
+                    {% if user == post.author or user.is_staff or user.is_platform_moderator or user in community.moderators.all %}
                     <a href="{% url 'posts:post_edit' pk=post.id %}" class="menu-item"><i data-feather="edit"></i> Редактировать</a>
                     <button class="menu-item danger" onclick="deletePost({{ post.id }})"><i data-feather="trash-2"></i> Удалить</button>
                     <div class="menu-divider"></div>
@@ -190,7 +228,7 @@
     </div>
 
     <h2 style="font-size:1.2rem;font-weight:700;margin-bottom:8px">{{ post.title }}</h2>
-    <div class="pd-content markdown-content" data-raw="{{ post.content|escapejs }}"></div>
+    <div class="pd-content markdown-content" data-raw="{{ post.get_clean_content|escapejs }}"></div>
     {% if post.image %}<div class="pd-media"><img src="{{ post.image.url }}" alt=""></div>{% endif %}
     {% if post.video %}<div class="pd-media"><video controls preload="metadata" playsinline><source src="{{ post.video.url }}"></video></div>{% endif %}
 
@@ -261,8 +299,15 @@
                 </button>
                 <div class="post-menu-dropdown" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--color-bg-surface);border:1px solid var(--color-border);border-radius:12px;box-shadow:var(--shadow-lg);min-width:180px;z-index:30;padding:4px">
                     <button class="menu-item" onclick="event.stopPropagation();copyCommentLink({{ comment.id }})"><i data-feather="link" style="width:14px;height:14px"></i> Скопировать ссылку</button>
-                    {% if user == comment.author %}
-                    <button class="menu-item danger" onclick="event.stopPropagation();deleteComment({{ comment.id }})"><i data-feather="trash-2" style="width:14px;height:14px"></i> Удалить</button>
+                    {% if user == comment.author or user.is_staff or user.is_platform_moderator or user in community.moderators.all %}
+                    <button class="menu-item danger" onclick="event.stopPropagation();deleteComment({{ comment.id }})">
+                        <i data-feather="trash-2"></i> Удалить
+                    </button>
+                    {% endif %}
+                    {% if user == comment.author or user.is_staff or user.is_platform_moderator or user in community.moderators.all %}
+                    <a href="{% url 'posts:comment_edit' comment_id=comment.id %}" class="menu-item" onclick="event.stopPropagation()">
+                        <i data-feather="edit"></i> Редактировать
+                    </a>
                     {% endif %}
                     <div class="menu-divider"></div>
                     <button class="menu-item" onclick="event.stopPropagation();reportComment({{ comment.id }})"><i data-feather="flag" style="width:14px;height:14px"></i> Пожаловаться</button>
@@ -342,29 +387,135 @@
 
 {% block extra_js %}
 <script>
-window.reportComment = function(cid) {
-    reportCommentId = cid;
-    document.getElementById('reportCommentModal').style.display = 'flex';
+// ========== НАСТРОЙКА MARKED ==========
+if (typeof marked !== 'undefined') {
+    marked.setOptions({
+        breaks: true,
+        gfm: true
+    });
+}
+
+function renderMarkdown(raw){
+    if (!raw) return '';
+
+    let cleaned = raw
+        .replace(/\\u000A/gi, '\n')
+        .replace(/\\u000D\\u000A/gi, '\n')
+        .replace(/\\r\\n/gi, '\n')
+        .replace(/\\n/gi, '\n')
+        .replace(/\\r/gi, '\n')
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n');
+
+    let html = marked.parse(cleaned);
+    html = html.replace(/\|\|(.+?)\|\|/g, '<span class="spoiler" onclick="this.classList.toggle(\'revealed\')">$1</span>');
+    return html;
+}
+
+// ========== РЕНДЕР MARKDOWN НА СТРАНИЦЕ ПОСТА ==========
+document.addEventListener('DOMContentLoaded', function() {
+    const markdownDiv = document.querySelector('.pd-content.markdown-content');
+    if (markdownDiv) {
+        const raw = markdownDiv.dataset.raw || '';
+        if (raw) {
+            markdownDiv.innerHTML = renderMarkdown(raw);
+            console.log('✅ Markdown отрендерен на странице поста');
+        }
+    }
+});
+
+// ========== КАСТОМНАЯ МОДАЛКА ПОДТВЕРЖДЕНИЯ ==========
+window.showConfirmModal = function(options) {
+    const { title, message, confirmText = 'Подтвердить', cancelText = 'Отмена', onConfirm, onCancel } = options;
+
+    const existingModal = document.querySelector('.custom-confirm-modal');
+    if (existingModal) existingModal.remove();
+
+    const modalHtml = `
+        <div class="custom-confirm-modal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:20000;">
+            <div style="background:var(--color-bg-surface);border-radius:16px;width:90%;max-width:380px;overflow:hidden;">
+                <div style="padding:20px 20px 0;">
+                    <h3 style="margin:0;font-size:1.1rem;font-weight:600;">${escapeHtml(title)}</h3>
+                </div>
+                <div style="padding:16px 20px;">
+                    <p style="margin:0;font-size:0.9rem;color:var(--color-text-secondary);">${escapeHtml(message)}</p>
+                </div>
+                <div style="padding:16px 20px 20px;display:flex;gap:12px;justify-content:flex-end;">
+                    <button class="modal-cancel-btn" style="padding:8px 20px;border-radius:8px;border:1px solid var(--color-border);background:transparent;cursor:pointer;">${escapeHtml(cancelText)}</button>
+                    <button class="modal-confirm-btn" style="padding:8px 20px;border-radius:8px;background:#ef4444;color:white;border:none;cursor:pointer;">${escapeHtml(confirmText)}</button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const modal = document.querySelector('.custom-confirm-modal');
+
+    const closeModal = () => modal.remove();
+
+    modal.querySelector('.modal-cancel-btn').onclick = () => {
+        closeModal();
+        if (onCancel) onCancel();
+    };
+    modal.querySelector('.modal-confirm-btn').onclick = () => {
+        closeModal();
+        if (onConfirm) onConfirm();
+    };
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            closeModal();
+            if (onCancel) onCancel();
+        }
+    };
 };
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ========== ОСТАЛЬНЫЕ ФУНКЦИИ ==========
 feather.replace();
-const EMOJIS=['😂','❤️','😍','😢','😡','👍','🔥','🎉','💯','👏','💀','😭','🤔','😎','🙏','💪','🤗','😅'];
-function getCookie(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
-function showToast(m){const t=document.createElement('div');t.style.cssText='position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:10px;font-size:0.8rem;font-weight:600;color:#fff;z-index:9999;background:#7c3aed;box-shadow:0 8px 24px rgba(0,0,0,0.2);animation:toastIn 0.25s';t.textContent=m;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='all 0.3s';setTimeout(()=>t.remove(),300)},2000)}
+
+function getCookie(n){
+    let v=null;
+    document.cookie.split(';').forEach(c=>{
+        const[k,val]=c.trim().split('=');
+        if(k===n) v=decodeURIComponent(val)
+    });
+    return v;
+}
+
+function showToast(m){
+    const t=document.createElement('div');
+    t.style.cssText='position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:10px;font-size:0.8rem;font-weight:600;color:#fff;z-index:9999;background:#7c3aed;box-shadow:0 8px 24px rgba(0,0,0,0.2);animation:toastIn 0.25s';
+    t.textContent=m;
+    document.body.appendChild(t);
+    setTimeout(()=>{
+        t.style.opacity='0';
+        t.style.transition='all 0.3s';
+        setTimeout(()=>t.remove(),300)
+    },2000);
+}
 
 // Подписаться
 document.querySelector('.pd-subscribe')?.addEventListener('click',async function(){
     const r=await fetch(`/accounts/follow/${this.dataset.authorId}/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken')}});
-    if(r.ok){this.classList.toggle('subscribed');this.textContent=this.classList.contains('subscribed')?'Вы подписаны':'Подписаться';}
+    if(r.ok){
+        this.classList.toggle('subscribed');
+        this.textContent=this.classList.contains('subscribed')?'Вы подписаны':'Подписаться';
+    }
 });
-// Друг
-// Кнопка дружбы на странице поста
+
+// Кнопка дружбы
 async function initFriendButton() {
     const friendBtn = document.querySelector('.pd-friend');
     if (!friendBtn) return;
 
     const userId = friendBtn.dataset.friendId;
 
-    // Получаем текущий статус
     try {
         const statusRes = await fetch(`/accounts/friend/status/${userId}/`);
         const statusData = await statusRes.json();
@@ -386,24 +537,21 @@ async function initFriendButton() {
 
     friendBtn.addEventListener('click', async function() {
         const currentStatus = this.dataset.friendStatus;
-
-        // Если уже отправлена заявка или уже друзья - ничего не делаем
         if (currentStatus === 'pending' || currentStatus === 'friends') {
             showToast(currentStatus === 'pending' ? 'Заявка уже отправлена' : 'Вы уже друзья');
             return;
         }
-
         const r = await fetch(`/accounts/friend/${userId}/toggle/`, {
             method: 'POST',
             headers: { 'X-CSRFToken': getCookie('csrftoken') }
         });
         const d = await r.json();
-
         if (d.action === 'added') {
             this.textContent = 'Заявка отправлена';
             this.disabled = true;
             this.style.opacity = '0.6';
             this.dataset.friendStatus = 'pending';
+            this.classList.remove('friend');
             showToast('✅ Заявка в друзья отправлена');
         } else if (d.action === 'removed') {
             this.textContent = '+ Друг';
@@ -415,36 +563,18 @@ async function initFriendButton() {
         }
     });
 }
-
-function showToast(message) {
-    const toast = document.createElement('div');
-    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;padding:10px 20px;border-radius:10px;font-size:0.8rem;font-weight:600;color:#fff;z-index:9999;background:#7c3aed;box-shadow:0 8px 24px rgba(0,0,0,0.2);animation:toastIn 0.25s';
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transition = 'all 0.3s';
-        setTimeout(() => toast.remove(), 300);
-    }, 2000);
-}
-
-// Запускаем инициализацию
 initFriendButton();
-// Лайк поста - исправленная версия
+
+// Лайк поста
 const likeBtn = document.querySelector('.like-btn-vk');
 if (likeBtn) {
-    // Удаляем старые обработчики
     const newLikeBtn = likeBtn.cloneNode(true);
     likeBtn.parentNode.replaceChild(newLikeBtn, likeBtn);
 
     newLikeBtn.addEventListener('click', async function(e) {
         e.preventDefault();
-
         const postId = this.dataset.postId;
         const countSpan = this.querySelector('span');
-
-        console.log('Liking post:', postId);
-
         try {
             const response = await fetch('/like/toggle/', {
                 method: 'POST',
@@ -454,72 +584,74 @@ if (likeBtn) {
                 },
                 body: `content_type=post&object_id=${postId}&like_type=like`
             });
-
             const data = await response.json();
-            console.log('Server response:', data);
-
-            if (data.action === 'added') {
-                this.classList.add('liked');
-            } else if (data.action === 'removed') {
-                this.classList.remove('liked');
-            }
-
-            if (countSpan && data.likes_count !== undefined) {
-                countSpan.textContent = data.likes_count;
-            }
-
-        } catch (error) {
-            console.error('Like error:', error);
-        }
+            if (data.action === 'added') this.classList.add('liked');
+            else if (data.action === 'removed') this.classList.remove('liked');
+            if (countSpan && data.likes_count !== undefined) countSpan.textContent = data.likes_count;
+        } catch (error) { console.error('Like error:', error); }
     });
 }
+
 // Закладка
 document.querySelector('.bookmark-btn-vk')?.addEventListener('click',async function(){
-    const r=await fetch(`/bookmark/${this.dataset.postId}/toggle/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'}});
-    const d=await r.json();this.classList.toggle('bookmarked',d.action==='added');
+    const r=await fetch(`/bookmark/${this.dataset.postId}/toggle/`,{
+        method:'POST',
+        headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'}
+    });
+    const d=await r.json();
+    this.classList.toggle('bookmarked',d.action==='added');
 });
 
 // Шеринг
 document.querySelector('.share-btn-vk')?.addEventListener('click',()=>{
-    if(navigator.share)navigator.share({url:location.href});else navigator.clipboard.writeText(location.href).then(()=>showToast('Ссылка скопирована'));
+    if(navigator.share) navigator.share({url:location.href});
+    else navigator.clipboard.writeText(location.href).then(()=>showToast('Ссылка скопирована'));
 });
-// Инструменты комментария
-document.querySelectorAll('.comment-inline-tool').forEach(btn=>{
-    if(btn.querySelector('[data-feather="smile"]')) btn.addEventListener('click',function(){
-        const picker=this.parentElement.querySelector('.emoji-picker');
-        if(!picker.dataset.filled){picker.innerHTML=EMOJIS.map(e=>`<button>${e}</button>`).join('');picker.dataset.filled='1';
-            picker.querySelectorAll('button').forEach(b=>b.addEventListener('click',function(){const ta=this.closest('.comment-inline-body')?.querySelector('textarea');if(ta){ta.value+=this.textContent;ta.focus()}picker.classList.remove('open')}))}
-        picker.classList.toggle('open');
-    });
-    if(btn.querySelector('[data-feather="bookmark"]')) btn.addEventListener('click',function(){window._toggleSavedPicker(this)});
-    if(btn.querySelector('[data-feather="image"]')) btn.addEventListener('click',function(){this.nextElementSibling?.click()});
-});
-// Отправка комментария
-document.querySelector('.comment-inline-send')?.addEventListener('click',async function(){
-    const pid=this.dataset.postId,body=this.closest('.comment-inline-body'),ta=body.querySelector('textarea'),content=ta.value.trim(),files=body.querySelector('input[type="file"]').files;
-    if(!content&&files.length===0)return;
-    const fd=new FormData();fd.append('content',content);for(let f of files)fd.append(f.type.startsWith('image/')?'image':'video',f);
-    const r=await fetch(`/post/${pid}/comment/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'},body:fd});
-    if(r.ok)location.reload();
-});
-document.querySelector('.comment-inline-input')?.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();this.closest('.comment-inline-body').querySelector('.comment-inline-send').click()}});
-// Превью
-document.querySelector('input[type="file"]')?.addEventListener('change',function(){
-    const pv=document.getElementById('preview-inline-'+this.closest('.comment-inline-form')?.querySelector('.comment-inline-send')?.dataset.postId);
-    if(!pv)return;pv.innerHTML='';
-    [...this.files].forEach(f=>{const url=URL.createObjectURL(f),wrap=document.createElement('span');wrap.className='preview-item';
-        if(f.type.startsWith('image/')){const img=document.createElement('img');img.src=url;wrap.appendChild(img)}else{const vid=document.createElement('video');vid.src=url;vid.muted=true;vid.autoplay=true;vid.loop=true;wrap.appendChild(vid)}
-        const rmv=document.createElement('button');rmv.className='remove-preview';rmv.innerHTML='×';rmv.onclick=e=>{e.stopPropagation();wrap.remove()};wrap.appendChild(rmv);pv.appendChild(wrap)});
-});
-// Markdown
-function renderMarkdown(raw){let html=marked.parse(raw||'');html=html.replace(/\|\|(.+?)\|\|/g,'<span class="spoiler" onclick="this.classList.toggle(\'revealed\')">$1</span>');return html}
-document.querySelectorAll('.markdown-content').forEach(el=>{el.innerHTML=renderMarkdown(el.dataset.raw||el.textContent||'')});
 
 // Меню
-window.togglePostMenu=function(btn){const menu=btn.parentElement.querySelector('.post-menu-dropdown');document.querySelectorAll('.post-menu-dropdown').forEach(m=>{if(m!==menu)m.style.display='none'});menu.style.display=menu.style.display==='none'?'block':'none'};
-window.toggleBookmark=async function(btn){const pid=btn.dataset.postId;const r=await fetch(`/bookmark/${pid}/toggle/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'}});const d=await r.json();btn.classList.toggle('active',d.action==='added');btn.querySelector('span').textContent=d.action==='added'?'Убрать из закладок':'В закладки'};
-window.deletePost=async function(pid){if(!confirm('Удалить пост?'))return;const r=await fetch(`/post/${pid}/delete/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken')}});if(r.ok)location.reload()};
-window.copyLink=function(pid){navigator.clipboard.writeText(location.origin+'/post/'+pid+'/').then(()=>showToast('Ссылка скопирована'))};
+window.togglePostMenu=function(btn){
+    const menu=btn.parentElement.querySelector('.post-menu-dropdown');
+    document.querySelectorAll('.post-menu-dropdown').forEach(m=>{
+        if(m!==menu) m.style.display='none'
+    });
+    menu.style.display=menu.style.display==='none'?'block':'none';
+};
+
+window.toggleBookmark=async function(btn){
+    const pid=btn.dataset.postId;
+    const r=await fetch(`/bookmark/${pid}/toggle/`,{
+        method:'POST',
+        headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'}
+    });
+    const d=await r.json();
+    btn.classList.toggle('active',d.action==='added');
+    btn.querySelector('span').textContent=d.action==='added'?'Убрать из закладок':'В закладки';
+};
+
+window.deletePost = async function(pid) {
+    showConfirmModal({
+        title: 'Удаление поста',
+        message: 'Вы действительно хотите удалить этот пост? Это действие нельзя отменить.',
+        confirmText: 'Удалить',
+        cancelText: 'Отмена',
+        onConfirm: async () => {
+            const response = await fetch(`/post/${pid}/delete/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            if (response.ok) {
+                showToast('Пост удален');
+                setTimeout(() => window.location.href = '/', 1000);
+            } else {
+                showToast('Ошибка при удалении', 'error');
+            }
+        }
+    });
+};
+
+window.copyLink=function(pid){
+    navigator.clipboard.writeText(location.origin+'/post/'+pid+'/').then(()=>showToast('Ссылка скопирована'));
+};
 
 // Жалоба на пост
 let reportPostId=null;
@@ -530,50 +662,41 @@ window.submitReport=async function(){
     var type=document.querySelector('input[name="report_type"]:checked')?.value||'other';
     var desc=document.getElementById('reportDescription').value.trim();
     closeReportModal();
-    try{var r=await fetch('/moderation/report/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:'post_id='+pid+'&reason='+encodeURIComponent(desc)+'&report_type='+type});var d=await r.json();showToast(d.message||'✅ Жалоба отправлена')}catch(e){showToast('❌ Ошибка')}
+    try{
+        var r=await fetch('/moderation/report/',{
+            method:'POST',
+            headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},
+            body:'post_id='+pid+'&reason='+encodeURIComponent(desc)+'&report_type='+type
+        });
+        var d=await r.json();
+        showToast(d.message||'✅ Жалоба отправлена');
+    }catch(e){showToast('❌ Ошибка')}
 };
 document.getElementById('reportModal')?.addEventListener('click',function(e){if(e.target===this)closeReportModal()});
 
 // Жалоба на комментарий
 let reportCommentId=null;
-function closeReportCommentModal() {
-    document.getElementById('reportCommentModal').style.display = 'none';
-}
-async function submitCommentReport() {
-    var cid = reportCommentId;
-    if (!cid) return;
-    var type = document.querySelector('input[name="cmt_report_type"]:checked')?.value || 'other';
-    var desc = document.getElementById('cmtReportDescription').value.trim();
+window.reportComment=function(cid){reportCommentId=cid;document.getElementById('reportCommentModal').style.display='flex'};
+function closeReportCommentModal(){document.getElementById('reportCommentModal').style.display='none'}
+async function submitCommentReport(){
+    var cid=reportCommentId;if(!cid)return;
+    var type=document.querySelector('input[name="cmt_report_type"]:checked')?.value||'other';
+    var desc=document.getElementById('cmtReportDescription').value.trim();
     closeReportCommentModal();
-    try {
-        var r = await fetch('/moderation/report/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
-            body: 'comment_id=' + cid + '&reason=' + encodeURIComponent(desc) + '&report_type=' + type
+    try{
+        var r=await fetch('/moderation/report/',{
+            method:'POST',
+            headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},
+            body:'comment_id='+cid+'&reason='+encodeURIComponent(desc)+'&report_type='+type
         });
-        var d = await r.json();
-        notify(d.message || '✅ Жалоба отправлена');
-    } catch(e) {
-        notify('❌ Ошибка');
-    }
+        var d=await r.json();
+        showToast(d.message||'✅ Жалоба отправлена');
+    }catch(e){showToast('❌ Ошибка')}
 }
-// Рендер Markdown на странице поста
-document.addEventListener('DOMContentLoaded', function() {
-    const markdownDiv = document.querySelector('.markdown-content');
-    if (markdownDiv && typeof marked !== 'undefined') {
-        const rawContent = markdownDiv.dataset.raw || '';
-        if (rawContent) {
-            let html = marked.parse(rawContent);
-            html = html.replace(/\|\|(.+?)\|\|/g, '<span class="spoiler" onclick="this.classList.toggle(\'revealed\')">$1</span>');
-            markdownDiv.innerHTML = html;
-        }
-    }
-});
+document.getElementById('reportCommentModal')?.addEventListener('click',function(e){if(e.target===this)closeReportCommentModal()});
 
+// Модалка лайков
 async function openLikesModal(postId) {
-    console.log('Открываем модалку для поста:', postId);
-
-    // Создаём простую модалку
     const modalHtml = `
         <div id="tempLikesModal" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:10000; display:flex; align-items:center; justify-content:center;">
             <div style="background:white; border-radius:16px; width:90%; max-width:400px; max-height:80vh; overflow:auto;">
@@ -585,33 +708,20 @@ async function openLikesModal(postId) {
             </div>
         </div>
     `;
-
     document.body.insertAdjacentHTML('beforeend', modalHtml);
-
     try {
-        // ПРАВИЛЬНЫЙ URL - без /posts в начале
         const response = await fetch(`/post/${postId}/likes/`);
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
-
         const modal = document.getElementById('tempLikesModal');
         const title = modal.querySelector('h3');
         const listDiv = document.getElementById('tempLikesList');
-
         title.innerHTML = `❤️ Понравилось (${data.total})`;
-
         if (data.users && data.users.length > 0) {
             listDiv.innerHTML = data.users.map(user => `
                 <a href="${user.profile_url}" style="display:flex; align-items:center; gap:12px; padding:10px 0; text-decoration:none; color:inherit; border-bottom:1px solid #eee;">
                     <div style="width:44px; height:44px; border-radius:50%; background:#e0e7ff; display:flex; align-items:center; justify-content:center; overflow:hidden;">
-                        ${user.avatar
-                            ? `<img src="${user.avatar}" style="width:100%; height:100%; object-fit:cover;">`
-                            : `<span style="font-size:20px; font-weight:600;">${user.username.charAt(0).toUpperCase()}</span>`
-                        }
+                        ${user.avatar ? `<img src="${user.avatar}" style="width:100%; height:100%; object-fit:cover;">` : `<span style="font-size:20px; font-weight:600;">${escapeHtml(user.username.charAt(0).toUpperCase())}</span>`}
                     </div>
                     <div>
                         <div style="font-weight:600;">${escapeHtml(user.full_name)}</div>
@@ -629,13 +739,6 @@ async function openLikesModal(postId) {
     }
 }
 
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
-// ========== ОТКРЫТИЕ МОДАЛКИ ПО КЛИКУ НА СЧЁТЧИК ЛАЙКОВ ==========
 function initLikesModalTrigger() {
     const likesCountSpan = document.querySelector('.like-btn-vk .likes-count');
     if (likesCountSpan) {
@@ -643,37 +746,91 @@ function initLikesModalTrigger() {
         likesCountSpan.addEventListener('click', function(e) {
             e.stopPropagation();
             const postId = this.closest('.like-btn-vk')?.dataset.postId;
-            if (postId) {
-                openLikesModal(postId);
-            }
+            if (postId) openLikesModal(postId);
         });
-        console.log('Обработчик счётчика лайков добавлен');
-    } else {
-        console.log('Счётчик .likes-count не найден');
     }
 }
 
-// Запускаем после загрузки страницы
 document.addEventListener('DOMContentLoaded', function() {
     initLikesModalTrigger();
 });
-document.getElementById('reportCommentModal')?.addEventListener('click',function(e){if(e.target===this)closeReportCommentModal()});
-
-window.copyCommentLink=function(cid){const url=location.origin+location.pathname+'#comment-'+cid;navigator.clipboard.writeText(url).then(()=>showToast('Ссылка скопирована'))};
-window.deleteComment=async function(cid){if(!confirm('Удалить комментарий?'))return;const r=await fetch(`/post/comment/${cid}/delete/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken')}});if(r.ok)location.reload()};
-
-window.savePhoto=async function(postId){const r=await fetch('/media-storage/save-from-post/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`post_id=${postId}&media_type=photo`});const d=await r.json();showToast(d.success?'Фото сохранено':'Ошибка')};
-window.saveVideo=async function(postId){const r=await fetch('/media-storage/save-from-post/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`post_id=${postId}&media_type=video`});const d=await r.json();showToast(d.success?'Видео сохранено':'Ошибка')};
-
-// Закрытие меню по клику вне
-document.addEventListener('click',function(e){if(!e.target.closest('.post-menu-dropdown')&&!e.target.closest('.post-vk-menu-btn')){document.querySelectorAll('.post-menu-dropdown').forEach(m=>m.style.display='none')}});
 
 // Комментарии
-window.likeComment=async function(id,btn){const cnt=btn.querySelector('span');const r=await fetch('/like/toggle/',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},body:`content_type=comment&object_id=${id}&like_type=like`});const d=await r.json();btn.classList.toggle('active',d.action==='added');if(cnt)cnt.textContent=d.likes_count};
+window.likeComment=async function(id,btn){
+    const cnt=btn.querySelector('span');
+    const r=await fetch('/like/toggle/',{
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},
+        body:`content_type=comment&object_id=${id}&like_type=like`
+    });
+    const d=await r.json();
+    btn.classList.toggle('active',d.action==='added');
+    if(cnt) cnt.textContent=d.likes_count;
+};
 window.showReplyForm=function(id){document.getElementById('replyForm-'+id).style.display='block'};
 window.hideReplyForm=function(id){document.getElementById('replyForm-'+id).style.display='none'};
-window.sendReply=async function(cid,pid){const form=document.getElementById('replyForm-'+cid);const text=form.querySelector('textarea').value.trim();if(!text)return;const r=await fetch(`/post/${pid}/comment/`,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'},body:`content=${encodeURIComponent(text)}&parent_id=${cid}`});if(r.ok)location.reload()};
-document.querySelectorAll('textarea').forEach(t=>t.addEventListener('input',function(){this.style.height='auto';this.style.height=this.scrollHeight+'px'}));
-document.addEventListener('click',e=>{if(!e.target.closest('.comment-inline-tools')){document.querySelectorAll('.emoji-picker.open,.saved-picker.open').forEach(p=>p.classList.remove('open'))}});
+window.sendReply=async function(cid,pid){
+    const form=document.getElementById('replyForm-'+cid);
+    const text=form.querySelector('textarea').value.trim();
+    if(!text)return;
+    const r=await fetch(`/post/${pid}/comment/`,{
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'},
+        body:`content=${encodeURIComponent(text)}&parent_id=${cid}`
+    });
+    if(r.ok) location.reload();
+};
+window.deleteComment = async function(cid) {
+    showConfirmModal({
+        title: 'Удаление комментария',
+        message: 'Вы действительно хотите удалить этот комментарий? Это действие нельзя отменить.',
+        confirmText: 'Удалить',
+        cancelText: 'Отмена',
+        onConfirm: async () => {
+            const response = await fetch(`/post/comment/${cid}/delete/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            if (response.ok) {
+                showToast('Комментарий удален');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                const data = await response.json();
+                showToast(data.error || 'Ошибка при удалении', 'error');
+            }
+        }
+    });
+};
+window.copyCommentLink=function(cid){
+    const url=location.origin+location.pathname+'#comment-'+cid;
+    navigator.clipboard.writeText(url).then(()=>showToast('Ссылка скопирована'));
+};
+window.savePhoto=async function(postId){
+    const r=await fetch('/media-storage/save-from-post/',{
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},
+        body:`post_id=${postId}&media_type=photo`
+    });
+    const d=await r.json();
+    showToast(d.success?'✅ Фото сохранено':'❌ Ошибка');
+};
+window.saveVideo=async function(postId){
+    const r=await fetch('/media-storage/save-from-post/',{
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRFToken':getCookie('csrftoken')},
+        body:`post_id=${postId}&media_type=video`
+    });
+    const d=await r.json();
+    showToast(d.success?'✅ Видео сохранено':'❌ Ошибка');
+};
+document.addEventListener('click',function(e){
+    if(!e.target.closest('.post-menu-dropdown')&&!e.target.closest('.post-vk-menu-btn')){
+        document.querySelectorAll('.post-menu-dropdown').forEach(m=>m.style.display='none');
+    }
+});
+document.querySelectorAll('textarea').forEach(t=>t.addEventListener('input',function(){
+    this.style.height='auto';
+    this.style.height=this.scrollHeight+'px';
+}));
 </script>
 {% endblock %}

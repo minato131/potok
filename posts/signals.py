@@ -46,25 +46,28 @@ def should_send_notification(user, notification_type):
 # ========== Уведомления о лайках ==========
 @receiver(post_save, sender=Like)
 def create_like_notification(sender, instance, created, **kwargs):
-    """Уведомление о лайке поста"""
+    """Уведомление о лайке поста или комментария"""
     if not created:
         return
 
-    # Определяем объект (пост или комментарий) по content_type
+    # Определяем объект (пост или комментарий)
     if instance.content_type == 'post':
         try:
             post = Post.objects.get(id=instance.object_id)
             author = post.author
             obj_link = f'/post/{post.id}/'
             obj_title = post.title[:50]
+            notification_type = 'like'
         except Post.DoesNotExist:
             return
+
     elif instance.content_type == 'comment':
         try:
             comment = Comment.objects.get(id=instance.object_id)
-            author = comment.post.author  # Автор поста, к которому относится комментарий
-            obj_link = f'/post/{comment.post.id}/'
+            author = comment.author
+            obj_link = f'/post/{comment.post.id}/#comment-{comment.id}'
             obj_title = comment.content[:50]
+            notification_type = 'like_comment'  # ← отдельный тип
         except Comment.DoesNotExist:
             return
     else:
@@ -81,8 +84,8 @@ def create_like_notification(sender, instance, created, **kwargs):
     notification = Notification.create_notification(
         recipient=author,
         sender=instance.user,
-        notification_type='like',
-        title='Новый лайк ❤️',
+        notification_type=notification_type,
+        title='❤️ Новый лайк',
         message=f'{instance.user.username} лайкнул ваш {instance.content_type} "{obj_title}"',
         link=obj_link
     )

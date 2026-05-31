@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Редактировать пост · {{ post.title }} · Поток{% endblock %}
+{% block page_title %}Редактирование поста{% endblock %}
+
+{% block content %}
+<div class="post-edit-container">
+    <div class="edit-header">
+        <a href="{% url 'posts:post_detail' pk=post.id %}" class="back-link">
+            <i data-feather="arrow-left"></i>
+            <span>Вернуться к посту</span>
+        </a>
+    </div>
+
+    {% if post.is_hidden %}
+    <div class="alert alert--warning">
+        <i data-feather="alert-triangle"></i>
+        <div>
+            <strong>⚠️ Этот пост был скрыт модерацией</strong>
+            <p>Причина: {{ post.moderation_reason|default:"Нарушение правил платформы" }}</p>
+            <p>Отредактируйте контент в соответствии с правилами. После сохранения пост будет отправлен на повторную проверку.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" class="post-form">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label for="{{ form.title.id_for_label }}" class="form-label">Заголовок</label>
+            {{ form.title }}
+            {% if form.title.errors %}
+            <div class="form-error">{{ form.title.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.content.id_for_label }}" class="form-label">Содержание</label>
+            {{ form.content }}
+            {% if form.content.errors %}
+            <div class="form-error">{{ form.content.errors.0 }}</div>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.tags.id_for_label }}" class="form-label">Теги</label>
+            {{ form.tags }}
+            <div class="field-hint">Разделяйте теги запятыми</div>
+        </div>
+
+        <div class="form-actions">
+            <a href="{% url 'posts:post_detail' pk=post.id %}" class="btn btn--outline">Отмена</a>
+            <button type="submit" class="btn btn--primary">Сохранить изменения</button>
+        </div>
+    </form>
+</div>
+
+<style>
+    .post-edit-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    
+    .edit-header {
+        margin-bottom: 20px;
+    }
+    
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--color-text-secondary);
+        text-decoration: none;
+    }
+    
+    .back-link:hover {
+        color: var(--color-primary);
+    }
+    
+    .post-form {
+        background: var(--color-bg-surface);
+        border-radius: 16px;
+        padding: 24px;
+        border: 1px solid var(--color-border-light);
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+    
+    .form-input, .form-textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--color-border);
+        border-radius: 10px;
+        font-family: inherit;
+        font-size: 0.9rem;
+    }
+    
+    .form-textarea {
+        resize: vertical;
+        min-height: 200px;
+    }
+    
+    .form-input:focus, .form-textarea:focus {
+        outline: none;
+        border-color: var(--color-primary);
+    }
+    
+    .alert {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 16px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+    }
+    
+    .alert--warning {
+        background: #fef3c7;
+        border-left: 4px solid #f59e0b;
+    }
+    
+    .alert--warning i {
+        color: #f59e0b;
+        flex-shrink: 0;
+    }
+    
+    .alert strong {
+        display: block;
+        margin-bottom: 4px;
+    }
+    
+    .alert p {
+        margin: 4px 0 0;
+        font-size: 0.85rem;
+    }
+    
+    .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 24px;
+        padding-top: 20px;
+        border-top: 1px solid var(--color-border-light);
+    }
+    
+    .form-error {
+        color: #ef4444;
+        font-size: 0.8rem;
+        margin-top: 4px;
+    }
+    
+    .field-hint {
+        font-size: 0.7rem;
+        color: var(--color-text-tertiary);
+        margin-top: 4px;
+    }
+</style>
+
+<script>
+    feather.replace();
+</script>
+{% endblock %}

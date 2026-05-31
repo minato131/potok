@@ -154,6 +154,52 @@
     .bkm-stat-num { font-size: 1.5rem; font-weight: 700; color: var(--color-text); }
     .bkm-stat-lbl { font-size: 0.75rem; color: var(--color-text-tertiary); }
 
+        /* Стили для Markdown и спойлеров */
+    .markdown-excerpt {
+        line-height: 1.6;
+        word-break: break-word;
+    }
+    .markdown-excerpt p {
+        margin-bottom: 8px;
+    }
+    .markdown-excerpt ul, .markdown-excerpt ol {
+        padding-left: 20px;
+        margin-bottom: 8px;
+    }
+    .markdown-excerpt code {
+        background: var(--color-bg-elevated);
+        padding: 2px 5px;
+        border-radius: 4px;
+        font-size: 0.85em;
+    }
+    /* Спойлеры — тёмный фон для читаемости */
+    .spoiler {
+        background: #2d2d2d !important;
+        color: transparent !important;
+        border-radius: 4px;
+        padding: 1px 4px;
+        cursor: pointer;
+        transition: all 0.2s;
+        user-select: none;
+        display: inline-block;
+    }
+    .spoiler:hover {
+        opacity: 0.85;
+    }
+    .spoiler.revealed {
+        background: #eef2ff !important;
+        color: inherit !important;
+        cursor: default;
+    }
+    /* Для тёмной темы */
+    [data-theme="dark"] .spoiler {
+        background: #1a1a1a !important;
+    }
+    [data-theme="dark"] .spoiler.revealed {
+        background: #2d2d2d !important;
+        color: #e0e0e0 !important;
+    }
+
 </style>
 
 <div class="bkm-page">
@@ -197,7 +243,7 @@
                 </h2>
 
                 <!-- Превью -->
-                <p class="bkm-excerpt">{{ bookmark.post.content|striptags|truncatewords:45 }}</p>
+                <p class="bkm-excerpt" data-raw="{{ bookmark.post.content|striptags }}">{{ bookmark.post.content|striptags|truncatewords:45 }}</p>
 
                 <!-- Футер -->
                 <div class="bkm-footer">
@@ -325,5 +371,41 @@ document.addEventListener('DOMContentLoaded', function() {
     st.textContent = '@keyframes toastIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}';
     document.head.appendChild(st);
 });
+    // Рендер Markdown для превью поста в закладках
+    function renderMarkdownForExcerpt(raw) {
+        if (!raw) return '';
+        // Заменяем все варианты переносов
+        let cleaned = raw.replace(/\\u000A/gi, '\n')
+                         .replace(/\\u000D\\u000A/gi, '\n')
+                         .replace(/\\r\\n/gi, '\n')
+                         .replace(/\r\n/g, '\n')
+                         .replace(/\r/g, '\n');
+
+        // Обрезаем до 300 символов для превью
+        let truncated = cleaned.length > 300 ? cleaned.substring(0, 300) + '...' : cleaned;
+
+        let html = marked.parse(truncated);
+        // Обработка спойлеров ||текст||
+        html = html.replace(/\|\|(.+?)\|\|/g, '<span class="spoiler" onclick="this.classList.toggle(\'revealed\')">$1</span>');
+        return html;
+    }
+
+    // Применяем ко всем превью на странице
+    document.querySelectorAll('.bkm-excerpt').forEach(el => {
+        const rawContent = el.dataset.raw || el.textContent;
+        if (rawContent && typeof marked !== 'undefined') {
+            el.innerHTML = renderMarkdownForExcerpt(rawContent);
+            el.classList.add('markdown-excerpt');
+        }
+    });
+
+    // Глобальная обработка спойлеров — при клике раскрываем
+    document.addEventListener('click', function(e) {
+        const spoiler = e.target.closest('.spoiler');
+        if (spoiler && !spoiler.classList.contains('revealed')) {
+            e.preventDefault();
+            spoiler.classList.add('revealed');
+        }
+    });
 </script>
 {% endblock %}

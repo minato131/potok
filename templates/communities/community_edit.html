@@ -33,6 +33,22 @@
             </div>
 
             <div class="form-group">
+                <label for="{{ form.slug.id_for_label }}" class="form-label">
+                    URL сообщества
+                </label>
+                <div class="slug-input-wrapper">
+                    <span class="slug-prefix">potok.ru/c/</span>
+                    {{ form.slug }}
+                </div>
+                <div class="field-hint">
+                    <span>Только латинские буквы, цифры и дефис</span>
+                </div>
+                {% if form.slug.errors %}
+                <div class="form-error">{{ form.slug.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
                 <label for="{{ form.description.id_for_label }}" class="form-label">
                     Описание
                 </label>
@@ -44,6 +60,16 @@
                 </div>
                 {% if form.description.errors %}
                 <div class="form-error">{{ form.description.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.category.id_for_label }}" class="form-label">
+                    Категория
+                </label>
+                {{ form.category }}
+                {% if form.category.errors %}
+                <div class="form-error">{{ form.category.errors.0 }}</div>
                 {% endif %}
             </div>
         </div>
@@ -71,11 +97,11 @@
                             <i data-feather="edit-2"></i>
                             <span>Изменить</span>
                         </div>
-                        {{ form.avatar }}
                     </div>
+                    {{ form.avatar }}
                     {% if community.avatar %}
                     <label class="checkbox-label" style="margin-top: 0.5rem;">
-                        {{ form.clear_avatar }}
+                        <input type="checkbox" name="avatar-clear" id="avatar-clear">
                         <span>Удалить текущий аватар</span>
                     </label>
                     {% endif %}
@@ -96,11 +122,11 @@
                             <i data-feather="edit-2"></i>
                             <span>Изменить</span>
                         </div>
-                        {{ form.cover_image }}
                     </div>
+                    {{ form.cover }}
                     {% if community.cover %}
                     <label class="checkbox-label" style="margin-top: 0.5rem;">
-                        {{ form.clear_cover }}
+                        <input type="checkbox" name="cover-clear" id="cover-clear">
                         <span>Удалить текущую обложку</span>
                     </label>
                     {% endif %}
@@ -119,9 +145,22 @@
                 <div class="setting-item">
                     <div class="setting-info">
                         <span class="setting-label">Тип сообщества</span>
-                        <span class="setting-description">Кто может видеть и публиковать посты</span>
+                        <span class="setting-description">Кто может видеть и вступать</span>
                     </div>
-                    {{ form.community_type }}
+                    <div class="radio-group">
+                        <label class="radio-option">
+                            <input type="radio" name="privacy" value="public" {% if community.privacy == 'public' %}checked{% endif %}>
+                            <span>Открытое</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="privacy" value="private" {% if community.privacy == 'private' %}checked{% endif %}>
+                            <span>Закрытое</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="privacy" value="hidden" {% if community.privacy == 'hidden' %}checked{% endif %}>
+                            <span>Скрытое</span>
+                        </label>
+                    </div>
                 </div>
 
                 <div class="setting-item">
@@ -130,10 +169,42 @@
                         <span class="setting-description">Посты требуют одобрения модератора</span>
                     </div>
                     <label class="toggle-switch">
-                        {{ form.posts_need_approval }}
+                        <input type="checkbox" name="posts_need_approval" {% if community.posts_need_approval %}checked{% endif %}>
                         <span class="toggle-slider"></span>
                     </label>
                 </div>
+            </div>
+        </div>
+
+        <!-- Контакты -->
+        <div class="form-section">
+            <div class="section-header">
+                <i data-feather="link"></i>
+                <h2>Контакты и ссылки</h2>
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.website.id_for_label }}" class="form-label">
+                    <i data-feather="globe"></i>
+                    Веб-сайт
+                </label>
+                {{ form.website }}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.discord.id_for_label }}" class="form-label">
+                    <i data-feather="message-circle"></i>
+                    Discord сервер
+                </label>
+                {{ form.discord }}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.telegram.id_for_label }}" class="form-label">
+                    <i data-feather="send"></i>
+                    Telegram канал/чат
+                </label>
+                {{ form.telegram }}
             </div>
         </div>
 
@@ -165,19 +236,20 @@
                     </div>
                 </div>
 
-                {% for moderator in community.moderators.all %}
-                <div class="moderator-item">
+                {% for moderator in moderators %}
+                <div class="moderator-item" data-user-id="{{ moderator.id }}">
                     <div class="moderator-info">
                         <span class="moderator-name">{{ moderator.username }}</span>
+                        <span class="moderator-badge">Модератор</span>
                     </div>
-                    <button class="btn btn--outline btn--sm remove-moderator" data-user-id="{{ moderator.id }}">
+                    <button type="button" class="btn btn--outline btn--sm remove-moderator" data-user-id="{{ moderator.id }}">
                         <i data-feather="user-minus"></i>
                     </button>
                 </div>
                 {% endfor %}
 
                 <div class="add-moderator-form">
-                    <input type="text" id="moderatorSearch" placeholder="Добавить модератора..." class="form-input">
+                    <input type="text" id="moderatorSearch" placeholder="Поиск друзей..." class="form-input">
                     <div class="search-results" id="moderatorResults"></div>
                 </div>
             </div>
@@ -190,10 +262,12 @@
                 Назад
             </a>
             <div class="form-actions-right">
+                {% if request.user == community.creator or request.user.is_superuser %}
                 <button type="button" class="btn btn--danger" id="deleteCommunityBtn">
                     <i data-feather="trash-2"></i>
                     Удалить сообщество
                 </button>
+                {% endif %}
                 <button type="submit" class="btn btn--primary">
                     <i data-feather="save"></i>
                     Сохранить изменения
@@ -219,6 +293,7 @@
             </div>
             <p>Все посты, комментарии и данные сообщества будут безвозвратно удалены.</p>
 
+            <!-- ФОРМА УДАЛЕНИЯ -->
             <form method="post" action="{% url 'communities:community_delete' slug=community.slug %}" id="deleteForm">
                 {% csrf_token %}
                 <div class="form-group">
@@ -236,9 +311,7 @@
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_css %}
 <style>
     .community-edit-container {
         max-width: 700px;
@@ -294,6 +367,13 @@
         font-weight: 500;
     }
 
+    .form-label i {
+        width: 1rem;
+        height: 1rem;
+        margin-right: 0.25rem;
+        vertical-align: middle;
+    }
+
     .form-input,
     .form-textarea,
     .form-select {
@@ -319,9 +399,40 @@
         min-height: 100px;
     }
 
+    .slug-input-wrapper {
+        display: flex;
+        align-items: center;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+    }
+
+    .slug-input-wrapper:focus-within {
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px var(--color-primary-light);
+    }
+
+    .slug-prefix {
+        padding: 0.75rem 0.5rem 0.75rem 1rem;
+        background: var(--color-bg-elevated);
+        color: var(--color-text-tertiary);
+        font-size: 0.9375rem;
+    }
+
+    .slug-input-wrapper input {
+        flex: 1;
+        border: none;
+        padding: 0.75rem 1rem 0.75rem 0.5rem;
+    }
+
+    .slug-input-wrapper input:focus {
+        outline: none;
+        box-shadow: none;
+    }
+
     .field-hint {
         display: flex;
-        justify-content: flex-end;
+        justify-content: space-between;
         margin-top: 0.375rem;
         font-size: 0.8125rem;
         color: var(--color-text-tertiary);
@@ -399,16 +510,6 @@
         opacity: 1;
     }
 
-    .image-preview input[type="file"] {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        opacity: 0;
-        cursor: pointer;
-    }
-
     .checkbox-label {
         display: flex;
         align-items: center;
@@ -428,6 +529,8 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
     }
 
     .setting-info {
@@ -443,6 +546,33 @@
     .setting-description {
         font-size: 0.875rem;
         color: var(--color-text-tertiary);
+    }
+
+    .radio-group {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .radio-option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        cursor: pointer;
+        padding: 0.5rem 1rem;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-md);
+        transition: all 0.2s;
+    }
+
+    .radio-option:hover {
+        border-color: var(--color-primary);
+        background: rgba(37, 99, 235, 0.05);
+    }
+
+    .radio-option input {
+        width: auto;
+        margin: 0;
     }
 
     .toggle-switch {
@@ -683,13 +813,10 @@
         .setting-item {
             flex-direction: column;
             align-items: flex-start;
-            gap: 1rem;
         }
     }
 </style>
-{% endblock %}
 
-{% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Предпросмотр аватара
@@ -697,6 +824,16 @@
         const avatarPreview = document.getElementById('avatarPreview');
 
         if (avatarInput && avatarPreview) {
+            avatarPreview.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                avatarInput.click();
+            });
+
+            avatarInput.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+
             avatarInput.addEventListener('change', function(e) {
                 const file = e.target.files[0];
                 if (file) {
@@ -709,7 +846,7 @@
                                 <span>Изменить</span>
                             </div>
                         `;
-                        avatarPreview.appendChild(avatarInput);
+                        avatarPreview.style.cursor = 'pointer';
                         feather.replace();
                     };
                     reader.readAsDataURL(file);
@@ -718,10 +855,20 @@
         }
 
         // Предпросмотр обложки
-        const coverInput = document.querySelector('input[name="cover_image"]');
+        const coverInput = document.querySelector('input[name="cover"]');
         const coverPreview = document.getElementById('coverPreview');
 
         if (coverInput && coverPreview) {
+            coverPreview.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                coverInput.click();
+            });
+
+            coverInput.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+
             coverInput.addEventListener('change', function(e) {
                 const file = e.target.files[0];
                 if (file) {
@@ -734,7 +881,7 @@
                                 <span>Изменить</span>
                             </div>
                         `;
-                        coverPreview.appendChild(coverInput);
+                        coverPreview.style.cursor = 'pointer';
                         feather.replace();
                     };
                     reader.readAsDataURL(file);
@@ -762,7 +909,7 @@
             descCounter.textContent = descInput.value.length;
         }
 
-        // Поиск модераторов
+        // Поиск друзей для добавления модераторов
         const searchInput = document.getElementById('moderatorSearch');
         const searchResults = document.getElementById('moderatorResults');
         let searchTimeout;
@@ -779,23 +926,29 @@
 
                 searchTimeout = setTimeout(async () => {
                     try {
-                        const response = await fetch(`/accounts/users/search/?q=${query}`);
+                        const response = await fetch(`/communities/friends/search/?q=${encodeURIComponent(query)}`);
                         const users = await response.json();
+
+                        if (users.length === 0) {
+                            searchResults.innerHTML = '<div class="search-result-item">Ничего не найдено</div>';
+                            searchResults.style.display = 'block';
+                            return;
+                        }
 
                         searchResults.innerHTML = users.map(user => `
                             <div class="search-result-item" data-user-id="${user.id}">
                                 <span>${user.username}</span>
-                                <button class="btn btn--outline btn--sm add-moderator-btn">
+                                <button type="button" class="btn btn--outline btn--sm add-moderator-btn">
                                     Добавить
                                 </button>
                             </div>
                         `).join('');
 
-                        searchResults.style.display = users.length ? 'block' : 'none';
+                        searchResults.style.display = 'block';
 
-                        // Обработчики для кнопок добавления
                         document.querySelectorAll('.add-moderator-btn').forEach(btn => {
-                            btn.addEventListener('click', async function() {
+                            btn.addEventListener('click', async function(e) {
+                                e.stopPropagation();
                                 const userId = this.closest('.search-result-item').dataset.userId;
                                 await addModerator(userId);
                             });
@@ -806,8 +959,7 @@
                 }, 300);
             });
 
-            // Скрываем результаты при клике вне
-            document.addEventListener('click', (e) => {
+            document.addEventListener('click', function(e) {
                 if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
                     searchResults.style.display = 'none';
                 }
@@ -825,15 +977,17 @@
                     body: JSON.stringify({ user_id: userId })
                 });
 
+                const data = await response.json();
+
                 if (response.ok) {
-                    showToast({
-                        type: 'success',
-                        message: 'Модератор добавлен'
-                    });
+                    showToast('success', 'Модератор добавлен');
                     setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast('error', data.error || 'Ошибка при добавлении');
                 }
             } catch (error) {
                 console.error('Error adding moderator:', error);
+                showToast('error', 'Ошибка при добавлении модератора');
             }
         }
 
@@ -841,33 +995,35 @@
         document.querySelectorAll('.remove-moderator').forEach(btn => {
             btn.addEventListener('click', async function() {
                 const userId = this.dataset.userId;
+                const communitySlug = '{{ community.slug }}';
 
-                if (confirm('Удалить модератора?')) {
-                    try {
-                        const response = await fetch(`/communities/{{ community.slug }}/remove-moderator/`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRFToken': getCookie('csrftoken')
-                            },
-                            body: JSON.stringify({ user_id: userId })
-                        });
+                if (!confirm('Удалить модератора?')) return;
 
-                        if (response.ok) {
-                            this.closest('.moderator-item').remove();
-                            showToast({
-                                type: 'success',
-                                message: 'Модератор удален'
-                            });
+                try {
+                    const response = await fetch(`/communities/${communitySlug}/remove-moderator/${userId}/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
                         }
-                    } catch (error) {
-                        console.error('Error removing moderator:', error);
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.success) {
+                        this.closest('.moderator-item').remove();
+                        showToast('success', data.message || 'Модератор удален');
+                    } else {
+                        showToast('error', data.error || 'Ошибка при удалении');
                     }
+                } catch (error) {
+                    console.error('Error removing moderator:', error);
+                    showToast('error', 'Ошибка при удалении модератора');
                 }
             });
         });
 
-        // Модальное окно удаления
+        // Удаление сообщества (модальное окно)
         const deleteBtn = document.getElementById('deleteCommunityBtn');
         const modal = document.getElementById('deleteModal');
         const closeModal = document.getElementById('closeModal');
@@ -887,21 +1043,60 @@
                 document.body.style.overflow = '';
             };
 
-            closeModal?.addEventListener('click', closeModalFunc);
-            cancelDelete?.addEventListener('click', closeModalFunc);
+            if (closeModal) closeModal.addEventListener('click', closeModalFunc);
+            if (cancelDelete) cancelDelete.addEventListener('click', closeModalFunc);
+
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) closeModalFunc();
             });
 
-            confirmInput?.addEventListener('input', function() {
-                confirmDelete.disabled = this.value !== communityName;
-            });
+            if (confirmInput) {
+                confirmInput.addEventListener('input', function() {
+                    confirmDelete.disabled = this.value !== communityName;
+                });
+            }
 
-            confirmDelete?.addEventListener('click', () => {
-                if (confirmInput.value === communityName) {
-                    document.getElementById('deleteForm').submit();
+            if (confirmDelete) {
+                confirmDelete.addEventListener('click', () => {
+                    if (confirmInput.value === communityName) {
+                        document.getElementById('deleteForm').submit();
+                    }
+                });
+            }
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
                 }
-            });
+            }
+            return cookieValue;
+        }
+
+        function showToast(type, message) {
+            const toast = document.createElement('div');
+            toast.className = `toast toast--${type}`;
+            toast.textContent = message;
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                padding: 12px 20px;
+                background: ${type === 'success' ? '#10b981' : '#ef4444'};
+                color: white;
+                border-radius: 8px;
+                z-index: 9999;
+                animation: fadeInOut 3s ease-in-out;
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
         }
     });
 </script>

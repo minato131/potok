@@ -224,14 +224,41 @@ def save_track(request):
     title = request.POST.get('title', '')
     artist = request.POST.get('artist', '')
     cover_url = request.POST.get('cover_url', '')
-    duration = request.POST.get('duration', 0)
+    duration_raw = request.POST.get('duration', 0)
+
     if not track_id:
-        return JsonResponse({'success': False}, status=400)
+        return JsonResponse({'success': False, 'error': 'track_id required'}, status=400)
+
+    # Нормализация длительности
+    try:
+        duration = int(duration_raw)
+        # Яндекс отдаёт в миллисекундах (например 198000), конвертируем в секунды
+        if duration > 10000:  # если больше 10 секунд — вероятно миллисекунды
+            duration = duration // 1000
+    except (ValueError, TypeError):
+        duration = 0
+
     track, created = SavedTrack.objects.get_or_create(
-        user=request.user, track_id=track_id,
-        defaults={'title': title, 'artist': artist, 'cover_url': cover_url,
-                  'duration': int(duration) if duration else 0})
-    return JsonResponse({'success': True, 'created': created})
+        user=request.user,
+        track_id=track_id,
+        defaults={
+            'title': title,
+            'artist': artist,
+            'cover_url': cover_url,
+            'duration': duration
+        }
+    )
+
+    # Если трек уже существовал, но duration был 0 — обновим
+    if not created and track.duration == 0 and duration > 0:
+        track.duration = duration
+        track.save(update_fields=['duration'])
+
+    return JsonResponse({
+        'success': True,
+        'created': created,
+        'duration': duration
+    })
 
 
 @login_required

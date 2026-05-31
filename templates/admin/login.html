@@ -1,0 +1,131 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .login-container {
+        max-width: 400px;
+        margin: 100px auto;
+        background: #ffffff;
+        border-radius: 24px;
+        padding: 40px;
+        box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e5e7eb;
+    }
+
+    .login-container h1 {
+        text-align: center;
+        margin-bottom: 30px;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #111827;
+        background: none;
+        -webkit-background-clip: unset;
+        -webkit-text-fill-color: unset;
+    }
+
+    .login-container .form-row {
+        margin-bottom: 20px;
+    }
+
+    .login-container label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #374151;
+    }
+
+    .login-container input {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+        background: #ffffff;
+        color: #111827;
+    }
+
+    .login-container input:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+
+    .login-container .submit-row {
+        margin-top: 24px;
+    }
+
+    .login-container input[type="submit"] {
+        background: #6366f1;
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 1rem;
+    }
+
+    .login-container input[type="submit"]:hover {
+        background: #4f46e5;
+    }
+
+    .login-container .errors {
+        background: #fee2e2;
+        color: #991b1b;
+        padding: 12px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+    }
+
+    .login-container .errors p {
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} login{% endblock %}
+
+{% block usertools %}{% endblock %}
+
+{% block nav-global %}{% endblock %}
+
+{% block content_title %}{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <h1>🌊 Поток</h1>
+    <h2 style="text-align: center; margin-bottom: 20px; font-size: 1rem; color: #6b7280;">Вход в административную панель</h2>
+
+    {% if form.errors %}
+    <div class="errors">
+        {% for field, errors in form.errors.items %}
+            {% for error in errors %}
+                <p>⚠️ {{ error }}</p>
+            {% endfor %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form action="{{ app_path }}" method="post" id="login-form">
+        {% csrf_token %}
+        <div class="form-row">
+            <label for="id_username">Имя пользователя</label>
+            <input type="text" name="username" id="id_username" required>
+        </div>
+        <div class="form-row">
+            <label for="id_password">Пароль</label>
+            <input type="password" name="password" id="id_password" required>
+        </div>
+        <div class="submit-row">
+            <input type="submit" value="Войти">
+        </div>
+    </form>
+
+    <div style="text-align: center; margin-top: 20px; font-size: 0.8rem; color: #9ca3af;">
+        <a href="/" style="color: #6366f1; text-decoration: none;">← Вернуться на сайт</a>
+    </div>
+</div>
+{% endblock %}
