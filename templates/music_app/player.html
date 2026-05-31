@@ -143,6 +143,95 @@
         .saved-sidebar { width: 100%; }
         .tracks-grid { grid-template-columns: 1fr; }
     }
+    /* Боковая панель текста песни */
+    .lyrics-sidebar {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 380px;
+        height: 100vh;
+        background: var(--color-bg-surface);
+        border-left: 1px solid var(--color-border);
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+        animation: slideInRight 0.3s ease;
+    }
+
+    @keyframes slideInRight {
+        from { transform: translateX(100%); }
+        to { transform: translateX(0); }
+    }
+
+    .lyrics-sidebar-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 20px;
+        border-bottom: 1px solid var(--color-border);
+        background: var(--color-bg-surface);
+    }
+
+    .lyrics-sidebar-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
+    .lyrics-close-btn {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: var(--color-text-tertiary);
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+
+    .lyrics-close-btn:hover {
+        background: var(--color-bg-elevated);
+        color: var(--color-text);
+    }
+
+    .lyrics-sidebar-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+        white-space: pre-wrap;
+        font-size: 0.9rem;
+        line-height: 1.8;
+        color: var(--color-text-secondary);
+    }
+
+    /* Затемнение фона при открытой панели */
+    .lyrics-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        display: none;
+        animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @media (max-width: 640px) {
+        .lyrics-sidebar {
+            width: 100%;
+        }
+    }
 </style>
 
 <div class="music-page">
@@ -310,11 +399,13 @@
 </div>
 
 <audio id="audioPlayer" style="display:none"></audio>
-<div class="modal-bg" id="lyricsModal" onclick="closeLyrics()">
-    <div class="modal-box" onclick="event.stopPropagation()" style="max-height:70vh;overflow-y:auto">
+<div id="lyricsSidebar" class="lyrics-sidebar" style="display: none;">
+    <div class="lyrics-sidebar-header">
         <h3>Текст песни</h3>
-        <pre id="lyricsText" style="white-space:pre-wrap;font-family:inherit;font-size:0.9rem;line-height:1.8;color:var(--color-text-secondary)">Загрузка...</pre>
-        <button class="btn-cancel" onclick="closeLyrics()">Закрыть</button>
+        <button id="closeLyricsSidebar" class="lyrics-close-btn">✕</button>
+    </div>
+    <div class="lyrics-sidebar-content" id="lyricsText">
+        Загрузка...
     </div>
 </div>
 {% endblock %}
@@ -322,6 +413,66 @@
 {% block extra_js %}
 <script>
 feather.replace();
+const audioPlayer = document.getElementById('audioPlayer');
+
+// Громкость — единая для всех
+let currentVolume = localStorage.getItem('player_volume') ? parseInt(localStorage.getItem('player_volume')) : 80;
+audioPlayer.volume = currentVolume / 100;
+// Единая функция для обновления громкости
+function setGlobalVolume(value) {
+    currentVolume = value;
+    audioPlayer.volume = value / 100;
+    localStorage.setItem('player_volume', value);
+
+    // Синхронизируем все ползунки громкости на странице
+    const volumeSliders = document.querySelectorAll('.volume-slider, #volumeSlider, #globalVolumeSlider');
+    volumeSliders.forEach(slider => {
+        if (slider && slider.value != value) {
+            slider.value = value;
+        }
+    });
+
+    // Синхронизируем иконку (обновляем визуал)
+    updateVolumeIcon(value);
+}
+
+function updateVolumeIcon(value) {
+    const volumeIcons = document.querySelectorAll('.volume-wrap i[data-feather], .volume-slider + i, #globalVolumeIcon');
+    volumeIcons.forEach(icon => {
+        const featherIcon = icon.getAttribute('data-feather');
+        if (featherIcon === 'volume-2' || featherIcon === 'volume-1' || featherIcon === 'volume-x') {
+            if (value == 0) {
+                icon.setAttribute('data-feather', 'volume-x');
+            } else if (value < 30) {
+                icon.setAttribute('data-feather', 'volume-1');
+            } else {
+                icon.setAttribute('data-feather', 'volume-2');
+            }
+        }
+    });
+    if (typeof feather !== 'undefined') feather.replace();
+}
+// Инициализация синхронизации громкости
+function initVolumeSync() {
+    // Находим все ползунки громкости
+    const volumeSliders = document.querySelectorAll('#volumeSlider, .volume-slider, #globalVolumeSlider');
+
+    volumeSliders.forEach(slider => {
+        // Убираем старые обработчики
+        const newSlider = slider.cloneNode(true);
+        slider.parentNode.replaceChild(newSlider, slider);
+
+        newSlider.addEventListener('input', function(e) {
+            e.stopPropagation();
+            setGlobalVolume(parseInt(this.value));
+        });
+    });
+}
+
+// Запускаем после загрузки
+document.addEventListener('DOMContentLoaded', function() {
+    initVolumeSync();
+});
 function G(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
 function T(m){const t=document.createElement('div');t.style.cssText='position:fixed;bottom:80px;right:24px;padding:10px 20px;border-radius:10px;font-size:.8rem;font-weight:600;color:#fff;z-index:9999;background:#7c3aed;box-shadow:0 8px 24px rgba(0,0,0,.2);animation:toastIn .25s';t.textContent=m;document.body.appendChild(t);setTimeout(()=>{t.style.opacity='0';t.style.transition='all .3s';setTimeout(()=>t.remove(),300)},2000)}
 function F(t){const m=Math.floor(t/60),s=Math.floor(t%60).toString().padStart(2,'0');return m+':'+s}
@@ -352,8 +503,25 @@ function UI() {
 }
 
 window.togglePlay=()=>{if(!a.src)return;P?a.pause():a.play();P=!P;UI()};
-window.setVolume=v=>{a.volume=v/100};
-window.toggleMute=()=>{a.muted=!a.muted;feather.replace()};
+// Замена старой setVolume
+window.setVolume = function(value) {
+    setGlobalVolume(parseInt(value));
+};
+
+// Замена старой toggleMute
+window.toggleMute = function() {
+    if (audioPlayer.muted) {
+        audioPlayer.muted = false;
+        setGlobalVolume(currentVolume);
+    } else {
+        audioPlayer.muted = true;
+        // При глушении показываем иконку volume-x
+        document.querySelectorAll('.volume-wrap i[data-feather]').forEach(icon => {
+            icon.setAttribute('data-feather', 'volume-x');
+        });
+        if (typeof feather !== 'undefined') feather.replace();
+    }
+};
 window.seek=e=>{if(!a.duration)return;a.currentTime=((e.offsetX/e.target.offsetWidth)*a.duration)};
 window.toggleShuffle=()=>{shuffle=!shuffle;UI()};
 window.toggleRepeat=()=>{repeat=!repeat;UI()};
@@ -467,17 +635,49 @@ window.seekMini = function(e) {
     a.currentTime = pct * a.duration;
 };
 
+// Открыть текст песни в боковой панели
 window.openLyrics = async function() {
     if (!CT) return;
-    document.getElementById('lyricsModal').style.display = 'flex';
-    document.getElementById('lyricsText').textContent = 'Загрузка...';
-    const r = await fetch(`/music/lyrics/?artist=${encodeURIComponent(CT.artist)}&title=${encodeURIComponent(CT.title)}`);
-    const d = await r.json();
-    document.getElementById('lyricsText').textContent = d.lyrics || 'Текст не найден';
+
+    const sidebar = document.getElementById('lyricsSidebar');
+    const overlay = document.getElementById('lyricsOverlay');
+    const lyricsDiv = document.getElementById('lyricsText');
+
+    if (!sidebar) return;
+
+    sidebar.style.display = 'flex';
+    if (overlay) overlay.style.display = 'block';
+    lyricsDiv.innerHTML = 'Загрузка...';
+
+    try {
+        const r = await fetch(`/music/lyrics/?artist=${encodeURIComponent(CT.artist)}&title=${encodeURIComponent(CT.title)}`);
+        const d = await r.json();
+        lyricsDiv.innerHTML = d.lyrics || 'Текст не найден';
+    } catch (error) {
+        lyricsDiv.innerHTML = 'Ошибка загрузки текста';
+    }
 };
 
+// Закрыть боковую панель
 window.closeLyrics = function() {
-    document.getElementById('lyricsModal').style.display = 'none';
+    const sidebar = document.getElementById('lyricsSidebar');
+    const overlay = document.getElementById('lyricsOverlay');
+    if (sidebar) sidebar.style.display = 'none';
+    if (overlay) overlay.style.display = 'none';
 };
+
+// Закрытие по клику на фон
+document.getElementById('lyricsOverlay')?.addEventListener('click', closeLyrics);
+document.getElementById('closeLyricsSidebar')?.addEventListener('click', closeLyrics);
+// При загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    const savedVolume = localStorage.getItem('player_volume');
+    if (savedVolume !== null) {
+        const vol = parseInt(savedVolume);
+        setGlobalVolume(vol);
+    } else {
+        setGlobalVolume(80);
+    }
+});
 </script>
 {% endblock %}
