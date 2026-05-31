@@ -337,3 +337,9 @@ def playlist_remove_track(request):
     if pl:
         PlaylistTrack.objects.filter(playlist=pl, track_id=track_id).delete()
     return JsonResponse({'success': True})
+
+@login_required
+def check_saved_track(request):
+    track_id = request.GET.get('track_id', '')
+    saved = SavedTrack.objects.filter(user=request.user, track_id=track_id).exists()
+    return JsonResponse({'saved': saved})
