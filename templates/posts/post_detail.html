@@ -300,7 +300,7 @@
                 <div class="post-menu-dropdown" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--color-bg-surface);border:1px solid var(--color-border);border-radius:12px;box-shadow:var(--shadow-lg);min-width:180px;z-index:30;padding:4px">
                     <button class="menu-item" onclick="event.stopPropagation();copyCommentLink({{ comment.id }})"><i data-feather="link" style="width:14px;height:14px"></i> Скопировать ссылку</button>
                     {% if user == comment.author or user.is_staff or user.is_platform_moderator or user in community.moderators.all %}
-                    <button class="menu-item danger" onclick="event.stopPropagation();deleteComment({{ comment.id }})">
+                    <button class="menu-item danger" onclick="event.stopPropagation();deleteComment({{ comment.id }}, {{ post.id }})">
                         <i data-feather="trash-2"></i> Удалить
                     </button>
                     {% endif %}
@@ -809,23 +809,50 @@ window.sendReply=async function(cid,pid){
     });
     if(r.ok) location.reload();
 };
-window.deleteComment = async function(cid) {
+window.deleteComment = async function(cid, postId) {
     showConfirmModal({
         title: 'Удаление комментария',
         message: 'Вы действительно хотите удалить этот комментарий? Это действие нельзя отменить.',
         confirmText: 'Удалить',
         cancelText: 'Отмена',
         onConfirm: async () => {
-            const response = await fetch(`/post/comment/${cid}/delete/`, {
-                method: 'POST',
-                headers: { 'X-CSRFToken': getCookie('csrftoken') }
-            });
-            if (response.ok) {
-                showToast('Комментарий удален');
-                setTimeout(() => location.reload(), 1000);
-            } else {
+            try {
+                const response = await fetch(`/post/comment/${cid}/delete/`, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') }
+                });
                 const data = await response.json();
-                showToast(data.error || 'Ошибка при удалении', 'error');
+
+                if (response.ok && data.status === 'ok') {
+                    // Обновляем счётчик в модалке
+                    const modalCommentsSpan = document.querySelector('#postModal .pd-act i[data-feather="message-circle"] + span');
+                    if (modalCommentsSpan && data.comments_count !== undefined) {
+                        modalCommentsSpan.textContent = data.comments_count;
+                    }
+
+                    // Обновляем счётчик в ленте
+                    const feedCommentsSpan = document.querySelector(`.post-card-vk[data-post-id="${postId}"] .post-vk-stat i[data-feather="message-circle"] + span`);
+                    if (feedCommentsSpan && data.comments_count !== undefined) {
+                        feedCommentsSpan.textContent = data.comments_count;
+                    }
+
+                    // Удаляем комментарий из DOM
+                    const commentElement = document.querySelector(`.cmt-card:has(button[onclick*="deleteComment(${cid},")]`);
+                    if (commentElement) commentElement.remove();
+
+                    // Если комментариев не осталось — показываем "Нет комментариев"
+                    const cmtList = document.querySelector('.cmt-list');
+                    if (cmtList && cmtList.children.length === 0) {
+                        cmtList.innerHTML = '<div class="no-cmt">Пока нет комментариев</div>';
+                    }
+
+                    showToast('Комментарий удален');
+                } else {
+                    showToast(data.error || 'Ошибка при удалении', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Ошибка сервера', 'error');
             }
         }
     });
