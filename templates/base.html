@@ -131,6 +131,7 @@
                             </a>
                         </li>
                         {% endif %}
+                    {% endif %}
                     {% if user.is_superuser or user.is_staff %}
                     <li class="nav-menu__item">
                         <a href="{% url 'admin:index' %}" class="nav-link">
@@ -140,17 +141,6 @@
                     </li>
                     {% endif %}
 
-                        {% for membership in user.communitymembership_set.all %}
-                            {% if membership.status == 'active' and membership.role == 'admin' or membership.role == 'moderator' %}
-                            <li class="nav-menu__item">
-                                <a href="{% url 'moderation:community_moderation' slug=membership.community.slug %}" class="nav-link">
-                                    <i data-feather="flag"></i>
-                                    <span>c/{{ membership.community.name }}</span>
-                                </a>
-                            </li>
-                            {% endif %}
-                        {% endfor %}
-                    {% endif %}
                     {% if user.is_authenticated %}
                     <li class="nav-menu__item">
                         <a href="{% url 'accounts:profile' %}" class="nav-link {% if request.resolver_match.url_name == 'profile' %}nav-link--active{% endif %}">
@@ -263,12 +253,6 @@
                 {% if user.is_staff or user.is_platform_moderator %}
                 <li><a href="{% url 'moderation:panel' %}"><i data-feather="shield"></i> Модерация</a></li>
                 {% endif %}
-
-                {% for membership in user.communitymembership_set.all %}
-                    {% if membership.status == 'active' and membership.role == 'admin' or membership.role == 'moderator' %}
-                    <li><a href="{% url 'moderation:community_moderation' slug=membership.community.slug %}"><i data-feather="flag"></i> c/{{ membership.community.name }}</a></li>
-                    {% endif %}
-                {% endfor %}
             {% endif %}
             {% if user.is_authenticated %}
             <li><a href="{% url 'accounts:profile' %}"><i data-feather="user"></i> Профиль</a></li>

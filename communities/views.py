@@ -286,30 +286,24 @@ def community_detail(request, slug):
 
 @login_required
 def community_create(request):
-    """Создание нового сообщества"""
     if request.method == 'POST':
         form = CommunityForm(request.POST, request.FILES)
-        print("=" * 50)
-        print("ОШИБКИ ФОРМЫ:", form.errors)
-        print("POST:", request.POST)
-        print("=" * 50)
         if form.is_valid():
             community = form.save(commit=False)
             community.creator = request.user
 
+            # Генерируем slug, если он пустой
             if not community.slug:
                 from django.utils.text import slugify
-                community.slug = slugify(community.name)
-
-            from django.db import IntegrityError
-            try:
-                community.save()
-            except IntegrityError:
                 import random
-                community.slug = f"{slugify(community.name)}-{random.randint(1000, 9999)}"
-                community.save()
+                base_slug = slugify(community.name)
+                community.slug = base_slug
+                # Проверяем уникальность
+                if Community.objects.filter(slug=community.slug).exists():
+                    community.slug = f"{base_slug}-{random.randint(1000, 9999)}"
 
-            # Добавляем создателя как администратора
+            community.save()
+
             CommunityMembership.objects.create(
                 user=request.user,
                 community=community,
@@ -317,18 +311,14 @@ def community_create(request):
                 status='active'
             )
 
-            community.update_stats()
             messages.success(request, f'Сообщество "{community.name}" создано!')
             return redirect('communities:community_detail', slug=community.slug)
         else:
-            messages.error(request, 'Пожалуйста, исправьте ошибки в форме')
+            messages.error(request, f'Ошибка: {form.errors}')
     else:
         form = CommunityForm()
 
-    return render(request, 'communities/community_form.html', {
-        'form': form,
-        'title': 'Создать сообщество'
-    })
+    return render(request, 'communities/community_form.html', {'form': form})
 
 
 @login_required

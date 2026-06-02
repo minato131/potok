@@ -24,6 +24,7 @@
 <div class="community-form-container">
     <form method="post" enctype="multipart/form-data" class="community-form" novalidate id="communityForm">
         {% csrf_token %}
+        <input type="hidden" name="community_type" value="public">
 
         {% if form.non_field_errors %}
         <div class="alert alert--error">

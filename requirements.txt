@@ -11,3 +11,5 @@ gunicorn
 redis
 markdown
 reportlab
+yandex-music
+lyricsgenius

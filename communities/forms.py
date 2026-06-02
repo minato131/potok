@@ -23,7 +23,7 @@ class CommunityForm(forms.ModelForm):
             }),
             'slug': forms.TextInput(attrs={
                 'class': 'form-input',
-                'placeholder': 'url-адрес (оставьте пустым для автоматической генерации)'
+                'placeholder': 'url-адрес'
             }),
             'description': forms.Textarea(attrs={
                 'class': 'form-textarea',
