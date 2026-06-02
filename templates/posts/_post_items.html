@@ -91,9 +91,9 @@
 
     {% if post.tags.exists %}
     <div class="post-tags-row">
-        {% for t in post.tags.all %}
+        {% if t.slug %}
             <a href="{% url 'posts:tag_detail' slug=t.slug %}" class="post-tag">#{{ t.name }}</a>
-        {% endfor %}
+        {% endif %}
     </div>
     {% endif %}
 
