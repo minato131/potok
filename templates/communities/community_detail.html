@@ -1118,11 +1118,22 @@ window.togglePostMenu = function(btn) {
 // Закрытие меню по клику вне
 document.addEventListener('click', function(e) {
     if (!e.target.closest('.post-menu-dropdown') && !e.target.closest('.post-vk-menu-btn')) {
-        var allMenus = document.querySelectorAll('.post-menu-dropdown');
-        for (var i = 0; i < allMenus.length; i++) {
-            allMenus[i].style.display = 'none';
-        }
+        document.querySelectorAll('.post-menu-dropdown').forEach(menu => {
+            menu.style.display = 'none';
+        });
     }
+});
+
+// При открытии любой модалки — закрываем меню
+const modalOpeners = ['.report-post-btn', '.report-comment-btn', '[onclick*="reportPost"]', '[onclick*="reportComment"]'];
+modalOpeners.forEach(selector => {
+    document.querySelectorAll(selector).forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.post-menu-dropdown').forEach(menu => {
+                menu.style.display = 'none';
+            });
+        });
+    });
 });
 
 // ========== УДАЛЕНИЕ ПОСТА ==========
@@ -1235,13 +1246,13 @@ window.copyLink = function(pid) {
 var reportPostId = null;
 
 window.reportPost = function(pid) {
+    // Закрываем все контекстные меню
+    document.querySelectorAll('.post-menu-dropdown, .cmt-menu-dropdown, .tg-context-menu').forEach(menu => {
+        menu.style.display = 'none';
+        menu.remove(); // полностью удаляем контекстное меню
+    });
     reportPostId = pid;
-    var modal = document.getElementById('reportModal');
-    if (modal) {
-        modal.style.display = 'flex';
-    } else {
-        notify('Ошибка: модалка не найдена');
-    }
+    document.getElementById('reportModal').style.display = 'flex';
 };
 
 window.closeReportModal = function() {
@@ -1279,13 +1290,13 @@ window.submitReport = async function() {
 var reportCommentId = null;
 
 window.reportComment = function(cid) {
+    // Закрываем все контекстные меню
+    document.querySelectorAll('.post-menu-dropdown, .cmt-menu-dropdown, .tg-context-menu').forEach(menu => {
+        menu.style.display = 'none';
+        menu.remove();
+    });
     reportCommentId = cid;
-    var modal = document.getElementById('reportCommentModal');
-    if (modal) {
-        modal.style.display = 'flex';
-    } else {
-        notify('Ошибка: модалка не найдена');
-    }
+    document.getElementById('reportCommentModal').style.display = 'flex';
 };
 
 function closeReportCommentModal() {

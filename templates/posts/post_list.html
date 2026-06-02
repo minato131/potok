@@ -615,7 +615,8 @@ function initModalHandlers() {
                                .replace(/\\u000D\\u000A/gi, '\n')
                                .replace(/\\r\\n/gi, '\n')
                                .replace(/\r\n/g, '\n')
-                               .replace(/\r/g, '\n');
+                               .replace(/\r/g, '\n')
+                               .replace(/\\u002D/g, '-');
 
         if (rawContent) {
             let html = marked.parse(rawContent);
@@ -744,7 +745,8 @@ function renderMarkdown(raw){
                      .replace(/\\u000D\\u000A/gi, '\n')
                      .replace(/\\r\\n/gi, '\n')
                      .replace(/\r\n/g, '\n')
-                     .replace(/\r/g, '\n');
+                     .replace(/\r/g, '\n')
+                     .replace(/\\u002D/g, '-');
 
     let html = marked.parse(cleaned);
     // Дополнительно заменяем переносы строк на <br> если marked не сработал

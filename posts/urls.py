@@ -42,6 +42,7 @@ urlpatterns = [
     path('post/<int:post_pk>/comment/', views.comment_create, name='comment_create'),
     path('like/toggle/', views.like_toggle, name='like_toggle'),
     path('comment/<int:comment_id>/edit/', views.comment_edit, name='comment_edit'),
+    path('post/comment/<int:comment_id>/delete/', views.comment_delete, name='comment_delete_with_post'),
 
     # Избранное
     path('bookmark/<int:post_pk>/toggle/', views.bookmark_toggle, name='bookmark_toggle'),

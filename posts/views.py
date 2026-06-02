@@ -244,8 +244,16 @@ def post_edit(request, pk):
         return redirect('posts:post_detail', pk=post.pk)
 
     if request.method == 'POST':
+        print("=" * 60)
+        print("🔥 POST_EDIT — ПОЛУЧЕН POST ЗАПРОС")
+        print(f"POST данные: {request.POST}")
+        print(f"FILES: {request.FILES}")
+
         form = PostForm(request.POST, request.FILES, instance=post)
+        print(f"Ошибки формы до is_valid: {form.errors}")
+
         if form.is_valid():
+            print("✅ ФОРМА ВАЛИДНА, сохраняем...")
             post = form.save(commit=False)
             was_hidden = post.is_hidden
 
@@ -298,9 +306,20 @@ def post_edit(request, pk):
 
             post.save()
             form.save_m2m()
+            print("✅ ПОСТ УСПЕШНО СОХРАНЁН")
+            print("=" * 60)
             messages.success(request, 'Пост успешно обновлен!')
             return redirect('posts:post_detail', pk=post.pk)
+        else:
+            print("❌ ФОРМА НЕ ВАЛИДНА!")
+            print(f"Ошибки формы: {form.errors}")
+            for field, errors in form.errors.items():
+                for error in errors:
+                    print(f"  - {field}: {error}")
+            print("=" * 60)
+            messages.error(request, f'Ошибка при редактировании: {form.errors}')
     else:
+        print("📝 GET запрос — показываем форму редактирования")
         form = PostForm(instance=post)
 
     return render(request, 'posts/post_form.html', {
@@ -308,6 +327,7 @@ def post_edit(request, pk):
         'post': post,
         'title': 'Редактировать пост'
     })
+
 
 @login_required
 def post_delete(request, pk):

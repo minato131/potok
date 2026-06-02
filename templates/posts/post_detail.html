@@ -352,8 +352,37 @@
     </div>
 
     <style>
-        .report-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 300; display: flex; align-items: center; justify-content: center; }
-        .report-modal { background: var(--color-bg-surface); border-radius: 16px; width: 90%; max-width: 440px; padding: 24px; }
+        .report-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 100000 !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .report-modal {
+            background: var(--color-bg-surface);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 440px;
+            padding: 24px;
+            z-index: 100001 !important;
+            position: relative;
+        }
+
+        /* Контекстное меню поста — ниже модалки */
+        .post-menu-dropdown,
+        .cmt-menu-dropdown {
+            z-index: 9999 !important;
+        }
+
+        /* Когда модалка открыта — скрываем меню */
+        body:has(.report-modal-overlay[style*="display: flex"]) .post-menu-dropdown,
+        body:has(.report-modal-overlay[style*="display: flex"]) .cmt-menu-dropdown {
+            display: none !important;
+        }
         .report-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
         .report-modal-header h3 { font-size: 1.1rem; font-weight: 700; }
         .report-modal-header button { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--color-text-tertiary); }
@@ -832,5 +861,54 @@ document.querySelectorAll('textarea').forEach(t=>t.addEventListener('input',func
     this.style.height='auto';
     this.style.height=this.scrollHeight+'px';
 }));
+let killMenuInterval = null;
+
+function startKillingMenus() {
+    if (killMenuInterval) clearInterval(killMenuInterval);
+    killMenuInterval = setInterval(() => {
+        const modal = document.getElementById('reportModal');
+        const commentModal = document.getElementById('reportCommentModal');
+        if ((modal && modal.style.display === 'flex') || (commentModal && commentModal.style.display === 'flex')) {
+            document.querySelectorAll('.post-menu-dropdown, .cmt-menu-dropdown, .tg-context-menu').forEach(menu => {
+                if (menu) menu.remove();
+            });
+        } else if (killMenuInterval) {
+            clearInterval(killMenuInterval);
+            killMenuInterval = null;
+        }
+    }, 100);
+}
+
+// Оригинальные функции открытия
+const origReportPost = window.reportPost;
+window.reportPost = function(pid) {
+    startKillingMenus();
+    if (origReportPost) origReportPost(pid);
+};
+
+const origReportComment = window.reportComment;
+window.reportComment = function(cid) {
+    startKillingMenus();
+    if (origReportComment) origReportComment(cid);
+};
+
+// При закрытии модалок тоже чистим
+const origCloseReportModal = window.closeReportModal;
+window.closeReportModal = function() {
+    if (killMenuInterval) {
+        clearInterval(killMenuInterval);
+        killMenuInterval = null;
+    }
+    if (origCloseReportModal) origCloseReportModal();
+};
+
+const origCloseReportCommentModal = window.closeReportCommentModal;
+window.closeReportCommentModal = function() {
+    if (killMenuInterval) {
+        clearInterval(killMenuInterval);
+        killMenuInterval = null;
+    }
+    if (origCloseReportCommentModal) origCloseReportCommentModal();
+};
 </script>
 {% endblock %}
