@@ -1,6 +1,5 @@
 from django.utils import timezone
 from datetime import timedelta
-
 from communities.models import Community
 from posts.models import Post, Like, Bookmark, Comment
 from . import models
@@ -1434,13 +1433,12 @@ def get_friend_status(request, user_id):
 @login_required
 @require_POST
 def send_friend_request(request, user_id):
-    """Отправить заявку в друзья"""
     target = get_object_or_404(User, id=user_id)
 
     if target == request.user:
         return JsonResponse({'status': 'error', 'message': 'Нельзя добавить себя'})
 
-    # Проверяем существующую дружбу
+    # Проверяем существующую запись (включая rejected)
     existing = Friendship.objects.filter(
         user=request.user, friend=target
     ).first()
@@ -1450,6 +1448,24 @@ def send_friend_request(request, user_id):
             return JsonResponse({'status': 'error', 'message': 'Вы уже друзья'})
         elif existing.status == 'pending':
             return JsonResponse({'status': 'error', 'message': 'Заявка уже отправлена'})
+        elif existing.status == 'rejected':
+            # Если заявка была отклонена, обновляем её, а не создаём новую
+            existing.status = 'pending'
+            existing.created_at = timezone.now()
+            existing.save()
+
+            # Создаём уведомление
+            from accounts.utils import create_notification
+            create_notification(
+                recipient=target,
+                sender=request.user,
+                notification_type='friend',
+                title='Заявка в друзья 👥',
+                message=f'{request.user.username} хочет добавить вас в друзья',
+                link='/accounts/friend/requests/'
+            )
+
+            return JsonResponse({'status': 'pending_sent', 'message': 'Заявка отправлена'})
 
     # Проверяем входящую заявку
     incoming = Friendship.objects.filter(
@@ -1457,7 +1473,6 @@ def send_friend_request(request, user_id):
     ).first()
 
     if incoming:
-        # Если есть входящая заявка, сразу принимаем
         incoming.accept()
         return JsonResponse({'status': 'accepted', 'message': 'Вы теперь друзья'})
 
@@ -1476,7 +1491,7 @@ def send_friend_request(request, user_id):
         notification_type='friend',
         title='Заявка в друзья 👥',
         message=f'{request.user.username} хочет добавить вас в друзья',
-        link=f'/accounts/friends/requests/'
+        link='/accounts/friend/requests/'
     )
 
     return JsonResponse({'status': 'pending_sent', 'message': 'Заявка отправлена'})
@@ -1485,7 +1500,6 @@ def send_friend_request(request, user_id):
 @login_required
 @require_POST
 def accept_friend_request(request, request_id):
-    """Принять заявку в друзья"""
     friendship = get_object_or_404(
         Friendship,
         id=request_id,
@@ -1495,8 +1509,6 @@ def accept_friend_request(request, request_id):
 
     friendship.accept()
 
-    # Уведомление отправителю
-    from accounts.utils import create_notification
     create_notification(
         recipient=friendship.user,
         sender=request.user,
@@ -1512,7 +1524,6 @@ def accept_friend_request(request, request_id):
 @login_required
 @require_POST
 def reject_friend_request(request, request_id):
-    """Отклонить заявку в друзья"""
     friendship = get_object_or_404(
         Friendship,
         id=request_id,
@@ -1521,6 +1532,16 @@ def reject_friend_request(request, request_id):
     )
 
     friendship.reject()
+
+    create_notification(
+        recipient=friendship.user,
+        sender=request.user,
+        notification_type='friend_reject',
+        title='Заявка отклонена',
+        message=f'{request.user.username} отклонил вашу заявку в друзья',
+        link='/'
+    )
+
     return JsonResponse({'status': 'rejected', 'message': 'Заявка отклонена'})
 
 
@@ -1582,27 +1603,37 @@ def friends_list(request, username=None):
     else:
         profile_user = request.user
 
-    # Только accepted друзья
+    # Друзья — где статус accepted, И пользователь является либо user, либо friend
     friendships = Friendship.objects.filter(
-        user=profile_user,
         status='accepted'
-    ).select_related('friend', 'friend__profile').order_by('-created_at')
+    ).filter(
+        Q(user=profile_user) | Q(friend=profile_user)
+    ).select_related('user', 'friend', 'user__profile', 'friend__profile').order_by('-created_at')
+
+    # Преобразуем в список уникальных друзей
+    friends_set = set()
+    friends_list = []
+    for f in friendships:
+        if f.user == profile_user:
+            friend = f.friend
+        else:
+            friend = f.user
+
+        if friend.id not in friends_set:
+            friends_set.add(friend.id)
+            friends_list.append(friend)
 
     # Поиск
     query = request.GET.get('q')
     if query:
-        friendships = friendships.filter(
-            Q(friend__username__icontains=query) |
-            Q(friend__first_name__icontains=query) |
-            Q(friend__last_name__icontains=query)
-        )
+        friends_list = [f for f in friends_list if
+                        query.lower() in f.username.lower() or query.lower() in f.get_full_name().lower()]
 
     # Пагинация
-    paginator = Paginator(friendships, 20)
+    paginator = Paginator(friends_list, 20)
     page = request.GET.get('page', 1)
     page_obj = paginator.get_page(page)
 
-    # Количество входящих заявок (для бейджа)
     pending_count = Friendship.objects.filter(
         friend=request.user,
         status='pending'
@@ -1610,9 +1641,9 @@ def friends_list(request, username=None):
 
     return render(request, 'accounts/friends_list.html', {
         'profile_user': profile_user,
-        'friendships': page_obj,
+        'friendships': page_obj,  # теперь это список уникальных друзей
         'page_obj': page_obj,
-        'total_count': friendships.count(),
+        'total_count': len(friends_list),
         'pending_count': pending_count,
         'query': query,
         'is_paginated': page_obj.has_other_pages(),

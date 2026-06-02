@@ -387,8 +387,7 @@
         </form>
     </div>
 
-    {% for friendship in friendships %}
-    {% with friend=friendship.friend %}
+    {% for friend in friendships %}
     <div class="friend-card" data-user-id="{{ friend.id }}">
         <a href="{% url 'accounts:profile_by_username' username=friend.username %}" class="friend-avatar">
             {% if friend.profile.avatar %}
@@ -430,7 +429,6 @@
             </div>
         </div>
     </div>
-    {% endwith %}
     {% empty %}
     <div class="empty-state">
         <i data-feather="users"></i>
@@ -493,11 +491,11 @@ async function removeFriend(userId, btn) {
                 countSpan.textContent = currentCount - 1;
             }
         } else {
-            alert(data.message || 'Ошибка при удалении');
+            showToast(data.message || 'Ошибка при удалении');
         }
     } catch (error) {
         console.error('Error:', error);
-        alert('Произошла ошибка');
+        showToast('Произошла ошибка');
     }
 }
 // Добавить друга в список после принятия заявки
@@ -555,14 +553,14 @@ async function openChat(username) {
         window.location.href = `/messenger/?chat=${data.chat_id}`;
     } catch (error) {
         console.error('Error:', error);
-        alert('Не удалось открыть чат');
+        showToast('Не удалось открыть чат');
     }
 }
 
 function copyProfileLink(username) {
     const url = window.location.origin + '/accounts/profile/' + username + '/';
     navigator.clipboard.writeText(url).then(() => {
-        alert('Ссылка скопирована');
+        showToast('Ссылка скопирована');
     });
 }
 

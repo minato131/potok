@@ -186,6 +186,14 @@ class Message(models.Model):
         blank=True,
         verbose_name='Время доставки'
     )
+    reply_to = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='replies',
+        verbose_name='Ответ на сообщение'
+    )
 
     class Meta:
         verbose_name = 'Сообщение'

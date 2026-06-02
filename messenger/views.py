@@ -84,6 +84,15 @@ def api_chat_messages(request, chat_id):
         for r in msg.reactions.all():
             reactions[r.emoji] = reactions.get(r.emoji, 0) + 1
 
+        # Определяем reply_to_data ДО использования
+        reply_to_data = None
+        if msg.reply_to:
+            reply_to_data = {
+                'id': msg.reply_to.id,
+                'content': msg.reply_to.content[:100] if msg.reply_to.content else '',
+                'author_name': msg.reply_to.author.get_full_name() or msg.reply_to.author.username,
+            }
+
         messages_data.append({
             'id': msg.id,
             'content': msg.content,
@@ -97,11 +106,11 @@ def api_chat_messages(request, chat_id):
             'file_url': msg.file.url if msg.file else None,
             'file_type': msg.file_type,
             'created_at': msg.created_at.strftime('%H:%M'),
-            'created_at_full': msg.created_at.isoformat(),  # Добавляем полную дату
-            'read_at': msg.read_at.isoformat() if msg.read_at else None,  # Добавляем
+            'created_at_full': msg.created_at.isoformat(),
+            'read_at': msg.read_at.isoformat() if msg.read_at else None,
             'delivered_at': msg.delivered_at.isoformat() if hasattr(msg, 'delivered_at') and msg.delivered_at else None,
-            # Добавляем
             'reactions': reactions,
+            'reply_to': reply_to_data,  # Теперь всегда определён
         })
 
     return JsonResponse({
@@ -168,7 +177,16 @@ def send_message(request, chat_id):
         delivered_at=timezone.now(),
     )
 
-    # Уведомления — ИСПРАВЛЕНА ССЫЛКА
+    reply_to_id = request.POST.get('reply_to')
+    if reply_to_id:
+        try:
+            reply_to_msg = Message.objects.get(id=reply_to_id, chat=chat)
+            message.reply_to = reply_to_msg
+            message.save(update_fields=['reply_to'])
+        except Message.DoesNotExist:
+            pass
+
+    # Уведомления
     for p in ChatParticipant.objects.filter(chat=chat).exclude(user=request.user):
         title = 'Новое сообщение' if chat.chat_type == 'private' else f'Новое в {chat.name}'
         create_notification(
@@ -177,7 +195,7 @@ def send_message(request, chat_id):
             notification_type='message',
             title=title,
             message=f'@{request.user.username}: {content[:50] or "Файл"}',
-            link=f'/messenger/?chat={chat.id}'  # ← ИСПРАВЛЕНО!
+            link=f'/messenger/?chat={chat.id}'
         )
 
     chat.save()
@@ -190,8 +208,8 @@ def send_message(request, chat_id):
         'file_type': message.file_type,
         'created_at': message.created_at.strftime('%H:%M'),
         'author': message.author.username,
+        'reply_to_id': reply_to_id,  # ← МОЖНО ДОБАВИТЬ ДЛЯ ОТЛАДКИ
     })
-
 
 @login_required
 def create_private_chat(request):

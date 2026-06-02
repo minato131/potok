@@ -135,6 +135,11 @@
 
             <!-- Строка ввода -->
             <div class="tg-input-bar">
+                <div id="replyPreview" style="display:none; background:#f3f4f6; padding:8px 12px; border-radius:12px; margin-bottom:8px; position:relative;">
+                    <span id="replyAuthor" style="font-weight:600;"></span>
+                    <span id="replyContent" style="color:#6b7280; margin-left:8px;"></span>
+                    <button onclick="cancelReply()" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; color:#6b7280;">✕</button>
+                </div>
                 <form id="messageForm" class="tg-input-form" enctype="multipart/form-data">
                     {% csrf_token %}
                     <input type="file" id="fileInput" name="file" accept="image/*,video/*" style="display:none">
@@ -357,6 +362,53 @@
 
     const EMOJIS = ['😊','😂','❤️','👍','😍','🎉','😢','😡','🤔','🙏','👋','✨','🔥','💯','⭐','😎','🤩','😇','💪','👀','🎁','🏆','🎨','🎵'];
     document.getElementById('emojiGrid').innerHTML = EMOJIS.map(e => `<button onclick="insertEmoji('${e}')">${e}</button>`).join('');
+
+    function formatLocalTime(isoString) {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function formatLocalDate(isoString) {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+
+        if (date.toDateString() === today.toDateString()) {
+            return 'сегодня';
+        } else if (date.toDateString() === yesterday.toDateString()) {
+            return 'вчера';
+        } else {
+            return date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+    }
+    let replyToMessageId = null;
+    let replyToAuthor = null;
+    let replyToContent = null;
+
+    function setReply(messageId, author, content) {
+        replyToMessageId = messageId;
+        replyToAuthor = author;
+        replyToContent = content;
+
+        const preview = document.getElementById('replyPreview');
+        if (preview) {
+            document.getElementById('replyAuthor').textContent = author;
+            const shortContent = content.length > 60 ? content.substring(0, 60) + '...' : content;
+            document.getElementById('replyContent').textContent = shortContent;
+            preview.style.display = 'block';
+        }
+        document.getElementById('messageInput').focus();
+    }
+
+    function cancelReply() {
+        replyToMessageId = null;
+        replyToAuthor = null;
+        replyToContent = null;
+        document.getElementById('replyPreview').style.display = 'none';
+    }
 
     // === ФИЛЬТРАЦИЯ ЧАТОВ ===
     function initFilters() {
@@ -925,104 +977,127 @@
         document.body.style.overflow = '';
     }
 
-    function renderMessage(msg) {
-        const isOwn = msg.is_own;
-        const avaHtml = isOwn ? '' : `<div class="tg-msg-ava">${msg.author_avatar ? `<img src="${msg.author_avatar}" alt="">` : `<span class="tg-msg-ava-alt">${msg.author_name[0].toUpperCase()}</span>`}</div>`;
+function renderMessage(msg) {
+    const isOwn = msg.is_own;
+    const avaHtml = isOwn ? '' : `<div class="tg-msg-ava">${msg.author_avatar ? `<img src="${msg.author_avatar}" alt="">` : `<span class="tg-msg-ava-alt">${msg.author_name[0].toUpperCase()}</span>`}</div>`;
 
-        let contentHtml = '';
-        if (msg.file_url) {
-            if (msg.file_type === 'image') {
-                contentHtml += `<div class="tg-msg-img" onclick="openLightbox('${msg.file_url}','image',event)" oncontextmenu="showImageContextMenu(event,'${msg.file_url}','image',${msg.id})"><img src="${msg.file_url}" alt="" loading="lazy"></div>`;
-            } else if (msg.file_type === 'video') {
-                contentHtml += `<div class="tg-msg-video" onclick="openLightbox('${msg.file_url}','video',event)" oncontextmenu="showImageContextMenu(event,'${msg.file_url}','video',${msg.id})"><video src="${msg.file_url}" preload="metadata"></video><div class="tg-video-play">▶</div></div>`;
-            } else {
-                contentHtml += `<a href="${msg.file_url}" class="tg-msg-file" download><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Файл</a>`;
-            }
-        }
-        if (msg.content) {
-            contentHtml += `<div class="tg-msg-bubble">${msg.is_deleted ? '<span style="opacity:.5;font-style:italic">Сообщение удалено</span>' : escapeHtml(msg.content)}</div>`;
-        }
-
-        let reactionsHtml = '';
-        if (msg.reactions && Object.keys(msg.reactions).length > 0) {
-            reactionsHtml = `<div class="tg-msg-reactions" id="reactions-${msg.id}">` +
-                Object.entries(msg.reactions).map(([emoji, count]) =>
-                    `<span class="tg-reaction" onclick="toggleReaction(${msg.id},'${emoji}')">${emoji} <small>${count}</small></span>`
-                ).join('') + '</div>';
-        }
-
-        // Форматирование полной даты
-        function formatFullDate(dateString) {
-            if (!dateString) return null;
-            const date = new Date(dateString);
-            if (isNaN(date.getTime())) return null;
-            return date.toLocaleString('ru-RU', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        }
-
-        // Статусы для своих сообщений с тултипами
-        let statusHtml = '';
-        if (isOwn) {
-            const createdFull = formatFullDate(msg.created_at_full || msg.created_at);
-
-            if (msg.is_read) {
-                const readFull = formatFullDate(msg.read_at);
-                statusHtml = `<div class="message-status read" data-message-id="${msg.id}" data-status="read">
-                    <svg class="status-read" width="16" height="16" viewBox="0 0 24 24" fill="#4fc877">
-                        <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
-                    </svg>
-                    <span class="status-tooltip">
-                        <span class="tooltip-title">Прочитано</span>
-                        <span class="tooltip-time">${readFull || createdFull}</span>
-                    </span>
-                </div>`;
-            } else if (msg.is_delivered) {
-                statusHtml = `<div class="message-status delivered" data-message-id="${msg.id}" data-status="delivered">
-                    <svg class="status-delivered" width="16" height="16" viewBox="0 0 24 24" fill="#9aa7b4">
-                        <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
-                    </svg>
-                    <span class="status-tooltip">
-                        <span class="tooltip-title">Доставлено</span>
-                        <span class="tooltip-time">${createdFull}</span>
-                    </span>
-                </div>`;
-            } else {
-                statusHtml = `<div class="message-status sent" data-message-id="${msg.id}" data-status="sent">
-                    <svg class="status-sent" width="16" height="16" viewBox="0 0 24 24" fill="#9aa7b4">
-                        <circle cx="12" cy="12" r="2"/>
-                    </svg>
-                    <span class="status-tooltip">
-                        <span class="tooltip-title">Отправлено</span>
-                        <span class="tooltip-time">${createdFull}</span>
-                    </span>
-                </div>`;
-            }
-        }
-
-        // Отправка ресита о прочтении при отображении чужого сообщения
-        if (!isOwn && !msg.is_read) {
-            setTimeout(() => {
-                sendReadReceipt(msg.id);
-            }, 500);
-        }
-
-        return `<div class="tg-msg ${isOwn ? 'tg-msg-own' : ''}" data-id="${msg.id}" data-content="${escapeHtml(msg.content)}" data-isown="${isOwn}" oncontextmenu="showContextMenu(event, ${msg.id}, '${escapeHtml(msg.content)}', ${isOwn})">
-            ${avaHtml}
-            <div class="tg-msg-content">
-                ${contentHtml}
-                ${reactionsHtml}
-                <div class="tg-msg-meta">
-                    <span class="tg-msg-time">${msg.created_at}</span>
-                    ${statusHtml}
-                </div>
+    // === ОТОБРАЖЕНИЕ ОТВЕТА НА СООБЩЕНИЕ (ЦИТАТА) ===
+    let replyHtml = '';
+    if (msg.reply_to && msg.reply_to.content) {
+        replyHtml = `
+            <div class="tg-msg-reply" style="background: var(--color-bg-elevated, #f3f4f6); padding: 6px 10px; border-radius: 10px; margin-bottom: 6px; border-left: 3px solid #3b82f6; cursor: pointer;" onclick="scrollToMessage(${msg.reply_to.id})">
+                <div style="font-weight: 600; font-size: 12px; color: #3b82f6;">${escapeHtml(msg.reply_to.author_name)}</div>
+                <div style="font-size: 12px; color: var(--color-text-secondary, #6b7280);">${escapeHtml(msg.reply_to.content.length > 80 ? msg.reply_to.content.substring(0, 80) + '...' : msg.reply_to.content)}</div>
             </div>
-        </div>`;
+        `;
     }
+
+    let contentHtml = '';
+    if (msg.file_url) {
+        if (msg.file_type === 'image') {
+            contentHtml += `<div class="tg-msg-img" onclick="openLightbox('${msg.file_url}','image',event)" oncontextmenu="showImageContextMenu(event,'${msg.file_url}','image',${msg.id})"><img src="${msg.file_url}" alt="" loading="lazy"></div>`;
+        } else if (msg.file_type === 'video') {
+            contentHtml += `<div class="tg-msg-video" onclick="openLightbox('${msg.file_url}','video',event)" oncontextmenu="showImageContextMenu(event,'${msg.file_url}','video',${msg.id})"><video src="${msg.file_url}" preload="metadata"></video><div class="tg-video-play">▶</div></div>`;
+        } else {
+            contentHtml += `<a href="${msg.file_url}" class="tg-msg-file" download><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Файл</a>`;
+        }
+    }
+    if (msg.content) {
+        contentHtml += `<div class="tg-msg-bubble">${msg.is_deleted ? '<span style="opacity:.5;font-style:italic">Сообщение удалено</span>' : escapeHtml(msg.content)}</div>`;
+    }
+
+    let reactionsHtml = '';
+    if (msg.reactions && Object.keys(msg.reactions).length > 0) {
+        reactionsHtml = `<div class="tg-msg-reactions" id="reactions-${msg.id}">` +
+            Object.entries(msg.reactions).map(([emoji, count]) =>
+                `<span class="tg-reaction" onclick="toggleReaction(${msg.id},'${emoji}')">${emoji} <small>${count}</small></span>`
+            ).join('') + '</div>';
+    }
+
+    // Функция для форматирования полной даты
+    function formatFullDate(dateString) {
+        if (!dateString) return null;
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return null;
+        return date.toLocaleString('ru-RU', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    // Статусы для своих сообщений с тултипами
+    let statusHtml = '';
+    if (isOwn) {
+        const createdFull = formatFullDate(msg.created_at_full || msg.created_at);
+
+        if (msg.is_read) {
+            const readFull = formatFullDate(msg.read_at);
+            statusHtml = `<div class="message-status read" data-message-id="${msg.id}" data-status="read">
+                <svg class="status-read" width="16" height="16" viewBox="0 0 24 24" fill="#4fc877">
+                    <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+                </svg>
+                <span class="status-tooltip">
+                    <span class="tooltip-title">Прочитано</span>
+                    <span class="tooltip-time">${readFull || createdFull}</span>
+                </span>
+            </div>`;
+        } else if (msg.is_delivered) {
+            statusHtml = `<div class="message-status delivered" data-message-id="${msg.id}" data-status="delivered">
+                <svg class="status-delivered" width="16" height="16" viewBox="0 0 24 24" fill="#9aa7b4">
+                    <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
+                </svg>
+                <span class="status-tooltip">
+                    <span class="tooltip-title">Доставлено</span>
+                    <span class="tooltip-time">${createdFull}</span>
+                </span>
+            </div>`;
+        } else {
+            statusHtml = `<div class="message-status sent" data-message-id="${msg.id}" data-status="sent">
+                <svg class="status-sent" width="16" height="16" viewBox="0 0 24 24" fill="#9aa7b4">
+                    <circle cx="12" cy="12" r="2"/>
+                </svg>
+                <span class="status-tooltip">
+                    <span class="tooltip-title">Отправлено</span>
+                    <span class="tooltip-time">${createdFull}</span>
+                </span>
+            </div>`;
+        }
+    }
+
+    // Отправка ресита о прочтении при отображении чужого сообщения
+    if (!isOwn && !msg.is_read) {
+        setTimeout(() => {
+            sendReadReceipt(msg.id);
+        }, 500);
+    }
+
+    return `<div class="tg-msg ${isOwn ? 'tg-msg-own' : ''}" data-id="${msg.id}" data-content="${escapeHtml(msg.content)}" data-isown="${isOwn}" oncontextmenu="showContextMenu(event, ${msg.id}, '${escapeHtml(msg.content)}', ${isOwn}, '${escapeHtml(msg.author_name)}')">
+        ${avaHtml}
+        <div class="tg-msg-content">
+            ${replyHtml}
+            ${contentHtml}
+            ${reactionsHtml}
+            <div class="tg-msg-meta">
+                <span class="tg-msg-time">${formatLocalTime(msg.created_at_full || msg.created_at)}</span>
+                ${statusHtml}
+            </div>
+        </div>
+    </div>`;
+}
+
+function scrollToMessage(messageId) {
+    const messageElement = document.querySelector(`.tg-msg[data-id="${messageId}"]`);
+    if (messageElement) {
+        messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        messageElement.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+        setTimeout(() => {
+            messageElement.style.backgroundColor = '';
+        }, 2000);
+    }
+}
 
     // Функция отправки ресита о прочтении
     function sendReadReceipt(messageId) {
@@ -1330,24 +1405,32 @@
     }
 
     // === КОНТЕКСТНОЕ МЕНЮ ===
-    function showContextMenu(e, msgId, content, isOwn) {
+    function showContextMenu(e, msgId, content, isOwn, authorName) {
         e.preventDefault();
         contextMessageId = msgId;
         contextMessageContent = content;
+        contextMessageAuthor = authorName;  // ← используем переданное имя
         editMessageId = msgId;
 
         const menu = document.getElementById('contextMenu');
+        if (!menu) return;
+
         menu.style.display = 'block';
         menu.style.left = Math.min(e.clientX, window.innerWidth - 200) + 'px';
         menu.style.top = Math.min(e.clientY, window.innerHeight - 180) + 'px';
 
         const rp = document.getElementById('reactionPicker');
-        rp.style.display = 'flex';
-        rp.style.left = Math.min(e.clientX - 40, window.innerWidth - 250) + 'px';
-        rp.style.top = (e.clientY - 60) + 'px';
-        rp.dataset.messageId = msgId;
+        if (rp) {
+            rp.style.display = 'flex';
+            rp.style.left = Math.min(e.clientX - 40, window.innerWidth - 250) + 'px';
+            rp.style.top = (e.clientY - 60) + 'px';
+            rp.dataset.messageId = msgId;
+        }
 
-        document.querySelectorAll('.ctx-own-only').forEach(b => b.style.display = isOwn ? 'flex' : 'none');
+        document.querySelectorAll('.ctx-own-only').forEach(b => {
+            b.style.display = isOwn ? 'flex' : 'none';
+        });
+
         document.addEventListener('click', closeContexts, { once: true });
     }
 
@@ -1356,7 +1439,12 @@
         document.getElementById('reactionPicker').style.display = 'none';
     }
 
-    function contextReply() { const inp = document.getElementById('messageInput'); inp.value = '> ' + contextMessageContent.substring(0, 50) + '\n'; inp.focus(); closeContexts(); }
+    function contextReply() {
+        if (contextMessageId && contextMessageContent) {
+            setReply(contextMessageId, contextMessageAuthor || 'Пользователь', contextMessageContent);
+        }
+        closeContexts();
+    }
     function contextCopy() { navigator.clipboard.writeText(contextMessageContent).catch(() => {}); closeContexts(); }
     function contextEdit() { closeContexts(); openEditModal(contextMessageId, contextMessageContent); }
     async function contextDelete() {
@@ -1448,6 +1536,9 @@
 
         if (content) fd.append('content', content);
         if (file) fd.append('file', file);
+        if (replyToMessageId) {
+            fd.append('reply_to', replyToMessageId);
+        }
 
         // Временно блокируем
         sendBtn.disabled = true;
@@ -1462,9 +1553,10 @@
             const data = await response.json();
 
             if (response.ok && data.status === 'ok') {
+                cancelReply();
                 messageInput.value = '';
                 fileInput.value = '';
-                sendBtn.disabled = true;
+                sendBtn.disabled = false;
 
                 // Перезагружаем сообщения
                 await loadMessages(currentChatId);
@@ -1978,6 +2070,7 @@
         padding: 8px 16px; background: #e8eaed;
         border-top: 1px solid #d1d5db; flex-shrink: 0;
     }
+
     .tg-input-form { display: flex; align-items: flex-end; gap: 6px; }
 
     .tg-clip-btn, .tg-send-btn {

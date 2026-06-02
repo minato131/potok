@@ -86,38 +86,26 @@ def create_follow_notification(sender, instance, created, **kwargs):
 
 
 # ========== Уведомления о дружбе (Friendship) ==========
-@receiver(post_save, sender=Friendship)
-def create_friendship_notification(sender, instance, created, **kwargs):
-    """Уведомление о новом друге"""
-    if created:
-        notification = Notification.create_notification(
-            recipient=instance.friend,
-            sender=instance.user,
-            notification_type='follow',
-            title='Новый друг 🤝',
-            message=f'{instance.user.username} добавил вас в друзья',
-            link=f'/accounts/profile/{instance.user.username}/'
-        )
-
-        if notification:
-            unread_count = Notification.objects.filter(
-                recipient=instance.friend,
-                is_read=False
-            ).count()
-
-            send_websocket_notification(
-                instance.friend.id,
-                {
-                    'id': notification.id,
-                    'title': notification.title,
-                    'message': notification.message,
-                    'created_at': notification.created_at.isoformat(),
-                    'notification_type': 'follow',
-                    'link': notification.link
-                },
-                unread_count
-            )
-
+# @receiver(post_save, sender=Friendship)
+# def create_friendship_notification(sender, instance, created, **kwargs):
+#     # Уведомление только когда статус стал 'accepted'
+#     if instance.status == 'accepted':
+#         # Проверяем, не было ли уже уведомления
+#         existing = Notification.objects.filter(
+#             recipient=instance.friend,
+#             sender=instance.user,
+#             notification_type='friend_accept'
+#         ).first()
+#
+#         if not existing:
+#             notification = Notification.create_notification(
+#                 recipient=instance.friend,
+#                 sender=instance.user,
+#                 notification_type='friend_accept',
+#                 title='Новый друг 🤝',
+#                 message=f'{instance.user.username} добавил вас в друзья',
+#                 link=f'/accounts/profile/{instance.user.username}/'
+#             )
 
 # ========== Уведомления при отметке прочитанных ==========
 @receiver(post_save, sender=Notification)

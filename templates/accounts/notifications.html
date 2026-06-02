@@ -509,12 +509,18 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     function getCsrfToken() {
-        let value = null;
-        document.cookie.split(';').forEach(c => {
-            const [key, val] = c.trim().split('=');
-            if (key === 'csrftoken') value = decodeURIComponent(val);
-        });
-        return value;
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, 10) === 'csrftoken=') {
+                    cookieValue = decodeURIComponent(cookie.substring(10));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
     }
 
     function showToast(message, type = 'success') {
@@ -548,10 +554,41 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Клик по уведомлению
     document.querySelectorAll('.notification-item').forEach(item => {
-        item.addEventListener('click', function(e) {
+        item.addEventListener('click', async function(e) {
+            // Если кликнули по кнопке "прочитано" — не обрабатываем
             if (e.target.closest('.mark-read-btn')) return;
+
             const link = this.dataset.link;
-            if (link && link !== '#') window.location.href = link;
+            const notificationId = this.dataset.id;
+
+            // Отмечаем как прочитанное через AJAX
+            if (notificationId) {
+                try {
+                    await fetch(`/accounts/notifications/${notificationId}/mark-read/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCsrfToken(),
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+                    // Убираем класс unread и кнопку
+                    this.classList.remove('unread');
+                    this.classList.add('read');
+                    const btn = this.querySelector('.mark-read-btn');
+                    if (btn) btn.remove();
+
+                    // Обновляем счётчик в шапке
+                    updateHeaderCounter();
+
+                } catch(e) {
+                    console.error('Error marking as read:', e);
+                }
+            }
+
+            // Переходим по ссылке
+            if (link && link !== '#') {
+                window.location.href = link;
+            }
         });
     });
 
