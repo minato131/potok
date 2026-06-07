@@ -171,6 +171,37 @@ class Post(models.Model):
         null=True,
         verbose_name='Видео'
     )
+    image2 = models.ImageField(
+        upload_to='posts/images/%Y/%m/%d/',
+        blank=True,
+        null=True,
+        verbose_name='Изображение 2'
+    )
+    image3 = models.ImageField(
+        upload_to='posts/images/%Y/%m/%d/',
+        blank=True,
+        null=True,
+        verbose_name='Изображение 3'
+    )
+    image4 = models.ImageField(
+        upload_to='posts/images/%Y/%m/%d/',
+        blank=True,
+        null=True,
+        verbose_name='Изображение 4'
+    )
+    image5 = models.ImageField(
+        upload_to='posts/images/%Y/%m/%d/',
+        blank=True,
+        null=True,
+        verbose_name='Изображение 5'
+    )
+
+    video2 = models.FileField(
+        upload_to='posts/videos/%Y/%m/%d/',
+        blank=True,
+        null=True,
+        verbose_name='Видео 2'
+    )
 
     # Статистика
     views_count = models.PositiveIntegerField(
@@ -228,10 +259,14 @@ class Post(models.Model):
         self.save(update_fields=['views_count'])
 
     def delete(self, *args, **kwargs):
-        if self.image:
-            self.image.delete(save=False)
-        if self.video:
-            self.video.delete(save=False)
+        # Удаляем все изображения
+        for img in self.get_all_images():
+            if img:
+                img.delete(save=False)
+        # Удаляем все видео
+        for vid in self.get_all_videos():
+            if vid:
+                vid.delete(save=False)
         super().delete(*args, **kwargs)
 
     def get_clean_content(self):
@@ -247,6 +282,35 @@ class Post(models.Model):
         content = content.replace('\r\n', '\n')
         content = content.replace('\r', '\n')
         return content
+
+    def get_all_images(self):
+        """Вернуть список всех изображений"""
+        images = []
+        if self.image:
+            images.append(self.image)
+        if hasattr(self, 'image2') and self.image2:
+            images.append(self.image2)
+        if hasattr(self, 'image3') and self.image3:
+            images.append(self.image3)
+        if hasattr(self, 'image4') and self.image4:
+            images.append(self.image4)
+        if hasattr(self, 'image5') and self.image5:
+            images.append(self.image5)
+        return images
+
+    def get_all_videos(self):
+        """Вернуть список всех видео"""
+        videos = []
+        if self.video:
+            videos.append(self.video)
+        if hasattr(self, 'video2') and self.video2:
+            videos.append(self.video2)
+        return videos
+
+    def get_first_image(self):
+        """Вернуть первое изображение для превью"""
+        images = self.get_all_images()
+        return images[0] if images else None
 
 
 class Comment(models.Model):

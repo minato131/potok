@@ -20,6 +20,10 @@ import csv
 import json
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from django.http import JsonResponse
+from django.db.models import Q
+from accounts.models import Friendship, Follow
+from django.db.models import Case, When, Value, IntegerField
 
 from io import StringIO, BytesIO
 from django.http import HttpResponse
@@ -1754,6 +1758,73 @@ def group_participants_search_api(request):
             'username': user.username,
             'full_name': user.get_full_name(),
             'avatar': user.profile.avatar.url if user.profile.avatar else '',
+        })
+
+    return JsonResponse(results, safe=False)
+
+
+def api_search_users(request):
+    """API для поиска пользователей (только друзья и подписчики)"""
+    query = request.GET.get('q', '').strip()
+    filter_type = request.GET.get('filter', 'all')  # all, friends, followers
+
+    if not request.user.is_authenticated:
+        return JsonResponse([], safe=False)
+
+    # Базовый QuerySet — только друзья и подписчики
+    # Получаем ID друзей
+    friends_ids = list(Friendship.objects.filter(
+        user=request.user,
+        status='accepted'
+    ).values_list('friend_id', flat=True))
+
+    # Получаем ID подписчиков (кто подписан на текущего пользователя)
+    followers_ids = list(Follow.objects.filter(
+        following=request.user
+    ).values_list('follower_id', flat=True))
+
+    # Объединяем: друзья + подписчики
+    allowed_ids = set(friends_ids) | set(followers_ids)
+
+    # Если нужны только друзья
+    if filter_type == 'friends':
+        allowed_ids = set(friends_ids)
+    elif filter_type == 'followers':
+        allowed_ids = set(followers_ids)
+    # else 'all' — друзья + подписчики
+
+    # Если нет никого для отображения
+    if not allowed_ids:
+        return JsonResponse([], safe=False)
+
+    users = User.objects.filter(id__in=allowed_ids).select_related('profile')
+
+    # Поиск по тексту
+    if len(query) >= 2:
+        users = users.filter(
+            Q(username__icontains=query) |
+            Q(first_name__icontains=query) |
+            Q(last_name__icontains=query)
+        )
+
+    # Сортируем: сначала друзья, потом подписчики
+    users = users.annotate(
+        is_friend=Case(
+            When(id__in=friends_ids, then=Value(1)),
+            default=Value(0),
+            output_field=IntegerField()
+        )
+    ).order_by('-is_friend', 'username')[:20]
+
+    results = []
+    for user in users:
+        results.append({
+            'id': user.id,
+            'username': user.username,
+            'full_name': user.get_full_name() or user.username,
+            'avatar': user.profile.avatar.url if hasattr(user, 'profile') and user.profile.avatar else None,
+            'is_friend': user.id in friends_ids,
+            'is_follower': user.id in followers_ids,
         })
 
     return JsonResponse(results, safe=False)

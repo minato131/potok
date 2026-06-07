@@ -274,6 +274,254 @@
             color: #e0e0e0 !important;
         }
     }
+
+        /* ========== ПОДМЕНЮ ДЛЯ СОХРАНЕНИЯ МЕДИА - ПРИНУДИТЕЛЬНЫЕ СТИЛИ ========== */
+
+    /* Контейнер подменю - МАКСИМАЛЬНО ШИРОКИЙ */
+    .save-submenu-visual {
+        position: fixed !important;
+        left: 50% !important;
+        top: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        background: var(--color-bg-surface) !important;
+        border-radius: 20px !important;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3) !important;
+        z-index: 999999 !important;
+        border: 1px solid var(--color-border) !important;
+        width: 90vw !important;
+        max-width: 800px !important;
+        min-width: 600px !important;
+        padding: 20px !important;
+        max-height: 85vh !important;
+        overflow-y: auto !important;
+        display: none !important;
+    }
+
+    /* Показываем при наведении или активном классе */
+    .menu-item.has-submenu:hover > .save-submenu-visual,
+    .menu-item.has-submenu.active > .save-submenu-visual {
+        display: block !important;
+    }
+
+    /* Группа медиа */
+    .submenu-group {
+        margin-bottom: 20px !important;
+        width: 100% !important;
+    }
+
+    .submenu-group:last-child {
+        margin-bottom: 0 !important;
+    }
+
+    /* Заголовок */
+    .submenu-label {
+        padding: 10px 16px !important;
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        color: var(--color-text-secondary) !important;
+        background: var(--color-bg-elevated) !important;
+        border-radius: 12px !important;
+        margin-bottom: 16px !important;
+    }
+
+    /* Сетка - 5 колонок для максимального количества */
+    .submenu-media-grid {
+        display: grid !important;
+        grid-template-columns: repeat(5, 1fr) !important;
+        gap: 16px !important;
+        padding: 8px !important;
+    }
+
+    /* Карточка */
+    .submenu-media-item {
+        position: relative !important;
+        cursor: pointer !important;
+        border-radius: 12px !important;
+        overflow: hidden !important;
+        transition: all 0.2s ease !important;
+        background: var(--color-bg-elevated) !important;
+        border: 2px solid var(--color-border-light) !important;
+    }
+
+    .submenu-media-item:hover {
+        transform: scale(1.05) !important;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2) !important;
+        border-color: var(--color-primary) !important;
+    }
+
+    /* Миниатюра */
+    .submenu-thumb {
+        width: 100% !important;
+        aspect-ratio: 1 / 1 !important;
+        object-fit: cover !important;
+        display: block !important;
+    }
+
+    /* Бейдж */
+    .submenu-media-type {
+        position: absolute !important;
+        bottom: 8px !important;
+        right: 8px !important;
+        background: rgba(0, 0, 0, 0.8) !important;
+        color: white !important;
+        font-size: 11px !important;
+        font-weight: 600 !important;
+        padding: 4px 10px !important;
+        border-radius: 20px !important;
+        backdrop-filter: blur(4px) !important;
+    }
+
+    /* Мобильная версия */
+    @media (max-width: 768px) {
+        .save-submenu-visual {
+            width: 95vw !important;
+            min-width: 95vw !important;
+            max-width: 95vw !important;
+            padding: 16px !important;
+        }
+
+        .submenu-media-grid {
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 12px !important;
+        }
+    }
+
+    @media (max-width: 500px) {
+        .submenu-media-grid {
+            grid-template-columns: repeat(2, 1fr) !important;
+            gap: 10px !important;
+        }
+    }
+
+    /* Скроллбар */
+    .save-submenu-visual::-webkit-scrollbar {
+        width: 8px !important;
+    }
+
+    .save-submenu-visual::-webkit-scrollbar-track {
+        background: var(--color-bg-elevated) !important;
+        border-radius: 4px !important;
+    }
+
+    .save-submenu-visual::-webkit-scrollbar-thumb {
+        background: var(--color-primary) !important;
+        border-radius: 4px !important;
+    }
+    /* ========== ФИКСЫ МЕНЮ И МОДАЛОК ========== */
+
+    /* Меню поста - ниже модалок */
+    .post-menu-dropdown {
+        z-index: 1000 !important;
+    }
+
+    /* Модалка удаления - поверх всего */
+    .custom-confirm-modal,
+    #confirmModal,
+    .confirm-modal-overlay {
+        z-index: 200000 !important;
+    }
+
+    /* Затемнение фона модалки */
+    .custom-confirm-overlay,
+    .confirm-modal-backdrop {
+        z-index: 199999 !important;
+    }
+
+    /* Подменю сохранения - тоже ниже модалок */
+    .save-submenu-visual {
+        z-index: 1001 !important;
+    }
+
+    /* При открытой модалке удаления - скрываем меню поста */
+    body:has(.custom-confirm-modal.active) .post-menu-dropdown,
+    body:has(.confirm-modal-overlay) .post-menu-dropdown {
+        display: none !important;
+    }
+
+    /* Родительский контейнер кнопки меню */
+    .post-vk-header > div:last-child,
+    .post-vk-header .menu-wrapper {
+        position: relative;
+    }
+
+    /* Кнопка меню */
+    .post-vk-menu-btn {
+        position: relative;
+        z-index: 10;
+    }
+
+    /* Выпадающее меню */
+    .post-menu-dropdown {
+        position: fixed;
+        background: var(--color-bg-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        min-width: 220px;
+        z-index: 100000;
+        padding: 8px;
+        display: none;
+        flex-direction: column;
+    }
+
+    /* Показываем меню при открытии */
+    .post-menu-dropdown.open {
+        display: flex !important;
+    }
+
+    /* Элементы меню */
+    .post-menu-dropdown .menu-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        font-size: 0.9rem;
+        width: 100%;
+        box-sizing: border-box;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.2s;
+        color: var(--color-text);
+        background: transparent;
+        border: none;
+    }
+
+    .post-menu-dropdown .menu-item:hover {
+        background: var(--color-bg-elevated, #f3f4f6);
+    }
+
+    .post-menu-dropdown .menu-item.danger {
+        color: #ef4444;
+    }
+
+    .post-menu-dropdown .menu-item.danger:hover {
+        background: #fee2e2;
+    }
+
+    .post-menu-dropdown .menu-item i,
+    .post-menu-dropdown .menu-item svg {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+    }
+
+    .post-menu-dropdown .menu-divider {
+        height: 1px;
+        background: var(--color-border, #e5e7eb);
+        margin: 6px 0;
+    }
+
+    /* Элемент с подменю */
+    .post-menu-dropdown .menu-item.has-submenu {
+        justify-content: space-between;
+        position: relative;
+    }
+
+    .post-menu-dropdown .menu-item.has-submenu > i:last-child,
+    .post-menu-dropdown .menu-item.has-submenu > svg:last-child {
+        margin-left: auto;
+    }
 </style>
 
 <div class="home-container">
@@ -756,13 +1004,72 @@ function renderMarkdown(raw){
 document.querySelectorAll('.markdown-preview').forEach(el=>{const raw=el.dataset.full||'';const truncated=raw.length>80?raw.substring(0,80)+'...':raw;el.innerHTML=renderMarkdown(truncated)});
 
 window.copyCommentLink=function(cid){const url=location.origin+'/post/'+cid+'#comment-'+cid;navigator.clipboard.writeText(url).then(()=>notify('Ссылка скопирована'))};
-window.togglePostMenu=function(btn){const menu=btn.parentElement.querySelector('.post-menu-dropdown');document.querySelectorAll('.post-menu-dropdown').forEach(m=>{if(m!==menu)m.style.display='none'});menu.style.display=menu.style.display==='none'?'block':'none'};
+window.togglePostMenu = function(btn) {
+    event.stopPropagation();
+    const menu = btn.parentElement.querySelector('.post-menu-dropdown');
+
+    if (!menu) return;
+
+    // Закрываем все другие открытые меню
+    document.querySelectorAll('.post-menu-dropdown.open').forEach(m => {
+        if (m !== menu) {
+            m.classList.remove('open');
+            m.style.display = 'none';
+        }
+    });
+
+    // Получаем координаты кнопки
+    const rect = btn.getBoundingClientRect();
+
+    // Позиционируем меню рядом с кнопкой
+    menu.style.position = 'fixed';
+    menu.style.top = (rect.bottom + 4) + 'px';
+    menu.style.left = (rect.right - 220) + 'px'; // 220 - примерная ширина меню
+
+    // Корректировка, если меню выходит за правый край
+    if (rect.right - 220 < 10) {
+        menu.style.left = (rect.right - 240) + 'px';
+    }
+
+    // Корректировка, если меню выходит за левый край
+    if (rect.right - 220 < 0) {
+        menu.style.left = (rect.right + 10) + 'px';
+    }
+
+    // Корректировка, если меню выходит за нижний край
+    if (rect.bottom + menu.offsetHeight + 10 > window.innerHeight) {
+        menu.style.top = (rect.top - menu.offsetHeight - 4) + 'px';
+    }
+
+    // Переключаем текущее меню
+    if (menu.classList.contains('open')) {
+        menu.classList.remove('open');
+        menu.style.display = 'none';
+    } else {
+        menu.classList.add('open');
+        menu.style.display = 'flex';
+    }
+};
+
+// Закрытие меню при клике вне
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.post-vk-menu-btn') && !e.target.closest('.post-menu-dropdown')) {
+        document.querySelectorAll('.post-menu-dropdown.open').forEach(menu => {
+            menu.classList.remove('open');
+            menu.style.display = 'none';
+        });
+    }
+});
 window.toggleBookmark=async function(btn){const pid=btn.dataset.postId;const r=await fetch(`/bookmark/${pid}/toggle/`,{method:'POST',headers:{'X-CSRFToken':getCookie('csrftoken'),'X-Requested-With':'XMLHttpRequest'}});const d=await r.json();btn.classList.toggle('active',d.action==='added');btn.querySelector('span').textContent=d.action==='added'?'Убрать из закладок':'В закладки'};
 window.deletePost = async function(pid) {
+    // Закрываем все открытые меню
+    document.querySelectorAll('.post-menu-dropdown').forEach(menu => {
+        menu.style.display = 'none';
+    });
+
     showConfirmModal({
         title: 'Удаление поста',
         message: 'Вы действительно хотите удалить этот пост? Это действие нельзя отменить.',
-        iconType: 'danger',
         confirmText: 'Удалить',
         cancelText: 'Отмена',
         onConfirm: async () => {
@@ -1033,5 +1340,365 @@ window.deleteComment = async function(cid) {
     });
 };
 document.addEventListener('click',e=>{if(!e.target.closest('.comment-inline-tools')&&!e.target.closest('.cmt-tools')){document.querySelectorAll('.emoji-picker.open,.saved-picker.open').forEach(p=>p.classList.remove('open'))}});
+// ========== ФУНКЦИЯ ДЛЯ ВСПЛЫВАЮЩИХ СООБЩЕНИЙ ==========
+function showMessage(message, isError = false) {
+    const msgDiv = document.createElement('div');
+    msgDiv.textContent = message;
+    msgDiv.style.cssText = `
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        background: ${isError ? '#dc2626' : '#22c55e'};
+        color: white;
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 100002;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        animation: slideIn 0.3s ease;
+        cursor: pointer;
+    `;
+
+    // Добавляем анимацию, если её нет
+    if (!document.querySelector('#messageStyles')) {
+        const style = document.createElement('style');
+        style.id = 'messageStyles';
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    document.body.appendChild(msgDiv);
+
+    // Автоматическое исчезновение через 3 секунды
+    setTimeout(() => {
+        msgDiv.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => msgDiv.remove(), 300);
+    }, 3000);
+
+    // Закрытие по клику
+    msgDiv.onclick = () => {
+        msgDiv.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => msgDiv.remove(), 300);
+    };
+}
+
+// ========== МОДАЛКА ДЛЯ ПЕРЕСЫЛКИ В ЛС ==========
+let forwardPostId = null;
+let currentFilter = 'all';
+
+function openForwardModal(postId) {
+    forwardPostId = postId;
+
+    let modal = document.getElementById('forwardModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'forwardModal';
+        modal.innerHTML = `
+            <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:100001;display:flex;align-items:center;justify-content:center;">
+                <div style="background:var(--color-bg-surface);border-radius:20px;width:90%;max-width:450px;overflow:hidden;">
+                    <div style="padding:20px;border-bottom:1px solid var(--color-border);display:flex;justify-content:space-between;align-items:center;">
+                        <h3 style="margin:0;">Отправить пост</h3>
+                        <button onclick="closeForwardModal()" style="background:none;border:none;font-size:24px;cursor:pointer;">&times;</button>
+                    </div>
+
+                    <div style="padding:16px 20px;border-bottom:1px solid var(--color-border);">
+                        <div style="display:flex;gap:8px;margin-bottom:16px;">
+                            <button class="forward-filter-btn active" data-filter="all" style="flex:1;padding:10px;border-radius:12px;border:none;cursor:pointer;background:var(--color-primary);color:white;font-weight:500;">Все</button>
+                            <button class="forward-filter-btn" data-filter="friends" style="flex:1;padding:10px;border-radius:12px;border:1px solid var(--color-border);cursor:pointer;background:var(--color-bg-surface);color:var(--color-text);font-weight:500;">Друзья</button>
+                            <button class="forward-filter-btn" data-filter="followers" style="flex:1;padding:10px;border-radius:12px;border:1px solid var(--color-border);cursor:pointer;background:var(--color-bg-surface);color:var(--color-text);font-weight:500;">Подписчики</button>
+                        </div>
+                        <input type="text" id="forwardUserSearch" placeholder="Поиск..." autocomplete="off" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--color-border);background:var(--color-bg-elevated);">
+                    </div>
+
+                    <div id="forwardUserResults" style="max-height:400px;overflow-y:auto;padding:12px;">
+                        <div style="text-align:center;padding:20px;color:var(--color-text-tertiary);">Загрузка...</div>
+                    </div>
+
+                    <div style="padding:16px 20px;border-top:1px solid var(--color-border);display:flex;gap:12px;justify-content:flex-end;">
+                        <button onclick="closeForwardModal()" style="padding:8px 16px;border-radius:10px;border:1px solid var(--color-border);background:transparent;cursor:pointer;">Отмена</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        document.querySelectorAll('.forward-filter-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.forward-filter-btn').forEach(b => {
+                    b.classList.remove('active');
+                    b.style.background = 'var(--color-bg-surface)';
+                    b.style.color = 'var(--color-text)';
+                    b.style.border = '1px solid var(--color-border)';
+                });
+                this.classList.add('active');
+                this.style.background = 'var(--color-primary)';
+                this.style.color = 'white';
+                this.style.border = 'none';
+
+                currentFilter = this.dataset.filter;
+                const searchInput = document.getElementById('forwardUserSearch');
+                if (searchInput.value.trim().length >= 2) {
+                    searchForwardUsers(searchInput.value.trim());
+                } else {
+                    loadForwardUsers();
+                }
+            });
+        });
+
+        const searchInput = document.getElementById('forwardUserSearch');
+        let debounceTimer;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                const query = this.value.trim();
+                if (query.length >= 2) {
+                    searchForwardUsers(query);
+                } else {
+                    loadForwardUsers();
+                }
+            }, 300);
+        });
+    }
+
+    modal.style.display = 'flex';
+    document.getElementById('forwardUserSearch').value = '';
+    currentFilter = 'all';
+
+    document.querySelectorAll('.forward-filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+        btn.style.background = 'var(--color-bg-surface)';
+        btn.style.color = 'var(--color-text)';
+        btn.style.border = '1px solid var(--color-border)';
+    });
+    const allBtn = document.querySelector('.forward-filter-btn[data-filter="all"]');
+    if (allBtn) {
+        allBtn.classList.add('active');
+        allBtn.style.background = 'var(--color-primary)';
+        allBtn.style.color = 'white';
+        allBtn.style.border = 'none';
+    }
+
+    loadForwardUsers();
+    document.getElementById('forwardUserSearch').focus();
+}
+
+function closeForwardModal() {
+    const modal = document.getElementById('forwardModal');
+    if (modal) modal.style.display = 'none';
+    forwardPostId = null;
+}
+
+async function loadForwardUsers() {
+    const resultsDiv = document.getElementById('forwardUserResults');
+    resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--color-text-tertiary);">Загрузка...</div>';
+
+    try {
+        const response = await fetch(`/accounts/api/search-users/?filter=${currentFilter}`);
+        const users = await response.json();
+
+        if (users.length === 0) {
+            let emptyMessage = 'Нет пользователей для отправки';
+            if (currentFilter === 'friends') emptyMessage = 'У вас пока нет друзей';
+            if (currentFilter === 'followers') emptyMessage = 'На вас пока никто не подписан';
+            resultsDiv.innerHTML = `<div style="text-align:center;padding:40px;color:var(--color-text-tertiary);">${emptyMessage}</div>`;
+            return;
+        }
+
+        renderForwardUserList(users);
+
+    } catch (error) {
+        console.error('Load error:', error);
+        resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:red;">Ошибка загрузки</div>';
+    }
+}
+
+async function searchForwardUsers(query) {
+    const resultsDiv = document.getElementById('forwardUserResults');
+    resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--color-text-tertiary);">Поиск...</div>';
+
+    try {
+        const response = await fetch(`/accounts/api/search-users/?q=${encodeURIComponent(query)}&filter=${currentFilter}`);
+        const users = await response.json();
+
+        if (users.length === 0) {
+            resultsDiv.innerHTML = '<div style="text-align:center;padding:40px;color:var(--color-text-tertiary);">Пользователи не найдены</div>';
+            return;
+        }
+
+        renderForwardUserList(users);
+
+    } catch (error) {
+        console.error('Search error:', error);
+        resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:red;">Ошибка поиска</div>';
+    }
+}
+
+function renderForwardUserList(users) {
+    const resultsDiv = document.getElementById('forwardUserResults');
+
+    resultsDiv.innerHTML = users.map(user => `
+        <div onclick="sendForward('${user.id}')" class="forward-user-item" style="display:flex;align-items:center;gap:12px;padding:12px;cursor:pointer;border-radius:12px;transition:background 0.2s;margin-bottom:4px;">
+            <div style="width:48px;height:48px;border-radius:50%;overflow:hidden;background:var(--color-primary-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                ${user.avatar
+                    ? `<img src="${user.avatar}" style="width:100%;height:100%;object-fit:cover;">`
+                    : `<span style="font-size:20px;font-weight:600;">${escapeHtml(user.username.charAt(0).toUpperCase())}</span>`
+                }
+            </div>
+            <div style="flex:1;">
+                <div style="font-weight:600;">${escapeHtml(user.full_name)}</div>
+                <div style="font-size:13px;color:var(--color-text-tertiary);">@${escapeHtml(user.username)}</div>
+                ${user.is_friend ? '<span style="font-size:11px;color:#22c55e;margin-top:2px;display:inline-block;">Друг</span>' : ''}
+                ${!user.is_friend && user.is_follower ? '<span style="font-size:11px;color:#3b82f6;margin-top:2px;display:inline-block;">Подписчик</span>' : ''}
+            </div>
+            <button class="forward-send-btn" style="padding:6px 16px;border-radius:20px;background:var(--color-primary);color:white;border:none;cursor:pointer;font-size:13px;">Отправить</button>
+        </div>
+    `).join('');
+
+    resultsDiv.querySelectorAll('.forward-user-item').forEach(el => {
+        el.addEventListener('mouseenter', () => el.style.background = 'var(--color-bg-elevated)');
+        el.addEventListener('mouseleave', () => el.style.background = 'transparent');
+    });
+}
+
+async function sendForward(userId) {
+    if (!forwardPostId) return;
+
+    const item = event.target.closest('.forward-user-item');
+    const btn = item?.querySelector('.forward-send-btn');
+    if (btn) {
+        const originalText = btn.textContent;
+        btn.textContent = 'Отправка...';
+        btn.disabled = true;
+
+        try {
+            const response = await fetch(`/messenger/forward/${forwardPostId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: `user_id=${userId}`
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'ok') {
+                showMessage('Пост отправлен в личные сообщения', false);
+                closeForwardModal();
+            } else {
+                showMessage(data.error || 'Ошибка при отправке', true);
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        } catch (error) {
+            console.error('Forward error:', error);
+            showMessage('Ошибка при отправке', true);
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function getCookie(name) {
+    let value = null;
+    document.cookie.split(';').forEach(c => {
+        const [key, val] = c.trim().split('=');
+        if (key === name) value = decodeURIComponent(val);
+    });
+    return value;
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeForwardModal();
+});
+
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('forwardModal');
+    if (modal && modal.style.display === 'flex' && e.target === modal.firstChild) {
+        closeForwardModal();
+    }
+});
+// ========== СОХРАНЕНИЕ МЕДИА В МЕДИАТЕКУ (С ВЫБОРОМ) ==========
+window.saveMediaToLibrary = async function(mediaUrl, mediaType, postId) {
+    if (!mediaUrl) {
+        showMessage('Ошибка: URL не указан', true);
+        return;
+    }
+
+    // ПРЕОБРАЗУЕМ ОТНОСИТЕЛЬНЫЙ URL В ПОЛНЫЙ
+    let fullUrl = mediaUrl;
+    if (mediaUrl.startsWith('/')) {
+        fullUrl = window.location.origin + mediaUrl;
+    }
+
+    try {
+        const response = await fetch('/media-storage/save-from-url/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                url: fullUrl,  // ← передаём полный URL
+                media_type: mediaType,
+                post_id: postId
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success === true) {
+            showMessage(`✅ ${mediaType === 'image' ? 'Фото' : 'Видео'} сохранено в медиатеку`, false);
+        } else if (data.already_exists) {
+            showMessage(`⚠️ Этот ${mediaType === 'image' ? 'файл' : 'видео'} уже есть в вашей медиатеке`, false);
+        } else {
+            showMessage(`❌ Ошибка: ${data.error || 'Неизвестная ошибка'}`, true);
+        }
+    } catch (error) {
+        console.error('Save error:', error);
+        showMessage('❌ Ошибка при сохранении', true);
+    }
+};
+
+// Функция для открытия/закрытия подменю (для мобильных устройств)
+window.toggleSaveSubmenu = function(btn) {
+    const submenu = btn.querySelector('.save-submenu');
+    if (submenu) {
+        // Закрываем все другие подменю
+        document.querySelectorAll('.save-submenu').forEach(m => {
+            if (m !== submenu) m.style.display = 'none';
+        });
+        // Переключаем текущее
+        const isOpen = submenu.style.display === 'block';
+        submenu.style.display = isOpen ? 'none' : 'block';
+        btn.classList.toggle('active', !isOpen);
+    }
+};
+
+// Закрываем подменю при клике вне
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.has-submenu')) {
+        document.querySelectorAll('.save-submenu').forEach(m => m.style.display = 'none');
+        document.querySelectorAll('.has-submenu').forEach(btn => btn.classList.remove('active'));
+    }
+});
 </script>
 {% endblock %}

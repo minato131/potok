@@ -110,11 +110,11 @@ def data(request):
 
 @staff_member_required
 def export_pdf(request):
-    """Экспорт аналитики в PDF с фильтрами"""
+    """Экспорт аналитики в PDF с фильтрами и метаданными"""
 
     # ===== ПОЛУЧАЕМ ПАРАМЕТРЫ ФИЛЬТРАЦИИ =====
     days = int(request.GET.get('days', 30))
-    export_type = request.GET.get('type', 'full')  # Получаем тип экспорта
+    export_type = request.GET.get('type', 'full')
     date_from = request.GET.get('date_from')
     date_to = request.GET.get('date_to')
 
@@ -137,9 +137,7 @@ def export_pdf(request):
     start_date_obj = start_date.date() if hasattr(start_date, 'date') else start_date
     end_date_obj = end_date.date() if hasattr(end_date, 'date') else end_date
 
-    # ===== СОБИРАЕМ ДАННЫЕ В ЗАВИСИМОСТИ ОТ ТИПА =====
-
-    # Общая статистика (нужна для всех типов)
+    # ===== СОБИРАЕМ ДАННЫЕ =====
     total_stats = {
         'users': User.objects.count(),
         'posts': Post.objects.filter(status='published', is_hidden=False).count(),
@@ -149,7 +147,6 @@ def export_pdf(request):
         'reports': Report.objects.filter(status='pending').count(),
     }
 
-    # Статистика за период
     period_stats = {
         'days': days,
         'start_date': start_date_obj.isoformat() if hasattr(start_date_obj, 'isoformat') else str(start_date_obj),
@@ -233,8 +230,8 @@ def export_pdf(request):
     doc = SimpleDocTemplate(
         buffer,
         pagesize=landscape(A4),
-        rightMargin=10 * mm,
-        leftMargin=10 * mm,
+        rightMargin=8 * mm,
+        leftMargin=8 * mm,
         topMargin=15 * mm,
         bottomMargin=15 * mm
     )
@@ -242,17 +239,21 @@ def export_pdf(request):
     styles = getSampleStyleSheet()
 
     title_style = ParagraphStyle('CustomTitle', parent=styles['Normal'], fontName=font_bold, fontSize=20,
-                                 textColor=colors.HexColor('#2563eb'), alignment=TA_CENTER, spaceAfter=20)
+                                 textColor=colors.HexColor('#2563eb'), alignment=TA_CENTER, spaceAfter=10)
+    subtitle_style = ParagraphStyle('Subtitle', parent=styles['Normal'], fontName=font_name, fontSize=11,
+                                    textColor=colors.HexColor('#6b7280'), alignment=TA_CENTER, spaceAfter=5)
     heading_style = ParagraphStyle('CustomHeading', parent=styles['Normal'], fontName=font_bold, fontSize=14,
                                    textColor=colors.HexColor('#1f2937'), spaceAfter=10, spaceBefore=15)
     normal_style = ParagraphStyle('CustomNormal', parent=styles['Normal'], fontName=font_name, fontSize=9,
                                   alignment=TA_LEFT)
     center_style = ParagraphStyle('CenterStyle', parent=styles['Normal'], fontName=font_name, fontSize=9,
                                   alignment=TA_CENTER)
+    meta_style = ParagraphStyle('MetaStyle', parent=styles['Normal'], fontName=font_name, fontSize=10,
+                                textColor=colors.HexColor('#4b5563'), alignment=TA_CENTER, spaceAfter=3)
 
     elements = []
 
-    # Заголовок
+    # ========== ЗАГОЛОВОК ==========
     type_names = {
         'full': 'Полный отчёт',
         'summary': 'Краткий отчёт',
@@ -263,24 +264,28 @@ def export_pdf(request):
     }
     type_display = type_names.get(export_type, 'Аналитика')
 
-    elements.append(Paragraph(f"Аналитика платформы Поток — {type_display}", title_style))
-    elements.append(Paragraph(f"Период: {start_date_obj} - {end_date_obj}", center_style))
-    elements.append(Paragraph(f"Дата выгрузки: {datetime.now().strftime('%d.%m.%Y %H:%M')}", center_style))
-    elements.append(Spacer(1, 15 * mm))
+    elements.append(Paragraph(f"Аналитика платформы «Поток»", title_style))
+    elements.append(Paragraph(f"{type_display}", subtitle_style))
+    elements.append(Spacer(1, 5 * mm))
 
-    # В зависимости от типа экспорта показываем разные данные
+    # ========== МЕТАДАННЫЕ ОТЧЁТА ==========
+    elements.append(Paragraph(f"<b>Период отчёта:</b> {start_date_obj.strftime('%d.%m.%Y')} — {end_date_obj.strftime('%d.%m.%Y')}", meta_style))
+    elements.append(Paragraph(f"<b>Кто создал:</b> {request.user.get_full_name() or request.user.username} ({request.user.email})", meta_style))
+    elements.append(Paragraph(f"<b>Дата создания:</b> {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}", meta_style))
+    elements.append(Spacer(1, 10 * mm))
+
     if export_type in ['full', 'summary']:
         # Общая статистика
         elements.append(Paragraph("Общая статистика", heading_style))
         stats_data = [['Показатель', 'Значение']]
-        stats_data.append(['Пользователей', str(total_stats['users'])])
-        stats_data.append(['Постов', str(total_stats['posts'])])
-        stats_data.append(['Комментариев', str(total_stats['comments'])])
-        stats_data.append(['Лайков', str(total_stats['likes'])])
-        stats_data.append(['Сообществ', str(total_stats['communities'])])
-        stats_data.append(['Жалоб', str(total_stats['reports'])])
+        stats_data.append(['Всего пользователей', str(total_stats['users'])])
+        stats_data.append(['Всего постов', str(total_stats['posts'])])
+        stats_data.append(['Всего комментариев', str(total_stats['comments'])])
+        stats_data.append(['Всего лайков', str(total_stats['likes'])])
+        stats_data.append(['Всего сообществ', str(total_stats['communities'])])
+        stats_data.append(['Жалоб на модерации', str(total_stats['reports'])])
 
-        stats_table = Table(stats_data, colWidths=[100, 80])
+        stats_table = Table(stats_data, colWidths=[150, 90])
         stats_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#2563eb')),
             ('TEXTCOLOR', (0, 0), (1, 0), colors.white),
@@ -289,6 +294,8 @@ def export_pdf(request):
             ('FONTSIZE', (0, 0), (1, 0), 11),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
             ('FONTNAME', (0, 1), (-1, -1), font_name),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('PADDING', (0, 0), (-1, -1), 10),
         ]))
         elements.append(stats_table)
         elements.append(Spacer(1, 10 * mm))
@@ -302,13 +309,15 @@ def export_pdf(request):
         period_data.append(['Новых лайков', str(period_stats['new_likes'])])
         period_data.append(['Новых сообществ', str(period_stats['new_communities'])])
 
-        period_table = Table(period_data, colWidths=[100, 80])
+        period_table = Table(period_data, colWidths=[150, 90])
         period_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#374151')),
             ('TEXTCOLOR', (0, 0), (1, 0), colors.white),
             ('FONTNAME', (0, 0), (1, 0), font_bold),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
             ('FONTNAME', (0, 1), (-1, -1), font_name),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('PADDING', (0, 0), (-1, -1), 10),
         ]))
         elements.append(period_table)
         elements.append(Spacer(1, 10 * mm))
@@ -320,7 +329,7 @@ def export_pdf(request):
         for day in daily_stats[-30:]:
             activity_data.append([day['date'], str(day['users']), str(day['posts']), str(day['comments'])])
 
-        activity_table = Table(activity_data, colWidths=[50, 60, 50, 60])
+        activity_table = Table(activity_data, colWidths=[65, 80, 70, 80])
         activity_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#374151')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
@@ -330,6 +339,8 @@ def export_pdf(request):
             ('FONTSIZE', (0, 1), (-1, -1), 8),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
             ('FONTNAME', (0, 1), (-1, -1), font_name),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('PADDING', (0, 0), (-1, -1), 8),
         ]))
         elements.append(activity_table)
         elements.append(Spacer(1, 10 * mm))
@@ -341,7 +352,7 @@ def export_pdf(request):
         for i, user in enumerate(top_users, 1):
             users_data.append([str(i), user['username'], str(user['posts_count']), str(user['comments_count'])])
 
-        users_table = Table(users_data, colWidths=[30, 100, 50, 60])
+        users_table = Table(users_data, colWidths=[35, 180, 80, 80])
         users_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#374151')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
@@ -351,6 +362,8 @@ def export_pdf(request):
             ('FONTSIZE', (0, 1), (-1, -1), 8),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
             ('FONTNAME', (0, 1), (-1, -1), font_name),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('PADDING', (0, 0), (-1, -1), 10),
         ]))
         elements.append(users_table)
         elements.append(Spacer(1, 10 * mm))
@@ -360,11 +373,11 @@ def export_pdf(request):
         elements.append(Paragraph("Топ-10 популярных постов", heading_style))
         posts_data = [['#', 'Заголовок', 'Лайки', 'Комментарии', 'Просмотры']]
         for i, post in enumerate(top_posts, 1):
-            title = post['title'][:60] + '...' if len(post['title']) > 60 else post['title']
+            title = post['title'][:100] + '...' if len(post['title']) > 100 else post['title']
             posts_data.append(
                 [str(i), title, str(post['likes_count']), str(post['comments_count']), str(post['views_count'])])
 
-        posts_table = Table(posts_data, colWidths=[30, 180, 50, 60, 60])
+        posts_table = Table(posts_data, colWidths=[35, 300, 60, 70, 70])
         posts_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#374151')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
@@ -374,6 +387,8 @@ def export_pdf(request):
             ('FONTSIZE', (0, 1), (-1, -1), 8),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
             ('FONTNAME', (0, 1), (-1, -1), font_name),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('PADDING', (0, 0), (-1, -1), 10),
         ]))
         elements.append(posts_table)
         elements.append(Spacer(1, 10 * mm))
@@ -383,10 +398,11 @@ def export_pdf(request):
         elements.append(Paragraph("Топ-10 активных сообществ", heading_style))
         communities_data = [['#', 'Название', 'Участников', 'Постов']]
         for i, community in enumerate(top_communities, 1):
+            name = community['name'][:60] + '...' if len(community['name']) > 60 else community['name']
             communities_data.append(
-                [str(i), community['name'], str(community['members_count']), str(community['posts_count'])])
+                [str(i), name, str(community['members_count']), str(community['posts_count'])])
 
-        communities_table = Table(communities_data, colWidths=[30, 120, 60, 60])
+        communities_table = Table(communities_data, colWidths=[35, 260, 80, 80])
         communities_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#374151')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
@@ -396,8 +412,14 @@ def export_pdf(request):
             ('FONTSIZE', (0, 1), (-1, -1), 8),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
             ('FONTNAME', (0, 1), (-1, -1), font_name),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('PADDING', (0, 0), (-1, -1), 10),
         ]))
         elements.append(communities_table)
+
+    # ========== ПОДВАЛ ==========
+    elements.append(Spacer(1, 15 * mm))
+    elements.append(Paragraph("<i>Отчёт сгенерирован автоматически системой «Поток»</i>", center_style))
 
     # Собираем PDF
     doc.build(elements)

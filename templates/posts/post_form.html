@@ -134,89 +134,219 @@
             </div>
 
             <!-- Вкладка Фото -->
-            <div class="media-panel active" id="photoPanel">
-                <div class="photo-upload-area" id="photoUploadArea">
-                    {{ form.image }}
-                    <div class="upload-placeholder" id="photoPlaceholder">
-                        <i data-feather="upload-cloud"></i>
-                        <span>Нажмите или перетащите изображение</span>
-                        <span class="upload-hint">PNG, JPG, GIF до 10MB</span>
-                    </div>
-                    <div class="photo-preview-container" id="photoPreviewContainer" style="display: none;">
-                        <img id="photoPreview" src="" alt="Preview">
-                        <div class="preview-actions">
-                            <button type="button" class="preview-btn" id="changePhotoBtn">
-                                <i data-feather="edit"></i>
-                                Изменить
-                            </button>
-                            <button type="button" class="preview-btn preview-btn--danger" id="removePhotoBtn">
-                                <i data-feather="trash-2"></i>
-                                Удалить
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                {% if form.instance.image %}
-                <div class="current-media">
-                    <span>Текущее изображение:</span>
-                    <img src="{{ form.instance.image.url }}" alt="Current" class="current-image-preview">
-                    <label class="checkbox-label">
-                        {{ form.clear_image }}
-                        <span>Удалить изображение</span>
-                    </label>
-                </div>
-                {% endif %}
-            </div>
+            <div class="form-section form-section--media">
+                <h3 class="section-title">
+                    <i data-feather="image"></i>
+                    Медиа-контент
+                </h3>
 
-            <!-- Вкладка Видео -->
-            <div class="media-panel" id="videoPanel">
-                <div class="video-upload-area" id="videoUploadArea">
-                    {{ form.video }}
-                    <div class="upload-placeholder" id="videoPlaceholder">
+                <div class="media-tabs">
+                    <button type="button" class="media-tab active" data-tab="photo">
+                        <i data-feather="camera"></i>
+                        Фото (до 5)
+                    </button>
+                    <button type="button" class="media-tab" data-tab="video">
                         <i data-feather="video"></i>
-                        <span>Нажмите или перетащите видео</span>
-                        <span class="upload-hint">MP4, WebM до 100MB</span>
-                    </div>
-                    <div class="video-preview-container" id="videoPreviewContainer" style="display: none;">
-                        <video id="videoPreview" controls>
-                            <source src="" type="video/mp4">
-                        </video>
-                        <div class="preview-actions">
-                            <button type="button" class="preview-btn" id="changeVideoBtn">
-                                <i data-feather="edit"></i>
-                                Изменить
-                            </button>
-                            <button type="button" class="preview-btn preview-btn--danger" id="removeVideoBtn">
-                                <i data-feather="trash-2"></i>
-                                Удалить
-                            </button>
+                        Видео (до 2)
+                    </button>
+                </div>
+
+                <!-- Вкладка Фото (5 полей) -->
+                <div class="media-panel active" id="photoPanel">
+                    <div class="photos-grid" style="display: grid; gap: 1rem;">
+                        <!-- Фото 1 -->
+                        <div class="photo-upload-area" id="photoUploadArea1">
+                            <input type="file" name="image" accept="image/*" id="id_image" class="photo-input">
+                            <div class="upload-placeholder" id="photoPlaceholder1">
+                                <i data-feather="upload-cloud"></i>
+                                <span>Фото 1</span>
+                                <span class="upload-hint">PNG, JPG, GIF до 10MB</span>
+                            </div>
+                            <div class="photo-preview-container" id="photoPreviewContainer1" style="display: none;">
+                                <img id="photoPreview1" src="" alt="Preview">
+                                <div class="preview-actions">
+                                    <button type="button" class="preview-btn change-photo-btn" data-photo="1">
+                                        <i data-feather="edit"></i> Изменить
+                                    </button>
+                                    <button type="button" class="preview-btn preview-btn--danger remove-photo-btn" data-photo="1">
+                                        <i data-feather="trash-2"></i> Удалить
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Фото 2 -->
+                        <div class="photo-upload-area" id="photoUploadArea2" style="display: {% if form.instance.image2 %}block{% else %}block{% endif %};">
+                            <input type="file" name="image2" accept="image/*" id="id_image2" class="photo-input">
+                            <div class="upload-placeholder" id="photoPlaceholder2">
+                                <i data-feather="upload-cloud"></i>
+                                <span>Фото 2</span>
+                                <span class="upload-hint">PNG, JPG, GIF до 10MB</span>
+                            </div>
+                            <div class="photo-preview-container" id="photoPreviewContainer2" style="display: {% if form.instance.image2 %}block{% else %}none{% endif %};">
+                                <img id="photoPreview2" src="{% if form.instance.image2 %}{{ form.instance.image2.url }}{% endif %}" alt="Preview">
+                                <div class="preview-actions">
+                                    <button type="button" class="preview-btn change-photo-btn" data-photo="2">
+                                        <i data-feather="edit"></i> Изменить
+                                    </button>
+                                    <button type="button" class="preview-btn preview-btn--danger remove-photo-btn" data-photo="2">
+                                        <i data-feather="trash-2"></i> Удалить
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Фото 3 -->
+                        <div class="photo-upload-area" id="photoUploadArea3">
+                            <input type="file" name="image3" accept="image/*" id="id_image3" class="photo-input">
+                            <div class="upload-placeholder" id="photoPlaceholder3">
+                                <i data-feather="upload-cloud"></i>
+                                <span>Фото 3</span>
+                                <span class="upload-hint">PNG, JPG, GIF до 10MB</span>
+                            </div>
+                            <div class="photo-preview-container" id="photoPreviewContainer3" style="display: {% if form.instance.image3 %}block{% else %}none{% endif %};">
+                                <img id="photoPreview3" src="{% if form.instance.image3 %}{{ form.instance.image3.url }}{% endif %}" alt="Preview">
+                                <div class="preview-actions">
+                                    <button type="button" class="preview-btn change-photo-btn" data-photo="3">
+                                        <i data-feather="edit"></i> Изменить
+                                    </button>
+                                    <button type="button" class="preview-btn preview-btn--danger remove-photo-btn" data-photo="3">
+                                        <i data-feather="trash-2"></i> Удалить
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Фото 4 -->
+                        <div class="photo-upload-area" id="photoUploadArea4">
+                            <input type="file" name="image4" accept="image/*" id="id_image4" class="photo-input">
+                            <div class="upload-placeholder" id="photoPlaceholder4">
+                                <i data-feather="upload-cloud"></i>
+                                <span>Фото 4</span>
+                                <span class="upload-hint">PNG, JPG, GIF до 10MB</span>
+                            </div>
+                            <div class="photo-preview-container" id="photoPreviewContainer4" style="display: {% if form.instance.image4 %}block{% else %}none{% endif %};">
+                                <img id="photoPreview4" src="{% if form.instance.image4 %}{{ form.instance.image4.url }}{% endif %}" alt="Preview">
+                                <div class="preview-actions">
+                                    <button type="button" class="preview-btn change-photo-btn" data-photo="4">
+                                        <i data-feather="edit"></i> Изменить
+                                    </button>
+                                    <button type="button" class="preview-btn preview-btn--danger remove-photo-btn" data-photo="4">
+                                        <i data-feather="trash-2"></i> Удалить
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Фото 5 -->
+                        <div class="photo-upload-area" id="photoUploadArea5">
+                            <input type="file" name="image5" accept="image/*" id="id_image5" class="photo-input">
+                            <div class="upload-placeholder" id="photoPlaceholder5">
+                                <i data-feather="upload-cloud"></i>
+                                <span>Фото 5</span>
+                                <span class="upload-hint">PNG, JPG, GIF до 10MB</span>
+                            </div>
+                            <div class="photo-preview-container" id="photoPreviewContainer5" style="display: {% if form.instance.image5 %}block{% else %}none{% endif %};">
+                                <img id="photoPreview5" src="{% if form.instance.image5 %}{{ form.instance.image5.url }}{% endif %}" alt="Preview">
+                                <div class="preview-actions">
+                                    <button type="button" class="preview-btn change-photo-btn" data-photo="5">
+                                        <i data-feather="edit"></i> Изменить
+                                    </button>
+                                    <button type="button" class="preview-btn preview-btn--danger remove-photo-btn" data-photo="5">
+                                        <i data-feather="trash-2"></i> Удалить
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-                {% if form.instance.video %}
-                <div class="current-media">
-                    <span>Текущее видео:</span>
-                    <video controls class="current-video-preview">
-                        <source src="{{ form.instance.video.url }}" type="video/mp4">
-                    </video>
-                </div>
-                {% endif %}
-            </div>
 
-            <!-- Вкладка Ссылка -->
-            <div class="media-panel" id="linkPanel">
-                <div class="form-group">
-                    <label for="{{ form.link.id_for_label }}" class="form-label">
-                        <i data-feather="link"></i>
-                        URL ссылки
-                    </label>
-                    {{ form.link }}
-                    <div class="field-hint">
-                        Добавьте ссылку на внешний ресурс. Будет отображаться превью.
+                    <!-- Текущие изображения (при редактировании) -->
+                    {% if form.instance.image or form.instance.image2 or form.instance.image3 or form.instance.image4 or form.instance.image5 %}
+                    <div class="current-media" style="margin-top: 1rem;">
+                        <span>Текущие изображения:</span>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                            {% if form.instance.image %}<img src="{{ form.instance.image.url }}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">{% endif %}
+                            {% if form.instance.image2 %}<img src="{{ form.instance.image2.url }}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">{% endif %}
+                            {% if form.instance.image3 %}<img src="{{ form.instance.image3.url }}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">{% endif %}
+                            {% if form.instance.image4 %}<img src="{{ form.instance.image4.url }}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">{% endif %}
+                            {% if form.instance.image5 %}<img src="{{ form.instance.image5.url }}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">{% endif %}
+                        </div>
+                        <label class="checkbox-label" style="margin-top: 0.5rem;">
+                            <input type="checkbox" name="clear_all_images" id="clearAllImages">
+                            <span class="checkbox-custom"></span>
+                            <span>Удалить все изображения</span>
+                        </label>
                     </div>
+                    {% endif %}
+                </div>
+
+                <!-- Вкладка Видео (2 поля) -->
+                <div class="media-panel" id="videoPanel">
+                    <!-- Видео 1 -->
+                    <div class="video-upload-area" id="videoUploadArea1" style="margin-bottom: 1rem;">
+                        <input type="file" name="video" accept="video/*" id="id_video" class="video-input">
+                        <div class="upload-placeholder" id="videoPlaceholder1">
+                            <i data-feather="video"></i>
+                            <span>Видео 1</span>
+                            <span class="upload-hint">MP4, WebM до 100MB</span>
+                        </div>
+                        <div class="video-preview-container" id="videoPreviewContainer1" style="display: {% if form.instance.video %}block{% else %}none{% endif %};">
+                            <video id="videoPreview1" controls>
+                                <source src="{% if form.instance.video %}{{ form.instance.video.url }}{% endif %}" type="video/mp4">
+                            </video>
+                            <div class="preview-actions">
+                                <button type="button" class="preview-btn change-video-btn" data-video="1">
+                                    <i data-feather="edit"></i> Изменить
+                                </button>
+                                <button type="button" class="preview-btn preview-btn--danger remove-video-btn" data-video="1">
+                                    <i data-feather="trash-2"></i> Удалить
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Видео 2 -->
+                    <div class="video-upload-area" id="videoUploadArea2">
+                        <input type="file" name="video2" accept="video/*" id="id_video2" class="video-input">
+                        <div class="upload-placeholder" id="videoPlaceholder2">
+                            <i data-feather="video"></i>
+                            <span>Видео 2</span>
+                            <span class="upload-hint">MP4, WebM до 100MB</span>
+                        </div>
+                        <div class="video-preview-container" id="videoPreviewContainer2" style="display: {% if form.instance.video2 %}block{% else %}none{% endif %};">
+                            <video id="videoPreview2" controls>
+                                <source src="{% if form.instance.video2 %}{{ form.instance.video2.url }}{% endif %}" type="video/mp4">
+                            </video>
+                            <div class="preview-actions">
+                                <button type="button" class="preview-btn change-video-btn" data-video="2">
+                                    <i data-feather="edit"></i> Изменить
+                                </button>
+                                <button type="button" class="preview-btn preview-btn--danger remove-video-btn" data-video="2">
+                                    <i data-feather="trash-2"></i> Удалить
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if form.instance.video or form.instance.video2 %}
+                    <div class="current-media" style="margin-top: 1rem;">
+                        <span>Текущие видео:</span>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                            {% if form.instance.video %}
+                            <video controls style="width: 150px; border-radius: 8px;">
+                                <source src="{{ form.instance.video.url }}">
+                            </video>
+                            {% endif %}
+                            {% if form.instance.video2 %}
+                            <video controls style="width: 150px; border-radius: 8px;">
+                                <source src="{{ form.instance.video2.url }}">
+                            </video>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
-        </div>
 
         <!-- Теги -->
         <div class="form-section">
@@ -773,47 +903,110 @@
             });
         });
 
-        // ========== ЗАГРУЗКА ФОТО ==========
-        const photoInput = document.querySelector('input[name="image"]');
-        if (photoInput) {
-            photoInput.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        document.getElementById('photoPreview').src = e.target.result;
-                        document.getElementById('photoPlaceholder').style.display = 'none';
-                        document.getElementById('photoPreviewContainer').style.display = 'block';
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-        }
-        document.getElementById('changePhotoBtn')?.addEventListener('click', () => photoInput.click());
-        document.getElementById('removePhotoBtn')?.addEventListener('click', () => {
-            photoInput.value = '';
-            document.getElementById('photoPlaceholder').style.display = 'flex';
-            document.getElementById('photoPreviewContainer').style.display = 'none';
-        });
+        // ========== ЗАГРУЗКА ФОТО (5 полей) ==========
+        for (let i = 1; i <= 5; i++) {
+            const fieldName = i === 1 ? 'image' : `image${i}`;
+            const photoInput = document.querySelector(`input[name="${fieldName}"]`);
 
-        // ========== ЗАГРУЗКА ВИДЕО ==========
-        const videoInput = document.querySelector('input[name="video"]');
-        if (videoInput) {
-            videoInput.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (file) {
-                    document.getElementById('videoPreview').src = URL.createObjectURL(file);
-                    document.getElementById('videoPlaceholder').style.display = 'none';
-                    document.getElementById('videoPreviewContainer').style.display = 'block';
-                }
-            });
+            if (photoInput) {
+                photoInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    const num = this.name === 'image' ? '1' : this.name.replace('image', '');
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const previewImg = document.getElementById(`photoPreview${num}`);
+                            if (previewImg) previewImg.src = e.target.result;
+                            const placeholder = document.getElementById(`photoPlaceholder${num}`);
+                            if (placeholder) placeholder.style.display = 'none';
+                            const container = document.getElementById(`photoPreviewContainer${num}`);
+                            if (container) container.style.display = 'block';
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+
+            // Кнопки изменения
+            const changeBtn = document.querySelector(`.change-photo-btn[data-photo="${i}"]`);
+            if (changeBtn) {
+                changeBtn.addEventListener('click', () => {
+                    const fieldName = i === 1 ? 'image' : `image${i}`;
+                    const input = document.querySelector(`input[name="${fieldName}"]`);
+                    if (input) input.click();
+                });
+            }
+
+            // Кнопки удаления
+            const removeBtn = document.querySelector(`.remove-photo-btn[data-photo="${i}"]`);
+            if (removeBtn) {
+                removeBtn.addEventListener('click', () => {
+                    const fieldName = i === 1 ? 'image' : `image${i}`;
+                    const input = document.querySelector(`input[name="${fieldName}"]`);
+                    if (input) {
+                        input.value = '';
+                        const placeholder = document.getElementById(`photoPlaceholder${i}`);
+                        if (placeholder) placeholder.style.display = 'flex';
+                        const container = document.getElementById(`photoPreviewContainer${i}`);
+                        if (container) container.style.display = 'none';
+                        const previewImg = document.getElementById(`photoPreview${i}`);
+                        if (previewImg) previewImg.src = '';
+                    }
+                });
+            }
         }
-        document.getElementById('changeVideoBtn')?.addEventListener('click', () => videoInput.click());
-        document.getElementById('removeVideoBtn')?.addEventListener('click', () => {
-            videoInput.value = '';
-            document.getElementById('videoPlaceholder').style.display = 'flex';
-            document.getElementById('videoPreviewContainer').style.display = 'none';
-        });
+
+        // ========== ЗАГРУЗКА ВИДЕО (2 поля) ==========
+        for (let i = 1; i <= 2; i++) {
+            const fieldName = i === 1 ? 'video' : `video${i}`;
+            const videoInput = document.querySelector(`input[name="${fieldName}"]`);
+
+            if (videoInput) {
+                videoInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    const num = this.name === 'video' ? '1' : this.name.replace('video', '');
+                    if (file) {
+                        const previewVideo = document.getElementById(`videoPreview${num}`);
+                        if (previewVideo) {
+                            previewVideo.src = URL.createObjectURL(file);
+                            previewVideo.load();
+                        }
+                        const placeholder = document.getElementById(`videoPlaceholder${num}`);
+                        if (placeholder) placeholder.style.display = 'none';
+                        const container = document.getElementById(`videoPreviewContainer${num}`);
+                        if (container) container.style.display = 'block';
+                    }
+                });
+            }
+
+            // Кнопки изменения
+            const changeBtn = document.querySelector(`.change-video-btn[data-video="${i}"]`);
+            if (changeBtn) {
+                changeBtn.addEventListener('click', () => {
+                    const fieldName = i === 1 ? 'video' : `video${i}`;
+                    const input = document.querySelector(`input[name="${fieldName}"]`);
+                    if (input) input.click();
+                });
+            }
+
+            // Кнопки удаления
+            const removeBtn = document.querySelector(`.remove-video-btn[data-video="${i}"]`);
+            if (removeBtn) {
+                removeBtn.addEventListener('click', () => {
+                    const fieldName = i === 1 ? 'video' : `video${i}`;
+                    const input = document.querySelector(`input[name="${fieldName}"]`);
+                    if (input) {
+                        input.value = '';
+                        const placeholder = document.getElementById(`videoPlaceholder${i}`);
+                        if (placeholder) placeholder.style.display = 'flex';
+                        const container = document.getElementById(`videoPreviewContainer${i}`);
+                        if (container) container.style.display = 'none';
+                        const previewVideo = document.getElementById(`videoPreview${i}`);
+                        if (previewVideo) previewVideo.src = '';
+                    }
+                });
+            }
+        }
 
         // ========== СЧЕТЧИК ЗАГОЛОВКА ==========
         const titleInput = document.querySelector('input[name="title"]');
@@ -835,6 +1028,7 @@
             'code': { prefix: '`', suffix: '`', placeholder: 'код' },
             'spoiler': { prefix: '||', suffix: '||', placeholder: 'спойлер' }
         };
+
         document.querySelectorAll('.toolbar-btn[data-format]').forEach(btn => {
             btn.addEventListener('click', function() {
                 const format = this.dataset.format;
@@ -858,49 +1052,73 @@
             textarea.value = textarea.value.substring(0, s) + text + textarea.value.substring(textarea.selectionEnd);
             textarea.focus();
         }
+
         window.openLinkModal = () => document.getElementById('linkModal').style.display = 'flex';
         window.closeLinkModal = () => document.getElementById('linkModal').style.display = 'none';
         window.insertLink = () => {
             insertAtCursor(`[${document.getElementById('linkText').value || 'ссылка'}](${document.getElementById('linkUrl').value || '#'})`);
             closeLinkModal();
+            document.getElementById('linkText').value = '';
+            document.getElementById('linkUrl').value = '';
         };
+
         window.openImageModal = () => document.getElementById('imageModal').style.display = 'flex';
         window.closeImageModal = () => document.getElementById('imageModal').style.display = 'none';
         window.insertImage = () => {
             insertAtCursor(`![${document.getElementById('imageAlt').value || 'изображение'}](${document.getElementById('imageUrl').value || '#'})`);
             closeImageModal();
+            document.getElementById('imageAlt').value = '';
+            document.getElementById('imageUrl').value = '';
         };
 
         // ========== ПРЕДПРОСМОТР ==========
         let previewMode = false;
-        document.getElementById('previewBtn')?.addEventListener('click', async function() {
-            previewMode = !previewMode;
-            const previewDiv = document.getElementById('contentPreview');
-            if (previewMode) {
-                previewDiv.innerHTML = '<p>Загрузка...</p>';
-                previewDiv.style.display = 'block';
-                textarea.style.display = 'none';
-                try {
-                    const r = await fetch('/posts/preview/', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
-                        body: JSON.stringify({ content: textarea.value })
-                    });
-                    previewDiv.innerHTML = (await r.json()).html;
-                } catch { previewDiv.innerHTML = '<p>Ошибка</p>'; }
-                this.innerHTML = '<i data-feather="edit"></i>';
-            } else {
-                previewDiv.style.display = 'none';
-                textarea.style.display = 'block';
-                this.innerHTML = '<i data-feather="eye"></i>';
-            }
-            feather.replace();
-        });
+        const previewBtn = document.getElementById('previewBtn');
+        const previewDiv = document.getElementById('contentPreview');
+
+        if (previewBtn) {
+            previewBtn.addEventListener('click', async function() {
+                previewMode = !previewMode;
+                if (previewMode) {
+                    previewDiv.innerHTML = '<p>Загрузка...</p>';
+                    previewDiv.style.display = 'block';
+                    textarea.style.display = 'none';
+                    try {
+                        const r = await fetch('/posts/preview/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                            body: JSON.stringify({ content: textarea.value })
+                        });
+                        const data = await r.json();
+                        previewDiv.innerHTML = data.html || '<p>Ошибка рендеринга</p>';
+                    } catch {
+                        previewDiv.innerHTML = '<p>Ошибка загрузки предпросмотра</p>';
+                    }
+                    this.innerHTML = '<i data-feather="edit-2"></i>';
+                } else {
+                    previewDiv.style.display = 'none';
+                    textarea.style.display = 'block';
+                    this.innerHTML = '<i data-feather="eye"></i>';
+                }
+                feather.replace();
+            });
+        }
 
         // ========== СПРАВКА ==========
         const helpDiv = document.getElementById('markdownHelp');
-        document.getElementById('helpBtn')?.addEventListener('click', () => helpDiv.style.display = helpDiv.style.display === 'none' ? 'block' : 'none');
-        document.getElementById('closeHelpBtn')?.addEventListener('click', () => helpDiv.style.display = 'none');
+        const helpBtn = document.getElementById('helpBtn');
+        const closeHelpBtn = document.getElementById('closeHelpBtn');
+
+        if (helpBtn) {
+            helpBtn.addEventListener('click', () => {
+                if (helpDiv) helpDiv.style.display = helpDiv.style.display === 'none' ? 'block' : 'none';
+            });
+        }
+        if (closeHelpBtn) {
+            closeHelpBtn.addEventListener('click', () => {
+                if (helpDiv) helpDiv.style.display = 'none';
+            });
+        }
 
         // =====================================================================
         // ========== ТЕГИ ====================================================
@@ -922,26 +1140,30 @@
         // Инициализация
         function initTags() {
             const val = tagsHiddenInput.value.trim();
-            if (val) selectedTags = val.split(',').map(t => t.trim()).filter(Boolean);
+            if (val) {
+                selectedTags = val.split(',').map(t => t.trim()).filter(Boolean);
+            }
             renderTags();
         }
         initTags();
 
         function renderTags() {
+            if (!selectedTagsContainer) return;
             selectedTagsContainer.innerHTML = '';
 
             selectedTags.forEach(tag => {
                 const span = document.createElement('span');
                 span.className = 'selected-tag';
-                span.innerHTML = `#${tag} <i data-feather="x"></i>`;
-                span.addEventListener('click', function() {
+                span.innerHTML = `#${escapeHtml(tag)} <i data-feather="x"></i>`;
+                span.addEventListener('click', function(e) {
+                    e.stopPropagation();
                     removeTag(tag);
                 });
                 selectedTagsContainer.appendChild(span);
             });
 
-            feather.replace();
-            tagsHiddenInput.value = selectedTags.join(', ');
+            if (typeof feather !== 'undefined') feather.replace();
+            if (tagsHiddenInput) tagsHiddenInput.value = selectedTags.join(', ');
         }
 
         function removeTag(tag) {
@@ -951,131 +1173,190 @@
 
         function addTag(tag) {
             if (selectedTags.length >= 5) {
-                alert('Максимум 5 тегов');
+                showMessage('Максимум 5 тегов', 'error');
                 return;
             }
             if (!selectedTags.includes(tag)) {
                 selectedTags.push(tag);
                 renderTags();
             }
-            tagSearchInput.value = '';
-            tagSearchResults.style.display = 'none';
+            if (tagSearchInput) tagSearchInput.value = '';
+            if (tagSearchResults) tagSearchResults.style.display = 'none';
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showMessage(msg, type = 'info') {
+            const toast = document.createElement('div');
+            toast.textContent = msg;
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: ${type === 'error' ? '#ef4444' : '#22c55e'};
+                color: white;
+                padding: 10px 20px;
+                border-radius: 10px;
+                z-index: 10000;
+                font-size: 14px;
+                animation: fadeInUp 0.3s ease;
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
         }
 
         // Поиск тегов
-        tagSearchInput.addEventListener('input', function() {
-            clearTimeout(searchTimeout);
-            const q = this.value.trim();
+        if (tagSearchInput) {
+            tagSearchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                const q = this.value.trim();
 
-            if (!q || q.length < 1) {
-                tagSearchResults.style.display = 'none';
-                return;
-            }
-
-            searchTimeout = setTimeout(async () => {
-                try {
-                    const r = await fetch(`/tags/search/?q=${encodeURIComponent(q)}`);
-                    const data = await r.json();
-
-                    if (data.tags && data.tags.length > 0) {
-                        tagSearchResults.innerHTML = data.tags.map(t =>
-                            `<div class="tag-search-item ${selectedTags.includes(t.name) ? 'selected' : ''}" data-tag="${t.name}">
-                                <span class="tag-search-name">#${t.name}</span>
-                                <span class="tag-search-count">${t.posts_count || 0} постов</span>
-                            </div>`
-                        ).join('');
-
-                        tagSearchResults.querySelectorAll('.tag-search-item').forEach(item => {
-                            item.addEventListener('click', function() {
-                                const tn = this.dataset.tag;
-                                if (selectedTags.includes(tn)) {
-                                    removeTag(tn);
-                                } else {
-                                    addTag(tn);
-                                }
-                            });
-                        });
-                    } else {
-                        tagSearchResults.innerHTML = `<div class="tag-no-results">Ничего не найдено</div>`;
-                    }
-                    tagSearchResults.style.display = 'block';
-                } catch (error) {
-                    console.error('Ошибка поиска:', error);
-                    tagSearchResults.style.display = 'none';
+                if (!q || q.length < 2) {
+                    if (tagSearchResults) tagSearchResults.style.display = 'none';
+                    return;
                 }
-            }, 300);
-        });
+
+                searchTimeout = setTimeout(async () => {
+                    try {
+                        const r = await fetch(`/tags/search/?q=${encodeURIComponent(q)}`);
+                        const data = await r.json();
+
+                        if (tagSearchResults) {
+                            if (data.tags && data.tags.length > 0) {
+                                tagSearchResults.innerHTML = data.tags.map(t =>
+                                    `<div class="tag-search-item ${selectedTags.includes(t.name) ? 'selected' : ''}" data-tag="${escapeHtml(t.name)}">
+                                        <span class="tag-search-name">#${escapeHtml(t.name)}</span>
+                                        <span class="tag-search-count">${t.posts_count || 0} постов</span>
+                                    </div>`
+                                ).join('');
+
+                                tagSearchResults.querySelectorAll('.tag-search-item').forEach(item => {
+                                    item.addEventListener('click', function() {
+                                        const tn = this.dataset.tag;
+                                        if (selectedTags.includes(tn)) {
+                                            removeTag(tn);
+                                        } else {
+                                            addTag(tn);
+                                        }
+                                    });
+                                });
+                            } else {
+                                tagSearchResults.innerHTML = `<div class="tag-no-results">Ничего не найдено</div>`;
+                            }
+                            tagSearchResults.style.display = 'block';
+                        }
+                    } catch (error) {
+                        console.error('Ошибка поиска:', error);
+                        if (tagSearchResults) tagSearchResults.style.display = 'none';
+                    }
+                }, 300);
+            });
+        }
 
         // Скрыть результаты при клике вне
         document.addEventListener('click', function(e) {
-            if (!tagSearchInput.contains(e.target) && !tagSearchResults.contains(e.target)) {
+            if (tagSearchInput && tagSearchResults &&
+                !tagSearchInput.contains(e.target) &&
+                !tagSearchResults.contains(e.target)) {
                 tagSearchResults.style.display = 'none';
             }
         });
 
         // Создание тега
-        showCreateTagBtn.addEventListener('click', function() {
-            createTagForm.style.display = 'flex';
-            showCreateTagBtn.style.display = 'none';
-            newTagNameInput.focus();
-        });
+        if (showCreateTagBtn && createTagForm) {
+            showCreateTagBtn.addEventListener('click', function() {
+                createTagForm.style.display = 'flex';
+                showCreateTagBtn.style.display = 'none';
+                if (newTagNameInput) newTagNameInput.focus();
+            });
+        }
 
-        cancelCreateTagBtn.addEventListener('click', function() {
-            createTagForm.style.display = 'none';
-            showCreateTagBtn.style.display = 'inline-flex';
-            newTagNameInput.value = '';
-            tagCreateMessage.style.display = 'none';
-        });
+        if (cancelCreateTagBtn) {
+            cancelCreateTagBtn.addEventListener('click', function() {
+                if (createTagForm) createTagForm.style.display = 'none';
+                if (showCreateTagBtn) showCreateTagBtn.style.display = 'inline-flex';
+                if (newTagNameInput) newTagNameInput.value = '';
+                if (tagCreateMessage) tagCreateMessage.style.display = 'none';
+            });
+        }
 
-        createTagBtn.addEventListener('click', async function() {
-            const name = newTagNameInput.value.trim();
+        if (createTagBtn) {
+            createTagBtn.addEventListener('click', async function() {
+                const name = newTagNameInput ? newTagNameInput.value.trim() : '';
 
-            if (!name || name.length < 2) {
-                alert('Минимум 2 символа');
-                return;
-            }
-
-            this.disabled = true;
-
-            try {
-                const fd = new FormData();
-                fd.append('name', name);
-
-                const r = await fetch('/tags/create/', {
-                    method: 'POST',
-                    headers: { 'X-CSRFToken': getCookie('csrftoken') },
-                    body: fd
-                });
-
-                const data = await r.json();
-
-                if (data.success) {
-                    addTag(data.tag.name);
-                    tagCreateMessage.textContent = `Тег "#${data.tag.name}" создан`;
-                    tagCreateMessage.className = 'tag-create-message success';
-                    tagCreateMessage.style.display = 'block';
-
-                    setTimeout(() => {
-                        createTagForm.style.display = 'none';
-                        showCreateTagBtn.style.display = 'inline-flex';
-                        newTagNameInput.value = '';
-                        tagCreateMessage.style.display = 'none';
-                    }, 1500);
-                } else {
-                    alert(data.error || 'Ошибка при создании');
+                if (!name || name.length < 2) {
+                    showMessage('Минимум 2 символа', 'error');
+                    return;
                 }
-            } catch (error) {
-                console.error('Ошибка:', error);
-                alert('Ошибка сети');
-            } finally {
-                this.disabled = false;
-            }
-        });
+                if (name.length > 30) {
+                    showMessage('Максимум 30 символов', 'error');
+                    return;
+                }
+
+                this.disabled = true;
+
+                try {
+                    const fd = new FormData();
+                    fd.append('name', name);
+
+                    const r = await fetch('/tags/create/', {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                        body: fd
+                    });
+
+                    const data = await r.json();
+
+                    if (data.success) {
+                        addTag(data.tag.name);
+                        if (tagCreateMessage) {
+                            tagCreateMessage.textContent = `Тег "#${data.tag.name}" создан`;
+                            tagCreateMessage.className = 'tag-create-message success';
+                            tagCreateMessage.style.display = 'block';
+                        }
+                        showMessage(`Тег #${data.tag.name} создан`, 'success');
+
+                        setTimeout(() => {
+                            if (createTagForm) createTagForm.style.display = 'none';
+                            if (showCreateTagBtn) showCreateTagBtn.style.display = 'inline-flex';
+                            if (newTagNameInput) newTagNameInput.value = '';
+                            if (tagCreateMessage) tagCreateMessage.style.display = 'none';
+                        }, 1500);
+                    } else {
+                        showMessage(data.error || 'Ошибка при создании', 'error');
+                    }
+                } catch (error) {
+                    console.error('Ошибка:', error);
+                    showMessage('Ошибка сети', 'error');
+                } finally {
+                    this.disabled = false;
+                }
+            });
+        }
 
         // ========== ЗАКРЫТИЕ МОДАЛОК ==========
-        document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.style.display = 'none'; }));
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') { document.getElementById('linkModal').style.display = 'none'; document.getElementById('imageModal').style.display = 'none'; } });
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) this.style.display = 'none';
+            });
+        });
 
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const linkModal = document.getElementById('linkModal');
+                const imageModal = document.getElementById('imageModal');
+                if (linkModal) linkModal.style.display = 'none';
+                if (imageModal) imageModal.style.display = 'none';
+            }
+        });
+
+        // ========== HELPER ==========
         function getCookie(name) {
             let v = null;
             if (document.cookie) {

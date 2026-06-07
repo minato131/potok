@@ -5,6 +5,24 @@
 {% block page_title %}Мои видео{% endblock %}
 
 {% block header_actions %}
+<div class="selection-toolbar" style="display: none;" id="selectionToolbar">
+    <span class="selection-count">Выбрано: <span id="selectedCount">0</span></span>
+    <button class="btn btn--outline btn--sm" id="selectAllBtn">
+        <i data-feather="check-square"></i> Выделить всё
+    </button>
+    <button class="btn btn--outline btn--sm" id="clearSelectionBtn">
+        <i data-feather="x"></i> Снять всё
+    </button>
+    <button class="btn btn--danger btn--sm" id="deleteSelectedBtn">
+        <i data-feather="trash-2"></i> Удалить выбранные
+    </button>
+    <button class="btn btn--outline btn--sm" id="cancelSelectionBtn">
+        <i data-feather="x"></i> Отмена
+    </button>
+</div>
+<button class="btn btn--primary btn--sm" id="selectModeBtn">
+    <i data-feather="check-square"></i> Выбрать
+</button>
 <button class="btn btn--primary btn--sm" onclick="document.getElementById('videoUpload').click()">
     <i data-feather="upload"></i> Загрузить
 </button>
@@ -15,7 +33,6 @@
 <style>
     .vid-page { max-width: 1100px; margin: 0 auto; }
 
-    /* Статистика и фильтры */
     .vid-stats-row {
         display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
     }
@@ -34,13 +51,12 @@
     }
     .vid-filter-btn {
         padding: 8px 16px; border: none; background: transparent; border-radius: 10px;
-        font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.15s;
-        color: var(--color-text-secondary); font-family: inherit; white-space: nowrap;
+        font-size: 0.85rem; font-weight: 500; cursor: pointer;
+        color: var(--color-text-secondary); font-family: inherit;
     }
     .vid-filter-btn:hover { background: var(--color-bg-elevated); }
     .vid-filter-btn.active { background: var(--color-primary); color: #fff; }
 
-    /* Список видео */
     .vid-list { display: flex; flex-direction: column; gap: 2px; }
 
     .vid-row {
@@ -48,6 +64,11 @@
         padding: 14px 18px; background: var(--color-bg-surface);
         border-radius: 14px; transition: all 0.2s;
         border: 1px solid transparent;
+        position: relative;
+    }
+    .vid-row.selected {
+        background: var(--color-primary-light);
+        border-color: var(--color-primary);
     }
     .vid-row:first-child { border-radius: 14px 14px 0 0; }
     .vid-row:last-child { border-radius: 0 0 14px 14px; }
@@ -55,7 +76,18 @@
     .vid-row:hover { background: var(--color-bg-elevated); border-color: var(--color-border); }
     .vid-row.hidden { display: none; }
 
-    /* Превью видео */
+    .vid-checkbox {
+        flex-shrink: 0;
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+        accent-color: var(--color-primary);
+        display: none;
+    }
+    .selection-mode .vid-checkbox {
+        display: block;
+    }
+
     .vid-preview {
         width: 200px; height: 120px; border-radius: 10px;
         overflow: hidden; flex-shrink: 0; position: relative;
@@ -79,13 +111,9 @@
         color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1rem;
     }
 
-    /* Информация */
     .vid-info { flex: 1; min-width: 0; }
     .vid-info-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; flex-wrap: wrap; }
-    .vid-date {
-        font-size: 0.8rem; color: var(--color-text-tertiary);
-        display: flex; align-items: center; gap: 4px;
-    }
+    .vid-date { font-size: 0.8rem; color: var(--color-text-tertiary); }
     .vid-badge {
         display: inline-block; padding: 2px 8px; border-radius: 6px;
         font-size: 0.7rem; font-weight: 600;
@@ -100,7 +128,6 @@
     .vid-source a { color: var(--color-primary); text-decoration: none; font-weight: 500; }
     .vid-source a:hover { text-decoration: underline; }
 
-    /* Кнопки справа */
     .vid-actions {
         display: flex; align-items: center; gap: 8px; flex-shrink: 0;
     }
@@ -110,19 +137,30 @@
         cursor: pointer; transition: all 0.15s; background: none; color: var(--color-text-secondary);
     }
     .vid-act-btn:hover { background: var(--color-bg-elevated); color: var(--color-text); }
-    .vid-act-btn.play-btn {
-        background: var(--color-primary); color: #fff; width: 42px; height: 42px;
-    }
+    .vid-act-btn.play-btn { background: var(--color-primary); color: #fff; width: 42px; height: 42px; }
     .vid-act-btn.play-btn:hover { background: var(--color-primary-hover, #2563eb); }
     .vid-act-btn.del-btn:hover { background: #fee2e2; color: #ef4444; }
 
-    /* Пусто */
     .vid-empty { text-align: center; padding: 80px 20px; }
     .vid-empty-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.5; }
     .vid-empty h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 4px; color: var(--color-text-secondary); }
     .vid-empty p { color: var(--color-text-tertiary); font-size: 0.85rem; }
 
-    /* Лайтбокс */
+    .selection-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: var(--color-bg-surface);
+        padding: 8px 16px;
+        border-radius: 40px;
+        border: 1px solid var(--color-border);
+        margin-right: 12px;
+    }
+    .selection-toolbar .selection-count {
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
     .vid-lb { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.96); z-index: 1000; align-items: center; justify-content: center; }
     .vid-lb.on { display: flex; }
     .vid-lb-backdrop { position: absolute; inset: 0; }
@@ -130,14 +168,11 @@
     .vid-lb-close {
         position: absolute; top: -44px; right: 0; width: 40px; height: 40px;
         border-radius: 50%; background: rgba(255,255,255,0.1); color: #fff;
-        border: none; cursor: pointer; font-size: 1.2rem; display: flex;
-        align-items: center; justify-content: center;
+        border: none; cursor: pointer; font-size: 1.2rem;
     }
     .vid-lb-close:hover { background: rgba(255,255,255,0.2); }
     .vid-lb-media { margin-bottom: 10px; }
-    .vid-lb-media video {
-        max-width: 90vw; max-height: 65vh; border-radius: 12px 12px 0 0; display: block;
-    }
+    .vid-lb-media video { max-width: 90vw; max-height: 65vh; border-radius: 12px 12px 0 0; display: block; }
     .vid-lb-controls {
         display: flex; align-items: center; gap: 6px;
         padding: 8px 10px; background: rgba(0,0,0,0.9); border-radius: 0 0 12px 12px;
@@ -171,17 +206,15 @@
         display: flex; align-items: center; gap: 6px;
         padding: 8px 16px; background: rgba(255,255,255,0.12);
         border: none; border-radius: 8px; color: #fff;
-        cursor: pointer; font-size: 13px; font-family: inherit;
+        cursor: pointer; font-size: 13px;
     }
     .vid-lb-actions button:hover { background: rgba(255,255,255,0.22); }
 
-    /* Пагинация */
     .vid-pagination { display: flex; justify-content: center; gap: 6px; padding: 32px 0; }
     .vid-page-btn {
         min-width: 38px; height: 38px; display: flex; align-items: center; justify-content: center;
         border-radius: 10px; font-size: 0.9rem; font-weight: 500; text-decoration: none;
         background: var(--color-bg-surface); border: 1px solid var(--color-border); color: var(--color-text);
-        transition: all 0.15s;
     }
     .vid-page-btn:hover { background: var(--color-bg-elevated); border-color: var(--color-primary); }
     .vid-page-btn.active { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
@@ -192,11 +225,11 @@
         .vid-actions { gap: 4px; }
         .vid-act-btn { width: 34px; height: 34px; }
         .vid-act-btn.play-btn { width: 38px; height: 38px; }
+        .vid-checkbox { width: 20px; height: 20px; }
     }
 </style>
 
 <div class="vid-page">
-    <!-- Статистика и фильтры -->
     <div class="vid-stats-row">
         <div class="vid-stat">
             <span class="vid-stat-val" id="totalCount">{{ total_count }}</span>
@@ -218,11 +251,10 @@
         </div>
     </div>
 
-    <!-- Список -->
     <div class="vid-list" id="vidList">
         {% for video in videos %}
         <div class="vid-row" data-type="{% if video.post %}saved{% else %}uploaded{% endif %}" data-id="{{ video.id }}">
-            <!-- Превью -->
+            <input type="checkbox" class="vid-checkbox" value="{{ video.id }}">
             <div class="vid-preview" onclick="lbOpen('{{ video.file.url }}')">
                 <video src="{{ video.file.url }}" muted preload="metadata" loop playsinline></video>
                 <div class="vid-preview-dur"></div>
@@ -230,8 +262,6 @@
                     <div class="vid-preview-play-circle">▶</div>
                 </div>
             </div>
-
-            <!-- Инфо -->
             <div class="vid-info">
                 <div class="vid-info-row">
                     <span class="vid-date">Добавлено: {{ video.created_at|date:'d.m.Y' }} в {{ video.created_at|date:'H:i' }}</span>
@@ -247,8 +277,6 @@
                 <div class="vid-source" style="color:var(--color-text-tertiary)">Загружено с устройства</div>
                 {% endif %}
             </div>
-
-            <!-- Кнопки -->
             <div class="vid-actions">
                 <button class="vid-act-btn play-btn" onclick="lbOpen('{{ video.file.url }}')" title="Смотреть">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="8,5 19,12 8,19"/></svg>
@@ -275,7 +303,6 @@
         {% endfor %}
     </div>
 
-    <!-- Пагинация -->
     {% if is_paginated %}
     <div class="vid-pagination">
         {% if page_obj.has_previous %}
@@ -299,7 +326,6 @@
     {% endif %}
 </div>
 
-<!-- Лайтбокс -->
 <div class="vid-lb" id="vidLb">
     <div class="vid-lb-backdrop" onclick="lbClose()"></div>
     <div class="vid-lb-content">
@@ -313,7 +339,142 @@
 </div>
 
 <script>
+let selectionMode = false;
+let selectedIds = new Set();
+let lbUrl = null;
+let lbVideoEl = null;
+let seekDrag = false;
+
 function getCookie(n){let v=null;document.cookie.split(';').forEach(c=>{const[k,val]=c.trim().split('=');if(k===n)v=decodeURIComponent(val)});return v}
+
+function showMessage(msg, isErr) {
+    const d = document.createElement('div');
+    d.textContent = msg;
+    d.style.cssText = `position:fixed;bottom:30px;right:30px;background:${isErr?'#dc2626':'#22c55e'};color:#fff;padding:12px 24px;border-radius:12px;z-index:100002;animation:slideIn .3s;cursor:pointer`;
+    document.body.appendChild(d);
+    setTimeout(()=>{d.style.opacity='0';setTimeout(()=>d.remove(),300)},3000);
+    d.onclick = ()=>d.remove();
+}
+
+function updateSelectionUI() {
+    const count = selectedIds.size;
+    document.getElementById('selectedCount').textContent = count;
+    const toolbar = document.getElementById('selectionToolbar');
+    if (count > 0) toolbar.style.display = 'flex';
+    else toolbar.style.display = 'none';
+}
+
+function clearSelection() {
+    selectedIds.clear();
+    document.querySelectorAll('.vid-checkbox').forEach(cb => {
+        cb.checked = false;
+        cb.closest('.vid-row').classList.remove('selected');
+    });
+    updateSelectionUI();
+}
+
+function enableSelectionMode() {
+    selectionMode = true;
+    document.querySelectorAll('.vid-checkbox').forEach(cb => cb.style.display = 'block');
+    document.querySelector('.vid-page').classList.add('selection-mode');
+}
+
+function disableSelectionMode() {
+    selectionMode = false;
+    clearSelection();
+    document.querySelectorAll('.vid-checkbox').forEach(cb => cb.style.display = 'none');
+    document.querySelector('.vid-page').classList.remove('selection-mode');
+}
+
+// Кнопка "Выбрать"
+document.getElementById('selectModeBtn')?.addEventListener('click', () => {
+    if (selectionMode) disableSelectionMode();
+    else enableSelectionMode();
+});
+
+// Выделить всё
+document.getElementById('selectAllBtn')?.addEventListener('click', () => {
+    const visibleRows = document.querySelectorAll('.vid-row:not(.hidden)');
+    visibleRows.forEach(row => {
+        const cb = row.querySelector('.vid-checkbox');
+        if (cb && !cb.checked) {
+            cb.checked = true;
+            const id = parseInt(cb.value);
+            selectedIds.add(id);
+            row.classList.add('selected');
+        }
+    });
+    updateSelectionUI();
+});
+
+// Снять выделение со всех
+document.getElementById('clearSelectionBtn')?.addEventListener('click', () => {
+    document.querySelectorAll('.vid-checkbox').forEach(cb => {
+        cb.checked = false;
+        const id = parseInt(cb.value);
+        selectedIds.delete(id);
+        cb.closest('.vid-row').classList.remove('selected');
+    });
+    updateSelectionUI();
+});
+
+// Отмена выделения (выход из режима)
+document.getElementById('cancelSelectionBtn')?.addEventListener('click', () => {
+    disableSelectionMode();
+});
+
+// Массовое удаление
+document.getElementById('deleteSelectedBtn')?.addEventListener('click', async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Удалить ${selectedIds.size} видео?`)) return;
+
+    const ids = Array.from(selectedIds);
+    const response = await fetch('/media-storage/videos/delete-selected/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
+        body: `video_ids[]=${ids.join('&video_ids[]=')}`
+    });
+    const data = await response.json();
+    if (data.success) {
+        showMessage(`✅ Удалено ${data.deleted_count} видео`);
+        ids.forEach(id => {
+            const row = document.querySelector(`.vid-row[data-id="${id}"]`);
+            if (row) row.remove();
+        });
+        clearSelection();
+        disableSelectionMode();
+        document.getElementById('totalCount').textContent = parseInt(document.getElementById('totalCount').textContent) - ids.length;
+        const savedCount = document.getElementById('savedCount');
+        const uploadedCount = document.getElementById('uploadedCount');
+        if (savedCount) {
+            const savedIds = ids.filter(id => document.querySelector(`.vid-row[data-id="${id}"]`)?.dataset.type === 'saved').length;
+            savedCount.textContent = parseInt(savedCount.textContent) - savedIds;
+        }
+        if (uploadedCount) {
+            const uploadedIds = ids.filter(id => document.querySelector(`.vid-row[data-id="${id}"]`)?.dataset.type === 'uploaded').length;
+            uploadedCount.textContent = parseInt(uploadedCount.textContent) - uploadedIds;
+        }
+    } else {
+        showMessage('❌ Ошибка при удалении', true);
+    }
+});
+
+// Обработчики чекбоксов
+document.querySelectorAll('.vid-checkbox').forEach(cb => {
+    cb.addEventListener('change', function(e) {
+        e.stopPropagation();
+        const id = parseInt(this.value);
+        const row = this.closest('.vid-row');
+        if (this.checked) {
+            selectedIds.add(id);
+            row.classList.add('selected');
+        } else {
+            selectedIds.delete(id);
+            row.classList.remove('selected');
+        }
+        updateSelectionUI();
+    });
+});
 
 // Длительность на превью
 document.querySelectorAll('.vid-preview video').forEach(v => {
@@ -335,21 +496,19 @@ document.querySelectorAll('.vid-filter-btn').forEach(btn => {
             if (filter === 'all') row.classList.remove('hidden');
             else row.classList.toggle('hidden', row.dataset.type !== filter);
         });
+        if (selectionMode) {
+            clearSelection();
+        }
     });
 });
 
 // Лайтбокс
-let lbUrl = null;
-let lbVideoEl = null;
-let seekDrag = false;
-
 function fmt(t) { if (!t && t !== 0) return '0:00'; const m = Math.floor(t/60), s = Math.floor(t%60).toString().padStart(2,'0'); return m+':'+s; }
 
 window.lbOpen = function(url) {
     lbUrl = url;
     document.getElementById('vidLb').classList.add('on');
     document.body.style.overflow = 'hidden';
-
     const media = document.getElementById('lbMedia');
     media.innerHTML = `
         <video id="lbVideo" src="${url}" preload="auto"></video>
@@ -361,41 +520,32 @@ window.lbOpen = function(url) {
             <input type="range" id="lbVolume" value="80" min="0" max="100" class="vid-lb-vol">
             <button id="lbFsBtn">⛶</button>
         </div>`;
-
     setTimeout(() => {
         lbVideoEl = document.getElementById('lbVideo');
         if (!lbVideoEl) return;
-
         const seek = document.getElementById('lbSeek');
         const vol = document.getElementById('lbVolume');
         const time = document.getElementById('lbTime');
         const playBtn = document.getElementById('lbPlayBtn');
         const muteBtn = document.getElementById('lbMuteBtn');
-
         function setupSeek() { if (lbVideoEl.duration && isFinite(lbVideoEl.duration)) seek.max = 100; }
         lbVideoEl.addEventListener('loadedmetadata', setupSeek);
         lbVideoEl.addEventListener('durationchange', setupSeek);
         if (lbVideoEl.readyState >= 1) setupSeek();
-
         lbVideoEl.addEventListener('timeupdate', () => {
             if (lbVideoEl.duration && !seekDrag) seek.value = (lbVideoEl.currentTime / lbVideoEl.duration) * 100;
             time.textContent = fmt(lbVideoEl.currentTime) + ' / ' + fmt(lbVideoEl.duration);
         });
-
         seek.addEventListener('mousedown', () => seekDrag = true);
         seek.addEventListener('mouseup', () => { seekDrag = false; if (lbVideoEl.duration) lbVideoEl.currentTime = (seek.value / 100) * lbVideoEl.duration; });
         seek.addEventListener('input', () => { if (seekDrag && lbVideoEl.duration) lbVideoEl.currentTime = (seek.value / 100) * lbVideoEl.duration; });
         seek.addEventListener('change', () => { if (lbVideoEl.duration) lbVideoEl.currentTime = (seek.value / 100) * lbVideoEl.duration; });
-
         vol.addEventListener('input', () => { lbVideoEl.volume = vol.value / 100; updateMuteIcon(); });
-
         function updateMuteIcon() { muteBtn.textContent = lbVideoEl.muted || lbVideoEl.volume === 0 ? '🔇' : lbVideoEl.volume < 0.5 ? '🔉' : '🔊'; }
-
         playBtn.addEventListener('click', () => {
             if (lbVideoEl.paused) { lbVideoEl.play(); playBtn.textContent = '⏸'; }
             else { lbVideoEl.pause(); playBtn.textContent = '▶'; }
         });
-
         lbVideoEl.addEventListener('play', () => playBtn.textContent = '⏸');
         lbVideoEl.addEventListener('pause', () => playBtn.textContent = '▶');
         lbVideoEl.addEventListener('ended', () => playBtn.textContent = '▶');
@@ -404,17 +554,14 @@ window.lbOpen = function(url) {
             else { lbVideoEl.pause(); playBtn.textContent = '▶'; }
         });
         lbVideoEl.addEventListener('volumechange', updateMuteIcon);
-
         muteBtn.addEventListener('click', () => {
             lbVideoEl.muted = !lbVideoEl.muted;
             if (!lbVideoEl.muted && lbVideoEl.volume === 0) { lbVideoEl.volume = 0.5; vol.value = 50; }
             updateMuteIcon();
         });
-
         document.getElementById('lbFsBtn').addEventListener('click', () => {
             document.fullscreenElement ? document.exitFullscreen() : lbVideoEl.requestFullscreen();
         });
-
         lbVideoEl.volume = vol.value / 100;
     }, 100);
 };
@@ -446,27 +593,18 @@ window.lbSaveAs = function() {
     }
 };
 
-document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && document.getElementById('vidLb').classList.contains('on')) lbClose();
-    if (e.key === ' ' && document.getElementById('vidLb').classList.contains('on')) {
-        e.preventDefault();
-        if (lbVideoEl) lbVideoEl.paused ? lbVideoEl.play() : lbVideoEl.pause();
-    }
-    if (e.key === 'ArrowLeft' && lbVideoEl) lbVideoEl.currentTime -= 5;
-    if (e.key === 'ArrowRight' && lbVideoEl) lbVideoEl.currentTime += 5;
-});
-
-// Удаление
+// Удаление одного
 window.delVideo = async function(id, btn) {
     if (!confirm('Удалить видео?')) return;
     const r = await fetch(`/media-storage/video/${id}/delete/`, { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } });
     if (r.ok) {
         const row = btn.closest('.vid-row');
+        const wasSaved = row.dataset.type === 'saved';
         row.style.opacity = '0'; row.style.transform = 'translateX(-12px)'; row.style.transition = 'all 0.3s';
         setTimeout(() => {
             row.remove();
             document.getElementById('totalCount').textContent = parseInt(document.getElementById('totalCount').textContent) - 1;
-            if (row.dataset.type === 'saved') document.getElementById('savedCount').textContent = parseInt(document.getElementById('savedCount').textContent) - 1;
+            if (wasSaved) document.getElementById('savedCount').textContent = parseInt(document.getElementById('savedCount').textContent) - 1;
             else document.getElementById('uploadedCount').textContent = parseInt(document.getElementById('uploadedCount').textContent) - 1;
         }, 300);
     }
@@ -480,5 +618,15 @@ window.uploadVideos = async function(input) {
     }
     location.reload();
 };
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.getElementById('vidLb').classList.contains('on')) lbClose();
+    if (e.key === ' ' && document.getElementById('vidLb').classList.contains('on')) {
+        e.preventDefault();
+        if (lbVideoEl) lbVideoEl.paused ? lbVideoEl.play() : lbVideoEl.pause();
+    }
+    if (e.key === 'ArrowLeft' && lbVideoEl) lbVideoEl.currentTime -= 5;
+    if (e.key === 'ArrowRight' && lbVideoEl) lbVideoEl.currentTime += 5;
+});
 </script>
 {% endblock %}

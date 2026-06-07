@@ -180,6 +180,91 @@
     .post-item {
         overflow: visible !important;
     }
+    /* ========== МЕНЮ ПОСТА ========== */
+
+    /* Родительский контейнер кнопки меню */
+    .post-vk-header > div:last-child,
+    .post-vk-header .menu-wrapper {
+        position: relative;
+    }
+
+    /* Кнопка меню */
+    .post-vk-menu-btn {
+        position: relative;
+        z-index: 10;
+    }
+
+    /* Выпадающее меню */
+    .post-menu-dropdown {
+        position: fixed;  /* Фиксированное позиционирование относительно окна */
+        background: var(--color-bg-surface);
+        border: 1px solid var(--color-border);
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        min-width: 220px;
+        z-index: 100000;  /* Очень высокий z-index */
+        padding: 8px;
+        display: none;
+        flex-direction: column;
+    }
+
+    /* Показываем меню при открытии */
+    .post-menu-dropdown.open {
+        display: flex !important;
+    }
+
+    /* Элементы меню */
+    .post-menu-dropdown .menu-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        font-size: 0.9rem;
+        width: 100%;
+        box-sizing: border-box;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.2s;
+        color: var(--color-text);
+        background: transparent;
+        border: none;
+    }
+
+    .post-menu-dropdown .menu-item:hover {
+        background: var(--color-bg-elevated, #f3f4f6);
+    }
+
+    .post-menu-dropdown .menu-item.danger {
+        color: #ef4444;
+    }
+
+    .post-menu-dropdown .menu-item.danger:hover {
+        background: #fee2e2;
+    }
+
+    .post-menu-dropdown .menu-item i,
+    .post-menu-dropdown .menu-item svg {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+    }
+
+    .post-menu-dropdown .menu-divider {
+        height: 1px;
+        background: var(--color-border, #e5e7eb);
+        margin: 6px 0;
+    }
+
+    /* Элемент с подменю */
+    .post-menu-dropdown .menu-item.has-submenu {
+        justify-content: space-between;
+        position: relative;
+    }
+
+    .post-menu-dropdown .menu-item.has-submenu > i:last-child,
+    .post-menu-dropdown .menu-item.has-submenu > svg:last-child {
+        margin-left: auto;
+    }
 </style>
 
 <div class="pd-wrap">
@@ -206,7 +291,7 @@
                 <button class="post-vk-menu-btn" onclick="togglePostMenu(this)" title="Меню">
                     <i data-feather="more-horizontal"></i>
                 </button>
-                <div class="post-menu-dropdown" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--color-bg-surface);border:1px solid var(--color-border);border-radius:12px;box-shadow:var(--shadow-lg);min-width:180px;z-index:30;padding:4px">
+                <div class="post-menu-dropdown">
                     {% if user == post.author or user.is_staff or user.is_platform_moderator or user in community.moderators.all %}
                     <a href="{% url 'posts:post_edit' pk=post.id %}" class="menu-item"><i data-feather="edit"></i> Редактировать</a>
                     <button class="menu-item danger" onclick="deletePost({{ post.id }})"><i data-feather="trash-2"></i> Удалить</button>
@@ -214,14 +299,44 @@
                     {% endif %}
                     <button class="menu-item bookmark-menu-item {% if is_bookmarked %}active{% endif %}" data-post-id="{{ post.id }}" onclick="toggleBookmark(this)"><i data-feather="bookmark"></i> <span>{% if is_bookmarked %}Убрать из закладок{% else %}В закладки{% endif %}</span></button>
                     <button class="menu-item" onclick="copyLink({{ post.id }})"><i data-feather="link"></i> Скопировать ссылку</button>
-                    {% if post.image %}
-                    <button class="menu-item" onclick="savePhoto({{ post.id }})"><i data-feather="image"></i> Сохранить фото</button>
-                    {% endif %}
-                    {% if post.video %}
-                    <button class="menu-item" onclick="saveVideo({{ post.id }})"><i data-feather="video"></i> Сохранить видео</button>
-                    {% endif %}
+                    <!-- Замените старые кнопки savePhoto и saveVideo на: -->
+                    <div class="menu-item has-submenu" onclick="event.stopPropagation();toggleSaveSubmenu(this)">
+                        <i data-feather="save"></i> Сохранить в медиатеку
+                        <i data-feather="chevron-right" style="margin-left: auto;"></i>
+                        <div class="save-submenu save-submenu-visual" style="display: none; position: absolute; left: 100%; top: 0; background: var(--color-bg-surface); border-radius: 12px; min-width: 280px; box-shadow: var(--shadow-lg); z-index: 100; border: 1px solid var(--color-border);">
+                            {% if post.get_all_images %}
+                                <div class="submenu-group">
+                                    <div class="submenu-label">Фото</div>
+                                    <div class="submenu-media-grid">
+                                        {% for img in post.get_all_images %}
+                                            <div class="submenu-media-item" onclick="event.stopPropagation();saveMediaToLibrary('{{ img.url }}', 'image', {{ post.id }})">
+                                                <img src="{{ img.url }}" loading="lazy" class="submenu-thumb">
+                                                <span class="submenu-media-type">Фото</span>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                            {% if post.get_all_videos %}
+                                <div class="submenu-group">
+                                    <div class="submenu-label">Видео</div>
+                                    <div class="submenu-media-grid">
+                                        {% for vid in post.get_all_videos %}
+                                            <div class="submenu-media-item" onclick="event.stopPropagation();saveMediaToLibrary('{{ vid.url }}', 'video', {{ post.id }})">
+                                                <video src="{{ vid.url }}" preload="metadata" muted class="submenu-thumb"></video>
+                                                <span class="submenu-media-type">Видео</span>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
                     <div class="menu-divider"></div>
                     <button class="menu-item" onclick="reportPost({{ post.id }})"><i data-feather="flag"></i> Пожаловаться</button>
+                    <button class="menu-item" onclick="event.stopPropagation();openForwardModal({{ post.id }})">
+                        <i data-feather="send"></i> Отправить в ЛС
+                    </button>
                 </div>
             </div>
         </div>
@@ -229,8 +344,7 @@
 
     <h2 style="font-size:1.2rem;font-weight:700;margin-bottom:8px">{{ post.title }}</h2>
     <div class="pd-content markdown-content" data-raw="{{ post.get_clean_content|escapejs }}"></div>
-    {% if post.image %}<div class="pd-media"><img src="{{ post.image.url }}" alt=""></div>{% endif %}
-    {% if post.video %}<div class="pd-media"><video controls preload="metadata" playsinline><source src="{{ post.video.url }}"></video></div>{% endif %}
+    {% include 'posts/includes/media_grid.html' with post=post %}
 
     <div class="pd-actions">
         <button class="pd-act like-btn-vk {% if user_like %}liked{% endif %}" data-post-id="{{ post.id }}">
@@ -638,13 +752,63 @@ document.querySelector('.share-btn-vk')?.addEventListener('click',()=>{
 });
 
 // Меню
-window.togglePostMenu=function(btn){
-    const menu=btn.parentElement.querySelector('.post-menu-dropdown');
-    document.querySelectorAll('.post-menu-dropdown').forEach(m=>{
-        if(m!==menu) m.style.display='none'
+window.togglePostMenu = function(btn) {
+    event.stopPropagation();
+    const menu = btn.parentElement.querySelector('.post-menu-dropdown');
+
+    if (!menu) return;
+
+    // Закрываем все другие открытые меню
+    document.querySelectorAll('.post-menu-dropdown.open').forEach(m => {
+        if (m !== menu) {
+            m.classList.remove('open');
+            m.style.display = 'none';
+        }
     });
-    menu.style.display=menu.style.display==='none'?'block':'none';
+
+    // Получаем координаты кнопки
+    const rect = btn.getBoundingClientRect();
+
+    // Позиционируем меню рядом с кнопкой
+    menu.style.position = 'fixed';
+    menu.style.top = (rect.bottom + 4) + 'px';
+    menu.style.left = (rect.right - 220) + 'px'; // 220 - примерная ширина меню
+
+    // Корректировка, если меню выходит за правый край
+    if (rect.right - 220 < 10) {
+        menu.style.left = (rect.right - 240) + 'px';
+    }
+
+    // Корректировка, если меню выходит за левый край
+    if (rect.right - 220 < 0) {
+        menu.style.left = (rect.right + 10) + 'px';
+    }
+
+    // Корректировка, если меню выходит за нижний край
+    if (rect.bottom + menu.offsetHeight + 10 > window.innerHeight) {
+        menu.style.top = (rect.top - menu.offsetHeight - 4) + 'px';
+    }
+
+    // Переключаем текущее меню
+    if (menu.classList.contains('open')) {
+        menu.classList.remove('open');
+        menu.style.display = 'none';
+    } else {
+        menu.classList.add('open');
+        menu.style.display = 'flex';
+    }
 };
+};
+
+// Закрытие меню при клике вне
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.post-vk-menu-btn') && !e.target.closest('.post-menu-dropdown')) {
+        document.querySelectorAll('.post-menu-dropdown.open').forEach(menu => {
+            menu.classList.remove('open');
+            menu.style.display = 'none';
+        });
+    }
+});
 
 window.toggleBookmark=async function(btn){
     const pid=btn.dataset.postId;
@@ -810,6 +974,7 @@ window.sendReply=async function(cid,pid){
     if(r.ok) location.reload();
 };
 window.deleteComment = async function(cid, postId) {
+    alert('deleteComment called! cid=' + cid + ', postId=' + postId);
     showConfirmModal({
         title: 'Удаление комментария',
         message: 'Вы действительно хотите удалить этот комментарий? Это действие нельзя отменить.',
@@ -937,5 +1102,301 @@ window.closeReportCommentModal = function() {
     }
     if (origCloseReportCommentModal) origCloseReportCommentModal();
 };
+// ========== ФУНКЦИЯ ДЛЯ ВСПЛЫВАЮЩИХ СООБЩЕНИЙ ==========
+function showMessage(message, isError = false) {
+    const msgDiv = document.createElement('div');
+    msgDiv.textContent = message;
+    msgDiv.style.cssText = `
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        background: ${isError ? '#dc2626' : '#22c55e'};
+        color: white;
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 100002;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        animation: slideIn 0.3s ease;
+        cursor: pointer;
+    `;
+
+    // Добавляем анимацию, если её нет
+    if (!document.querySelector('#messageStyles')) {
+        const style = document.createElement('style');
+        style.id = 'messageStyles';
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    document.body.appendChild(msgDiv);
+
+    // Автоматическое исчезновение через 3 секунды
+    setTimeout(() => {
+        msgDiv.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => msgDiv.remove(), 300);
+    }, 3000);
+
+    // Закрытие по клику
+    msgDiv.onclick = () => {
+        msgDiv.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => msgDiv.remove(), 300);
+    };
+}
+
+// ========== МОДАЛКА ДЛЯ ПЕРЕСЫЛКИ В ЛС ==========
+let forwardPostId = null;
+let currentFilter = 'all';
+
+function openForwardModal(postId) {
+    forwardPostId = postId;
+
+    let modal = document.getElementById('forwardModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'forwardModal';
+        modal.innerHTML = `
+            <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:100001;display:flex;align-items:center;justify-content:center;">
+                <div style="background:var(--color-bg-surface);border-radius:20px;width:90%;max-width:450px;overflow:hidden;">
+                    <div style="padding:20px;border-bottom:1px solid var(--color-border);display:flex;justify-content:space-between;align-items:center;">
+                        <h3 style="margin:0;">Отправить пост</h3>
+                        <button onclick="closeForwardModal()" style="background:none;border:none;font-size:24px;cursor:pointer;">&times;</button>
+                    </div>
+
+                    <div style="padding:16px 20px;border-bottom:1px solid var(--color-border);">
+                        <div style="display:flex;gap:8px;margin-bottom:16px;">
+                            <button class="forward-filter-btn active" data-filter="all" style="flex:1;padding:10px;border-radius:12px;border:none;cursor:pointer;background:var(--color-primary);color:white;font-weight:500;">Все</button>
+                            <button class="forward-filter-btn" data-filter="friends" style="flex:1;padding:10px;border-radius:12px;border:1px solid var(--color-border);cursor:pointer;background:var(--color-bg-surface);color:var(--color-text);font-weight:500;">Друзья</button>
+                            <button class="forward-filter-btn" data-filter="followers" style="flex:1;padding:10px;border-radius:12px;border:1px solid var(--color-border);cursor:pointer;background:var(--color-bg-surface);color:var(--color-text);font-weight:500;">Подписчики</button>
+                        </div>
+                        <input type="text" id="forwardUserSearch" placeholder="Поиск..." autocomplete="off" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--color-border);background:var(--color-bg-elevated);">
+                    </div>
+
+                    <div id="forwardUserResults" style="max-height:400px;overflow-y:auto;padding:12px;">
+                        <div style="text-align:center;padding:20px;color:var(--color-text-tertiary);">Загрузка...</div>
+                    </div>
+
+                    <div style="padding:16px 20px;border-top:1px solid var(--color-border);display:flex;gap:12px;justify-content:flex-end;">
+                        <button onclick="closeForwardModal()" style="padding:8px 16px;border-radius:10px;border:1px solid var(--color-border);background:transparent;cursor:pointer;">Отмена</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        document.querySelectorAll('.forward-filter-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.forward-filter-btn').forEach(b => {
+                    b.classList.remove('active');
+                    b.style.background = 'var(--color-bg-surface)';
+                    b.style.color = 'var(--color-text)';
+                    b.style.border = '1px solid var(--color-border)';
+                });
+                this.classList.add('active');
+                this.style.background = 'var(--color-primary)';
+                this.style.color = 'white';
+                this.style.border = 'none';
+
+                currentFilter = this.dataset.filter;
+                const searchInput = document.getElementById('forwardUserSearch');
+                if (searchInput.value.trim().length >= 2) {
+                    searchForwardUsers(searchInput.value.trim());
+                } else {
+                    loadForwardUsers();
+                }
+            });
+        });
+
+        const searchInput = document.getElementById('forwardUserSearch');
+        let debounceTimer;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                const query = this.value.trim();
+                if (query.length >= 2) {
+                    searchForwardUsers(query);
+                } else {
+                    loadForwardUsers();
+                }
+            }, 300);
+        });
+    }
+
+    modal.style.display = 'flex';
+    document.getElementById('forwardUserSearch').value = '';
+    currentFilter = 'all';
+
+    document.querySelectorAll('.forward-filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+        btn.style.background = 'var(--color-bg-surface)';
+        btn.style.color = 'var(--color-text)';
+        btn.style.border = '1px solid var(--color-border)';
+    });
+    const allBtn = document.querySelector('.forward-filter-btn[data-filter="all"]');
+    if (allBtn) {
+        allBtn.classList.add('active');
+        allBtn.style.background = 'var(--color-primary)';
+        allBtn.style.color = 'white';
+        allBtn.style.border = 'none';
+    }
+
+    loadForwardUsers();
+    document.getElementById('forwardUserSearch').focus();
+}
+
+function closeForwardModal() {
+    const modal = document.getElementById('forwardModal');
+    if (modal) modal.style.display = 'none';
+    forwardPostId = null;
+}
+
+async function loadForwardUsers() {
+    const resultsDiv = document.getElementById('forwardUserResults');
+    resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--color-text-tertiary);">Загрузка...</div>';
+
+    try {
+        const response = await fetch(`/accounts/api/search-users/?filter=${currentFilter}`);
+        const users = await response.json();
+
+        if (users.length === 0) {
+            let emptyMessage = 'Нет пользователей для отправки';
+            if (currentFilter === 'friends') emptyMessage = 'У вас пока нет друзей';
+            if (currentFilter === 'followers') emptyMessage = 'На вас пока никто не подписан';
+            resultsDiv.innerHTML = `<div style="text-align:center;padding:40px;color:var(--color-text-tertiary);">${emptyMessage}</div>`;
+            return;
+        }
+
+        renderForwardUserList(users);
+
+    } catch (error) {
+        console.error('Load error:', error);
+        resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:red;">Ошибка загрузки</div>';
+    }
+}
+
+async function searchForwardUsers(query) {
+    const resultsDiv = document.getElementById('forwardUserResults');
+    resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--color-text-tertiary);">Поиск...</div>';
+
+    try {
+        const response = await fetch(`/accounts/api/search-users/?q=${encodeURIComponent(query)}&filter=${currentFilter}`);
+        const users = await response.json();
+
+        if (users.length === 0) {
+            resultsDiv.innerHTML = '<div style="text-align:center;padding:40px;color:var(--color-text-tertiary);">Пользователи не найдены</div>';
+            return;
+        }
+
+        renderForwardUserList(users);
+
+    } catch (error) {
+        console.error('Search error:', error);
+        resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:red;">Ошибка поиска</div>';
+    }
+}
+
+function renderForwardUserList(users) {
+    const resultsDiv = document.getElementById('forwardUserResults');
+
+    resultsDiv.innerHTML = users.map(user => `
+        <div onclick="sendForward('${user.id}')" class="forward-user-item" style="display:flex;align-items:center;gap:12px;padding:12px;cursor:pointer;border-radius:12px;transition:background 0.2s;margin-bottom:4px;">
+            <div style="width:48px;height:48px;border-radius:50%;overflow:hidden;background:var(--color-primary-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                ${user.avatar
+                    ? `<img src="${user.avatar}" style="width:100%;height:100%;object-fit:cover;">`
+                    : `<span style="font-size:20px;font-weight:600;">${escapeHtml(user.username.charAt(0).toUpperCase())}</span>`
+                }
+            </div>
+            <div style="flex:1;">
+                <div style="font-weight:600;">${escapeHtml(user.full_name)}</div>
+                <div style="font-size:13px;color:var(--color-text-tertiary);">@${escapeHtml(user.username)}</div>
+                ${user.is_friend ? '<span style="font-size:11px;color:#22c55e;margin-top:2px;display:inline-block;">Друг</span>' : ''}
+                ${!user.is_friend && user.is_follower ? '<span style="font-size:11px;color:#3b82f6;margin-top:2px;display:inline-block;">Подписчик</span>' : ''}
+            </div>
+            <button class="forward-send-btn" style="padding:6px 16px;border-radius:20px;background:var(--color-primary);color:white;border:none;cursor:pointer;font-size:13px;">Отправить</button>
+        </div>
+    `).join('');
+
+    resultsDiv.querySelectorAll('.forward-user-item').forEach(el => {
+        el.addEventListener('mouseenter', () => el.style.background = 'var(--color-bg-elevated)');
+        el.addEventListener('mouseleave', () => el.style.background = 'transparent');
+    });
+}
+
+async function sendForward(userId) {
+    if (!forwardPostId) return;
+
+    const item = event.target.closest('.forward-user-item');
+    const btn = item?.querySelector('.forward-send-btn');
+    if (btn) {
+        const originalText = btn.textContent;
+        btn.textContent = 'Отправка...';
+        btn.disabled = true;
+
+        try {
+            const response = await fetch(`/messenger/forward/${forwardPostId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: `user_id=${userId}`
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'ok') {
+                showMessage('Пост отправлен в личные сообщения', false);
+                closeForwardModal();
+            } else {
+                showMessage(data.error || 'Ошибка при отправке', true);
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        } catch (error) {
+            console.error('Forward error:', error);
+            showMessage('Ошибка при отправке', true);
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function getCookie(name) {
+    let value = null;
+    document.cookie.split(';').forEach(c => {
+        const [key, val] = c.trim().split('=');
+        if (key === name) value = decodeURIComponent(val);
+    });
+    return value;
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeForwardModal();
+});
+
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('forwardModal');
+    if (modal && modal.style.display === 'flex' && e.target === modal.firstChild) {
+        closeForwardModal();
+    }
+});
 </script>
 {% endblock %}

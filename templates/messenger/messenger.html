@@ -993,7 +993,39 @@ function renderMessage(msg) {
     }
 
     let contentHtml = '';
-    if (msg.file_url) {
+
+    // === ПЕРЕСЛАННЫЙ ПОСТ (КАРТОЧКА) ===
+    if (msg.forwarded_post && msg.forwarded_post.type === 'forwarded_post') {
+        const post = msg.forwarded_post;
+        contentHtml += `
+            <div class="tg-msg-forwarded-post" style="margin-top: 2px; margin-bottom: 2px; padding: 10px 12px; background: var(--color-bg-elevated, #f3f4f6); border-radius: 14px; border-left: 3px solid #3b82f6; max-width: 280px;">
+                <div style="font-size: 10px; color: var(--color-text-tertiary, #6b7280); margin-bottom: 6px;">
+                    📎 Переслал(а): ${escapeHtml(post.forwarded_by_full_name || post.forwarded_by)}
+                </div>
+                <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px; color: var(--color-text, #111827);">
+                    ${escapeHtml(post.title)}
+                </div>
+                ${post.preview_image ? `
+                    <div style="margin: 6px 0; border-radius: 10px; overflow: hidden;">
+                        <img src="${post.preview_image}" style="width: 100%; max-height: 120px; object-fit: cover; cursor: pointer;" onclick="openLightbox('${post.preview_image}','image',event)">
+                    </div>
+                ` : ''}
+                <div style="font-size: 12px; color: var(--color-text-secondary, #4b5563); line-height: 1.4; margin-bottom: 6px; word-break: break-word;">
+                    ${escapeHtml(post.content.length > 100 ? post.content.substring(0, 100) + '...' : post.content)}
+                </div>
+                <div style="display: flex; gap: 12px; font-size: 11px; color: var(--color-text-tertiary, #6b7280); margin-bottom: 6px;">
+                    <span>❤️ ${post.likes_count || 0}</span>
+                    <span>💬 ${post.comments_count || 0}</span>
+                </div>
+                <a href="${post.url}" target="_blank" style="color: #3b82f6; text-decoration: none; font-size: 12px; font-weight: 500;">
+                    Открыть пост →
+                </a>
+            </div>
+        `;
+    }
+
+    // === ОБЫЧНЫЙ ФАЙЛ (ИЗОБРАЖЕНИЕ/ВИДЕО) ===
+    if (msg.file_url && !msg.forwarded_post) {
         if (msg.file_type === 'image') {
             contentHtml += `<div class="tg-msg-img" onclick="openLightbox('${msg.file_url}','image',event)" oncontextmenu="showImageContextMenu(event,'${msg.file_url}','image',${msg.id})"><img src="${msg.file_url}" alt="" loading="lazy"></div>`;
         } else if (msg.file_type === 'video') {
@@ -1002,10 +1034,13 @@ function renderMessage(msg) {
             contentHtml += `<a href="${msg.file_url}" class="tg-msg-file" download><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Файл</a>`;
         }
     }
-    if (msg.content) {
+
+    // === ОБЫЧНЫЙ ТЕКСТ ===
+    if (msg.content && !msg.forwarded_post) {
         contentHtml += `<div class="tg-msg-bubble">${msg.is_deleted ? '<span style="opacity:.5;font-style:italic">Сообщение удалено</span>' : escapeHtml(msg.content)}</div>`;
     }
 
+    // === РЕАКЦИИ ===
     let reactionsHtml = '';
     if (msg.reactions && Object.keys(msg.reactions).length > 0) {
         reactionsHtml = `<div class="tg-msg-reactions" id="reactions-${msg.id}">` +
@@ -1014,7 +1049,6 @@ function renderMessage(msg) {
             ).join('') + '</div>';
     }
 
-    // Функция для форматирования полной даты
     function formatFullDate(dateString) {
         if (!dateString) return null;
         const date = new Date(dateString);
@@ -1028,11 +1062,9 @@ function renderMessage(msg) {
         });
     }
 
-    // Статусы для своих сообщений с тултипами
     let statusHtml = '';
     if (isOwn) {
         const createdFull = formatFullDate(msg.created_at_full || msg.created_at);
-
         if (msg.is_read) {
             const readFull = formatFullDate(msg.read_at);
             statusHtml = `<div class="message-status read" data-message-id="${msg.id}" data-status="read">
@@ -1067,7 +1099,7 @@ function renderMessage(msg) {
         }
     }
 
-    // Отправка ресита о прочтении при отображении чужого сообщения
+    // Отправка ресита о прочтении
     if (!isOwn && !msg.is_read) {
         setTimeout(() => {
             sendReadReceipt(msg.id);
@@ -3127,6 +3159,32 @@ function scrollToMessage(messageId) {
         justify-content: flex-end;
         gap: 4px;
         margin-top: 2px;
+    }
+/* Карточка пересланного поста */
+    .tg-msg-forwarded-post {
+        transition: all 0.2s ease;
+        max-width: 320px;
+    }
+
+    .tg-msg-forwarded-post:hover {
+        background: var(--color-bg-hover, #e5e7eb);
+    }
+
+    .tg-msg-forwarded-post a {
+        display: inline-block;
+        font-weight: 500;
+    }
+
+    .tg-msg-forwarded-post a:hover {
+        text-decoration: underline;
+    }
+
+    .tg-msg-forwarded-post img {
+        transition: transform 0.2s ease;
+    }
+
+    .tg-msg-forwarded-post img:hover {
+        transform: scale(1.02);
     }
 </style>
 {% endblock %}

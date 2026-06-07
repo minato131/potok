@@ -11,4 +11,7 @@ urlpatterns = [
     path('video/<int:video_id>/delete/', views.video_delete, name='video_delete'),
     path('photo/upload/', views.upload_photo, name='upload_photo'),
     path('video/upload/', views.upload_video, name='upload_video'),
+    path('save-from-url/', views.save_media_from_url, name='save_from_url'),
+    path('photos/delete-selected/', views.delete_selected_photos, name='delete_selected_photos'),
+    path('videos/delete-selected/', views.delete_selected_videos, name='delete_selected_videos'),
 ]

@@ -26,7 +26,7 @@
 
     <!-- Табы -->
     <div class="search-tabs">
-        <a href="?q={{ query }}&type=posts" class="search-tab {% if type == 'posts' %}active{% endif %}">
+        <a href="?q={{ query }}&type=posts{% if category_filter %}&category={{ category_filter }}{% endif %}" class="search-tab {% if type == 'posts' %}active{% endif %}">
             <i data-feather="file-text"></i>
             <span>Посты</span>
             <span class="count">{{ posts_count|default:0 }}</span>
@@ -107,18 +107,18 @@
                 <i data-feather="check"></i> Применить
             </button>
 
-            {% if query %}
-            <a href="?q={{ query }}&type={{ type }}" class="btn btn--outline btn--sm">
+            {% if query or category_filter or community_filter %}
+            <a href="?type={{ type }}" class="btn btn--outline btn--sm">
                 <i data-feather="x"></i> Сбросить
             </a>
             {% endif %}
         </div>
     </div>
 
-    <!-- Результаты -->
+    <!-- РЕЗУЛЬТАТЫ -->
     <div class="search-results">
-        {% if query %}
-            {% if type == 'posts' %}
+        {% if type == 'posts' %}
+            {% if results %}
                 {% for post in results %}
                 <article class="search-result-post">
                     <div class="result-meta">
@@ -137,9 +137,17 @@
                         <span><i data-feather="message-circle"></i> {{ post.comments_count|default:0 }}</span>
                     </div>
                 </article>
-                {% empty %}<div class="empty-results"><i data-feather="search"></i><h3>Ничего не найдено</h3></div>{% endfor %}
+                {% endfor %}
+            {% else %}
+                <div class="empty-results">
+                    <i data-feather="search"></i>
+                    <h3>Ничего не найдено</h3>
+                    <p>{% if category_filter %}В этой категории пока нет постов{% else %}Попробуйте изменить параметры поиска{% endif %}</p>
+                </div>
+            {% endif %}
 
-            {% elif type == 'users' %}
+        {% elif type == 'users' %}
+            {% if results %}
                 {% for u in results %}
                 <div class="user-result">
                     <div class="user-avatar">
@@ -158,9 +166,16 @@
                     </button>
                     {% endif %}
                 </div>
-                {% empty %}<div class="empty-results"><i data-feather="user"></i><h3>Пользователи не найдены</h3></div>{% endfor %}
+                {% endfor %}
+            {% else %}
+                <div class="empty-results">
+                    <i data-feather="user"></i>
+                    <h3>Пользователи не найдены</h3>
+                </div>
+            {% endif %}
 
-            {% elif type == 'communities' %}
+        {% elif type == 'communities' %}
+            {% if results %}
                 {% for c in results %}
                 <a href="{% url 'communities:community_detail' slug=c.slug %}" class="community-result">
                     <div class="community-avatar">
@@ -172,30 +187,47 @@
                         <span>{{ c.members_count }} участников</span>
                     </div>
                 </a>
-                {% empty %}<div class="empty-results"><i data-feather="users"></i><h3>Сообщества не найдены</h3></div>{% endfor %}
+                {% endfor %}
+            {% else %}
+                <div class="empty-results">
+                    <i data-feather="users"></i>
+                    <h3>Сообщества не найдены</h3>
+                </div>
+            {% endif %}
 
-            {% elif type == 'tags' %}
+        {% elif type == 'tags' %}
+            {% if results %}
                 {% for t in results %}
                 <a href="{% url 'posts:tag_detail' slug=t.slug %}" class="tag-result">
                     <span class="tag-name">#{{ t.name }}</span>
                     <span class="tag-posts">{{ t.posts_count }} постов</span>
                 </a>
-                {% empty %}<div class="empty-results"><i data-feather="tag"></i><h3>Теги не найдены</h3></div>{% endfor %}
+                {% endfor %}
+            {% else %}
+                <div class="empty-results">
+                    <i data-feather="tag"></i>
+                    <h3>Теги не найдены</h3>
+                </div>
             {% endif %}
+        {% endif %}
 
-            {% if is_paginated %}
-            <div style="display:flex;justify-content:center;gap:8px;padding:24px 0">
-                {% if page_obj.has_previous %}<a href="?q={{ query }}&type={{ type }}&page={{ page_obj.previous_page_number }}" class="btn btn--outline btn--sm">←</a>{% endif %}
-                {% for n in page_obj.paginator.page_range %}{% if n == page_obj.number %}<span class="btn btn--primary btn--sm">{{ n }}</span>{% elif n > page_obj.number|add:'-3' and n < page_obj.number|add:'3' %}<a href="?q={{ query }}&type={{ type }}&page={{ n }}" class="btn btn--outline btn--sm">{{ n }}</a>{% endif %}{% endfor %}
-                {% if page_obj.has_next %}<a href="?q={{ query }}&type={{ type }}&page={{ page_obj.next_page_number }}" class="btn btn--outline btn--sm">→</a>{% endif %}
-            </div>
+        <!-- Пагинация -->
+        {% if is_paginated %}
+        <div style="display:flex;justify-content:center;gap:8px;padding:24px 0">
+            {% if page_obj.has_previous %}
+            <a href="?q={{ query }}&type={{ type }}&page={{ page_obj.previous_page_number }}{% if category_filter %}&category={{ category_filter }}{% endif %}{% if community_filter %}&community={{ community_filter }}{% endif %}{% if date_filter and date_filter != 'all' %}&date={{ date_filter }}{% endif %}{% if sort and sort != 'relevance' %}&sort={{ sort }}{% endif %}" class="btn btn--outline btn--sm">←</a>
             {% endif %}
-        {% else %}
-            <div class="empty-search">
-                <i data-feather="search"></i>
-                <h3>Введите поисковый запрос</h3>
-                <p>Найдите посты, сообщества, пользователей или теги</p>
-            </div>
+            {% for n in page_obj.paginator.page_range %}
+                {% if n == page_obj.number %}
+                    <span class="btn btn--primary btn--sm">{{ n }}</span>
+                {% elif n > page_obj.number|add:'-3' and n < page_obj.number|add:'3' %}
+                    <a href="?q={{ query }}&type={{ type }}&page={{ n }}{% if category_filter %}&category={{ category_filter }}{% endif %}{% if community_filter %}&community={{ community_filter }}{% endif %}{% if date_filter and date_filter != 'all' %}&date={{ date_filter }}{% endif %}{% if sort and sort != 'relevance' %}&sort={{ sort }}{% endif %}" class="btn btn--outline btn--sm">{{ n }}</a>
+                {% endif %}
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <a href="?q={{ query }}&type={{ type }}&page={{ page_obj.next_page_number }}{% if category_filter %}&category={{ category_filter }}{% endif %}{% if community_filter %}&community={{ community_filter }}{% endif %}{% if date_filter and date_filter != 'all' %}&date={{ date_filter }}{% endif %}{% if sort and sort != 'relevance' %}&sort={{ sort }}{% endif %}" class="btn btn--outline btn--sm">→</a>
+            {% endif %}
+        </div>
         {% endif %}
     </div>
 </div>
@@ -245,8 +277,8 @@
     .tag-result { display: inline-block; padding: 0.75rem 1.25rem; background: var(--color-primary-light); color: var(--color-primary); border-radius: 20px; text-decoration: none; font-weight: 500; margin: 4px; }
     .tag-name { font-weight: 600; }
     .tag-posts { font-size: 0.75rem; opacity: 0.7; margin-left: 6px; }
-    .empty-results, .empty-search { text-align: center; padding: 3rem; background: var(--color-bg-surface); border-radius: 16px; border: 1px solid var(--color-border-light); }
-    .empty-results i, .empty-search i { width: 3rem; height: 3rem; color: var(--color-text-tertiary); margin-bottom: 1rem; }
+    .empty-results { text-align: center; padding: 3rem; background: var(--color-bg-surface); border-radius: 16px; border: 1px solid var(--color-border-light); }
+    .empty-results i { width: 3rem; height: 3rem; color: var(--color-text-tertiary); margin-bottom: 1rem; }
     @media (max-width: 600px) { .filter-row { flex-direction: column; } .filter-group { width: 100%; } }
 </style>
 {% endblock %}
@@ -260,13 +292,33 @@ document.addEventListener('DOMContentLoaded', function() {
         const date = document.getElementById('dateFilter')?.value;
         const community = document.getElementById('communityFilter')?.value;
         const category = document.getElementById('categoryFilter')?.value;
-        if (sort) url.searchParams.set('sort', sort);
+
+        if (sort && sort !== 'relevance') url.searchParams.set('sort', sort);
+        else url.searchParams.delete('sort');
+
         if (date && date !== 'all') url.searchParams.set('date', date);
+        else url.searchParams.delete('date');
+
         if (community) url.searchParams.set('community', community);
+        else url.searchParams.delete('community');
+
         if (category) url.searchParams.set('category', category);
+        else url.searchParams.delete('category');
+
         window.location = url;
     }
     document.getElementById('applyFilters')?.addEventListener('click', applyFilters);
+
+    // Автоматическое применение при изменении select
+    const categoryFilter = document.getElementById('categoryFilter');
+    const communityFilter = document.getElementById('communityFilter');
+    const dateFilter = document.getElementById('dateFilter');
+    const sortFilter = document.getElementById('sortFilter');
+
+    if (categoryFilter) categoryFilter.addEventListener('change', applyFilters);
+    if (communityFilter) communityFilter.addEventListener('change', applyFilters);
+    if (dateFilter) dateFilter.addEventListener('change', applyFilters);
+    if (sortFilter) sortFilter.addEventListener('change', applyFilters);
 });
 </script>
 {% endblock %}

@@ -1,0 +1,294 @@
+{% load static %}
+
+{% if post.image or post.image2 or post.image3 or post.image4 or post.image5 or post.video or post.video2 %}
+<div class="post-media-grid">
+
+    <!-- Подсчитываем количество медиа прямо вручную -->
+    {% with img1=post.image img2=post.image2 img3=post.image3 img4=post.image4 img5=post.image5 vid1=post.video vid2=post.video2 %}
+
+    {% if img1 or img2 or img3 or img4 or img5 or vid1 or vid2 %}
+
+    <!-- Собираем список URL для галереи (скрытый) -->
+    <div style="display:none;" id="gallery-data-{{ post.id }}"
+         data-urls="{% if img1 %}{{ img1.url }},{% endif %}{% if img2 %}{{ img2.url }},{% endif %}{% if img3 %}{{ img3.url }},{% endif %}{% if img4 %}{{ img4.url }},{% endif %}{% if img5 %}{{ img5.url }},{% endif %}{% if vid1 %}{{ vid1.url }},{% endif %}{% if vid2 %}{{ vid2.url }}{% endif %}"
+         data-types="{% if img1 %}image,{% endif %}{% if img2 %}image,{% endif %}{% if img3 %}image,{% endif %}{% if img4 %}image,{% endif %}{% if img5 %}image,{% endif %}{% if vid1 %}video,{% endif %}{% if vid2 %}video{% endif %}">
+    </div>
+
+    <!-- Проверяем, одно ли медиа -->
+    {% with media_count=0 %}
+    {% if img1 %}{% with media_count=media_count|add:1 %}{% endwith %}{% endif %}
+    {% if img2 %}{% with media_count=media_count|add:1 %}{% endwith %}{% endif %}
+    {% if img3 %}{% with media_count=media_count|add:1 %}{% endwith %}{% endif %}
+    {% if img4 %}{% with media_count=media_count|add:1 %}{% endwith %}{% endif %}
+    {% if img5 %}{% with media_count=media_count|add:1 %}{% endwith %}{% endif %}
+    {% if vid1 %}{% with media_count=media_count|add:1 %}{% endwith %}{% endif %}
+    {% if vid2 %}{% with media_count=media_count|add:1 %}{% endwith %}{% endif %}
+    {% endwith %}
+
+    <!-- Простая логика отображения -->
+    {% if img1 and not img2 and not img3 and not img4 and not img5 and not vid1 and not vid2 %}
+        <!-- Только одно изображение -->
+        <div class="media-single" onclick="openMediaGallery({{ post.id }}, 0)">
+            <img src="{{ img1.url }}" loading="lazy">
+        </div>
+    {% elif vid1 and not img1 and not img2 and not img3 and not img4 and not img5 and not vid2 %}
+        <!-- Только одно видео -->
+        <div class="media-single" onclick="openMediaGallery({{ post.id }}, 0)">
+            <video src="{{ vid1.url }}" preload="metadata" muted></video>
+            <div class="play-icon">▶</div>
+        </div>
+    {% else %}
+        <!-- Сетка для 2+ медиа -->
+        <div class="media-grid">
+            {% if img1 %}<div class="media-grid-item" onclick="openMediaGallery({{ post.id }}, 0)"><img src="{{ img1.url }}" loading="lazy"></div>{% endif %}
+            {% if img2 %}<div class="media-grid-item" onclick="openMediaGallery({{ post.id }}, 1)"><img src="{{ img2.url }}" loading="lazy"></div>{% endif %}
+            {% if img3 %}<div class="media-grid-item" onclick="openMediaGallery({{ post.id }}, 2)"><img src="{{ img3.url }}" loading="lazy"></div>{% endif %}
+            {% if img4 %}<div class="media-grid-item" onclick="openMediaGallery({{ post.id }}, 3)"><img src="{{ img4.url }}" loading="lazy"></div>{% endif %}
+            {% if img5 %}<div class="media-grid-item" onclick="openMediaGallery({{ post.id }}, 4)"><img src="{{ img5.url }}" loading="lazy"></div>{% endif %}
+            {% if vid1 %}<div class="media-grid-item" onclick="openMediaGallery({{ post.id }}, 5)"><video src="{{ vid1.url }}" preload="metadata" muted></video><div class="play-icon">▶</div></div>{% endif %}
+            {% if vid2 %}<div class="media-grid-item" onclick="openMediaGallery({{ post.id }}, 6)"><video src="{{ vid2.url }}" preload="metadata" muted></video><div class="play-icon">▶</div></div>{% endif %}
+        </div>
+    {% endif %}
+
+    {% endif %}
+    {% endwith %}
+
+</div>
+
+<style>
+.post-media-grid {
+    margin: 12px 0;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.media-single {
+    cursor: pointer;
+}
+
+.media-single img,
+.media-single video {
+    width: 100%;
+    max-height: 450px;
+    object-fit: contain;
+    background: #0a0a0a;
+}
+
+.media-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2px;
+}
+
+.media-grid-item {
+    aspect-ratio: 1 / 1;
+    cursor: pointer;
+    background: #0a0a0a;
+    position: relative;
+}
+
+.media-grid-item img,
+.media-grid-item video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.play-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 40px;
+    background: rgba(0,0,0,0.6);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 18px;
+    pointer-events: none;
+}
+</style>
+
+<script>
+function openMediaGallery(postId, startIndex) {
+    const dataDiv = document.getElementById(`gallery-data-${postId}`);
+    if (!dataDiv) return;
+
+    const urls = dataDiv.dataset.urls.split(',').filter(u => u);
+    const types = dataDiv.dataset.types.split(',').filter(t => t);
+
+    let modal = document.getElementById('globalGalleryModal');
+    if (modal) modal.remove();
+
+    modal = document.createElement('div');
+    modal.id = 'globalGalleryModal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.95);
+        z-index: 100000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    `;
+
+    let currentIndex = startIndex;
+
+    const content = document.createElement('div');
+    content.style.cssText = `
+        position: relative;
+        max-width: 90vw;
+        max-height: 90vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    `;
+
+    const mediaDiv = document.createElement('div');
+    mediaDiv.style.cssText = `
+        max-width: 85vw;
+        max-height: 85vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    `;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '&times;';
+    closeBtn.style.cssText = `
+        position: absolute;
+        top: -50px;
+        right: -50px;
+        background: none;
+        border: none;
+        color: white;
+        font-size: 40px;
+        cursor: pointer;
+    `;
+
+    const prevBtn = document.createElement('button');
+    prevBtn.innerHTML = '‹';
+    prevBtn.style.cssText = `
+        position: absolute;
+        left: -60px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 50px;
+        height: 50px;
+        background: rgba(255,255,255,0.2);
+        border: none;
+        border-radius: 50%;
+        color: white;
+        font-size: 32px;
+        cursor: pointer;
+    `;
+
+    const nextBtn = document.createElement('button');
+    nextBtn.innerHTML = '›';
+    nextBtn.style.cssText = `
+        position: absolute;
+        right: -60px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 50px;
+        height: 50px;
+        background: rgba(255,255,255,0.2);
+        border: none;
+        border-radius: 50%;
+        color: white;
+        font-size: 32px;
+        cursor: pointer;
+    `;
+
+    const counter = document.createElement('div');
+    counter.style.cssText = `
+        position: absolute;
+        bottom: -40px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: white;
+        font-size: 14px;
+        background: rgba(0,0,0,0.6);
+        padding: 4px 12px;
+        border-radius: 20px;
+    `;
+
+    function showMedia(index) {
+        mediaDiv.innerHTML = '';
+        const url = urls[index];
+        const type = types[index];
+
+        if (type === 'image') {
+            const img = document.createElement('img');
+            img.src = url;
+            img.style.maxWidth = '85vw';
+            img.style.maxHeight = '85vh';
+            img.style.borderRadius = '12px';
+            mediaDiv.appendChild(img);
+        } else {
+            const video = document.createElement('video');
+            video.controls = true;
+            video.autoplay = true;
+            video.style.maxWidth = '85vw';
+            video.style.maxHeight = '85vh';
+            video.style.borderRadius = '12px';
+            const source = document.createElement('source');
+            source.src = url;
+            video.appendChild(source);
+            mediaDiv.appendChild(video);
+        }
+
+        counter.textContent = `${index + 1} / ${urls.length}`;
+    }
+
+    function nextMedia() {
+        if (currentIndex < urls.length - 1) {
+            currentIndex++;
+            showMedia(currentIndex);
+        }
+    }
+
+    function prevMedia() {
+        if (currentIndex > 0) {
+            currentIndex--;
+            showMedia(currentIndex);
+        }
+    }
+
+    prevBtn.onclick = prevMedia;
+    nextBtn.onclick = nextMedia;
+    closeBtn.onclick = () => modal.remove();
+
+    modal.onclick = (e) => {
+        if (e.target === modal) modal.remove();
+    };
+
+    document.addEventListener('keydown', function escHandler(e) {
+        if (e.key === 'Escape') {
+            if (modal && modal.parentNode) modal.remove();
+            document.removeEventListener('keydown', escHandler);
+        } else if (e.key === 'ArrowLeft') {
+            prevMedia();
+        } else if (e.key === 'ArrowRight') {
+            nextMedia();
+        }
+    });
+
+    content.appendChild(closeBtn);
+    content.appendChild(prevBtn);
+    content.appendChild(nextBtn);
+    content.appendChild(mediaDiv);
+    content.appendChild(counter);
+    modal.appendChild(content);
+    document.body.appendChild(modal);
+
+    showMedia(currentIndex);
+}
+</script>
+{% endif %}

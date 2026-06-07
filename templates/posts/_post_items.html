@@ -38,7 +38,7 @@
             <button class="post-vk-menu-btn" onclick="event.stopPropagation();togglePostMenu(this)" title="Меню">
                 <i data-feather="more-horizontal"></i>
             </button>
-            <div class="post-menu-dropdown" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:var(--color-bg-surface);border:1px solid var(--color-border);border-radius:12px;box-shadow:var(--shadow-lg);min-width:180px;z-index:30;padding:4px">
+            <div class="post-menu-dropdown">
                 {% if user == post.author or user.is_staff or user.is_platform_moderator or user in post.community.moderators.all %}
                     <a href="{% url 'posts:post_edit' pk=post.id %}" class="menu-item" onclick="event.stopPropagation()"><i data-feather="edit"></i> Редактировать</a>
                     <button class="menu-item danger" onclick="event.stopPropagation();deletePost({{ post.id }})"><i data-feather="trash-2"></i> Удалить</button>
@@ -50,12 +50,47 @@
                 <button class="menu-item" onclick="event.stopPropagation();copyLink({{ post.id }})"><i data-feather="link"></i> Скопировать ссылку</button>
                 <div class="menu-divider"></div>
                 <button class="menu-item" onclick="event.stopPropagation();reportPost({{ post.id }})"><i data-feather="flag"></i> Пожаловаться</button>
-                {% if post.image %}
-                    <button class="menu-item" onclick="savePhoto({{ post.id }})"><i data-feather="image"></i> Сохранить фото</button>
-                {% endif %}
-                {% if post.video %}
-                    <button class="menu-item" onclick="saveVideo({{ post.id }})"><i data-feather="video"></i> Сохранить видео</button>
-                {% endif %}
+
+                <!-- Кнопка сохранения с визуальным подменю (миниатюры) -->
+                <div class="menu-item has-submenu" onclick="event.stopPropagation();toggleSaveSubmenu(this)">
+                    <i data-feather="save"></i> Сохранить в медиатеку
+                    <i data-feather="chevron-right" style="margin-left: auto;"></i>
+                    <div class="save-submenu save-submenu-visual" style="display: none; position: absolute; left: 100%; top: 0; background: var(--color-bg-surface); border-radius: 12px; min-width: 260px; max-width: 320px; box-shadow: var(--shadow-lg); z-index: 100; border: 1px solid var(--color-border);">
+                        {% if post.get_all_images %}
+                            <div class="submenu-group">
+                                <div class="submenu-label">Фото</div>
+                                <div class="submenu-media-grid">
+                                    {% for img in post.get_all_images %}
+                                        <div class="submenu-media-item" onclick="event.stopPropagation();saveMediaToLibrary('{{ img.url }}', 'image', {{ post.id }})">
+                                            <img src="{{ img.url }}" loading="lazy" class="submenu-thumb">
+                                            <span class="submenu-media-type">Фото</span>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+                        {% if post.get_all_videos %}
+                            <div class="submenu-group">
+                                <div class="submenu-label">Видео</div>
+                                <div class="submenu-media-grid">
+                                    {% for vid in post.get_all_videos %}
+                                        <div class="submenu-media-item" onclick="event.stopPropagation();saveMediaToLibrary('{{ vid.url }}', 'video', {{ post.id }})">
+                                            <video src="{{ vid.url }}" preload="metadata" muted class="submenu-thumb"></video>
+                                            <span class="submenu-media-type">Видео</span>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+                        {% if not post.get_all_images and not post.get_all_videos %}
+                            <div class="menu-item disabled">Нет медиа</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <button class="menu-item" onclick="event.stopPropagation();openForwardModal({{ post.id }})">
+                    <i data-feather="send"></i> Отправить в ЛС
+                </button>
             </div>
         </div>
     </div>
@@ -64,30 +99,7 @@
     <div class="post-vk-text" onclick="event.stopPropagation()">
         <div class="markdown-content markdown-preview" data-full="{{ post.get_clean_content|escapejs }}"></div>
     </div>
-
-    {% if post.image %}
-        <div class="post-vk-media">
-            <img src="{{ post.image.url }}" class="post-vk-img" loading="lazy" onclick="event.stopPropagation();openPostModal({{ post.id }})">
-        </div>
-    {% endif %}
-
-    {% if post.video %}
-        <div class="post-vk-media--video" onclick="event.stopPropagation();openPostModal({{ post.id }})">
-            <div class="vk-video-player">
-                <video class="vk-video-player__video" preload="metadata" playsinline>
-                    <source src="{{ post.video.url }}">
-                </video>
-                <div class="vk-video-player__overlay">
-                    <button class="vk-video-player__play-btn">
-                        <svg width="48" height="48">
-                            <circle cx="24" cy="24" r="22" fill="rgba(0,0,0,0.55)" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
-                            <path d="M19 14L31 24L19 34V14Z" fill="white"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-        </div>
-    {% endif %}
+    {% include 'posts/includes/media_grid.html' with post=post %}
 
     {% if post.tags.exists %}
     <div class="post-tags-row">

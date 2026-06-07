@@ -22,4 +22,5 @@ urlpatterns = [
     path('api/chat/<int:chat_id>/media/', views.api_chat_media, name='api_chat_media'),
     path('message/<int:message_id>/read/', views.mark_message_read, name='mark_message_read'),
     path('message/<int:message_id>/status/', views.message_status, name='message_status'),
+    path('forward/<int:post_id>/', views.forward_post_to_pm, name='forward_post_to_pm'),
 ]

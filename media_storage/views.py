@@ -8,7 +8,8 @@ from django.core.files.base import ContentFile
 from django.core.paginator import Paginator
 from posts.models import Post
 from .models import SavedPhoto, SavedVideo
-
+from django.views.decorators.csrf import csrf_exempt
+import json
 
 # media_storage/views.py
 @login_required
@@ -86,7 +87,6 @@ def save_media_from_post(request):
     post = get_object_or_404(Post, id=post_id)
 
     if media_type == 'photo' and post.image:
-        # Проверяем, не сохранял ли пользователь уже это фото
         existing = SavedPhoto.objects.filter(user=request.user, post=post).first()
         if existing:
             return JsonResponse({'success': False, 'already_exists': True, 'error': 'Фото уже сохранено'})
@@ -105,6 +105,103 @@ def save_media_from_post(request):
         return JsonResponse({'success': True})
 
     return JsonResponse({'success': False, 'error': 'Нет медиа'})
+
+
+# ========== НОВАЯ ФУНКЦИЯ ДЛЯ СОХРАНЕНИЯ ПО URL (С ВЫБОРОМ) ==========
+@login_required
+@csrf_exempt
+def save_media_from_url(request):
+    """Сохранить медиа из URL (для выбора конкретного фото/видео из поста)"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        media_url = data.get('url')
+        media_type = data.get('media_type')  # 'image' или 'video'
+        post_id = data.get('post_id')
+
+        if not media_url:
+            return JsonResponse({'success': False, 'error': 'URL не указан'}, status=400)
+
+        # ПРЕОБРАЗУЕМ ОТНОСИТЕЛЬНЫЙ URL В АБСОЛЮТНЫЙ
+        if media_url.startswith('/'):
+            from django.conf import settings
+            # Получаем домен из настроек или из запроса
+            from django.contrib.sites.shortcuts import get_current_site
+            from urllib.parse import urljoin
+
+            # Пытаемся получить домен из запроса (через request не передаётся, нужно добавить)
+            # Временное решение — используем относительный путь, requests не поймёт
+            # Поэтому нужно получить полный URL
+            domain = settings.SITE_URL if hasattr(settings, 'SITE_URL') else 'http://127.0.0.1:8000'
+            media_url = urljoin(domain, media_url)
+
+        # Проверяем, не сохранял ли пользователь уже этот URL
+        if media_type == 'image':
+            existing = SavedPhoto.objects.filter(
+                user=request.user,
+                original_url=media_url
+            ).first()
+        else:
+            existing = SavedVideo.objects.filter(
+                user=request.user,
+                original_url=media_url
+            ).first()
+
+        if existing:
+            return JsonResponse({'success': False, 'already_exists': True})
+
+        # Скачиваем файл по URL
+        try:
+            response = requests.get(media_url, timeout=30, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            })
+            response.raise_for_status()
+
+            # Определяем расширение и имя файла
+            content_type = response.headers.get('content-type', '')
+            filename = f"{uuid.uuid4().hex}"
+
+            if media_type == 'image':
+                if 'png' in content_type:
+                    filename += '.png'
+                elif 'gif' in content_type:
+                    filename += '.gif'
+                elif 'webp' in content_type:
+                    filename += '.webp'
+                else:
+                    filename += '.jpg'
+
+                photo = SavedPhoto.objects.create(
+                    user=request.user,
+                    original_url=media_url,
+                    source_post_id=post_id
+                )
+                photo.image.save(filename, ContentFile(response.content), save=True)
+                return JsonResponse({'success': True, 'media_id': photo.id})
+
+            else:  # video
+                if 'webm' in content_type:
+                    filename += '.webm'
+                else:
+                    filename += '.mp4'
+
+                video = SavedVideo.objects.create(
+                    user=request.user,
+                    original_url=media_url,
+                    source_post_id=post_id
+                )
+                video.file.save(filename, ContentFile(response.content), save=True)
+                return JsonResponse({'success': True, 'media_id': video.id})
+
+        except requests.exceptions.RequestException as e:
+            return JsonResponse({'success': False, 'error': f'Ошибка загрузки: {str(e)}'}, status=500)
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Неверный формат данных'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 @login_required
@@ -137,3 +234,39 @@ def upload_video(request):
     video = SavedVideo.objects.create(user=request.user)
     video.file.save(file.name, file)
     return JsonResponse({'success': True, 'id': video.id, 'url': video.file.url})
+
+
+@login_required
+@require_POST
+def delete_selected_photos(request):
+    """Удалить несколько выбранных фото"""
+    photo_ids = request.POST.getlist('photo_ids[]')
+    if not photo_ids:
+        return JsonResponse({'success': False, 'error': 'Не выбраны фото'}, status=400)
+
+    photos = SavedPhoto.objects.filter(id__in=photo_ids, user=request.user)
+    deleted_count = 0
+    for photo in photos:
+        photo.image.delete()
+        photo.delete()
+        deleted_count += 1
+
+    return JsonResponse({'success': True, 'deleted_count': deleted_count})
+
+
+@login_required
+@require_POST
+def delete_selected_videos(request):
+    """Удалить несколько выбранных видео"""
+    video_ids = request.POST.getlist('video_ids[]')
+    if not video_ids:
+        return JsonResponse({'success': False, 'error': 'Не выбраны видео'}, status=400)
+
+    videos = SavedVideo.objects.filter(id__in=video_ids, user=request.user)
+    deleted_count = 0
+    for video in videos:
+        video.file.delete()
+        video.delete()
+        deleted_count += 1
+
+    return JsonResponse({'success': True, 'deleted_count': deleted_count})

@@ -568,7 +568,7 @@ def category_detail(request, slug):
 
 
 def search(request):
-    query = request.GET.get('q', '')
+    query = request.GET.get('q', '').strip()
     search_type = request.GET.get('type', 'posts')
     sort = request.GET.get('sort', 'relevance')
     date_filter = request.GET.get('date', 'all')
@@ -589,113 +589,142 @@ def search(request):
     results = []
     total_count = 0
 
-    if query:
-        if search_type == 'posts':
-            results = Post.objects.filter(
-                Q(title__icontains=query) | Q(content__icontains=query),
-                status='published',
-                is_hidden=False
-            ).select_related('author').prefetch_related('tags')
+    # ========== ПОИСК ПОСТОВ ==========
+    if search_type == 'posts':
+        results = Post.objects.filter(
+            status='published',
+            is_hidden=False
+        ).select_related('author', 'category').prefetch_related('tags')
 
-            # Фильтр по дате
-            if date_filter == 'day':
-                from django.utils import timezone
-                from datetime import timedelta
-                day_ago = timezone.now() - timedelta(days=1)
-                results = results.filter(created_at__gte=day_ago)
-            elif date_filter == 'week':
-                from django.utils import timezone
-                from datetime import timedelta
-                week_ago = timezone.now() - timedelta(days=7)
-                results = results.filter(created_at__gte=week_ago)
-            elif date_filter == 'month':
-                from django.utils import timezone
-                from datetime import timedelta
-                month_ago = timezone.now() - timedelta(days=30)
-                results = results.filter(created_at__gte=month_ago)
+        if category_filter:
+            results = results.filter(category__slug=category_filter)
 
-            # Фильтр по сообществу
-            if community_filter:
-                results = results.filter(community_post__community__slug=community_filter)
-
-            # Фильтр по категории
-            if category_filter:
-                results = results.filter(category__slug=category_filter)
-
-            # Сортировка
-            if sort == 'new':
-                results = results.order_by('-created_at')
-            elif sort == 'top':
-                results = results.order_by('-likes_count', '-created_at')
-            elif sort == 'comments':
-                results = results.annotate(comment_count=Count('comments')).order_by('-comment_count', '-created_at')
-            else:
-                results = results.order_by('-created_at')
-
-            total_count = results.count()
-            context['posts_count'] = total_count
-
-        elif search_type == 'communities':
-            results = Community.objects.filter(
-                Q(name__icontains=query) | Q(description__icontains=query),
-                status='active'
+        if query:
+            results = results.filter(
+                Q(title__icontains=query) | Q(content__icontains=query)
             )
 
-            if sort == 'popular':
-                results = results.order_by('-members_count')
-            elif sort == 'new':
-                results = results.order_by('-created_at')
-            else:
-                results = results.order_by('name')
+        if date_filter == 'day':
+            day_ago = timezone.now() - timedelta(days=1)
+            results = results.filter(created_at__gte=day_ago)
+        elif date_filter == 'week':
+            week_ago = timezone.now() - timedelta(days=7)
+            results = results.filter(created_at__gte=week_ago)
+        elif date_filter == 'month':
+            month_ago = timezone.now() - timedelta(days=30)
+            results = results.filter(created_at__gte=month_ago)
 
-            total_count = results.count()
-            context['communities_count'] = total_count
-            # Показывать теги рядом с результатами постов
-            tag_results = Tag.objects.filter(name__icontains=query)[:10]
-            context['tag_results'] = tag_results
+        if community_filter:
+            results = results.filter(community_post__community__slug=community_filter)
 
-        elif search_type == 'users':
-            results = User.objects.filter(
+        # ===== СОРТИРОВКА ПОСТОВ =====
+        if sort == 'new':
+            results = results.order_by('-created_at')
+        elif sort == 'top':  # Лучшие = много лайков + много просмотров + много комментариев
+            results = results.annotate(
+                score=F('likes_count') * 3 + F('views_count') + F('comments_count') * 2
+            ).order_by('-score', '-created_at')
+        elif sort == 'comments':
+            results = results.order_by('-comments_count', '-created_at')
+        elif sort == 'relevance':
+            results = results.order_by('-created_at')
+        else:
+            results = results.order_by('-created_at')
+
+        total_count = results.count()
+        context['posts_count'] = total_count
+
+    # ========== ПОИСК ПОЛЬЗОВАТЕЛЕЙ ==========
+    elif search_type == 'users':
+        from django.db.models import OuterRef, Subquery
+
+        # Подсчитываем количество подписчиков для каждого пользователя
+        from accounts.models import Follow
+
+        # Аннотируем каждого пользователя количеством подписчиков
+        followers_subquery = Follow.objects.filter(
+            following=OuterRef('pk')
+        ).values('following').annotate(
+            cnt=Count('id')
+        ).values('cnt')
+
+        results = User.objects.all().select_related('profile').annotate(
+            followers_count=Coalesce(Subquery(followers_subquery), Value(0))
+        )
+
+        # Если есть текстовый поиск — фильтруем
+        if query:
+            results = results.filter(
                 Q(username__icontains=query) |
                 Q(first_name__icontains=query) |
                 Q(last_name__icontains=query)
-            ).select_related('profile')
+            )
 
-            if sort == 'followers':
-                results = results.annotate(followers_count=Count('profile_followers')).order_by('-followers_count')
-            elif sort == 'new':
-                results = results.order_by('-date_joined')
-            else:
-                results = results.order_by('username')
+        # ===== СОРТИРОВКА ПОЛЬЗОВАТЕЛЕЙ =====
+        if sort == 'followers':
+            # От большего к меньшему по подписчикам
+            results = results.order_by('-followers_count', 'username')
+        elif sort == 'new':
+            results = results.order_by('-date_joined')
+        elif sort == 'relevance':
+            results = results.order_by('username')
+        else:
+            results = results.order_by('username')
 
-            total_count = results.count()
-            context['users_count'] = total_count
+        total_count = results.count()
+        context['users_count'] = total_count
 
+    # ========== ПОИСК СООБЩЕСТВ ==========
+    elif search_type == 'communities':
+        results = Community.objects.filter(status='active')
 
-        elif search_type == 'tags':
-            results = Tag.objects.filter(
-                Q(name__icontains=query)
-            ).annotate(posts_count=Count('posts'))
+        if query:
+            results = results.filter(
+                Q(name__icontains=query) | Q(description__icontains=query)
+            )
 
-            if sort == 'popular':
-                results = results.order_by('-posts_count')
-            else:
-                results = results.order_by('name')
+        if sort == 'popular':
+            results = results.order_by('-members_count')
+        elif sort == 'new':
+            results = results.order_by('-created_at')
+        else:
+            results = results.order_by('name')
 
-            total_count = results.count()
-            context['tags_count'] = total_count
+        total_count = results.count()
+        context['communities_count'] = total_count
 
-        # Пагинация
-        paginator = Paginator(results, 20)
-        page = request.GET.get('page', 1)
-        try:
-            results_page = paginator.page(page)
-        except:
-            results_page = paginator.page(1)
+        if query:
+            tag_results = Tag.objects.filter(name__icontains=query)[:10]
+            context['tag_results'] = tag_results
 
-        context['results'] = results_page
-        context['is_paginated'] = results_page.has_other_pages()
-        context['page_obj'] = results_page
+    # ========== ПОИСК ТЕГОВ ==========
+    elif search_type == 'tags':
+        results = Tag.objects.annotate(posts_count=Count('posts')).filter(posts_count__gt=0)
+
+        if query:
+            results = results.filter(name__icontains=query)
+
+        if sort == 'popular':
+            results = results.order_by('-posts_count')
+        else:
+            results = results.order_by('name')
+
+        total_count = results.count()
+        context['tags_count'] = total_count
+
+    # ========== ПАГИНАЦИЯ ==========
+    paginator = Paginator(results, 20)
+    page = request.GET.get('page', 1)
+    try:
+        results_page = paginator.page(page)
+    except PageNotAnInteger:
+        results_page = paginator.page(1)
+    except EmptyPage:
+        results_page = paginator.page(paginator.num_pages)
+
+    context['results'] = results_page
+    context['is_paginated'] = results_page.has_other_pages()
+    context['page_obj'] = results_page
 
     return render(request, 'posts/search.html', context)
 

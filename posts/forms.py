@@ -15,7 +15,9 @@ class PostForm(forms.ModelForm):
 
     class Meta:
         model = Post
-        fields = ['title', 'content', 'category', 'image', 'video']
+        fields = ['title', 'content', 'category',
+                  'image', 'image2', 'image3', 'image4', 'image5',
+                  'video', 'video2']
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'form-input',
@@ -33,7 +35,27 @@ class PostForm(forms.ModelForm):
                 'class': 'form-input',
                 'accept': 'image/*'
             }),
+            'image2': forms.FileInput(attrs={
+                'class': 'form-input',
+                'accept': 'image/*'
+            }),
+            'image3': forms.FileInput(attrs={
+                'class': 'form-input',
+                'accept': 'image/*'
+            }),
+            'image4': forms.FileInput(attrs={
+                'class': 'form-input',
+                'accept': 'image/*'
+            }),
+            'image5': forms.FileInput(attrs={
+                'class': 'form-input',
+                'accept': 'image/*'
+            }),
             'video': forms.FileInput(attrs={
+                'class': 'form-input',
+                'accept': 'video/*'
+            }),
+            'video2': forms.FileInput(attrs={
                 'class': 'form-input',
                 'accept': 'video/*'
             }),
@@ -42,8 +64,9 @@ class PostForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['category'].required = False
-        self.fields['image'].required = False
-        self.fields['video'].required = False
+        # Все медиа-поля не обязательны
+        for field in ['image', 'image2', 'image3', 'image4', 'image5', 'video', 'video2']:
+            self.fields[field].required = False
 
     def clean_title(self):
         title = self.cleaned_data.get('title')

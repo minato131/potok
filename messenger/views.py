@@ -11,6 +11,11 @@ from accounts.utils import create_notification
 from .models import Chat, Message, ChatParticipant, Reaction
 from .forms import ChatCreateForm, GroupChatCreateForm
 from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404
+from django.contrib import messages
+from django.http import JsonResponse
+from posts.models import Post
+import json
 
 User = get_user_model()
 
@@ -49,14 +54,12 @@ def api_chat_messages(request, chat_id):
 
     participant = ChatParticipant.objects.get(user=request.user, chat=chat)
 
-    from django.utils import timezone
     now = timezone.now()
     unread = chat.messages.filter(
         created_at__gt=participant.last_read,
         is_read=False
     ).exclude(author=request.user)
 
-    # Обновляем статус прочтения
     for msg in unread:
         msg.is_read = True
         msg.read_at = now
@@ -84,7 +87,6 @@ def api_chat_messages(request, chat_id):
         for r in msg.reactions.all():
             reactions[r.emoji] = reactions.get(r.emoji, 0) + 1
 
-        # Определяем reply_to_data ДО использования
         reply_to_data = None
         if msg.reply_to:
             reply_to_data = {
@@ -93,9 +95,20 @@ def api_chat_messages(request, chat_id):
                 'author_name': msg.reply_to.author.get_full_name() or msg.reply_to.author.username,
             }
 
+        # Обработка пересланного поста
+        forwarded_post = None
+        if msg.file_type == 'forward' and msg.content:
+            try:
+                forward_data = json.loads(msg.content)
+                if forward_data.get('type') == 'forwarded_post':
+                    forwarded_post = forward_data
+            except:
+                pass
+
         messages_data.append({
             'id': msg.id,
-            'content': msg.content,
+            'content': msg.content if not forwarded_post else None,
+            'forwarded_post': forwarded_post,  # Данные пересланного поста
             'author': msg.author.username,
             'author_name': msg.author.get_full_name() or msg.author.username,
             'author_avatar': msg.author.profile.avatar.url if msg.author.profile.avatar else None,
@@ -110,7 +123,7 @@ def api_chat_messages(request, chat_id):
             'read_at': msg.read_at.isoformat() if msg.read_at else None,
             'delivered_at': msg.delivered_at.isoformat() if hasattr(msg, 'delivered_at') and msg.delivered_at else None,
             'reactions': reactions,
-            'reply_to': reply_to_data,  # Теперь всегда определён
+            'reply_to': reply_to_data,
         })
 
     return JsonResponse({
@@ -647,3 +660,76 @@ def message_status(request, message_id):
         'read_at': message.read_at.strftime('%d.%m.%Y %H:%M') if message.read_at else None,
         'created_at': message.created_at.strftime('%d.%m.%Y %H:%M'),
     })
+
+
+@login_required
+def forward_post_to_pm(request, post_id):
+    """Переслать пост в личные сообщения с красивым отображением"""
+    if request.method == 'POST':
+        post = get_object_or_404(Post, id=post_id, is_hidden=False)
+        user_id = request.POST.get('user_id')
+
+        try:
+            target_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return JsonResponse({'error': 'Пользователь не найден'}, status=404)
+
+        if target_user == request.user:
+            return JsonResponse({'error': 'Нельзя отправить самому себе'}, status=400)
+
+        # Находим или создаём чат
+        chat = Chat.objects.filter(chat_type='private', participants=request.user).filter(
+            participants=target_user
+        ).distinct().first()
+
+        if not chat:
+            chat = Chat.objects.create(chat_type='private')
+            ChatParticipant.objects.create(user=request.user, chat=chat)
+            ChatParticipant.objects.create(user=target_user, chat=chat)
+
+        # Получаем первое изображение для превью (используем новый метод)
+        first_image = post.get_first_image()
+        preview_image = first_image.url if first_image else None
+
+        # Сохраняем данные поста в JSON формате
+        forward_data = {
+            'type': 'forwarded_post',
+            'post_id': post.id,
+            'title': post.title,
+            'content': post.content[:200] + '...' if len(post.content) > 200 else post.content,
+            'author': post.author.username,
+            'author_full_name': post.author.get_full_name() or post.author.username,
+            'url': request.build_absolute_uri(f'/post/{post.id}/'),
+            'preview_image': preview_image,
+            'likes_count': post.likes_count,
+            'comments_count': post.comments_count,
+            'views_count': post.views_count,
+            'forwarded_by': request.user.username,
+            'forwarded_by_full_name': request.user.get_full_name() or request.user.username,
+        }
+
+        Message.objects.create(
+            chat=chat,
+            author=request.user,
+            content=json.dumps(forward_data, ensure_ascii=False),
+            is_delivered=True,
+            delivered_at=timezone.now(),
+            file_type='forward'
+        )
+
+        create_notification(
+            recipient=target_user,
+            sender=request.user,
+            notification_type='message',
+            title='Пересланный пост',
+            message=f'@{request.user.username} переслал(а) вам пост: {post.title[:50]}',
+            link=f'/messenger/?chat={chat.id}'
+        )
+
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'status': 'ok', 'chat_id': chat.id, 'message': 'Пост успешно отправлен'})
+
+        messages.success(request, 'Пост переслан в личные сообщения.')
+        return redirect(request.META.get('HTTP_REFERER', 'posts:post_list'))
+
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
