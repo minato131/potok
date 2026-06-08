@@ -265,6 +265,12 @@
     .post-menu-dropdown .menu-item.has-submenu > svg:last-child {
         margin-left: auto;
     }
+    @keyframes fadeInOut {
+        0% { opacity: 0; transform: translateX(20px); }
+        15% { opacity: 1; transform: translateX(0); }
+        85% { opacity: 1; transform: translateX(0); }
+        100% { opacity: 0; transform: translateX(20px); }
+    }
 </style>
 
 <div class="pd-wrap">
@@ -345,6 +351,9 @@
     <h2 style="font-size:1.2rem;font-weight:700;margin-bottom:8px">{{ post.title }}</h2>
     <div class="pd-content markdown-content" data-raw="{{ post.get_clean_content|escapejs }}"></div>
     {% include 'posts/includes/media_grid.html' with post=post %}
+    {% if post.poll %}
+        {% include 'posts/includes/poll.html' with poll=post.poll %}
+    {% endif %}
 
     <div class="pd-actions">
         <button class="pd-act like-btn-vk {% if user_like %}liked{% endif %}" data-post-id="{{ post.id }}">
@@ -1398,5 +1407,217 @@ document.addEventListener('click', function(e) {
         closeForwardModal();
     }
 });
+// ========== ОПРОСЫ ==========
+function getCsrfToken() {
+    return document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+}
+
+// Модалка для списка проголосовавших
+function showVotersModal(voters, total) {
+    let modal = document.getElementById('pollVotersModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'pollVotersModal';
+        modal.innerHTML = `
+            <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:100000;display:flex;align-items:center;justify-content:center;">
+                <div style="background:var(--color-bg-surface);border-radius:16px;width:90%;max-width:400px;max-height:80vh;overflow:auto;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid var(--color-border);">
+                        <h3 style="margin:0;">Проголосовавшие <span id="votersCount">${total}</span></h3>
+                        <button onclick="this.closest('#pollVotersModal').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;">&times;</button>
+                    </div>
+                    <div id="pollVotersList" style="padding:8px;"></div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    const listDiv = modal.querySelector('#pollVotersList');
+    const countSpan = modal.querySelector('#votersCount');
+    countSpan.textContent = total;
+
+    if (voters.length === 0) {
+        listDiv.innerHTML = '<div style="text-align:center;padding:20px;color:var(--color-text-tertiary);">Пока никто не голосовал</div>';
+    } else {
+        listDiv.innerHTML = voters.map(v => `
+            <a href="/accounts/profile/${v.username}/" style="display:flex;align-items:center;gap:12px;padding:10px;border-bottom:1px solid var(--color-border);text-decoration:none;color:inherit;transition:background 0.2s;">
+                <div style="width:36px;height:36px;border-radius:50%;overflow:hidden;background:var(--color-primary-light);display:flex;align-items:center;justify-content:center;">
+                    ${v.avatar ? `<img src="${v.avatar}" style="width:100%;height:100%;object-fit:cover;">` : `<span style="font-size:16px;font-weight:600;">${(v.full_name || v.username).charAt(0).toUpperCase()}</span>`}
+                </div>
+                <div>
+                    <div style="font-weight:600;">${escapeHtml(v.full_name || v.username)}</div>
+                    <div style="font-size:12px;color:var(--color-text-tertiary);">@${escapeHtml(v.username)}</div>
+                </div>
+            </a>
+        `).join('');
+    }
+    modal.style.display = 'flex';
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Обновление UI после голосования
+function updatePollUI(container, data) {
+    const pollId = container.dataset.pollId;
+    const isAnonymous = container.dataset.isAnonymous === 'true';
+
+    // Обновляем общее количество голосов
+    container.querySelector('.total-votes-count').textContent = data.total_votes;
+
+    // Обновляем каждый вариант
+    data.results.forEach(result => {
+        const optionDiv = container.querySelector(`.poll-option[data-option-id="${result.id}"]`);
+        if (!optionDiv) return;
+
+        // Показываем и обновляем прогресс-бар
+        const progressDiv = optionDiv.querySelector('.poll-progress');
+        progressDiv.style.display = 'block';
+        progressDiv.querySelector('.poll-progress-bar').style.width = result.percentage + '%';
+        progressDiv.querySelector('.poll-votes-count').textContent = result.votes;
+        progressDiv.querySelector('.poll-percentage').textContent = result.percentage + '%';
+
+        // Добавляем/обновляем кнопку просмотра (если опрос не анонимный)
+        if (!isAnonymous) {
+            let viewBtn = optionDiv.querySelector('.poll-view-voters');
+            if (!viewBtn) {
+                viewBtn = document.createElement('button');
+                viewBtn.className = 'poll-view-voters';
+                viewBtn.setAttribute('data-option-id', result.id);
+                viewBtn.setAttribute('data-poll-id', pollId);
+                viewBtn.innerHTML = `<i data-feather="users"></i><span class="poll-votes-count">${result.votes}</span>`;
+                optionDiv.querySelector('.poll-option-row').appendChild(viewBtn);
+
+                // Добавляем обработчик
+                viewBtn.addEventListener('click', async () => {
+                    const response = await fetch(`/poll/${pollId}/voters/?option_id=${result.id}`);
+                    const votersData = await response.json();
+                    showVotersModal(votersData.voters, votersData.total);
+                });
+            } else {
+                const countSpan = viewBtn.querySelector('.poll-votes-count');
+                if (countSpan) countSpan.textContent = result.votes;
+            }
+        }
+
+        // Убираем чекбоксы/радио
+        const input = optionDiv.querySelector('.poll-checkbox, .poll-radio');
+        if (input) input.remove();
+        const label = optionDiv.querySelector('label');
+        if (label) {
+            const span = document.createElement('span');
+            span.className = 'poll-option-text';
+            span.textContent = label.textContent;
+            label.replaceWith(span);
+        }
+    });
+
+    // Меняем футер на кнопку "Отменить голос"
+    const footer = container.querySelector('.poll-footer');
+    footer.innerHTML = `
+        <div class="poll-total-votes">
+            <i data-feather="users"></i>
+            <span class="total-votes-count">${data.total_votes}</span> проголосовавших
+        </div>
+        <div class="poll-user-voted">
+            <i data-feather="check-circle"></i>
+            Вы уже голосовали
+            <button class="poll-unvote-btn" data-poll-id="${pollId}">Отменить голос</button>
+        </div>
+    `;
+
+    container.dataset.userVoted = 'true';
+
+    // Перепривязываем обработчик отмены
+    const unvoteBtn = footer.querySelector('.poll-unvote-btn');
+    if (unvoteBtn) {
+        unvoteBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const response = await fetch('/poll/unvote/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+                body: JSON.stringify({ poll_id: parseInt(pollId) })
+            });
+            const newData = await response.json();
+            if (newData.success) location.reload();
+            else alert(newData.error);
+        });
+    }
+}
+
+function initPolls() {
+    // Голосование (только если пользователь ещё не голосовал)
+    document.querySelectorAll('.poll-container[data-user-voted="false"] .poll-submit-btn').forEach(btn => {
+        btn.removeEventListener('click', btn._handler);
+        btn._handler = async (e) => {
+            e.preventDefault();
+            const pollId = btn.dataset.pollId;
+            const container = btn.closest('.poll-container');
+            const allowMultiple = container.dataset.allowMultiple === 'true';
+
+            let selected = [];
+            if (allowMultiple) {
+                container.querySelectorAll('.poll-checkbox:checked').forEach(cb => {
+                    selected.push(parseInt(cb.value));
+                });
+            } else {
+                const radio = container.querySelector('.poll-radio:checked');
+                if (radio) selected.push(parseInt(radio.value));
+            }
+
+            if (selected.length === 0) {
+                alert('Выберите вариант');
+                return;
+            }
+
+            const response = await fetch('/poll/vote/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+                body: JSON.stringify({ poll_id: parseInt(pollId), option_ids: selected })
+            });
+            const data = await response.json();
+            if (data.success) updatePollUI(container, data);
+            else alert(data.error);
+        };
+        btn.addEventListener('click', btn._handler);
+    });
+
+    // Кнопки "Отменить голос" (для уже проголосовавших)
+    document.querySelectorAll('.poll-container[data-user-voted="true"] .poll-unvote-btn').forEach(btn => {
+        btn.removeEventListener('click', btn._unvoteHandler);
+        btn._unvoteHandler = async (e) => {
+            e.preventDefault();
+            const pollId = btn.dataset.pollId;
+            const response = await fetch('/poll/unvote/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+                body: JSON.stringify({ poll_id: parseInt(pollId) })
+            });
+            const data = await response.json();
+            if (data.success) location.reload();
+            else alert(data.error);
+        };
+        btn.addEventListener('click', btn._unvoteHandler);
+    });
+
+    // Просмотр проголосовавших (для уже загруженных опросов)
+    document.querySelectorAll('.poll-view-voters').forEach(btn => {
+        btn.removeEventListener('click', btn._voterHandler);
+        btn._voterHandler = async () => {
+            const pollId = btn.dataset.pollId;
+            const optionId = btn.dataset.optionId;
+            const response = await fetch(`/poll/${pollId}/voters/?option_id=${optionId}`);
+            const data = await response.json();
+            showVotersModal(data.voters, data.total);
+        };
+        btn.addEventListener('click', btn._voterHandler);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', initPolls);
 </script>
 {% endblock %}

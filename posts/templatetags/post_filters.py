@@ -36,3 +36,16 @@ def truncate_chars(value, max_length):
     if len(value) <= max_length:
         return value
     return value[:max_length] + '...'
+
+@register.filter
+def get_item(dictionary, key):
+    """Получить значение из словаря по ключу"""
+    if dictionary is None:
+        return ''
+    # Поддержка как словарей, так и объектов с методом get
+    if hasattr(dictionary, 'get'):
+        return dictionary.get(key, '')
+    # Если это объект формы, пытаемся получить значение поля
+    if hasattr(dictionary, 'cleaned_data'):
+        return dictionary.cleaned_data.get(key, '')
+    return ''

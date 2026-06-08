@@ -55,4 +55,7 @@ urlpatterns = [
     path('tag/<str:tag_name>/', views.tag_posts, name='tag_posts'),
 
     path('post/comment/<int:comment_id>/edit/', views.comment_edit, name='comment_edit_old'),
+    path('poll/vote/', views.poll_vote, name='poll_vote'),
+    path('poll/unvote/', views.poll_unvote, name='poll_unvote'),
+    path('poll/<int:poll_id>/voters/', views.poll_voters, name='poll_voters'),
 ]

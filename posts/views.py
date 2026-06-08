@@ -19,6 +19,8 @@ from django.urls import reverse
 from django.http import HttpResponseRedirect
 from .models import Post, Tag, Comment
 import json
+from .models import Poll, PollOption, PollVote
+from .forms import PollForm
 from accounts.models import Friendship
 from accounts.models import Notification
 from communities.models import Community, CommunityPost
@@ -42,10 +44,21 @@ User = get_user_model()
 
 def post_list(request):
     posts = Post.objects.select_related(
-        'author', 'author__profile', 'category'
+        'author', 'author__profile', 'category', 'poll'
     ).prefetch_related(
-        'tags', 'comments'
+        'tags', 'comments','poll__options'
     ).filter(status='published', is_hidden=False)
+
+    if request.user.is_authenticated:
+        for post in posts:
+            if hasattr(post, 'poll') and post.poll:
+                post.poll.user_voted = post.poll.user_voted(request.user)
+                post.poll.user_votes = post.poll.get_user_votes(request.user)
+    else:
+        for post in posts:
+            if hasattr(post, 'poll') and post.poll:
+                post.poll.user_voted = False
+                post.poll.user_votes = []
 
     feed = request.GET.get('feed', 'all')
     sort = request.GET.get('sort', 'new')
@@ -197,43 +210,98 @@ def post_detail(request, pk):
 @login_required
 def post_create(request):
     if request.method == 'POST':
+        print("=" * 60)
+        print("🔍 POST_CREATE - получены данные:")
+        print(f"enable_poll: {request.POST.get('enable_poll')}")
+        print(f"question: {request.POST.get('question')}")
+        print(f"is_anonymous: {request.POST.get('is_anonymous')}")
+        print(f"allow_multiple: {request.POST.get('allow_multiple')}")
+
+        # Выводим ВСЕ варианты
+        for i in range(1, 11):
+            val = request.POST.get(f'option_{i}')
+            if val:
+                print(f"option_{i}: {val}")
+        print("=" * 60)
+
         form = PostForm(request.POST, request.FILES)
+
         if form.is_valid():
             post = form.save(commit=False)
             post.author = request.user
             post.status = 'published'
             post.save()
 
-            # Обрабатываем теги из скрытого поля tags_input
+            # Обработка тегов
             tags_str = request.POST.get('tags', '') or request.POST.get('tags_input', '')
             if tags_str:
                 tag_names = [t.strip().lower() for t in tags_str.split(',') if t.strip()]
                 for tag_name in tag_names:
-                    # Ищем или создаем тег
                     tag = Tag.objects.filter(name__iexact=tag_name).first()
                     if not tag:
                         slug = slugify(tag_name)
                         if not slug:
                             slug = f"tag-{uuid.uuid4().hex[:8]}"
-                        # Проверяем уникальность slug
                         if Tag.objects.filter(slug=slug).exists():
                             slug = f"{slug}-{uuid.uuid4().hex[:4]}"
                         tag = Tag.objects.create(name=tag_name, slug=slug)
                     post.tags.add(tag)
 
+            # ========== ОБРАБОТКА ОПРОСА (без PollForm) ==========
+            enable_poll = request.POST.get('enable_poll') == 'on'
+
+            if enable_poll:
+                question = request.POST.get('question', '').strip()
+                allow_multiple = request.POST.get('allow_multiple') == 'on'
+                is_anonymous = request.POST.get('is_anonymous') == 'on'
+
+                if question:
+                    poll = Poll.objects.create(
+                        post=post,
+                        question=question,
+                        allow_multiple=allow_multiple,
+                        is_anonymous=is_anonymous
+                    )
+                    print(f"✅ Опрос создан: ID={poll.id}")
+
+                    # Собираем варианты
+                    options_added = 0
+                    for i in range(1, 11):
+                        option_text = request.POST.get(f'option_{i}', '').strip()
+                        if option_text:
+                            PollOption.objects.create(
+                                poll=poll,
+                                text=option_text
+                            )
+                            options_added += 1
+                            print(f"  - Вариант {i}: {option_text}")
+
+                    print(f"✅ Добавлено вариантов: {options_added}")
+
+                    if options_added < 2:
+                        # Если вариантов меньше 2 — удаляем опрос
+                        poll.delete()
+                        print("❌ Опрос удалён: меньше 2 вариантов")
+                        messages.warning(request, 'Для опроса нужно минимум 2 варианта ответа')
+                else:
+                    print("❌ Вопрос пустой")
+
             messages.success(request, 'Пост успешно опубликован!')
             return redirect('posts:post_detail', pk=post.pk)
         else:
+            print(f"Ошибки формы post: {form.errors}")
             for field, errors in form.errors.items():
                 for error in errors:
                     messages.error(request, f'{field}: {error}')
     else:
         form = PostForm()
 
-    return render(request, 'posts/post_form.html', {'form': form})
+    return render(request, 'posts/post_form.html', {
+        'form': form,
+    })
 
 
-# posts/views.py - в функции post_edit
+
 @login_required
 def post_edit(request, pk):
     post = get_object_or_404(Post, pk=pk)
@@ -243,6 +311,9 @@ def post_edit(request, pk):
         messages.error(request, 'Вы не можете редактировать этот пост')
         return redirect('posts:post_detail', pk=post.pk)
 
+    # Получаем существующий опрос, если есть
+    existing_poll = getattr(post, 'poll', None)
+
     if request.method == 'POST':
         print("=" * 60)
         print("🔥 POST_EDIT — ПОЛУЧЕН POST ЗАПРОС")
@@ -250,6 +321,8 @@ def post_edit(request, pk):
         print(f"FILES: {request.FILES}")
 
         form = PostForm(request.POST, request.FILES, instance=post)
+        poll_form = PollForm(request.POST)
+
         print(f"Ошибки формы до is_valid: {form.errors}")
 
         if form.is_valid():
@@ -268,12 +341,10 @@ def post_edit(request, pk):
 
                 post_ct = ContentType.objects.get_for_model(Post)
 
-                # Обновляем ВСЕ жалобы на этот пост (не только approved)
-                # pending тоже переносим в снятые, потому что контент уже исправлен
                 reports = Report.objects.filter(
                     content_type=post_ct,
                     object_id=post.id
-                ).exclude(status='rejected')  # отклонённые не трогаем
+                ).exclude(status='rejected')
 
                 for report in reports:
                     old_status = report.status
@@ -281,7 +352,6 @@ def post_edit(request, pk):
                     report.moderation_comment = 'Контент исправлен автором, жалоба снята'
                     report.save()
 
-                    # Уведомляем автора жалобы, если она была approved или pending
                     if old_status in ['approved', 'pending']:
                         create_notification(
                             recipient=report.reporter,
@@ -292,7 +362,6 @@ def post_edit(request, pk):
                             link=f'/post/{post.id}/'
                         )
 
-                # Уведомляем модераторов (только по approved)
                 for report in reports.filter(status='approved'):
                     if report.moderated_by:
                         create_notification(
@@ -306,6 +375,69 @@ def post_edit(request, pk):
 
             post.save()
             form.save_m2m()
+
+            # ========== ОБРАБОТКА ОПРОСА ==========
+            enable_poll = request.POST.get('enable_poll') == 'on'
+
+            if enable_poll and poll_form.is_valid():
+                question = poll_form.cleaned_data.get('question')
+                allow_multiple = poll_form.cleaned_data.get('allow_multiple', False)
+                is_anonymous = poll_form.cleaned_data.get('is_anonymous', False)
+
+                if question:
+                    if existing_poll:
+                        # Обновляем существующий опрос
+                        existing_poll.question = question
+                        existing_poll.allow_multiple = allow_multiple
+                        existing_poll.is_anonymous = is_anonymous
+                        existing_poll.save()
+
+                        # Обновляем варианты
+                        # Получаем ID вариантов, которые нужно сохранить
+                        new_option_texts = []
+                        for i in range(1, 11):
+                            option_text = poll_form.cleaned_data.get(f'option_{i}')
+                            if option_text:
+                                new_option_texts.append(option_text)
+
+                        # Удаляем старые варианты
+                        existing_poll.options.all().delete()
+
+                        # Создаём новые
+                        for text in new_option_texts:
+                            PollOption.objects.create(
+                                poll=existing_poll,
+                                text=text
+                            )
+                        print(f"✅ Опрос обновлён: {existing_poll.id}")
+                    else:
+                        # Создаём новый опрос
+                        new_poll = Poll.objects.create(
+                            post=post,
+                            question=question,
+                            allow_multiple=allow_multiple,
+                            is_anonymous=is_anonymous
+                        )
+
+                        for i in range(1, 11):
+                            option_text = poll_form.cleaned_data.get(f'option_{i}')
+                            if option_text:
+                                PollOption.objects.create(
+                                    poll=new_poll,
+                                    text=option_text
+                                )
+                        print(f"✅ Новый опрос создан: {new_poll.id}")
+                else:
+                    # Если вопрос пустой, удаляем опрос если есть
+                    if existing_poll:
+                        existing_poll.delete()
+                        print("🗑️ Опрос удалён (нет вопроса)")
+            else:
+                # Если опрос не включён, удаляем существующий
+                if existing_poll and not enable_poll:
+                    existing_poll.delete()
+                    print("🗑️ Опрос удалён (пользователь отключил)")
+
             print("✅ ПОСТ УСПЕШНО СОХРАНЁН")
             print("=" * 60)
             messages.success(request, 'Пост успешно обновлен!')
@@ -321,10 +453,26 @@ def post_edit(request, pk):
     else:
         print("📝 GET запрос — показываем форму редактирования")
         form = PostForm(instance=post)
+        poll_form = PollForm()
+
+        # Заполняем форму опроса существующими данными
+        if existing_poll:
+            poll_form = PollForm(initial={
+                'enable_poll': True,
+                'question': existing_poll.question,
+                'allow_multiple': existing_poll.allow_multiple,
+                'is_anonymous': existing_poll.is_anonymous,
+            })
+            # Добавляем варианты
+            for i, option in enumerate(existing_poll.options.all(), 1):
+                if i <= 10:
+                    poll_form.fields[f'option_{i}'].initial = option.text
 
     return render(request, 'posts/post_form.html', {
         'form': form,
+        'poll_form': poll_form,
         'post': post,
+        'existing_poll': existing_poll,
         'title': 'Редактировать пост'
     })
 
@@ -1293,3 +1441,93 @@ def comment_delete(request, comment_id):
 
     messages.success(request, 'Комментарий удалён')
     return redirect('posts:post_detail', pk=post_id)
+
+
+# posts/views.py — добавить новые функции
+
+@login_required
+@require_POST
+def poll_vote(request):
+    try:
+        data = json.loads(request.body)
+        poll_id = data.get('poll_id')
+        option_ids = data.get('option_ids', [])
+
+        from .models import Poll, PollOption, PollVote
+
+        poll = Poll.objects.get(id=poll_id)
+
+        if not poll.allow_multiple:
+            PollVote.objects.filter(option__poll=poll, user=request.user).delete()
+
+        for option_id in option_ids:
+            option = PollOption.objects.get(id=option_id, poll=poll)
+            PollVote.objects.get_or_create(option=option, user=request.user)
+
+        results, total_votes = poll.get_results()
+
+        return JsonResponse({
+            'success': True,
+            'total_votes': total_votes,
+            'results': results,
+            'user_votes': option_ids
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def poll_unvote(request):
+    try:
+        data = json.loads(request.body)
+        poll_id = data.get('poll_id')
+
+        from .models import Poll, PollVote
+
+        poll = Poll.objects.get(id=poll_id)
+        PollVote.objects.filter(option__poll=poll, user=request.user).delete()
+
+        results, total_votes = poll.get_results()
+
+        return JsonResponse({
+            'success': True,
+            'total_votes': total_votes,
+            'results': results,
+            'user_votes': []
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def poll_voters(request, poll_id):
+    from .models import Poll, PollVote
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
+    poll = Poll.objects.get(id=poll_id)
+    option_id = request.GET.get('option_id')
+
+    if option_id:
+        from .models import PollOption
+        option = PollOption.objects.get(id=option_id, poll=poll)
+        votes = option.votes.select_related('user__profile').order_by('-voted_at')
+    else:
+        votes = PollVote.objects.filter(option__poll=poll).select_related('user__profile', 'option').order_by(
+            '-voted_at')
+
+    voters = []
+    seen = set()
+    for vote in votes:
+        if vote.user.id not in seen:
+            seen.add(vote.user.id)
+            voters.append({
+                'id': vote.user.id,
+                'username': vote.user.username,
+                'full_name': vote.user.get_full_name() or vote.user.username,
+                'avatar': vote.user.profile.avatar.url if vote.user.profile.avatar else None,
+            })
+
+    return JsonResponse({'voters': voters, 'total': len(voters)})

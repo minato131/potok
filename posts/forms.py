@@ -214,3 +214,52 @@ class CategoryForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
             self.fields['parent'].queryset = Category.objects.exclude(id=self.instance.id)
+
+
+# posts/forms.py
+
+class PollForm(forms.Form):
+    """Форма для создания опроса внутри поста"""
+    enable_poll = forms.BooleanField(required=False, initial=False)
+    question = forms.CharField(
+        max_length=500,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-input',
+            'placeholder': 'Вопрос опроса...'
+        })
+    )
+    allow_multiple = forms.BooleanField(required=False, initial=False)
+    is_anonymous = forms.BooleanField(required=False, initial=False)
+
+    # Динамические поля для вариантов (до 10)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for i in range(1, 11):
+            self.fields[f'option_{i}'] = forms.CharField(
+                max_length=200,
+                required=False,
+                widget=forms.TextInput(attrs={
+                    'class': 'form-input',
+                    'placeholder': f'Вариант {i}'
+                })
+            )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        enable_poll = cleaned_data.get('enable_poll')
+
+        if enable_poll:
+            question = cleaned_data.get('question')
+            options = [cleaned_data.get(f'option_{i}') for i in range(1, 11) if cleaned_data.get(f'option_{i}')]
+
+            if not question:
+                self.add_error('question', 'Укажите вопрос опроса')
+
+            if len(options) < 2:
+                self.add_error(None, 'Добавьте минимум 2 варианта ответа')
+
+            if len(options) > 10:
+                self.add_error(None, 'Максимум 10 вариантов ответа')
+
+        return cleaned_data

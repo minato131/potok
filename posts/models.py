@@ -508,3 +508,131 @@ class Bookmark(models.Model):
 
     def __str__(self):
         return f"{self.user.username} → {self.post.title}"
+
+
+
+class Poll(models.Model):
+    """Опрос в посте"""
+    post = models.OneToOneField(
+        Post,
+        on_delete=models.CASCADE,
+        related_name='poll',
+        verbose_name='Пост'
+    )
+    question = models.CharField(
+        max_length=500,
+        verbose_name='Вопрос опроса'
+    )
+    is_anonymous = models.BooleanField(
+        default=False,
+        verbose_name='Анонимное голосование'
+    )
+    allow_multiple = models.BooleanField(
+        default=False,
+        verbose_name='Можно выбрать несколько вариантов'
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Дата создания'
+    )
+
+    class Meta:
+        verbose_name = 'Опрос'
+        verbose_name_plural = 'Опросы'
+
+    def __str__(self):
+        return f"Опрос в посте {self.post.id}: {self.question[:50]}"
+
+    def total_votes(self):
+        """Общее количество голосов"""
+        return PollVote.objects.filter(option__poll=self).count()
+
+    def can_vote(self, user):
+        """Может ли пользователь голосовать"""
+        if not user.is_authenticated:
+            return False
+        if self.allow_multiple:
+            return True
+        # Проверяем, голосовал ли пользователь
+        return not PollVote.objects.filter(option__poll=self, user=user).exists()
+
+    def get_user_votes(self, user):
+        """Получить варианты, за которые проголосовал пользователь"""
+        if not user.is_authenticated:
+            return []
+        return PollVote.objects.filter(
+            option__poll=self,
+            user=user
+        ).values_list('option_id', flat=True)
+
+    def get_results(self):
+        total = self.total_votes()
+        results = []
+        for option in self.options.all():
+            votes = option.votes.count()
+            percentage = round((votes / total) * 100, 1) if total > 0 else 0
+            results.append({
+                'id': option.id,
+                'text': option.text,
+                'votes': votes,
+                'percentage': percentage
+            })
+        return results, total
+
+    def user_voted(self, user):
+        return PollVote.objects.filter(option__poll=self, user=user).exists()
+
+
+class PollOption(models.Model):
+    """Вариант ответа в опросе"""
+    poll = models.ForeignKey(
+        Poll,
+        on_delete=models.CASCADE,
+        related_name='options'
+    )
+    text = models.CharField(
+        max_length=200,
+        verbose_name='Текст варианта'
+    )
+
+    class Meta:
+        verbose_name = 'Вариант опроса'
+        verbose_name_plural = 'Варианты опросов'
+        ordering = ['id']
+
+    def __str__(self):
+        return self.text[:50]
+
+    def votes_count(self):
+        return self.votes.count()
+
+    def votes_percentage(self):
+        total = self.poll.total_votes()
+        if total == 0:
+            return 0
+        return round((self.votes_count() / total) * 100, 1)
+
+
+class PollVote(models.Model):
+    """Голос пользователя"""
+    option = models.ForeignKey(
+        PollOption,
+        on_delete=models.CASCADE,
+        related_name='votes'
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='poll_votes'
+    )
+    voted_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    class Meta:
+        verbose_name = 'Голос'
+        verbose_name_plural = 'Голоса'
+        unique_together = ['option', 'user']
+
+    def __str__(self):
+        return f"{self.user.username} → {self.option.text[:30]}"

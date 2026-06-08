@@ -101,6 +101,11 @@
     </div>
     {% include 'posts/includes/media_grid.html' with post=post %}
 
+
+    {% if post.poll %}
+        {% include 'posts/includes/poll.html' with poll=post.poll %}
+    {% endif %}
+
     {% if post.tags.exists %}
     <div class="post-tags-row">
         {% if t.slug %}

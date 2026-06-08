@@ -194,6 +194,14 @@ class Message(models.Model):
         related_name='replies',
         verbose_name='Ответ на сообщение'
     )
+    forwarded_poll = models.ForeignKey(
+        'posts.Poll',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='forwarded_messages',
+        verbose_name='Пересланный опрос'
+    )
 
     class Meta:
         verbose_name = 'Сообщение'

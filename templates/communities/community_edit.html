@@ -74,7 +74,7 @@
             </div>
         </div>
 
-        <!-- Изображения -->
+        <!-- Изображения — КРАСИВЫЙ ВИЗУАЛ -->
         <div class="form-section">
             <div class="section-header">
                 <i data-feather="image"></i>
@@ -82,54 +82,67 @@
             </div>
 
             <div class="image-edit-row">
+                <!-- Аватар -->
                 <div class="avatar-edit-group">
-                    <label class="form-label">Аватар</label>
-                    <div class="image-preview avatar-preview" id="avatarPreview">
-                        {% if community.avatar %}
-                        <img src="{{ community.avatar.url }}" alt="Текущий аватар">
-                        {% else %}
-                        <div class="preview-placeholder">
-                            <i data-feather="camera"></i>
-                            <span>Загрузить аватар</span>
+                    <label class="form-label">Аватар сообщества</label>
+                    <div class="avatar-upload-container">
+                        <div class="avatar-preview-wrapper" id="avatarPreviewWrapper">
+                            {% if community.avatar %}
+                            <img src="{{ community.avatar.url }}" alt="Аватар" id="avatarPreviewImg" class="avatar-preview-img">
+                            {% else %}
+                            <div class="avatar-placeholder" id="avatarPlaceholder">
+                                <i data-feather="camera"></i>
+                            </div>
+                            {% endif %}
                         </div>
-                        {% endif %}
-                        <div class="image-overlay">
-                            <i data-feather="edit-2"></i>
-                            <span>Изменить</span>
+                        <div class="upload-buttons">
+                            <button type="button" class="upload-btn" id="avatarUploadBtn">
+                                <i data-feather="upload"></i>
+                                Загрузить
+                            </button>
+                            {% if community.avatar %}
+                            <button type="button" class="remove-btn" id="avatarRemoveBtn">
+                                <i data-feather="trash-2"></i>
+                                Удалить
+                            </button>
+                            {% endif %}
                         </div>
+                        <input type="file" name="avatar" id="avatarInput" accept="image/*" style="display: none;">
+                        <input type="checkbox" name="avatar-clear" id="avatarClear" style="display: none;">
                     </div>
-                    {{ form.avatar }}
-                    {% if community.avatar %}
-                    <label class="checkbox-label" style="margin-top: 0.5rem;">
-                        <input type="checkbox" name="avatar-clear" id="avatar-clear">
-                        <span>Удалить текущий аватар</span>
-                    </label>
-                    {% endif %}
+                    <div class="field-hint">Рекомендуемый размер: 500x500px. Максимум 5MB</div>
                 </div>
 
+                <!-- Обложка -->
                 <div class="cover-edit-group">
-                    <label class="form-label">Обложка</label>
-                    <div class="image-preview cover-preview" id="coverPreview">
-                        {% if community.cover %}
-                        <img src="{{ community.cover.url }}" alt="Текущая обложка">
-                        {% else %}
-                        <div class="preview-placeholder">
-                            <i data-feather="image"></i>
-                            <span>Загрузить обложку</span>
+                    <label class="form-label">Обложка сообщества</label>
+                    <div class="cover-upload-container">
+                        <div class="cover-preview-wrapper" id="coverPreviewWrapper">
+                            {% if community.cover %}
+                            <img src="{{ community.cover.url }}" alt="Обложка" id="coverPreviewImg" class="cover-preview-img">
+                            {% else %}
+                            <div class="cover-placeholder" id="coverPlaceholder">
+                                <i data-feather="image"></i>
+                                <span>Загрузите обложку</span>
+                            </div>
+                            {% endif %}
                         </div>
-                        {% endif %}
-                        <div class="image-overlay">
-                            <i data-feather="edit-2"></i>
-                            <span>Изменить</span>
+                        <div class="upload-buttons">
+                            <button type="button" class="upload-btn" id="coverUploadBtn">
+                                <i data-feather="upload"></i>
+                                Загрузить
+                            </button>
+                            {% if community.cover %}
+                            <button type="button" class="remove-btn" id="coverRemoveBtn">
+                                <i data-feather="trash-2"></i>
+                                Удалить
+                            </button>
+                            {% endif %}
                         </div>
+                        <input type="file" name="cover" id="coverInput" accept="image/*" style="display: none;">
+                        <input type="checkbox" name="cover-clear" id="coverClear" style="display: none;">
                     </div>
-                    {{ form.cover }}
-                    {% if community.cover %}
-                    <label class="checkbox-label" style="margin-top: 0.5rem;">
-                        <input type="checkbox" name="cover-clear" id="cover-clear">
-                        <span>Удалить текущую обложку</span>
-                    </label>
-                    {% endif %}
+                    <div class="field-hint">Рекомендуемый размер: 1500x500px. Максимум 10MB</div>
                 </div>
             </div>
         </div>
@@ -293,7 +306,6 @@
             </div>
             <p>Все посты, комментарии и данные сообщества будут безвозвратно удалены.</p>
 
-            <!-- ФОРМА УДАЛЕНИЯ -->
             <form method="post" action="{% url 'communities:community_delete' slug=community.slug %}" id="deleteForm">
                 {% csrf_token %}
                 <div class="form-group">
@@ -314,7 +326,7 @@
 
 <style>
     .community-edit-container {
-        max-width: 700px;
+        max-width: 800px;
         margin: 0 auto;
     }
 
@@ -364,14 +376,8 @@
     .form-label {
         display: block;
         margin-bottom: 0.5rem;
-        font-weight: 500;
-    }
-
-    .form-label i {
-        width: 1rem;
-        height: 1rem;
-        margin-right: 0.25rem;
-        vertical-align: middle;
+        font-weight: 600;
+        font-size: 0.9rem;
     }
 
     .form-input,
@@ -382,7 +388,6 @@
         border: 1px solid var(--color-border);
         border-radius: var(--radius-lg);
         font-size: 0.9375rem;
-        transition: all var(--transition-base);
         background: var(--color-bg-surface);
     }
 
@@ -431,94 +436,148 @@
     }
 
     .field-hint {
-        display: flex;
-        justify-content: space-between;
         margin-top: 0.375rem;
-        font-size: 0.8125rem;
+        font-size: 0.75rem;
         color: var(--color-text-tertiary);
     }
 
-    .char-counter {
-        font-family: monospace;
-    }
-
+    /* ========== КРАСИВЫЙ ЗАГРУЗЧИК ИЗОБРАЖЕНИЙ ========== */
     .image-edit-row {
         display: grid;
         grid-template-columns: 1fr 2fr;
-        gap: 1.5rem;
+        gap: 2rem;
     }
 
-    .image-preview {
-        position: relative;
-        cursor: pointer;
-        border-radius: var(--radius-lg);
-        border: 2px dashed var(--color-border);
-        overflow: hidden;
-        transition: all var(--transition-base);
-    }
-
-    .image-preview:hover {
-        border-color: var(--color-primary);
-    }
-
-    .avatar-preview {
-        width: 100%;
-        aspect-ratio: 1;
-    }
-
-    .cover-preview {
-        width: 100%;
-        aspect-ratio: 3 / 1;
-    }
-
-    .preview-placeholder {
-        width: 100%;
-        height: 100%;
+    /* Аватар */
+    .avatar-upload-container {
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        color: var(--color-text-tertiary);
-        background: var(--color-bg-elevated);
+        gap: 1rem;
     }
 
-    .image-preview img {
+    .avatar-preview-wrapper {
+        width: 180px;
+        height: 180px;
+        border-radius: 50%;
+        overflow: hidden;
+        background: var(--color-bg-elevated);
+        border: 3px solid var(--color-border);
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+
+    .avatar-preview-wrapper:hover {
+        border-color: var(--color-primary);
+    }
+
+    .avatar-preview-img {
         width: 100%;
         height: 100%;
         object-fit: cover;
     }
 
-    .image-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
+    .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: white;
+    }
+
+    .avatar-placeholder i {
+        width: 48px;
+        height: 48px;
+    }
+
+    /* Обложка */
+    .cover-upload-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .cover-preview-wrapper {
+        width: 100%;
+        height: 160px;
+        border-radius: 16px;
+        overflow: hidden;
+        background: var(--color-bg-elevated);
+        border: 2px solid var(--color-border);
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+
+    .cover-preview-wrapper:hover {
+        border-color: var(--color-primary);
+    }
+
+    .cover-preview-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .cover-placeholder {
+        width: 100%;
+        height: 100%;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         gap: 0.5rem;
-        color: white;
-        opacity: 0;
-        transition: opacity var(--transition-base);
+        background: var(--color-bg-elevated);
+        color: var(--color-text-tertiary);
     }
 
-    .image-preview:hover .image-overlay {
-        opacity: 1;
+    .cover-placeholder i {
+        width: 32px;
+        height: 32px;
     }
 
-    .checkbox-label {
+    /* Кнопки загрузки */
+    .upload-buttons {
         display: flex;
+        gap: 0.75rem;
+    }
+
+    .upload-btn, .remove-btn {
+        display: inline-flex;
         align-items: center;
         gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 500;
         cursor: pointer;
-        font-size: 0.875rem;
-        color: var(--color-text-secondary);
+        transition: all 0.2s;
+        border: none;
     }
 
+    .upload-btn {
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+    }
+
+    .upload-btn:hover {
+        background: var(--color-primary);
+        color: white;
+    }
+
+    .remove-btn {
+        background: #fee2e2;
+        color: #ef4444;
+    }
+
+    .remove-btn:hover {
+        background: #ef4444;
+        color: white;
+    }
+
+    /* Настройки */
     .settings-group {
         display: flex;
         flex-direction: column;
@@ -620,6 +679,7 @@
         transform: translateX(24px);
     }
 
+    /* Модераторы */
     .moderators-list-edit {
         display: flex;
         flex-direction: column;
@@ -646,11 +706,11 @@
     }
 
     .moderator-badge {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         padding: 0.125rem 0.5rem;
         background: var(--color-primary-light);
         color: var(--color-primary);
-        border-radius: var(--radius-full);
+        border-radius: 20px;
     }
 
     .btn--sm {
@@ -690,6 +750,7 @@
         background: var(--color-bg-elevated);
     }
 
+    /* Действия */
     .form-actions {
         display: flex;
         align-items: center;
@@ -704,6 +765,16 @@
         gap: 1rem;
     }
 
+    .btn--danger {
+        background: #ef4444;
+        color: white;
+    }
+
+    .btn--danger:hover {
+        background: #dc2626;
+    }
+
+    /* Модалка */
     .warning-message {
         display: flex;
         gap: 1rem;
@@ -721,6 +792,7 @@
     .warning-message p {
         color: #92400e;
         font-weight: 500;
+        margin: 0;
     }
 
     .modal-overlay {
@@ -770,16 +842,14 @@
     .modal-title {
         font-size: 1.25rem;
         font-weight: 600;
+        margin: 0;
     }
 
     .modal-close {
-        padding: 0.25rem;
-        border-radius: var(--radius-md);
+        background: none;
+        border: none;
+        cursor: pointer;
         color: var(--color-text-tertiary);
-    }
-
-    .modal-close:hover {
-        background: var(--color-bg-elevated);
     }
 
     .modal-footer {
@@ -791,6 +861,13 @@
         border-top: 1px solid var(--color-border-light);
     }
 
+    @keyframes fadeInOut {
+        0% { opacity: 0; transform: translateX(20px); }
+        15% { opacity: 1; transform: translateX(0); }
+        85% { opacity: 1; transform: translateX(0); }
+        100% { opacity: 0; transform: translateX(20px); }
+    }
+
     @media (max-width: 768px) {
         .community-edit-form {
             padding: 1.5rem;
@@ -798,6 +875,7 @@
 
         .image-edit-row {
             grid-template-columns: 1fr;
+            gap: 1.5rem;
         }
 
         .form-actions {
@@ -818,286 +896,239 @@
 </style>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Предпросмотр аватара
-        const avatarInput = document.querySelector('input[name="avatar"]');
-        const avatarPreview = document.getElementById('avatarPreview');
+document.addEventListener('DOMContentLoaded', function() {
+    // Сообщения
+    function showMessage(message, isError) {
+        var msgDiv = document.createElement('div');
+        msgDiv.textContent = message;
+        msgDiv.style.cssText = 'position:fixed;bottom:24px;right:24px;background:' + (isError ? '#ef4444' : '#10b981') + ';color:white;padding:12px 20px;border-radius:12px;z-index:10000;font-size:14px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,0.2);animation:fadeInOut 2s ease-in-out';
+        document.body.appendChild(msgDiv);
+        setTimeout(function() { if(msgDiv.parentNode) msgDiv.remove(); }, 2000);
+    }
 
-        if (avatarInput && avatarPreview) {
-            avatarPreview.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                avatarInput.click();
-            });
+    // ========== АВАТАР ==========
+    const avatarInput = document.getElementById('avatarInput');
+    const avatarUploadBtn = document.getElementById('avatarUploadBtn');
+    const avatarPreviewWrapper = document.getElementById('avatarPreviewWrapper');
+    const avatarRemoveBtn = document.getElementById('avatarRemoveBtn');
+    const avatarClear = document.getElementById('avatarClear');
 
-            avatarInput.addEventListener('click', function(e) {
-                e.stopPropagation();
-            });
-
-            avatarInput.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        avatarPreview.innerHTML = `
-                            <img src="${e.target.result}" alt="Preview">
-                            <div class="image-overlay">
-                                <i data-feather="edit-2"></i>
-                                <span>Изменить</span>
-                            </div>
-                        `;
-                        avatarPreview.style.cursor = 'pointer';
-                        feather.replace();
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-        }
-
-        // Предпросмотр обложки
-        const coverInput = document.querySelector('input[name="cover"]');
-        const coverPreview = document.getElementById('coverPreview');
-
-        if (coverInput && coverPreview) {
-            coverPreview.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                coverInput.click();
-            });
-
-            coverInput.addEventListener('click', function(e) {
-                e.stopPropagation();
-            });
-
-            coverInput.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        coverPreview.innerHTML = `
-                            <img src="${e.target.result}" alt="Preview">
-                            <div class="image-overlay">
-                                <i data-feather="edit-2"></i>
-                                <span>Изменить</span>
-                            </div>
-                        `;
-                        coverPreview.style.cursor = 'pointer';
-                        feather.replace();
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-        }
-
-        // Счетчики символов
-        const nameInput = document.querySelector('input[name="name"]');
-        const nameCounter = document.getElementById('nameCounter');
-        const descInput = document.querySelector('textarea[name="description"]');
-        const descCounter = document.getElementById('descCounter');
-
-        if (nameInput && nameCounter) {
-            nameInput.addEventListener('input', () => {
-                nameCounter.textContent = nameInput.value.length;
-            });
-            nameCounter.textContent = nameInput.value.length;
-        }
-
-        if (descInput && descCounter) {
-            descInput.addEventListener('input', () => {
-                descCounter.textContent = descInput.value.length;
-            });
-            descCounter.textContent = descInput.value.length;
-        }
-
-        // Поиск друзей для добавления модераторов
-        const searchInput = document.getElementById('moderatorSearch');
-        const searchResults = document.getElementById('moderatorResults');
-        let searchTimeout;
-
-        if (searchInput) {
-            searchInput.addEventListener('input', function() {
-                clearTimeout(searchTimeout);
-                const query = this.value;
-
-                if (query.length < 2) {
-                    searchResults.style.display = 'none';
-                    return;
-                }
-
-                searchTimeout = setTimeout(async () => {
-                    try {
-                        const response = await fetch(`/communities/friends/search/?q=${encodeURIComponent(query)}`);
-                        const users = await response.json();
-
-                        if (users.length === 0) {
-                            searchResults.innerHTML = '<div class="search-result-item">Ничего не найдено</div>';
-                            searchResults.style.display = 'block';
-                            return;
-                        }
-
-                        searchResults.innerHTML = users.map(user => `
-                            <div class="search-result-item" data-user-id="${user.id}">
-                                <span>${user.username}</span>
-                                <button type="button" class="btn btn--outline btn--sm add-moderator-btn">
-                                    Добавить
-                                </button>
-                            </div>
-                        `).join('');
-
-                        searchResults.style.display = 'block';
-
-                        document.querySelectorAll('.add-moderator-btn').forEach(btn => {
-                            btn.addEventListener('click', async function(e) {
-                                e.stopPropagation();
-                                const userId = this.closest('.search-result-item').dataset.userId;
-                                await addModerator(userId);
-                            });
-                        });
-                    } catch (error) {
-                        console.error('Error searching users:', error);
-                    }
-                }, 300);
-            });
-
-            document.addEventListener('click', function(e) {
-                if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
-                    searchResults.style.display = 'none';
-                }
-            });
-        }
-
-        async function addModerator(userId) {
-            try {
-                const response = await fetch(`/communities/{{ community.slug }}/add-moderator/`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCookie('csrftoken')
-                    },
-                    body: JSON.stringify({ user_id: userId })
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    showToast('success', 'Модератор добавлен');
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    showToast('error', data.error || 'Ошибка при добавлении');
-                }
-            } catch (error) {
-                console.error('Error adding moderator:', error);
-                showToast('error', 'Ошибка при добавлении модератора');
-            }
-        }
-
-        // Удаление модератора
-        document.querySelectorAll('.remove-moderator').forEach(btn => {
-            btn.addEventListener('click', async function() {
-                const userId = this.dataset.userId;
-                const communitySlug = '{{ community.slug }}';
-
-                if (!confirm('Удалить модератора?')) return;
-
-                try {
-                    const response = await fetch(`/communities/${communitySlug}/remove-moderator/${userId}/`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': getCookie('csrftoken')
-                        }
-                    });
-
-                    const data = await response.json();
-
-                    if (response.ok && data.success) {
-                        this.closest('.moderator-item').remove();
-                        showToast('success', data.message || 'Модератор удален');
-                    } else {
-                        showToast('error', data.error || 'Ошибка при удалении');
-                    }
-                } catch (error) {
-                    console.error('Error removing moderator:', error);
-                    showToast('error', 'Ошибка при удалении модератора');
-                }
-            });
+    if (avatarUploadBtn && avatarInput) {
+        avatarUploadBtn.addEventListener('click', function() {
+            avatarInput.click();
         });
 
-        // Удаление сообщества (модальное окно)
-        const deleteBtn = document.getElementById('deleteCommunityBtn');
-        const modal = document.getElementById('deleteModal');
-        const closeModal = document.getElementById('closeModal');
-        const cancelDelete = document.getElementById('cancelDelete');
-        const confirmDelete = document.getElementById('confirmDelete');
-        const confirmInput = document.getElementById('confirmName');
-        const communityName = '{{ community.name }}';
+        avatarPreviewWrapper?.addEventListener('click', function() {
+            avatarInput.click();
+        });
 
-        if (deleteBtn && modal) {
-            deleteBtn.addEventListener('click', () => {
-                modal.classList.add('active');
-                document.body.style.overflow = 'hidden';
-            });
-
-            const closeModalFunc = () => {
-                modal.classList.remove('active');
-                document.body.style.overflow = '';
-            };
-
-            if (closeModal) closeModal.addEventListener('click', closeModalFunc);
-            if (cancelDelete) cancelDelete.addEventListener('click', closeModalFunc);
-
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) closeModalFunc();
-            });
-
-            if (confirmInput) {
-                confirmInput.addEventListener('input', function() {
-                    confirmDelete.disabled = this.value !== communityName;
-                });
+        avatarInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    avatarPreviewWrapper.innerHTML = `<img src="${e.target.result}" alt="Аватар" class="avatar-preview-img" id="avatarPreviewImg">`;
+                    if (avatarRemoveBtn) avatarRemoveBtn.style.display = 'inline-flex';
+                    if (avatarClear) avatarClear.checked = false;
+                };
+                reader.readAsDataURL(file);
             }
+        });
+    }
 
-            if (confirmDelete) {
-                confirmDelete.addEventListener('click', () => {
-                    if (confirmInput.value === communityName) {
-                        document.getElementById('deleteForm').submit();
+    if (avatarRemoveBtn && avatarClear) {
+        avatarRemoveBtn.addEventListener('click', function() {
+            avatarClear.checked = true;
+            avatarPreviewWrapper.innerHTML = `<div class="avatar-placeholder" id="avatarPlaceholder"><i data-feather="camera"></i></div>`;
+            avatarInput.value = '';
+            feather.replace();
+            avatarRemoveBtn.style.display = 'none';
+            showMessage('Аватар будет удалён при сохранении', false);
+        });
+    }
+
+    // ========== ОБЛОЖКА ==========
+    const coverInput = document.getElementById('coverInput');
+    const coverUploadBtn = document.getElementById('coverUploadBtn');
+    const coverPreviewWrapper = document.getElementById('coverPreviewWrapper');
+    const coverRemoveBtn = document.getElementById('coverRemoveBtn');
+    const coverClear = document.getElementById('coverClear');
+
+    if (coverUploadBtn && coverInput) {
+        coverUploadBtn.addEventListener('click', function() {
+            coverInput.click();
+        });
+
+        coverPreviewWrapper?.addEventListener('click', function() {
+            coverInput.click();
+        });
+
+        coverInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    coverPreviewWrapper.innerHTML = `<img src="${e.target.result}" alt="Обложка" class="cover-preview-img" id="coverPreviewImg">`;
+                    if (coverRemoveBtn) coverRemoveBtn.style.display = 'inline-flex';
+                    if (coverClear) coverClear.checked = false;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
+    if (coverRemoveBtn && coverClear) {
+        coverRemoveBtn.addEventListener('click', function() {
+            coverClear.checked = true;
+            coverPreviewWrapper.innerHTML = `<div class="cover-placeholder" id="coverPlaceholder"><i data-feather="image"></i><span>Загрузите обложку</span></div>`;
+            coverInput.value = '';
+            feather.replace();
+            coverRemoveBtn.style.display = 'none';
+            showMessage('Обложка будет удалена при сохранении', false);
+        });
+    }
+
+    // Счетчики
+    const nameInput = document.querySelector('input[name="name"]');
+    const nameCounter = document.getElementById('nameCounter');
+    const descInput = document.querySelector('textarea[name="description"]');
+    const descCounter = document.getElementById('descCounter');
+
+    if (nameInput && nameCounter) {
+        nameInput.addEventListener('input', function() { nameCounter.textContent = this.value.length; });
+        nameCounter.textContent = nameInput.value.length;
+    }
+    if (descInput && descCounter) {
+        descInput.addEventListener('input', function() { descCounter.textContent = this.value.length; });
+        descCounter.textContent = descInput.value.length;
+    }
+
+    // Поиск модераторов
+    const searchInput = document.getElementById('moderatorSearch');
+    const searchResults = document.getElementById('moderatorResults');
+    let searchTimeout;
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const query = this.value;
+            if (query.length < 2) { searchResults.style.display = 'none'; return; }
+            searchTimeout = setTimeout(async () => {
+                try {
+                    const response = await fetch(`/communities/friends/search/?q=${encodeURIComponent(query)}`);
+                    const users = await response.json();
+                    if (users.length === 0) {
+                        searchResults.innerHTML = '<div class="search-result-item">Ничего не найдено</div>';
+                        searchResults.style.display = 'block';
+                        return;
                     }
-                });
+                    searchResults.innerHTML = users.map(user => `
+                        <div class="search-result-item" data-user-id="${user.id}">
+                            <span>${user.username}</span>
+                            <button type="button" class="btn btn--outline btn--sm add-moderator-btn">Добавить</button>
+                        </div>
+                    `).join('');
+                    searchResults.style.display = 'block';
+                    document.querySelectorAll('.add-moderator-btn').forEach(btn => {
+                        btn.addEventListener('click', async function(e) {
+                            e.stopPropagation();
+                            const userId = this.closest('.search-result-item').dataset.userId;
+                            await addModerator(userId);
+                        });
+                    });
+                } catch (error) { console.error(error); }
+            }, 300);
+        });
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                searchResults.style.display = 'none';
             }
+        });
+    }
+
+    async function addModerator(userId) {
+        try {
+            const response = await fetch(`/communities/{{ community.slug }}/add-moderator/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                body: JSON.stringify({ user_id: userId })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                showMessage('Модератор добавлен', false);
+                setTimeout(() => location.reload(), 1000);
+            } else { showMessage(data.error || 'Ошибка', true); }
+        } catch (error) { showMessage('Ошибка сервера', true); }
+    }
+
+    // Удаление модератора
+    document.querySelectorAll('.remove-moderator').forEach(btn => {
+        btn.addEventListener('click', async function() {
+            const userId = this.dataset.userId;
+            if (!confirm('Удалить модератора?')) return;
+            try {
+                const response = await fetch(`/communities/{{ community.slug }}/remove-moderator/${userId}/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') }
+                });
+                const data = await response.json();
+                if (response.ok && data.success) {
+                    this.closest('.moderator-item').remove();
+                    showMessage(data.message || 'Модератор удалён', false);
+                } else { showMessage(data.error || 'Ошибка', true); }
+            } catch (error) { showMessage('Ошибка сервера', true); }
+        });
+    });
+
+    // Удаление сообщества
+    const deleteBtn = document.getElementById('deleteCommunityBtn');
+    const modal = document.getElementById('deleteModal');
+    const closeModal = document.getElementById('closeModal');
+    const cancelDelete = document.getElementById('cancelDelete');
+    const confirmDelete = document.getElementById('confirmDelete');
+    const confirmInput = document.getElementById('confirmName');
+    const communityName = '{{ community.name }}';
+
+    if (deleteBtn && modal) {
+        deleteBtn.addEventListener('click', function() {
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        });
+        const closeModalFunc = function() {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+            if (confirmInput) confirmInput.value = '';
+            if (confirmDelete) confirmDelete.disabled = true;
+        };
+        if (closeModal) closeModal.addEventListener('click', closeModalFunc);
+        if (cancelDelete) cancelDelete.addEventListener('click', closeModalFunc);
+        modal.addEventListener('click', function(e) { if (e.target === modal) closeModalFunc(); });
+        if (confirmInput) {
+            confirmInput.addEventListener('input', function() {
+                confirmDelete.disabled = this.value !== communityName;
+            });
         }
+        if (confirmDelete) {
+            confirmDelete.addEventListener('click', function() {
+                if (confirmInput.value === communityName) document.getElementById('deleteForm').submit();
+            });
+        }
+    }
 
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
                 }
             }
-            return cookieValue;
         }
-
-        function showToast(type, message) {
-            const toast = document.createElement('div');
-            toast.className = `toast toast--${type}`;
-            toast.textContent = message;
-            toast.style.cssText = `
-                position: fixed;
-                bottom: 20px;
-                right: 20px;
-                padding: 12px 20px;
-                background: ${type === 'success' ? '#10b981' : '#ef4444'};
-                color: white;
-                border-radius: 8px;
-                z-index: 9999;
-                animation: fadeInOut 3s ease-in-out;
-            `;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
-        }
-    });
+        return cookieValue;
+    }
+});
 </script>
 {% endblock %}

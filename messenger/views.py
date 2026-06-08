@@ -46,7 +46,7 @@ def api_chat_messages(request, chat_id):
     chat = get_object_or_404(Chat, id=chat_id, participants=request.user)
 
     messages_list = chat.messages.filter(is_deleted=False) \
-        .select_related('author', 'author__profile') \
+        .select_related('author', 'author__profile', 'reply_to', 'forwarded_poll') \
         .prefetch_related('reactions', 'reactions__user') \
         .order_by('-created_at')[:50]
 
@@ -95,20 +95,24 @@ def api_chat_messages(request, chat_id):
                 'author_name': msg.reply_to.author.get_full_name() or msg.reply_to.author.username,
             }
 
-        # Обработка пересланного поста
+        # Обработка пересланного поста (из JSON в content)
         forwarded_post = None
         if msg.file_type == 'forward' and msg.content:
             try:
                 forward_data = json.loads(msg.content)
                 if forward_data.get('type') == 'forwarded_post':
                     forwarded_post = forward_data
+
+                    # Добавляем данные опроса, если есть
+                    if 'poll' in forward_data:
+                        forwarded_post['poll'] = forward_data['poll']
             except:
                 pass
 
         messages_data.append({
             'id': msg.id,
             'content': msg.content if not forwarded_post else None,
-            'forwarded_post': forwarded_post,  # Данные пересланного поста
+            'forwarded_post': forwarded_post,
             'author': msg.author.username,
             'author_name': msg.author.get_full_name() or msg.author.username,
             'author_avatar': msg.author.profile.avatar.url if msg.author.profile.avatar else None,
@@ -121,7 +125,7 @@ def api_chat_messages(request, chat_id):
             'created_at': msg.created_at.strftime('%H:%M'),
             'created_at_full': msg.created_at.isoformat(),
             'read_at': msg.read_at.isoformat() if msg.read_at else None,
-            'delivered_at': msg.delivered_at.isoformat() if hasattr(msg, 'delivered_at') and msg.delivered_at else None,
+            'delivered_at': msg.delivered_at.isoformat() if msg.delivered_at else None,
             'reactions': reactions,
             'reply_to': reply_to_data,
         })
@@ -687,9 +691,32 @@ def forward_post_to_pm(request, post_id):
             ChatParticipant.objects.create(user=request.user, chat=chat)
             ChatParticipant.objects.create(user=target_user, chat=chat)
 
-        # Получаем первое изображение для превью (используем новый метод)
+        # Получаем первое изображение для превью
         first_image = post.get_first_image()
         preview_image = first_image.url if first_image else None
+
+        # ========== ДОБАВЛЯЕМ ДАННЫЕ ОПРОСА ==========
+        poll_data = None
+        if hasattr(post, 'poll') and post.poll:
+            poll = post.poll
+            poll_data = {
+                'id': poll.id,
+                'question': poll.question,
+                'is_anonymous': poll.is_anonymous,
+                'allow_multiple': poll.allow_multiple,
+                'total_votes': poll.total_votes(),
+                'options': [
+                    {
+                        'id': opt.id,
+                        'text': opt.text,
+                        'votes_count': opt.votes_count(),
+                        'votes_percentage': opt.votes_percentage(),
+                    }
+                    for opt in poll.options.all()
+                ],
+                'user_voted': False,  # В пересланном сообщении пользователь ещё не голосовал
+                'user_votes': [],
+            }
 
         # Сохраняем данные поста в JSON формате
         forward_data = {
@@ -706,6 +733,7 @@ def forward_post_to_pm(request, post_id):
             'views_count': post.views_count,
             'forwarded_by': request.user.username,
             'forwarded_by_full_name': request.user.get_full_name() or request.user.username,
+            'poll': poll_data,  # ← ДОБАВЛЯЕМ ОПРОС
         }
 
         Message.objects.create(
@@ -733,3 +761,121 @@ def forward_post_to_pm(request, post_id):
         return redirect(request.META.get('HTTP_REFERER', 'posts:post_list'))
 
     return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+
+@login_required
+@require_POST
+def forward_post(request, post_id):
+    """Переслать пост в личные сообщения"""
+    try:
+        post = get_object_or_404(Post, id=post_id)
+        user_id = request.POST.get('user_id')
+        recipient = get_object_or_404(User, id=user_id)
+
+        # Создаём сообщение с постом
+        message = Message.objects.create(
+            sender=request.user,
+            recipient=recipient,
+            message_type='post',
+            forwarded_post=post,
+            is_read=False
+        )
+
+        # Если у поста есть опрос, пересылаем и его
+        if hasattr(post, 'poll') and post.poll:
+            message.forwarded_poll = post.poll
+            message.save()
+
+        # Создаём уведомление
+        create_notification(
+            recipient=recipient,
+            sender=request.user,
+            notification_type='message',
+            title='📨 Новое сообщение',
+            message=f'{request.user.username} переслал(а) вам пост: {post.title[:50]}',
+            link=f'/messenger/?chat={request.user.id}'
+        )
+
+        return JsonResponse({'status': 'ok'})
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def forward_multiple_messages(request):
+    """Пересылка нескольких сообщений"""
+    try:
+        data = json.loads(request.body)
+        user_id = data.get('user_id')
+        message_ids = data.get('message_ids', [])
+
+        target_user = get_object_or_404(User, id=user_id)
+
+        # Находим или создаём чат
+        chat = Chat.objects.filter(chat_type='private', participants=request.user).filter(
+            participants=target_user
+        ).distinct().first()
+
+        if not chat:
+            chat = Chat.objects.create(chat_type='private')
+            ChatParticipant.objects.create(user=request.user, chat=chat)
+            ChatParticipant.objects.create(user=target_user, chat=chat)
+
+        forwarded_content = []
+        for msg_id in message_ids:
+            original = get_object_or_404(Message, id=msg_id)
+            forwarded_content.append(f"📎 @{original.author.username}: {original.content[:100]}")
+
+        Message.objects.create(
+            chat=chat,
+            author=request.user,
+            content=f"[Переслано {len(message_ids)} сообщений]\n\n" + "\n\n".join(forwarded_content),
+            is_delivered=True,
+            delivered_at=timezone.now()
+        )
+
+        return JsonResponse({'status': 'ok'})
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def delete_multiple_messages(request):
+    """Удаление нескольких сообщений"""
+    try:
+        data = json.loads(request.body)
+        message_ids = data.get('message_ids', [])
+
+        Message.objects.filter(id__in=message_ids, author=request.user).update(
+            is_deleted=True,
+            content=''
+        )
+
+        return JsonResponse({'status': 'ok'})
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def api_chats_list(request):
+    """Список чатов для выбора получателя"""
+    chats = Chat.objects.filter(participants=request.user).prefetch_related('participants')
+
+    result = []
+    for chat in chats:
+        if chat.chat_type == 'private':
+            other = chat.participants.exclude(id=request.user.id).first()
+            if other:
+                result.append({
+                    'user_id': other.id,
+                    'name': other.get_full_name() or other.username,
+                    'username': other.username,
+                    'avatar': other.profile.avatar.url if other.profile.avatar else None,
+                })
+
+    return JsonResponse({'chats': result})

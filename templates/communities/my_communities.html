@@ -1,0 +1,441 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Мои сообщества · Поток{% endblock %}
+
+{% block page_title %}
+<span><i data-feather="grid"></i> Мои сообщества</span>
+{% endblock %}
+
+{% block content_container_class %}content-container--medium{% endblock %}
+
+{% block content %}
+<style>
+    .dashboard-stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    
+    .stat-card {
+        background: var(--color-bg-surface);
+        border-radius: 16px;
+        padding: 20px;
+        text-align: center;
+        border: 1px solid var(--color-border-light);
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+    
+    .stat-card .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--color-primary);
+        display: block;
+    }
+    
+    .stat-card .stat-label {
+        font-size: 0.85rem;
+        color: var(--color-text-tertiary);
+        margin-top: 8px;
+        display: block;
+    }
+    
+    .communities-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .community-admin-card {
+        background: var(--color-bg-surface);
+        border-radius: 20px;
+        border: 1px solid var(--color-border-light);
+        overflow: hidden;
+        transition: all 0.2s;
+    }
+    
+    .community-admin-card:hover {
+        border-color: var(--color-primary);
+        box-shadow: var(--shadow-md);
+    }
+    
+    .community-card-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 20px 24px;
+        background: var(--color-bg-elevated);
+        border-bottom: 1px solid var(--color-border-light);
+    }
+    
+    .community-avatar {
+        width: 60px;
+        height: 60px;
+        border-radius: 16px;
+        overflow: hidden;
+        flex-shrink: 0;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    }
+    
+    .community-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .community-avatar .avatar-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: white;
+    }
+    
+    .community-info {
+        flex: 1;
+    }
+    
+    .community-name {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--color-text);
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .community-name:hover {
+        color: var(--color-primary);
+    }
+    
+    .community-status-badge {
+        display: inline-block;
+        padding: 2px 10px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .badge-creator {
+        background: #fef3c7;
+        color: #d97706;
+    }
+    
+    .badge-admin {
+        background: #e0e7ff;
+        color: #4f46e5;
+    }
+    
+    .community-meta {
+        display: flex;
+        gap: 16px;
+        margin-top: 8px;
+        font-size: 0.8rem;
+        color: var(--color-text-tertiary);
+    }
+    
+    .community-meta span {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .community-actions {
+        display: flex;
+        gap: 8px;
+        margin-left: auto;
+    }
+    
+    .btn-icon {
+        padding: 8px 16px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .btn-icon i, .btn-icon svg {
+        width: 16px;
+        height: 16px;
+    }
+    
+    .community-stats-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        padding: 16px 24px;
+        background: var(--color-bg-surface);
+        border-bottom: 1px solid var(--color-border-light);
+        gap: 16px;
+    }
+    
+    .stat-mini {
+        text-align: center;
+    }
+    
+    .stat-mini .value {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--color-text);
+    }
+    
+    .stat-mini .label {
+        font-size: 0.7rem;
+        color: var(--color-text-tertiary);
+        margin-top: 4px;
+    }
+    
+    .community-button-group {
+        display: flex;
+        gap: 8px;
+        padding: 16px 24px;
+        background: var(--color-bg-surface);
+        border-top: 1px solid var(--color-border-light);
+    }
+    
+    .btn-outline {
+        background: transparent;
+        border: 1px solid var(--color-border);
+        color: var(--color-text-secondary);
+    }
+    
+    .btn-outline:hover {
+        background: var(--color-bg-elevated);
+        border-color: var(--color-primary);
+        color: var(--color-primary);
+    }
+    
+    .btn-primary-light {
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+        border: none;
+    }
+    
+    .btn-primary-light:hover {
+        background: var(--color-primary);
+        color: white;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: var(--color-bg-surface);
+        border-radius: 20px;
+        border: 1px solid var(--color-border-light);
+    }
+    
+    .empty-state svg {
+        width: 64px;
+        height: 64px;
+        color: var(--color-text-tertiary);
+        opacity: 0.5;
+        margin-bottom: 16px;
+    }
+    
+    .empty-state h3 {
+        margin-bottom: 8px;
+    }
+    
+    .empty-state p {
+        color: var(--color-text-tertiary);
+        margin-bottom: 24px;
+    }
+    
+    @media (max-width: 768px) {
+        .dashboard-stats {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .community-card-header {
+            flex-wrap: wrap;
+        }
+        
+        .community-actions {
+            margin-left: 76px;
+            width: calc(100% - 76px);
+        }
+        
+        .community-stats-row {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+
+    @keyframes fadeInOut {
+        0% { opacity: 0; transform: translateX(20px); }
+        15% { opacity: 1; transform: translateX(0); }
+        85% { opacity: 1; transform: translateX(0); }
+        100% { opacity: 0; transform: translateX(20px); }
+    }
+</style>
+
+<div class="my-communities-page">
+    <!-- Дашборд статистики -->
+    <div class="dashboard-stats">
+        <div class="stat-card">
+            <span class="stat-value">{{ dashboard_stats.total_communities }}</span>
+            <span class="stat-label">Моих сообществ</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-value">{{ dashboard_stats.total_members|default:0|intcomma }}</span>
+            <span class="stat-label">Всего участников</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-value">{{ dashboard_stats.total_posts_month|default:0|intcomma }}</span>
+            <span class="stat-label">Постов за месяц</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-value">{{ dashboard_stats.pending_reports|default:0 }}</span>
+            <span class="stat-label">Жалоб на рассмотрении</span>
+        </div>
+    </div>
+
+    <!-- Список сообществ -->
+    <div class="communities-grid">
+        {% for item in communities %}
+        <div class="community-admin-card" data-community-id="{{ item.community.id }}">
+            <div class="community-card-header">
+                <div class="community-avatar">
+                    {% if item.community.avatar %}
+                    <img src="{{ item.community.avatar.url }}" alt="{{ item.community.name }}">
+                    {% else %}
+                    <div class="avatar-placeholder">{{ item.community.name|first|upper }}</div>
+                    {% endif %}
+                </div>
+                <div class="community-info">
+                    <div>
+                        <a href="{% url 'communities:community_detail' slug=item.community.slug %}" class="community-name">
+                            {{ item.community.name }}
+                            {% if item.is_creator %}
+                            <span class="community-status-badge badge-creator">Создатель</span>
+                            {% elif item.is_admin %}
+                            <span class="community-status-badge badge-admin">Администратор</span>
+                            {% endif %}
+                        </a>
+                    </div>
+                    <div class="community-meta">
+                        <span><i data-feather="users" style="width: 14px; height: 14px;"></i> {{ item.members_count }} участников</span>
+                        <span><i data-feather="shield" style="width: 14px; height: 14px;"></i> {{ item.moderators_count }} модераторов</span>
+                        <span><i data-feather="message-circle" style="width: 14px; height: 14px;"></i> +{{ item.posts_week_count }} постов за неделю</span>
+                    </div>
+                </div>
+                <div class="community-actions">
+                    <a href="{% url 'communities:community_edit' slug=item.community.slug %}" class="btn-icon btn-outline" title="Настройки">
+                        <i data-feather="settings"></i>
+                        <span class="hide-mobile">Настройки</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="community-stats-row">
+                <div class="stat-mini">
+                    <div class="value">{{ item.members_count }}</div>
+                    <div class="label">Участников</div>
+                </div>
+                <div class="stat-mini">
+                    <div class="value">{{ item.community.posts.count }}</div>
+                    <div class="label">Всего постов</div>
+                </div>
+                <div class="stat-mini">
+                    <div class="value">{{ item.moderators_count }}</div>
+                    <div class="label">Модераторов</div>
+                </div>
+                <div class="stat-mini">
+                    <div class="value">{{ item.community.created_at|date:"d.m.Y" }}</div>
+                    <div class="label">Дата создания</div>
+                </div>
+            </div>
+
+            <div class="community-button-group">
+                <a href="{% url 'communities:community_detail' slug=item.community.slug %}" class="btn-icon btn-outline">
+                    <i data-feather="eye"></i>
+                    Просмотр
+                </a>
+                <a href="{% url 'moderation:community_moderation' slug=item.community.slug %}" class="btn-icon btn-outline">
+                    <i data-feather="shield"></i>
+                    Модерация
+                </a>
+                <a href="{% url 'communities:community_members' slug=item.community.slug %}" class="btn-icon btn-outline">
+                    <i data-feather="users"></i>
+                    Участники
+                </a>
+                {% if item.is_creator %}
+                <a href="{% url 'communities:community_edit' slug=item.community.slug %}#moderators" class="btn-icon btn-primary-light">
+                    <i data-feather="user-plus"></i>
+                    Модераторы
+                </a>
+                {% endif %}
+                <button class="btn-icon btn-outline copy-link-btn" data-slug="{{ item.community.slug }}" style="margin-left: auto;">
+                    <i data-feather="link"></i>
+                </button>
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-state">
+            <i data-feather="grid"></i>
+            <h3>У вас нет созданных сообществ</h3>
+            <p>Создайте своё первое сообщество и начните собирать единомышленников!</p>
+            <a href="{% url 'communities:community_create' %}" class="btn btn--primary">
+                <i data-feather="plus"></i>
+                Создать сообщество
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Кнопка создания нового сообщества -->
+    {% if communities %}
+    <div style="text-align: center; margin-top: 32px;">
+        <a href="{% url 'communities:community_create' %}" class="btn btn--primary btn--lg">
+            <i data-feather="plus"></i>
+            Создать новое сообщество
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Простая функция оповещения
+function showMessage(message, isError = false) {
+    var msg = document.createElement('div');
+    msg.textContent = message;
+    msg.style.cssText = 'position:fixed;bottom:24px;right:24px;background:' + (isError ? '#ef4444' : '#10b981') + ';color:white;padding:12px 20px;border-radius:12px;z-index:10000;font-size:14px;font-weight:500;box-shadow:0 4px 12px rgba(0,0,0,0.2);animation:fadeInOut 2s ease-in-out';
+    document.body.appendChild(msg);
+    setTimeout(function() { if(msg.parentNode) msg.remove(); }, 2000);
+}
+
+// Копирование ссылки
+document.querySelectorAll('.copy-link-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var slug = this.dataset.slug;
+        var url = window.location.origin + '/communities/' + slug + '/';
+        navigator.clipboard.writeText(url).then(function() {
+            showMessage('✅ Ссылка скопирована');
+        }).catch(function() {
+            showMessage('❌ Не удалось скопировать', true);
+        });
+    });
+});
+
+// Обновляем feather иконки после загрузки
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof feather !== 'undefined') {
+        feather.replace();
+    }
+});
+</script>
+{% endblock %}

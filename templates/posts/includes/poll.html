@@ -1,0 +1,179 @@
+{% load static %}
+{% load humanize %}
+
+<div class="poll-container" data-poll-id="{{ poll.id }}" data-allow-multiple="{{ poll.allow_multiple|yesno:'true,false' }}" data-is-anonymous="{{ poll.is_anonymous|yesno:'true,false' }}" data-user-voted="{{ poll.user_voted|yesno:'true,false' }}">
+    <div class="poll-question">
+        <i data-feather="bar-chart-2"></i>
+        <span>{{ poll.question }}</span>
+        {% if poll.is_anonymous %}
+        <span class="poll-badge anonymous">🔒 Анонимно</span>
+        {% endif %}
+        {% if poll.allow_multiple %}
+        <span class="poll-badge multiple">✓ Несколько вариантов</span>
+        {% endif %}
+    </div>
+
+    <div class="poll-options">
+        {% for option in poll.options.all %}
+        <div class="poll-option" data-option-id="{{ option.id }}">
+            <div class="poll-option-row">
+                {% if user.is_authenticated and not poll.user_voted %}
+                    {% if poll.allow_multiple %}
+                    <input type="checkbox" class="poll-checkbox" value="{{ option.id }}" id="opt-{{ poll.id }}-{{ option.id }}" {% if option.id in poll.user_votes %}checked{% endif %}>
+                    {% else %}
+                    <input type="radio" name="poll_option" class="poll-radio" value="{{ option.id }}" id="opt-{{ poll.id }}-{{ option.id }}" {% if option.id in poll.user_votes %}checked{% endif %}>
+                    {% endif %}
+                    <label for="opt-{{ poll.id }}-{{ option.id }}" class="poll-option-text">{{ option.text }}</label>
+                {% else %}
+                    <span class="poll-option-text">{{ option.text }}</span>
+                {% endif %}
+
+                {% if not poll.is_anonymous and poll.user_voted %}
+                <button class="poll-view-voters" data-option-id="{{ option.id }}" data-poll-id="{{ poll.id }}" title="Кто голосовал">
+                    <i data-feather="users"></i>
+                    <span class="poll-votes-count">{{ option.votes_count }}</span>
+                </button>
+                {% endif %}
+            </div>
+            <div class="poll-progress" style="display: {% if poll.user_voted %}block{% else %}none{% endif %};">
+                <div class="poll-progress-bar" style="width: {{ option.votes_percentage }}%;"></div>
+                <div class="poll-stats">
+                    <span class="poll-votes-count">{{ option.votes_count }}</span>
+                    <span class="poll-percentage">{{ option.votes_percentage }}%</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="poll-footer">
+        <div class="poll-total-votes">
+            <i data-feather="users"></i>
+            <span class="total-votes-count">{{ poll.total_votes }}</span> проголосовавших
+        </div>
+
+        {% if user.is_authenticated %}
+            {% if poll.user_voted %}
+            <div class="poll-user-voted">
+                <i data-feather="check-circle"></i>
+                Вы уже голосовали
+                <button class="poll-unvote-btn" data-poll-id="{{ poll.id }}">Отменить голос</button>
+            </div>
+            {% else %}
+            <button class="poll-submit-btn" data-poll-id="{{ poll.id }}">Голосовать</button>
+            {% endif %}
+        {% else %}
+        <a href="{% url 'accounts:login' %}" class="poll-login-link">Войдите, чтобы голосовать</a>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.poll-container {
+    background: var(--color-bg-elevated);
+    border-radius: 16px;
+    padding: 16px;
+    margin: 12px 0;
+    border: 1px solid var(--color-border-light);
+}
+.poll-question {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--color-border-light);
+}
+.poll-question i { color: var(--color-primary); }
+.poll-badge {
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 500;
+}
+.poll-badge.anonymous { background: #fef3c7; color: #d97706; }
+.poll-badge.multiple { background: #e0e7ff; color: #4f46e5; }
+.poll-options { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.poll-option-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.poll-option-text { font-size: 0.9rem; color: var(--color-text); cursor: pointer; flex: 1; }
+.poll-view-voters {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-tertiary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.7rem;
+    transition: all 0.2s;
+}
+.poll-view-voters:hover { color: var(--color-primary); }
+.poll-progress {
+    margin-left: 24px;
+    background: var(--color-border-light);
+    border-radius: 20px;
+    overflow: hidden;
+    position: relative;
+    height: 24px;
+    display: flex;
+    align-items: center;
+}
+.poll-progress-bar {
+    background: linear-gradient(90deg, var(--color-primary), var(--color-primary-light));
+    height: 100%;
+    border-radius: 20px;
+    transition: width 0.3s ease;
+}
+.poll-stats {
+    position: absolute;
+    right: 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    display: flex;
+    gap: 8px;
+}
+.poll-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 12px;
+    border-top: 1px solid var(--color-border-light);
+}
+.poll-total-votes {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--color-text-tertiary);
+}
+.poll-submit-btn {
+    padding: 6px 16px;
+    background: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+.poll-submit-btn:hover { background: var(--color-primary-dark); }
+.poll-user-voted {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: #22c55e;
+}
+.poll-unvote-btn {
+    background: none;
+    border: none;
+    color: #ef4444;
+    font-size: 0.7rem;
+    cursor: pointer;
+    text-decoration: underline;
+}
+.poll-login-link { font-size: 0.8rem; color: var(--color-primary); text-decoration: none; }
+</style>

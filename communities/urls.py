@@ -6,6 +6,7 @@ app_name = 'communities'
 urlpatterns = [
     # Список сообществ
     path('', views.community_list, name='community_list'),
+    path('my/', views.my_communities, name='my_communities'),
 
     # Создание сообщества
     path('create/', views.community_create, name='community_create'),

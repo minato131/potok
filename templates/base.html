@@ -99,6 +99,14 @@ window.showToast = function(message, type = 'success') {
                             <span>Сообщества</span>
                         </a>
                     </li>
+                    {% if user.is_authenticated %}
+                    <li class="nav-menu__item">
+                        <a href="{% url 'communities:my_communities' %}" class="nav-link">
+                            <i data-feather="grid"></i>
+                            <span>Мои сообщества</span>
+                        </a>
+                    </li>
+                    {% endif %}
                     <li class="nav-menu__item">
                         <a href="{% url 'messenger:messenger' %}" class="nav-link {% if 'messenger' in request.resolver_match.namespace and request.resolver_match.url_name == 'messenger' %}nav-link--active{% endif %}">
                             <i data-feather="message-circle"></i>

@@ -169,14 +169,14 @@
                     <div class="top-member">
                         <span class="top-member-rank">{{ forloop.counter }}</span>
                         <div class="top-member-avatar">
-                            {% if member.author__profile__avatar %}
-                            <img src="{{ member.author__profile__avatar }}" alt="">
+                            {% if member.profile.avatar %}
+                            <img src="{{ member.profile.avatar.url }}" alt="">
                             {% else %}
-                            <div class="avatar-placeholder-tiny">{{ member.author__username|first|upper }}</div>
+                            <div class="avatar-placeholder-tiny">{{ member.username|first|upper }}</div>
                             {% endif %}
                         </div>
-                        <a href="{% url 'accounts:profile_by_username' username=member.author__username %}" class="top-member-name">
-                            @{{ member.author__username }}
+                        <a href="{% url 'accounts:profile_by_username' username=member.username %}" class="top-member-name">
+                            @{{ member.username }}
                         </a>
                         <span class="top-member-count">{{ member.post_count }} пост{{ member.post_count|pluralize:"а,ов" }}</span>
                     </div>

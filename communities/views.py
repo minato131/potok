@@ -211,10 +211,12 @@ def community_detail(request, slug):
     ).count()
 
     # Топ участников
-    top_members = Post.objects.filter(
-        id__in=community_post_ids
-    ).values('author__username', 'author__id', 'author__profile__avatar').annotate(
-        post_count=Count('id')
+    top_members = User.objects.filter(
+        posts__id__in=community_post_ids,
+        posts__is_hidden=False,
+        posts__status='published'
+    ).annotate(
+        post_count=Count('posts')
     ).order_by('-post_count')[:5]
 
     # Рост участников
@@ -1221,3 +1223,88 @@ def community_delete(request, slug):
         return redirect('communities:community_list')
 
     return redirect('communities:community_detail', slug=community.slug)
+
+
+# communities/views.py
+
+@login_required
+def my_communities(request):
+    """
+    Страница "Мои сообщества" — показывает все сообщества,
+    где пользователь является администратором или создателем.
+    """
+    from django.db.models import Q
+
+    # Сообщества, где пользователь admin (через CommunityMembership) или creator
+    admin_communities = Community.objects.filter(
+        Q(creator=request.user) |
+        Q(communitymembership__user=request.user, communitymembership__role='admin')
+    ).distinct().order_by('-created_at')
+
+    # Для каждого сообщества добавим информацию о роли пользователя
+    communities_data = []
+    for community in admin_communities:
+        membership = CommunityMembership.objects.filter(
+            user=request.user,
+            community=community
+        ).first()
+
+        is_creator = (community.creator == request.user)
+        is_admin = membership and membership.role == 'admin'
+
+        # Получаем количество модераторов (не создатель)
+        moderators_count = CommunityMembership.objects.filter(
+            community=community,
+            role='moderator',
+            status='active'
+        ).exclude(user=community.creator).count()
+
+        # Количество участников
+        members_count = CommunityMembership.objects.filter(
+            community=community,
+            status='active'
+        ).count()
+
+        # Количество постов за последнюю неделю
+        from django.utils import timezone
+        from datetime import timedelta
+        week_ago = timezone.now() - timedelta(days=7)
+        posts_week_count = CommunityPost.objects.filter(
+            community=community,
+            post__created_at__gte=week_ago,
+            post__status='published'
+        ).count()
+
+        communities_data.append({
+            'community': community,
+            'is_creator': is_creator,
+            'is_admin': is_admin,
+            'moderators_count': moderators_count,
+            'members_count': members_count,
+            'posts_week_count': posts_week_count,
+        })
+
+    # Статистика для дашборда
+    from django.db.models import Count
+    from django.utils import timezone
+    from datetime import timedelta
+
+    month_ago = timezone.now() - timedelta(days=30)
+
+    dashboard_stats = {
+        'total_communities': len(communities_data),
+        'total_members': sum(c['members_count'] for c in communities_data),
+        'total_posts_month': CommunityPost.objects.filter(
+            community__in=admin_communities,
+            post__created_at__gte=month_ago,
+            post__status='published'
+        ).count(),
+        'pending_reports': 0,  # Позже добавим жалобы
+    }
+
+    context = {
+        'communities': communities_data,
+        'dashboard_stats': dashboard_stats,
+    }
+
+    return render(request, 'communities/my_communities.html', context)

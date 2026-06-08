@@ -9,6 +9,7 @@
 {% block page_title %}
     {% if form.instance.pk %}Редактирование поста{% else %}Создание нового поста{% endif %}
 {% endblock %}
+{% load post_filters %}
 
 {% block content %}
 <div class="post-create-container">
@@ -347,6 +348,129 @@
                     {% endif %}
                 </div>
             </div>
+
+        <div class="form-section poll-section">
+            <div class="section-header">
+                <i data-feather="bar-chart-2"></i>
+                <h2>Опрос</h2>
+            </div>
+
+            <label class="checkbox-label" style="margin-bottom: 16px;">
+                <input type="checkbox" name="enable_poll" id="enablePollCheckbox" {% if existing_poll %}checked{% endif %}>
+                <span>Добавить опрос в пост</span>
+            </label>
+
+            <div id="pollFormContainer" style="display: {% if existing_poll %}block{% else %}none{% endif %};">
+                <div class="form-group">
+                    <label class="form-label">Вопрос опроса</label>
+                    <input type="text" name="question" class="form-input"
+                           placeholder="Например: Какой язык программирования лучше?"
+                           value="{{ poll_form.question.value|default:'' }}">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Варианты ответа (минимум 2)</label>
+                    <div id="pollOptionsContainer">
+                        <!-- Вариант 1 -->
+                        <div class="poll-option-row" style="margin-top: 0;">
+                            <input type="text" name="option_1" class="form-input" placeholder="Вариант 1" value="{{ poll_form.option_1.value|default:'' }}">
+                        </div>
+
+                        <!-- Вариант 2 -->
+                        <div class="poll-option-row" style="margin-top: 8px;">
+                            <input type="text" name="option_2" class="form-input" placeholder="Вариант 2" value="{{ poll_form.option_2.value|default:'' }}">
+                            <button type="button" class="remove-option-btn" style="margin-left: 8px; background: none; border: none; color: #ef4444; cursor: pointer;">
+                                <i data-feather="x"></i>
+                            </button>
+                        </div>
+
+                        <!-- Варианты 3-10 (скрыты по умолчанию) -->
+                        <div class="poll-option-row" style="margin-top: 8px; display: none;" id="optionRow3">
+                            <input type="text" name="option_3" class="form-input" placeholder="Вариант 3" value="{{ poll_form.option_3.value|default:'' }}">
+                            <button type="button" class="remove-option-btn" style="margin-left: 8px; background: none; border: none; color: #ef4444; cursor: pointer;">
+                                <i data-feather="x"></i>
+                            </button>
+                        </div>
+
+                        <div class="poll-option-row" style="margin-top: 8px; display: none;" id="optionRow4">
+                            <input type="text" name="option_4" class="form-input" placeholder="Вариант 4" value="{{ poll_form.option_4.value|default:'' }}">
+                            <button type="button" class="remove-option-btn" style="margin-left: 8px; background: none; border: none; color: #ef4444; cursor: pointer;">
+                                <i data-feather="x"></i>
+                            </button>
+                        </div>
+
+                        <div class="poll-option-row" style="margin-top: 8px; display: none;" id="optionRow5">
+                            <input type="text" name="option_5" class="form-input" placeholder="Вариант 5" value="{{ poll_form.option_5.value|default:'' }}">
+                            <button type="button" class="remove-option-btn" style="margin-left: 8px; background: none; border: none; color: #ef4444; cursor: pointer;">
+                                <i data-feather="x"></i>
+                            </button>
+                        </div>
+
+                        <div class="poll-option-row" style="margin-top: 8px; display: none;" id="optionRow6">
+                            <input type="text" name="option_6" class="form-input" placeholder="Вариант 6" value="{{ poll_form.option_6.value|default:'' }}">
+                            <button type="button" class="remove-option-btn" style="margin-left: 8px; background: none; border: none; color: #ef4444; cursor: pointer;">
+                                <i data-feather="x"></i>
+                            </button>
+                        </div>
+
+                        <div class="poll-option-row" style="margin-top: 8px; display: none;" id="optionRow7">
+                            <input type="text" name="option_7" class="form-input" placeholder="Вариант 7" value="{{ poll_form.option_7.value|default:'' }}">
+                            <button type="button" class="remove-option-btn" style="margin-left: 8px; background: none; border: none; color: #ef4444; cursor: pointer;">
+                                <i data-feather="x"></i>
+                            </button>
+                        </div>
+
+                        <div class="poll-option-row" style="margin-top: 8px; display: none;" id="optionRow8">
+                            <input type="text" name="option_8" class="form-input" placeholder="Вариант 8" value="{{ poll_form.option_8.value|default:'' }}">
+                            <button type="button" class="remove-option-btn" style="margin-left: 8px; background: none; border: none; color: #ef4444; cursor: pointer;">
+                                <i data-feather="x"></i>
+                            </button>
+                        </div>
+
+                        <div class="poll-option-row" style="margin-top: 8px; display: none;" id="optionRow9">
+                            <input type="text" name="option_9" class="form-input" placeholder="Вариант 9" value="{{ poll_form.option_9.value|default:'' }}">
+                            <button type="button" class="remove-option-btn" style="margin-left: 8px; background: none; border: none; color: #ef4444; cursor: pointer;">
+                                <i data-feather="x"></i>
+                            </button>
+                        </div>
+
+                        <div class="poll-option-row" style="margin-top: 8px; display: none;" id="optionRow10">
+                            <input type="text" name="option_10" class="form-input" placeholder="Вариант 10" value="{{ poll_form.option_10.value|default:'' }}">
+                            <button type="button" class="remove-option-btn" style="margin-left: 8px; background: none; border: none; color: #ef4444; cursor: pointer;">
+                                <i data-feather="x"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <button type="button" id="addPollOptionBtn" class="btn btn--outline btn--sm" style="margin-top: 8px;">
+                        <i data-feather="plus"></i> Добавить вариант
+                    </button>
+                </div>
+
+                <div class="settings-group" style="margin-top: 12px;">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <span class="setting-label">Анонимное голосование</span>
+                            <span class="setting-description">Результаты не показывают, кто за кого голосовал</span>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" name="is_anonymous" {% if poll_form.is_anonymous.value %}checked{% endif %}>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <span class="setting-label">Несколько вариантов</span>
+                            <span class="setting-description">Пользователи могут выбрать несколько ответов</span>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" name="allow_multiple" {% if poll_form.allow_multiple.value %}checked{% endif %}>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Теги -->
         <div class="form-section">
@@ -1368,5 +1492,52 @@
             return v;
         }
     });
+</script>
+<script>
+// ========== ОПРОСЫ: ДОБАВЛЕНИЕ ВАРИАНТОВ ==========
+const enablePollCheckbox = document.getElementById('enablePollCheckbox');
+const pollFormContainer = document.getElementById('pollFormContainer');
+
+if (enablePollCheckbox) {
+    enablePollCheckbox.addEventListener('change', function() {
+        pollFormContainer.style.display = this.checked ? 'block' : 'none';
+    });
+}
+
+let nextOptionRow = 3;
+const addOptionBtn = document.getElementById('addPollOptionBtn');
+
+if (addOptionBtn) {
+    addOptionBtn.addEventListener('click', function() {
+        if (nextOptionRow <= 10) {
+            const row = document.getElementById(`optionRow${nextOptionRow}`);
+            if (row) {
+                row.style.display = 'flex';
+                row.style.gap = '8px';
+                nextOptionRow++;
+            }
+        }
+        if (nextOptionRow > 10) {
+            addOptionBtn.disabled = true;
+            addOptionBtn.style.opacity = '0.5';
+        }
+    });
+}
+
+// Обработчики удаления вариантов
+document.querySelectorAll('.remove-option-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const row = this.closest('.poll-option-row');
+        const input = row.querySelector('input');
+        if (input) input.value = '';
+        row.style.display = 'none';
+        nextOptionRow--;
+        const addBtn = document.getElementById('addPollOptionBtn');
+        if (addBtn) {
+            addBtn.disabled = false;
+            addBtn.style.opacity = '1';
+        }
+    });
+});
 </script>
 {% endblock %}
