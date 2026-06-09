@@ -338,6 +338,25 @@
                 <li>✓ Будьте активным создателем</li>
             </ul>
         </div>
+        {% if not form.instance.pk %}
+        <!-- Показываем правила только при создании -->
+        <div class="form-group rules-agreement">
+            <div class="rules-box">
+                <h4><i data-feather="alert-triangle"></i> Правила создания сообществ</h4>
+                <ul>
+                    <li>Запрещены сообщества, пропагандирующие насилие, ненависть или дискриминацию</li>
+                    <li>Контент 18+ должен быть помечен соответствующим образом</li>
+                    <li>Не используйте название, вводящее в заблуждение</li>
+                    <li>Соблюдайте законодательство РФ и другие применимые законы</li>
+                    <li>Администрация платформы имеет право ограничить сообщество при нарушении правил</li>
+                </ul>
+            </div>
+            <label class="checkbox-label">
+                <input type="checkbox" name="agree_rules" required>
+                <span>Я ознакомлен(а) и согласен(а) с правилами создания сообществ</span>
+            </label>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
@@ -784,6 +803,34 @@
             flex-direction: column;
             align-items: flex-start;
         }
+    }
+    .rules-box {
+        background: var(--color-bg-elevated);
+        border: 1px solid var(--color-border-light);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+    .rules-box h4 {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+        color: var(--color-primary);
+    }
+    .rules-box ul {
+        margin: 0;
+        padding-left: 20px;
+    }
+    .rules-box li {
+        margin: 8px 0;
+        font-size: 0.9rem;
+    }
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
     }
 </style>
 {% endblock %}

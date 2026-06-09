@@ -18,12 +18,28 @@ from django.db.models import Count, Q
 from datetime import timedelta
 from .models import Report
 from django.contrib.contenttypes.models import ContentType
+from .models import CommunityReport
 User = get_user_model()
 
 
 def is_moderator(user):
-    """Проверка: модератор площадки"""
-    return user.is_authenticated and (user.is_staff or user.is_superuser or user.is_platform_moderator)
+    """Проверка: модератор платформы ИЛИ модератор хотя бы одного сообщества"""
+    if not user.is_authenticated:
+        return False
+
+    # Модератор платформы
+    if user.is_staff or user.is_superuser or user.is_platform_moderator:
+        return True
+
+    # Модератор хотя бы одного сообщества
+    if CommunityMembership.objects.filter(
+            user=user,
+            role__in=['admin', 'moderator'],
+            status='active'
+    ).exists():
+        return True
+
+    return False
 
 
 @login_required
@@ -83,86 +99,35 @@ def create_report(request, content_type, object_id):
 @login_required
 @user_passes_test(is_moderator)
 def moderation_panel(request):
-    """Панель модератора площадки с полной статистикой"""
+    """Панель модератора площадки — видит все жалобы, с пометкой о сообществе"""
     today = timezone.now().date()
     week_ago = timezone.now() - timedelta(days=7)
     month_ago = timezone.now() - timedelta(days=30)
 
-    # ===== ОСНОВНАЯ СТАТИСТИКА =====
-    stats = {
-        'pending_reports': Report.objects.filter(status='pending').count(),
-        'approved_today': Report.objects.filter(
-            status='approved',
-            moderated_at__date=today
-        ).count(),
-        'rejected_today': Report.objects.filter(
-            status='rejected',
-            moderated_at__date=today
-        ).count(),
-        'new_reports_week': Report.objects.filter(
-            created_at__gte=week_ago
-        ).count(),
-        'active_bans': Ban.objects.filter(lifted_at__isnull=True).count(),
-        'total_users': User.objects.count(),
-        'banned_users': Ban.objects.filter(lifted_at__isnull=True).values('user').distinct().count(),
-        'reports_this_month': Report.objects.filter(created_at__gte=month_ago).count(),
-        'resolved_this_month': Report.objects.filter(
-            moderated_at__gte=month_ago,
-            status__in=['approved', 'rejected']
-        ).count(),
-    }
+    user = request.user
+    is_platform_mod = user.is_platform_moderator or user.is_superuser
 
-    # ===== ТИПЫ ЖАЛОБ (для графика) =====
-    report_types = Report.objects.values('report_type').annotate(
-        count=Count('id')
-    ).order_by('-count')
+    if is_platform_mod:
+        # Модератор платформы: ВСЕ жалобы (и platform, и community)
+        pending_reports = Report.objects.filter(
+            status='pending'
+        ).select_related('reporter', 'community').order_by('-created_at')[:20]
+        pending_count = Report.objects.filter(status='pending').count()
+    else:
+        # Модератор сообщества: только жалобы в его сообществах
+        moderator_communities = Community.objects.filter(
+            communitymembership__user=user,
+            communitymembership__role__in=['admin', 'moderator'],
+            communitymembership__status='active'
+        ).distinct()
+        pending_reports = Report.objects.filter(
+            status='pending',
+            context='community',
+            community__in=moderator_communities
+        ).select_related('reporter', 'community').order_by('-created_at')[:20]
+        pending_count = pending_reports.count()
 
-    # ===== ЕЖЕДНЕВНАЯ АКТИВНОСТЬ (для графика) =====
-    daily_stats = []
-    for i in range(6, -1, -1):
-        day = timezone.now() - timedelta(days=i)
-        day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
-        day_end = day.replace(hour=23, minute=59, second=59, microsecond=999999)
-
-        daily_stats.append({
-            'date': day.strftime('%d.%m'),
-            'day_name': ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][day.weekday()],
-            'new': Report.objects.filter(created_at__range=(day_start, day_end)).count(),
-            'resolved': Report.objects.filter(moderated_at__range=(day_start, day_end)).count(),
-        })
-
-    # ===== САМЫЕ АКТИВНЫЕ ЖАЛОБЩИКИ =====
-    top_reporters = User.objects.filter(
-        reports_made__isnull=False
-    ).annotate(
-        report_count=Count('reports_made')
-    ).order_by('-report_count')[:5]
-
-    # ===== САМЫЕ ЧАСТО ЖАЛУЮЩИЕСЯ ПОЛЬЗОВАТЕЛИ (на кого жалуются) =====
-    from django.contrib.contenttypes.models import ContentType
-    post_ct = ContentType.objects.get_for_model(Post)
-    comment_ct = ContentType.objects.get_for_model(Comment)
-
-    # Получаем ID пользователей, на которых жалуются
-    reported_post_authors = Report.objects.filter(
-        content_type=post_ct,
-        status='approved'
-    ).values_list('object_id', flat=True)
-
-    reported_comment_authors = Report.objects.filter(
-        content_type=comment_ct,
-        status='approved'
-    ).values_list('object_id', flat=True)
-
-    # Это сложный запрос, упростим: покажем просто список жалоб по пользователям
-    # (более точную статистику можно сделать отдельно)
-
-    # ===== ПОСЛЕДНИЕ ЖАЛОБЫ =====
-    pending_reports = Report.objects.filter(
-        status='pending'
-    ).select_related('reporter').order_by('-created_at')[:10]
-
-    # Добавляем content_preview для каждого отчёта
+    # Добавляем превью и пометку о сообществе
     for report in pending_reports:
         if report.content_object:
             if hasattr(report.content_object, 'title'):
@@ -171,16 +136,61 @@ def moderation_panel(request):
                 report.content_preview = report.content_object.content[:50]
             else:
                 report.content_preview = str(report.content_object)[:50]
+        # Пометка о сообществе для модератора платформы
+        if is_platform_mod and report.context == 'community' and report.community:
+            report.community_note = f" Из сообщества: {report.community.name}"
+        else:
+            report.community_note = None
+
+    # ===== ОСТАЛЬНАЯ СТАТИСТИКА =====
+    stats = {
+        'pending_reports': pending_count,
+        'pending_community_reports': CommunityReport.objects.filter(status='pending').count(),
+        'approved_today': Report.objects.filter(status='approved', moderated_at__date=today).count(),
+        'rejected_today': Report.objects.filter(status='rejected', moderated_at__date=today).count(),
+        'new_reports_week': Report.objects.filter(created_at__gte=week_ago).count(),
+        'active_bans': Ban.objects.filter(lifted_at__isnull=True).count(),
+        'total_users': User.objects.count(),
+        'banned_users': Ban.objects.filter(lifted_at__isnull=True).values('user').distinct().count(),
+        'reports_this_month': Report.objects.filter(created_at__gte=month_ago).count(),
+        'resolved_this_month': Report.objects.filter(moderated_at__gte=month_ago,
+                                                     status__in=['approved', 'rejected']).count(),
+        'resolved_today': Report.objects.filter(moderated_at__date=today, status__in=['approved', 'rejected']).count(),
+    }
+
+    # ===== ТИПЫ ЖАЛОБ (для графика) =====
+    report_types = Report.objects.values('report_type').annotate(count=Count('id')).order_by('-count')
+
+    # ===== ЕЖЕДНЕВНАЯ АКТИВНОСТЬ =====
+    daily_stats = []
+    for i in range(6, -1, -1):
+        day = timezone.now() - timedelta(days=i)
+        day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day.replace(hour=23, minute=59, second=59, microsecond=999999)
+        daily_stats.append({
+            'date': day.strftime('%d.%m'),
+            'day_name': ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'][day.weekday()],
+            'new': Report.objects.filter(created_at__range=(day_start, day_end)).count(),
+            'resolved': Report.objects.filter(moderated_at__range=(day_start, day_end)).count(),
+        })
+
+    # ===== САМЫЕ АКТИВНЫЕ ЖАЛОБЩИКИ =====
+    top_reporters = User.objects.filter(reports_made__isnull=False).annotate(
+        report_count=Count('reports_made')).order_by('-report_count')[:5]
+
+    # ===== ПОСЛЕДНИЕ ЖАЛОБЫ НА СООБЩЕСТВА =====
+    pending_community_reports = CommunityReport.objects.filter(status='pending').select_related('community',
+                                                                                                'reporter').order_by(
+        '-created_at')[:5]
 
     # ===== АКТИВНЫЕ БЛОКИРОВКИ =====
-    active_bans = Ban.objects.filter(
-        lifted_at__isnull=True
-    ).select_related('user', 'banned_by').order_by('-created_at')[:10]
+    active_bans = Ban.objects.filter(lifted_at__isnull=True).select_related('user', 'banned_by').order_by(
+        '-created_at')[:10]
 
     # ===== НОВЫЕ ПОЛЬЗОВАТЕЛИ =====
     recent_users = User.objects.order_by('-date_joined')[:10]
 
-    # ===== СТАТУСЫ ЖАЛОБ ДЛЯ КРУГОВОЙ ДИАГРАММЫ =====
+    # ===== СТАТУСЫ ЖАЛОБ =====
     status_stats = {
         'pending': Report.objects.filter(status='pending').count(),
         'approved': Report.objects.filter(status='approved').count(),
@@ -188,12 +198,9 @@ def moderation_panel(request):
         'lifted': Report.objects.filter(status='lifted').count(),
     }
 
-    # ===== КОНВЕРСИЯ ЖАЛОБ =====
+    # ===== КОНВЕРСИЯ =====
     total_reports = Report.objects.count()
-    if total_reports > 0:
-        conversion_rate = round((stats['approved_today'] / total_reports) * 100, 1)
-    else:
-        conversion_rate = 0
+    conversion_rate = round((stats['approved_today'] / total_reports) * 100, 1) if total_reports > 0 else 0
 
     context = {
         'stats': stats,
@@ -202,9 +209,11 @@ def moderation_panel(request):
         'daily_stats': daily_stats,
         'top_reporters': top_reporters,
         'pending_reports': pending_reports,
+        'pending_community_reports': pending_community_reports,
         'active_bans': active_bans,
         'recent_users': recent_users,
         'conversion_rate': conversion_rate,
+        'is_platform_moderator': is_platform_mod,  # <-- ДЛЯ ШАБЛОНА
     }
     return render(request, 'moderation/moderation_panel.html', context)
 
@@ -212,10 +221,34 @@ def moderation_panel(request):
 @login_required
 @user_passes_test(is_moderator)
 def report_list(request):
-    reports = Report.objects.select_related('reporter', 'moderated_by').order_by('-created_at')
-    lifted_count = Report.objects.filter(status='lifted').count()
+    """Список жалоб — модератор платформы видит все, с пометкой о сообществе"""
+    user = request.user
+    is_platform_mod = user.is_platform_moderator or user.is_superuser
 
-    # Статус
+    if is_platform_mod:
+        # Модератор платформы: ВСЕ жалобы
+        base_reports = Report.objects.all()
+    else:
+        # Модератор сообщества: только жалобы в его сообществах
+        moderator_communities = Community.objects.filter(
+            communitymembership__user=user,
+            communitymembership__role__in=['admin', 'moderator'],
+            communitymembership__status='active'
+        ).distinct()
+        base_reports = Report.objects.filter(
+            context='community',
+            community__in=moderator_communities
+        )
+
+    # Счётчики
+    total_count = base_reports.count()
+    pending_count = base_reports.filter(status='pending').count()
+    approved_count = base_reports.filter(status='approved').count()
+    rejected_count = base_reports.filter(status='rejected').count()
+    lifted_count = base_reports.filter(status='lifted').count()
+
+    # Фильтрация
+    reports = base_reports.select_related('reporter', 'moderated_by', 'community')
     status = request.GET.get('status', 'all')
     if status == 'pending':
         reports = reports.filter(status='pending')
@@ -226,7 +259,7 @@ def report_list(request):
     elif status == 'lifted':
         reports = reports.filter(status='lifted')
 
-    # Тип
+    # Тип жалобы
     report_type = request.GET.get('type')
     if report_type and report_type != 'all':
         reports = reports.filter(report_type=report_type)
@@ -246,29 +279,39 @@ def report_list(request):
             Q(description__icontains=query)
         )
 
-    # Счётчики
-    total_count = Report.objects.count()
-    pending_count = Report.objects.filter(status='pending').count()
-    approved_count = Report.objects.filter(status='approved').count()
-    rejected_count = Report.objects.filter(status='rejected').count()
-
     paginator = Paginator(reports, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    return render(request, 'moderation/report_list.html', {
-        'reports': page_obj,  # ← reports вместо page_obj
+    # Добавляем превью и пометку
+    for report in page_obj:
+        if report.content_object:
+            if hasattr(report.content_object, 'title'):
+                report.content_preview = report.content_object.title[:50]
+            elif hasattr(report.content_object, 'content'):
+                report.content_preview = report.content_object.content[:50]
+            else:
+                report.content_preview = str(report.content_object)[:50]
+        if is_platform_mod and report.context == 'community' and report.community:
+            report.community_note = f" Из сообщества: {report.community.name}"
+        else:
+            report.community_note = None
+
+    context = {
+        'reports': page_obj,
         'page_obj': page_obj,
         'is_paginated': page_obj.has_other_pages(),
         'current_status': status,
-        'current_type': report_type,
+        'current_type': report_type or 'all',
         'current_sort': sort,
         'total_count': total_count,
         'pending_count': pending_count,
         'resolved_count': approved_count,
         'dismissed_count': rejected_count,
         'lifted_count': lifted_count,
-    })
+        'is_platform_moderator': is_platform_mod,
+    }
+    return render(request, 'moderation/report_list.html', context)
 
 
 @login_required
@@ -505,7 +548,6 @@ def user_detail(request, user_id):
 
 @login_required
 def community_moderation_panel(request, slug):
-    """Панель модерации сообщества"""
     community = get_object_or_404(Community, slug=slug)
 
     # Проверка прав — только админ или модератор сообщества
@@ -517,14 +559,14 @@ def community_moderation_panel(request, slug):
         messages.error(request, 'Нет доступа')
         return redirect('communities:community_detail', slug=slug)
 
-    # Жалобы на контент этого сообщества
-    from django.contrib.contenttypes.models import ContentType
+    # Жалобы ТОЛЬКО на контент ЭТОГО сообщества
     post_ct = ContentType.objects.get_for_model(Post)
     community_post_ids = CommunityPost.objects.filter(community=community).values_list('post_id', flat=True)
 
+    # Жалобы, где context='community' И community=текущее сообщество
     pending_reports = Report.objects.filter(
-        content_type=post_ct,
-        object_id__in=community_post_ids,
+        context='community',
+        community=community,
         status='pending'
     ).select_related('reporter')[:20]
 
@@ -756,7 +798,6 @@ def create_unban_ticket(request):
 @login_required
 def submit_report(request):
     if request.method == 'POST':
-        # Определяем тип контента
         post_id = request.POST.get('post_id')
         comment_id = request.POST.get('comment_id')
         reason = request.POST.get('reason', '')
@@ -764,7 +805,6 @@ def submit_report(request):
 
         if not post_id and not comment_id:
             return JsonResponse({'status': 'error', 'message': 'Контент не указан'})
-        print('POST data:', request.POST)
 
         # Жалоба на комментарий
         if comment_id:
@@ -776,7 +816,16 @@ def submit_report(request):
             content_type = ContentType.objects.get_for_model(Comment)
             obj_id = comment.id
 
-            # Проверка дубликата
+            # Определяем, находится ли комментарий в сообществе
+            community = None
+            context = 'platform'
+
+            # Проверяем, есть ли пост комментария в сообществе
+            community_post = CommunityPost.objects.filter(post=comment.post).first()
+            if community_post:
+                community = community_post.community
+                context = 'community'
+
             existing = Report.objects.filter(
                 reporter=request.user,
                 content_type=content_type,
@@ -787,17 +836,20 @@ def submit_report(request):
             ).first()
 
             if existing:
-                return JsonResponse({'status': 'duplicate', 'message': '⚠️ Вы уже отправляли похожую жалобу на этот комментарий.'})
+                return JsonResponse(
+                    {'status': 'duplicate', 'message': '⚠️ Вы уже отправляли жалобу на этот комментарий.'})
 
             Report.objects.create(
                 reporter=request.user,
                 content_type=content_type,
                 object_id=obj_id,
                 report_type=report_type,
-                description=reason
+                description=reason,
+                context=context,
+                community=community
             )
 
-            return JsonResponse({'status': 'ok', 'message': '✅ Жалоба на комментарий отправлена. Модераторы рассмотрят её.'})
+            return JsonResponse({'status': 'ok', 'message': '✅ Жалоба отправлена.'})
 
         # Жалоба на пост
         if post_id:
@@ -809,6 +861,15 @@ def submit_report(request):
             content_type = ContentType.objects.get_for_model(Post)
             obj_id = post.id
 
+            # Определяем, находится ли пост в сообществе
+            community = None
+            context = 'platform'
+
+            community_post = CommunityPost.objects.filter(post=post).first()
+            if community_post:
+                community = community_post.community
+                context = 'community'
+
             existing = Report.objects.filter(
                 reporter=request.user,
                 content_type=content_type,
@@ -819,17 +880,19 @@ def submit_report(request):
             ).first()
 
             if existing:
-                return JsonResponse({'status': 'duplicate', 'message': '⚠️ Вы уже отправляли похожую жалобу на этот пост.'})
+                return JsonResponse({'status': 'duplicate', 'message': '⚠️ Вы уже отправляли жалобу на этот пост.'})
 
             Report.objects.create(
                 reporter=request.user,
                 content_type=content_type,
                 object_id=obj_id,
                 report_type=report_type,
-                description=reason
+                description=reason,
+                context=context,
+                community=community
             )
 
-            return JsonResponse({'status': 'ok', 'message': '✅ Жалоба отправлена. Модераторы рассмотрят её в ближайшее время.'})
+            return JsonResponse({'status': 'ok', 'message': '✅ Жалоба отправлена.'})
 
     return JsonResponse({'status': 'error', 'message': 'Метод не поддерживается'})
 
@@ -970,3 +1033,237 @@ def reject_ticket(request, ticket_id):
         return JsonResponse({'status': 'ok', 'message': 'Заявка отклонена'})
 
     return JsonResponse({'status': 'error', 'message': 'Метод не разрешен'}, status=405)
+
+
+@login_required
+def report_community(request):
+    """Создание жалобы на сообщество"""
+    if request.method == 'POST':
+        community_slug = request.POST.get('community_slug')
+        reason = request.POST.get('reason')
+        description = request.POST.get('description')
+
+        if not community_slug or not reason or not description:
+            messages.error(request, 'Заполните все поля')
+            return redirect(request.META.get('HTTP_REFERER', 'communities:community_list'))
+
+        community = get_object_or_404(Community, slug=community_slug)
+
+        # Нельзя жаловаться на своё сообщество
+        if community.creator == request.user:
+            messages.error(request, 'Вы не можете жаловаться на своё сообщество')
+            return redirect('communities:community_detail', slug=community.slug)
+
+        # Проверяем, не жаловался ли уже пользователь
+        existing = CommunityReport.objects.filter(
+            community=community,
+            reporter=request.user,
+            status='pending'
+        ).exists()
+
+        if existing:
+            messages.warning(request, 'Вы уже отправили жалобу на это сообщество, она ожидает рассмотрения')
+            return redirect('communities:community_detail', slug=community.slug)
+
+        # Создаём жалобу
+        report = CommunityReport.objects.create(
+            community=community,
+            reporter=request.user,
+            reason=reason,
+            description=description,
+            status='pending'
+        )
+
+        # Уведомляем модераторов платформы
+        from accounts.models import User as CustomUser
+        moderators = CustomUser.objects.filter(is_platform_moderator=True)
+        for mod in moderators:
+            create_notification(
+                recipient=mod,
+                sender=request.user,
+                notification_type='moderation',
+                title='Новая жалоба на сообщество',
+                message=f'Поступила жалоба на сообщество "{community.name}" от @{request.user.username}',
+                link=f'/moderation/community-report/{report.id}/'
+            )
+
+        messages.success(request, 'Жалоба отправлена. Модераторы рассмотрят её в ближайшее время.')
+        return redirect('communities:community_detail', slug=community.slug)
+
+    return redirect('communities:community_list')
+
+@login_required
+@user_passes_test(is_moderator)
+def community_reports_list(request):
+    """Список жалоб на сообщества (только для модераторов платформы)"""
+    reports = CommunityReport.objects.select_related('community', 'reporter', 'moderated_by').all()
+
+    status = request.GET.get('status', 'pending')
+    if status != 'all':
+        reports = reports.filter(status=status)
+
+    paginator = Paginator(reports, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    stats = {
+        'pending': CommunityReport.objects.filter(status='pending').count(),
+        'approved': CommunityReport.objects.filter(status='restricted').count(),
+        'rejected': CommunityReport.objects.filter(status='rejected').count(),
+        'warning': CommunityReport.objects.filter(status='warning_issued').count(),
+        'total': CommunityReport.objects.count(),
+    }
+
+    return render(request, 'moderation/community_reports_list.html', {
+        'reports': page_obj,
+        'page_obj': page_obj,
+        'stats': stats,
+        'current_status': status,
+    })
+
+
+@login_required
+@user_passes_test(is_moderator)
+def community_report_detail(request, report_id):
+    """Детальный просмотр жалобы на сообщество"""
+    report = get_object_or_404(CommunityReport, id=report_id)
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        comment = request.POST.get('comment', '').strip()
+        creator_message = request.POST.get('creator_message', '').strip()
+
+        if action == 'approve':
+            report.approve(request.user, comment)
+            messages.success(request, f'Сообщество "{report.community.name}" ограничено')
+
+        elif action == 'reject':
+            report.reject(request.user, comment)
+            messages.success(request, 'Жалоба отклонена')
+
+        elif action == 'warn':
+            report.warn_creator(request.user, comment)
+            messages.success(request, 'Предупреждение отправлено создателю')
+
+        elif action == 'write_creator':
+            if not creator_message:
+                messages.error(request, 'Введите сообщение для создателя')
+                return redirect('moderation:community_report_detail', report_id=report.id)
+
+            # 1. Отправляем уведомление
+            from accounts.utils import create_notification
+            create_notification(
+                recipient=report.community.creator,
+                sender=request.user,
+                notification_type='moderation',
+                title='Сообщение от модерации',
+                message=f'По поводу вашего сообщества "{report.community.name}":\n\n{creator_message}',
+                link=f'/communities/{report.community.slug}/edit/'
+            )
+
+            # 2. Отправляем личное сообщение через мессенджер
+            try:
+                from messenger.models import Chat, ChatParticipant, Message
+
+                # Находим или создаём чат между модератором и создателем
+                # Ищем существующий приватный чат между этими двумя пользователями
+                chat = Chat.objects.filter(
+                    chat_type='private',
+                    participants=request.user
+                ).filter(
+                    participants=report.community.creator
+                ).distinct().first()
+
+                if not chat:
+                    # Создаём новый приватный чат
+                    chat = Chat.objects.create(
+                        chat_type='private',
+                        name=''  # Для приватных чатов имя не нужно
+                    )
+                    # Добавляем участников через ChatParticipant
+                    ChatParticipant.objects.create(user=request.user, chat=chat, last_read=timezone.now())
+                    ChatParticipant.objects.create(user=report.community.creator, chat=chat, last_read=timezone.now())
+
+                # Создаём сообщение
+                message_text = f"**Сообщение от модерации**\n\n{creator_message}\n\n---\n*Это сообщение отправлено в связи с жалобой на сообщество \"{report.community.name}\"*"
+
+                Message.objects.create(
+                    chat=chat,
+                    author=request.user,
+                    content=message_text
+                )
+
+                messages.success(request, 'Сообщение отправлено создателю в ЛС')
+
+            except ImportError as e:
+                messages.warning(request, f'Мессенджер не настроен: {e}')
+            except Exception as e:
+                messages.warning(request, f'Сообщение не отправлено, но уведомление доставлено: {str(e)}')
+
+        return redirect('moderation:community_reports_list')
+
+    return render(request, 'moderation/community_report_detail.html', {
+        'report': report,
+    })
+
+
+def is_platform_moderator(user):
+    """Модератор платформы (видит жалобы, может блокировать пользователей)"""
+    return user.is_authenticated and (
+        user.is_platform_moderator or
+        user.is_platform_admin or
+        user.is_superuser
+    )
+
+def is_platform_admin(user):
+    """Администратор платформы (полный доступ)"""
+    return user.is_authenticated and (
+        user.is_platform_admin or
+        user.is_superuser
+    )
+
+def is_community_moderator(user, community):
+    """Модератор сообщества (жалобы внутри сообщества)"""
+    if not user.is_authenticated:
+        return False
+    membership = CommunityMembership.objects.filter(
+        user=user,
+        community=community,
+        role__in=['admin', 'moderator'],
+        status='active'
+    ).first()
+    return membership is not None
+
+def is_community_admin(user, community):
+    """Администратор сообщества (создатель или admin)"""
+    if not user.is_authenticated:
+        return False
+    if user == community.creator:
+        return True
+    membership = CommunityMembership.objects.filter(
+        user=user,
+        community=community,
+        role='admin',
+        status='active'
+    ).first()
+    return membership is not None
+
+
+@login_required
+@user_passes_test(is_platform_moderator)
+def platform_moderator_dashboard(request):
+    """Дашборд модератора/администратора платформы"""
+    from django.utils import timezone
+    today = timezone.now().date()
+    today_start = timezone.make_aware(timezone.datetime.combine(today, timezone.datetime.min.time()))
+    today_end = timezone.make_aware(timezone.datetime.combine(today, timezone.datetime.max.time()))
+
+    # Статистика для модератора
+    context = {
+        'pending_reports_count': Report.objects.filter(status='pending').count(),
+        'pending_community_reports_count': CommunityReport.objects.filter(status='pending').count(),
+        'active_bans_count': Ban.objects.filter(lifted_at__isnull=True).count(),
+        'today_reports': Report.objects.filter(created_at__range=(today_start, today_end)).count(),
+        'is_platform_admin': is_platform_admin(request.user),  # Для отображения админ-ссылок
+    }
+    return render(request, 'moderation/platform_moderator_dashboard.html', context)

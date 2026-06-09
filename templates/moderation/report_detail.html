@@ -49,13 +49,56 @@
                 <div class="content-body">
                     {% if report.content_object %}
                         {% if report.content_object.title %}
-                            <strong>{{ report.content_object.title }}</strong>
-                            {{ report.content_object.content|linebreaks|truncatechars:500 }}
-                        {% elif report.content_object.content %}
-                            {{ report.content_object.content|linebreaks|truncatechars:500 }}
+                            <strong style="font-size: 1.1rem; display: block; margin-bottom: 12px;">{{ report.content_object.title }}</strong>
                         {% endif %}
+
+                        <!-- Полный текст без обрезания -->
+                        <div style="line-height: 1.6;">
+                            {{ report.content_object.content|linebreaks }}
+                        </div>
+
+                        <!-- Изображения -->
+                        {% if report.content_object.image %}
+                            <img src="{{ report.content_object.image.url }}" style="max-width: 100%; border-radius: 12px; margin-top: 16px;">
+                        {% endif %}
+                        {% if report.content_object.image2 %}
+                            <img src="{{ report.content_object.image2.url }}" style="max-width: 100%; border-radius: 12px; margin-top: 16px;">
+                        {% endif %}
+                        {% if report.content_object.image3 %}
+                            <img src="{{ report.content_object.image3.url }}" style="max-width: 100%; border-radius: 12px; margin-top: 16px;">
+                        {% endif %}
+                        {% if report.content_object.image4 %}
+                            <img src="{{ report.content_object.image4.url }}" style="max-width: 100%; border-radius: 12px; margin-top: 16px;">
+                        {% endif %}
+                        {% if report.content_object.image5 %}
+                            <img src="{{ report.content_object.image5.url }}" style="max-width: 100%; border-radius: 12px; margin-top: 16px;">
+                        {% endif %}
+
+                        <!-- Видео -->
+                        {% if report.content_object.video %}
+                            <video src="{{ report.content_object.video.url }}" controls style="max-width: 100%; border-radius: 12px; margin-top: 16px;"></video>
+                        {% endif %}
+                        {% if report.content_object.video2 %}
+                            <video src="{{ report.content_object.video2.url }}" controls style="max-width: 100%; border-radius: 12px; margin-top: 16px;"></video>
+                        {% endif %}
+
+                        <!-- Для комментариев - показываем контекст поста -->
+                        {% if report.content_type.model == 'comment' and report.content_object.post %}
+                        <div style="margin-top: 24px; padding: 16px; background: var(--color-bg-elevated); border-radius: 12px;">
+                            <strong> Пост, к которому относится комментарий:</strong>
+                            <div style="margin-top: 8px;">
+                                <a href="{% url 'posts:post_detail' report.content_object.post.id %}" target="_blank" style="font-weight: 500;">
+                                    {{ report.content_object.post.title }}
+                                </a>
+                                <div style="margin-top: 8px; font-size: 0.85rem; color: var(--color-text-tertiary);">
+                                    {{ report.content_object.post.content|truncatewords:50 }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
                     {% else %}
-                        <p style="color:var(--color-text-tertiary)">Контент недоступен</p>
+                        <p style="color:var(--color-text-tertiary)"> Контент не найден (возможно, удалён)</p>
                     {% endif %}
                 </div>
                 {% if report.description %}
@@ -275,7 +318,6 @@
 
 {% block extra_js %}
 <script>
-    // Переопределяем showToast (заменяем конфликтующую версию из main.js)
     window.showToast = function(message, type) {
         if (!message || message === 'undefined') {
             message = type === 'error' ? '❌ Ошибка' : '✅ Готово';
@@ -303,7 +345,6 @@
         return div.innerHTML;
     }
 
-    // Кастомная модалка
     window.showConfirmModal = function(title, message, onConfirm) {
         var existingModal = document.querySelector('.custom-confirm-modal');
         if (existingModal) existingModal.remove();
@@ -335,7 +376,6 @@
         if (modal) modal.onclick = function(e) { if (e.target === modal) closeModal(); };
     };
 
-    // Одобрение
     window.approveReport = function(reportId) {
         window.showConfirmModal('Одобрение жалобы', 'Вы уверены, что хотите одобрить эту жалобу? Контент будет скрыт.', async function() {
             try {
@@ -356,7 +396,6 @@
         });
     };
 
-    // Отклонение
     window.rejectReport = function(reportId) {
         window.showConfirmModal('Отклонение жалобы', 'Вы уверены, что хотите отклонить эту жалобу?', async function() {
             try {
@@ -377,7 +416,6 @@
         });
     };
 
-    // Навешиваем обработчики
     document.addEventListener('DOMContentLoaded', function() {
         var approveBtn = document.getElementById('approveReportBtn');
         var rejectBtn = document.getElementById('rejectReportBtn');
@@ -386,21 +424,5 @@
         if (approveBtn) approveBtn.onclick = function(e) { e.preventDefault(); approveReport(reportId); };
         if (rejectBtn) rejectBtn.onclick = function(e) { e.preventDefault(); rejectReport(reportId); };
     });
-
-    // Принудительно переопределяем showToast после загрузки всех скриптов
-    setTimeout(function() {
-        window.showToast = function(message, type) {
-            console.log('Финальная версия showToast, message=', message);
-            if (!message || message === 'undefined') {
-                message = type === 'error' ? '❌ Ошибка' : '✅ Готово';
-            }
-            var toast = document.createElement('div');
-            toast.textContent = message;
-            toast.style.cssText = 'position:fixed;bottom:24px;right:24px;padding:12px 20px;background:' + (type === 'error' ? '#ef4444' : '#22c55e') + ';color:white;border-radius:10px;z-index:999999;font-size:14px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.15);';
-            document.body.appendChild(toast);
-            setTimeout(function() { if (toast && toast.parentNode) toast.remove(); }, 3000);
-        };
-        console.log('showToast переопределена');
-    }, 100);
 </script>
 {% endblock %}

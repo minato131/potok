@@ -130,7 +130,11 @@ class User(AbstractUser):
         default=False,
         verbose_name='Модератор площадки'
     )
-    # accounts/models.py — в Profile добавь:
+    is_platform_admin = models.BooleanField(
+        default=False,
+        verbose_name='Администратор площадки'
+    )
+
 
     # Кто видит основную информацию
     who_can_see_profile = models.CharField(max_length=20, default='everyone',
@@ -177,6 +181,19 @@ class User(AbstractUser):
         if self.avatar and hasattr(self.avatar, 'url'):
             return self.avatar.url
         return '/static/images/default-avatar.png'
+
+    @property
+    def can_moderate(self):
+        """Проверяет, имеет ли пользователь доступ к панели модерации"""
+        if self.is_platform_moderator or self.is_superuser:
+            return True
+        # Проверяет, есть ли у пользователя роль модератора хотя бы в одном сообществе
+        from communities.models import CommunityMembership
+        return CommunityMembership.objects.filter(
+            user=self,
+            role__in=['admin', 'moderator'],
+            status='active'
+        ).exists()
 
     class Meta:
         verbose_name = 'Пользователь'

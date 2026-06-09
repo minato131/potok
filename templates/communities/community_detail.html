@@ -14,6 +14,11 @@
         <span>Настройки</span>
     </a>
     {% endif %}
+    {% if user.is_authenticated and user != community.creator %}
+    <button class="btn-icon btn-outline" onclick="openReportCommunityModal('{{ community.slug }}')" title="Пожаловаться на сообщество">
+        <span>Пожаловаться</span>
+    </button>
+    {% endif %}
 
     {% if user.is_authenticated %}
         {% if user_membership and user_membership.status == 'active' %}
@@ -501,6 +506,96 @@
         <div id="likesModalList" style="padding:8px 0;"></div>
     </div>
 </div>
+
+<!-- Модалка жалобы на сообщество -->
+<div id="reportCommunityModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 99999; justify-content: center; align-items: center;">
+    <div style="background: #ffffff; border-radius: 24px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid #e5e7eb;">
+            <h3 style="margin: 0; font-size: 1.25rem; font-weight: 600;">Пожаловаться на сообщество</h3>
+            <button type="button" onclick="closeReportCommunityModal()" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #6b7280; line-height: 1;">&times;</button>
+        </div>
+        <form id="reportCommunityForm" method="post" action="{% url 'moderation:report_community' %}">
+            {% csrf_token %}
+            <input type="hidden" name="community_slug" id="report_community_slug">
+
+            <div style="padding: 20px 24px;">
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">Причина жалобы</label>
+                    <select name="reason" required style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 0.9rem;">
+                        <option value="rules_violation">Нарушение правил платформы</option>
+                        <option value="spam">Спам / реклама</option>
+                        <option value="nsfw">NSFW / 18+ контент</option>
+                        <option value="hate_speech">Разжигание ненависти</option>
+                        <option value="illegal">Противоправные действия</option>
+                        <option value="fake">Фейковое / мошенническое сообщество</option>
+                        <option value="other">Другое</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">Описание проблемы</label>
+                    <textarea name="description" rows="4" required placeholder="Подробно опишите, что нарушено..." style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 10px; font-family: inherit; resize: vertical;"></textarea>
+                </div>
+            </div>
+
+            <div style="padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 12px;">
+                <button type="button" onclick="closeReportCommunityModal()" style="padding: 10px 20px; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 10px; cursor: pointer;">Отмена</button>
+                <button type="submit" style="padding: 10px 20px; background: #ef4444; color: white; border: none; border-radius: 10px; cursor: pointer;">Отправить жалобу</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Переопределяем функции с гарантированной работой
+function openReportCommunityModal(slug) {
+    console.log('openReportCommunityModal called with slug:', slug);
+    var modal = document.getElementById('reportCommunityModal');
+    var slugInput = document.getElementById('report_community_slug');
+
+    if (!modal) {
+        console.error('Modal not found!');
+        alert('Ошибка: модальное окно не найдено');
+        return;
+    }
+
+    if (slugInput) {
+        slugInput.value = slug;
+    }
+
+    // Принудительно применяем стили
+    modal.style.display = 'flex';
+    modal.style.position = 'fixed';
+    modal.style.top = '0';
+    modal.style.left = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0,0,0,0.8)';
+    modal.style.zIndex = '99999';
+    modal.style.justifyContent = 'center';
+    modal.style.alignItems = 'center';
+
+    console.log('Modal display set to:', modal.style.display);
+}
+
+function closeReportCommunityModal() {
+    var modal = document.getElementById('reportCommunityModal');
+    if (modal) {
+        modal.style.display = 'none';
+        console.log('Modal closed');
+    }
+}
+
+// Закрытие по клику на фон
+document.addEventListener('click', function(event) {
+    var modal = document.getElementById('reportCommunityModal');
+    if (event.target === modal) {
+        closeReportCommunityModal();
+    }
+});
+
+console.log('Modal system ready');
+</script>
 {% endblock %}
 
 {% block extra_css %}

@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Жалобы на сообщества · Модерация{% endblock %}
+{% block page_title %}Жалобы на сообщества{% endblock %}
+
+{% block content %}
+<style>
+    .cr-page { max-width: 1000px; margin: 0 auto; }
+    .cr-stats { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+    .cr-stat { background: var(--color-bg-surface); border-radius: 12px; padding: 12px 20px; border: 1px solid var(--color-border-light); }
+    .cr-stat-val { font-size: 1.5rem; font-weight: 700; }
+    .cr-stat-lbl { font-size: 0.75rem; color: var(--color-text-tertiary); }
+    .cr-filter-tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--color-border-light); padding-bottom: 12px; flex-wrap: wrap; }
+    .cr-tab { padding: 6px 16px; border-radius: 20px; text-decoration: none; color: var(--color-text-secondary); font-size: 0.85rem; }
+    .cr-tab.active { background: var(--color-primary); color: white; }
+    .cr-report-card { background: var(--color-bg-surface); border-radius: 16px; padding: 20px; margin-bottom: 16px; border: 1px solid var(--color-border-light); }
+    .cr-report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+    .cr-community { font-weight: 700; font-size: 1rem; }
+    .cr-status { padding: 3px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; }
+    .cr-status-pending { background: #fef3c7; color: #d97706; }
+    .cr-status-restricted { background: #fee2e2; color: #dc2626; }
+    .cr-status-rejected { background: #f3f4f6; color: #6b7280; }
+    .cr-status-warning_issued { background: #fed7aa; color: #ea580c; }
+    .cr-report-body { margin-bottom: 16px; }
+    .cr-report-row { margin: 8px 0; font-size: 0.85rem; }
+    .cr-report-actions { display: flex; gap: 12px; }
+    .btn-sm { padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; text-decoration: none; display: inline-block; cursor: pointer; border: none; font-family: inherit; }
+    .btn-primary { background: var(--color-primary); color: white; }
+    .btn-secondary { background: var(--color-bg-elevated); color: var(--color-text); border: 1px solid var(--color-border); }
+    .cr-empty { text-align: center; padding: 60px; color: var(--color-text-tertiary); }
+</style>
+
+<div class="cr-page">
+    <div class="cr-stats">
+        <div class="cr-stat"><span class="cr-stat-val">{{ stats.pending|default:0 }}</span><span class="cr-stat-lbl"> На рассмотрении</span></div>
+        <div class="cr-stat"><span class="cr-stat-val">{{ stats.restricted|default:0 }}</span><span class="cr-stat-lbl"> Ограничено</span></div>
+        <div class="cr-stat"><span class="cr-stat-val">{{ stats.warning_issued|default:0 }}</span><span class="cr-stat-lbl"> Предупреждений</span></div>
+        <div class="cr-stat"><span class="cr-stat-val">{{ stats.rejected|default:0 }}</span><span class="cr-stat-lbl"> Отклонено</span></div>
+    </div>
+
+    <div class="cr-filter-tabs">
+        <a href="?status=pending" class="cr-tab {% if current_status == 'pending' %}active{% endif %}">На рассмотрении</a>
+        <a href="?status=restricted" class="cr-tab {% if current_status == 'restricted' %}active{% endif %}">Ограниченные</a>
+        <a href="?status=warning_issued" class="cr-tab {% if current_status == 'warning_issued' %}active{% endif %}">Предупреждения</a>
+        <a href="?status=rejected" class="cr-tab {% if current_status == 'rejected' %}active{% endif %}">Отклонённые</a>
+        <a href="?status=all" class="cr-tab {% if current_status == 'all' %}active{% endif %}">Все</a>
+    </div>
+
+    {% for report in reports %}
+    <div class="cr-report-card">
+        <div class="cr-report-header">
+            <span class="cr-community">📌 {{ report.community.name }}</span>
+            <span class="cr-status cr-status-{{ report.status }}">{{ report.get_status_display }}</span>
+        </div>
+        <div class="cr-report-body">
+            <div class="cr-report-row"><strong>Создатель:</strong> @{{ report.community.creator.username }}</div>
+            <div class="cr-report-row"><strong>Жалоба от:</strong> @{{ report.reporter.username }} ({{ report.created_at|date:"d.m.Y H:i" }})</div>
+            <div class="cr-report-row"><strong>Причина:</strong> {{ report.get_reason_display }}</div>
+            <div class="cr-report-row"><strong>Описание:</strong> {{ report.description|truncatewords:30 }}</div>
+            {% if report.moderator_comment %}
+            <div class="cr-report-row"><strong>Комментарий модератора:</strong> {{ report.moderator_comment }}</div>
+            {% endif %}
+        </div>
+        <div class="cr-report-actions">
+            <a href="{% url 'moderation:community_report_detail' report.id %}" class="btn-sm btn-primary">Рассмотреть</a>
+            <a href="{% url 'communities:community_detail' report.community.slug %}" class="btn-sm btn-secondary" target="_blank">Просмотр</a>
+        </div>
+    </div>
+    {% empty %}
+    <div class="cr-empty">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity: 0.5;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <p>Жалоб на сообщества нет</p>
+    </div>
+    {% endfor %}
+
+    {% if page_obj.has_other_pages %}
+    <div class="pagination" style="margin-top: 24px; display: flex; justify-content: center; gap: 8px;">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}&status={{ current_status }}" class="btn-sm btn-secondary">← Назад</a>
+        {% endif %}
+        <span style="padding: 6px 12px;">Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}&status={{ current_status }}" class="btn-sm btn-secondary">Вперёд →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

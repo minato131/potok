@@ -145,8 +145,7 @@ window.showToast = function(message, type = 'success') {
                             <span>Мои видео</span>
                         </a>
                     </li>
-                    {% if user.is_authenticated %}
-                        {% if user.is_staff or user.is_platform_moderator %}
+                        {% if user.is_authenticated and user.can_moderate %}
                         <li class="nav-menu__item">
                             <a href="{% url 'moderation:panel' %}" class="nav-link {% if 'moderation' in request.resolver_match.namespace and request.resolver_match.url_name == 'panel' %}nav-link--active{% endif %}">
                                 <i data-feather="shield"></i>
@@ -154,7 +153,6 @@ window.showToast = function(message, type = 'success') {
                             </a>
                         </li>
                         {% endif %}
-                    {% endif %}
                     {% if user.is_superuser or user.is_staff %}
                     <li class="nav-menu__item">
                         <a href="{% url 'admin:index' %}" class="nav-link">

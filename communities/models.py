@@ -13,6 +13,7 @@ class Community(models.Model):
     """
     STATUS_CHOICES = [
         ('active', 'Активно'),
+        ('restricted', 'Ограничено'),
         ('closed', 'Закрыто'),
         ('deleted', 'Удалено'),
     ]
@@ -64,6 +65,9 @@ class Community(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Дата обновления')
+
+    warning_count = models.PositiveIntegerField(default=0, verbose_name='Количество предупреждений')
+    restricted_at = models.DateTimeField(null=True, blank=True, verbose_name='Дата ограничения')
 
     class Meta:
         verbose_name = 'Сообщество'

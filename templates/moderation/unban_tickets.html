@@ -1,0 +1,198 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Заявки на разбан · Модерация{% endblock %}
+{% block page_title %}Заявки на разбан{% endblock %}
+
+{% block content %}
+<style>
+    .ut-page { max-width: 1000px; margin: 0 auto; }
+    .ut-stats { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+    .ut-stat { background: var(--color-bg-surface); border-radius: 12px; padding: 12px 20px; border: 1px solid var(--color-border-light); }
+    .ut-stat-val { font-size: 1.5rem; font-weight: 700; }
+    .ut-stat-lbl { font-size: 0.75rem; color: var(--color-text-tertiary); }
+    .ut-filter-tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1px solid var(--color-border-light); padding-bottom: 12px; flex-wrap: wrap; }
+    .ut-tab { padding: 6px 16px; border-radius: 20px; text-decoration: none; color: var(--color-text-secondary); font-size: 0.85rem; }
+    .ut-tab.active { background: var(--color-primary); color: white; }
+    .ut-ticket-card { background: var(--color-bg-surface); border-radius: 16px; padding: 20px; margin-bottom: 16px; border: 1px solid var(--color-border-light); }
+    .ut-ticket-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+    .ut-user { font-weight: 700; font-size: 1rem; }
+    .ut-status { padding: 3px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 600; }
+    .ut-status-pending { background: #fef3c7; color: #d97706; }
+    .ut-status-approved { background: #d1fae5; color: #059669; }
+    .ut-status-rejected { background: #fee2e2; color: #dc2626; }
+    .ut-ticket-body { margin-bottom: 16px; }
+    .ut-ticket-row { margin: 8px 0; font-size: 0.85rem; }
+    .ut-ticket-message { background: var(--color-bg-elevated); padding: 12px; border-radius: 10px; margin-top: 8px; }
+    .ut-ticket-actions { display: flex; gap: 12px; margin-top: 16px; }
+    .btn-sm { padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; text-decoration: none; display: inline-block; cursor: pointer; border: none; font-family: inherit; }
+    .btn-success { background: #10b981; color: white; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-secondary { background: #9ca3af; color: white; }
+    .ut-empty { text-align: center; padding: 60px; color: var(--color-text-tertiary); }
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 10000; }
+    .modal-content { background: var(--color-bg-surface); border-radius: 20px; padding: 24px; width: 90%; max-width: 450px; }
+    .modal-content textarea { width: 100%; padding: 10px; border: 1px solid var(--color-border); border-radius: 8px; margin: 12px 0; font-family: inherit; }
+    .modal-buttons { display: flex; gap: 12px; justify-content: flex-end; }
+</style>
+
+<div class="ut-page">
+    <div class="ut-stats">
+        <div class="ut-stat"><span class="ut-stat-val">{{ stats.pending|default:0 }}</span><span class="ut-stat-lbl"> На рассмотрении</span></div>
+        <div class="ut-stat"><span class="ut-stat-val">{{ stats.approved|default:0 }}</span><span class="ut-stat-lbl"> Одобрено</span></div>
+        <div class="ut-stat"><span class="ut-stat-val">{{ stats.rejected|default:0 }}</span><span class="ut-stat-lbl"> Отклонено</span></div>
+        <div class="ut-stat"><span class="ut-stat-val">{{ stats.total|default:0 }}</span><span class="ut-stat-lbl"> Всего</span></div>
+    </div>
+
+    <div class="ut-filter-tabs">
+        <a href="?status=pending" class="ut-tab {% if current_status == 'pending' %}active{% endif %}">На рассмотрении</a>
+        <a href="?status=approved" class="ut-tab {% if current_status == 'approved' %}active{% endif %}">Одобренные</a>
+        <a href="?status=rejected" class="ut-tab {% if current_status == 'rejected' %}active{% endif %}">Отклонённые</a>
+        <a href="?status=all" class="ut-tab {% if current_status == 'all' %}active{% endif %}">Все</a>
+    </div>
+
+    {% for ticket in tickets %}
+    <div class="ut-ticket-card">
+        <div class="ut-ticket-header">
+            <span class="ut-user"> @{{ ticket.user.username }}</span>
+            <span class="ut-status ut-status-{{ ticket.status }}">{{ ticket.get_status_display }}</span>
+        </div>
+        <div class="ut-ticket-body">
+            <div class="ut-ticket-row"><strong>Причина блокировки:</strong> {{ ticket.ban.reason|truncatewords:20 }}</div>
+            <div class="ut-ticket-row"><strong>Заблокирован:</strong> {{ ticket.ban.created_at|date:"d.m.Y" }} ({{ ticket.ban.banned_by.username }})</div>
+            <div class="ut-ticket-row"><strong>Сообщение пользователя:</strong></div>
+            <div class="ut-ticket-message">{{ ticket.message|linebreaks }}</div>
+            {% if ticket.review_comment %}
+            <div class="ut-ticket-row"><strong>Ответ модератора:</strong> {{ ticket.review_comment }}</div>
+            {% endif %}
+            <div class="ut-ticket-row"><strong>Дата заявки:</strong> {{ ticket.created_at|date:"d.m.Y H:i" }}</div>
+        </div>
+        
+        {% if ticket.status == 'pending' %}
+        <div class="ut-ticket-actions">
+            <button class="btn-sm btn-success" onclick="openApproveModal({{ ticket.id }})"> Одобрить разбан</button>
+            <button class="btn-sm btn-danger" onclick="openRejectModal({{ ticket.id }})"> Отклонить</button>
+        </div>
+        {% endif %}
+    </div>
+    {% empty %}
+    <div class="ut-empty">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity: 0.5;"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+        <p>Заявок на разбан нет</p>
+    </div>
+    {% endfor %}
+
+    {% if page_obj.has_other_pages %}
+    <div class="pagination" style="margin-top: 24px; display: flex; justify-content: center; gap: 8px;">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}&status={{ current_status }}" class="btn-sm btn-secondary">← Назад</a>
+        {% endif %}
+        <span style="padding: 6px 12px;">Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}&status={{ current_status }}" class="btn-sm btn-secondary">Вперёд →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Модалка одобрения -->
+<div id="approveModal" class="modal-overlay">
+    <div class="modal-content">
+        <h3> Одобрить разбан</h3>
+        <textarea id="approveComment" rows="3" placeholder="Комментарий (необязательно)"></textarea>
+        <div class="modal-buttons">
+            <button class="btn-sm btn-secondary" onclick="closeApproveModal()">Отмена</button>
+            <button class="btn-sm btn-success" onclick="submitApprove()">Одобрить</button>
+        </div>
+    </div>
+</div>
+
+<!-- Модалка отклонения -->
+<div id="rejectModal" class="modal-overlay">
+    <div class="modal-content">
+        <h3> Отклонить заявку</h3>
+        <textarea id="rejectComment" rows="3" placeholder="Укажите причину отказа..." required></textarea>
+        <div class="modal-buttons">
+            <button class="btn-sm btn-secondary" onclick="closeRejectModal()">Отмена</button>
+            <button class="btn-sm btn-danger" onclick="submitReject()">Отклонить</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+let currentTicketId = null;
+
+function openApproveModal(ticketId) {
+    currentTicketId = ticketId;
+    document.getElementById('approveModal').style.display = 'flex';
+}
+
+function closeApproveModal() {
+    document.getElementById('approveModal').style.display = 'none';
+    currentTicketId = null;
+}
+
+function openRejectModal(ticketId) {
+    currentTicketId = ticketId;
+    document.getElementById('rejectModal').style.display = 'flex';
+}
+
+function closeRejectModal() {
+    document.getElementById('rejectModal').style.display = 'none';
+    currentTicketId = null;
+}
+
+async function submitApprove() {
+    const comment = document.getElementById('approveComment').value;
+    const response = await fetch(`/moderation/unban-ticket/${currentTicketId}/approve/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ comment: comment })
+    });
+    if (response.ok) {
+        location.reload();
+    } else {
+        alert('Ошибка при одобрении');
+    }
+}
+
+async function submitReject() {
+    const comment = document.getElementById('rejectComment').value;
+    if (!comment) {
+        alert('Укажите причину отказа');
+        return;
+    }
+    const response = await fetch(`/moderation/unban-ticket/${currentTicketId}/reject/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ comment: comment })
+    });
+    if (response.ok) {
+        location.reload();
+    } else {
+        alert('Ошибка при отклонении');
+    }
+}
+</script>
+{% endblock %}

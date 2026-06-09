@@ -31,4 +31,8 @@ urlpatterns = [
     # Страница бана для пользователя
     path('banned/', views.banned_page, name='banned_page'),
     path('unban-ticket/', views.create_unban_ticket, name='create_unban_ticket'),
-]
+    path('report-community/', views.report_community, name='report_community'),
+    path('community-reports/', views.community_reports_list, name='community_reports_list'),
+    path('community-report/<int:report_id>/', views.community_report_detail, name='community_report_detail'),
+    path('unban-tickets/', views.unban_tickets_list, name='unban_tickets'),
+    ]

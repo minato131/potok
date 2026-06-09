@@ -90,6 +90,27 @@ class Report(models.Model):
         auto_now_add=True,
         verbose_name='Дата создания'
     )
+    CONTEXT_CHOICES = [
+        ('platform', 'Платформа (вне сообществ)'),
+        ('community', 'Внутри сообщества'),
+    ]
+
+    context = models.CharField(
+        max_length=20,
+        choices=CONTEXT_CHOICES,
+        default='platform',
+        verbose_name='Контекст жалобы'
+    )
+
+    # Для жалоб внутри сообщества — ссылка на сообщество
+    community = models.ForeignKey(
+        'communities.Community',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reports_on_content',
+        verbose_name='Сообщество (если жалоба внутри)'
+    )
 
     class Meta:
         verbose_name = 'Жалоба'
@@ -345,3 +366,156 @@ class UnbanTicket(models.Model):
         self.reviewed_at = timezone.now()
         self.review_comment = comment
         self.save()
+
+
+class CommunityReport(models.Model):
+    """
+    Жалоба на сообщество
+    """
+    REASON_CHOICES = [
+        ('rules_violation', 'Нарушение правил платформы'),
+        ('spam', 'Спам / реклама'),
+        ('nsfw', 'NSFW / 18+ контент'),
+        ('hate_speech', 'Разжигание ненависти'),
+        ('illegal', 'Противоправные действия'),
+        ('fake', 'Фейковое / мошенническое сообщество'),
+        ('other', 'Другое'),
+    ]
+
+    STATUS_CHOICES = [
+        ('pending', 'На рассмотрении'),
+        ('approved', 'Жалоба одобрена'),
+        ('rejected', 'Жалоба отклонена'),
+        ('warning_issued', 'Выдано предупреждение'),
+        ('restricted', 'Сообщество ограничено'),
+    ]
+
+    community = models.ForeignKey(
+        'communities.Community',
+        on_delete=models.CASCADE,
+        related_name='reports',
+        verbose_name='Сообщество'
+    )
+    reporter = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='community_reports_made',
+        verbose_name='Кто пожаловался'
+    )
+    reason = models.CharField(
+        max_length=50,
+        choices=REASON_CHOICES,
+        verbose_name='Причина'
+    )
+    description = models.TextField(
+        verbose_name='Описание',
+        help_text='Подробно опишите, что нарушено'
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        verbose_name='Статус'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    moderated_at = models.DateTimeField(null=True, blank=True)
+    moderated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='moderated_community_reports'
+    )
+    moderator_comment = models.TextField(
+        blank=True,
+        verbose_name='Комментарий модератора (виден создателю)'
+    )
+
+    class Meta:
+        verbose_name = 'Жалоба на сообщество'
+        verbose_name_plural = 'Жалобы на сообщества'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Жалоба на {self.community.name} от {self.reporter.username}'
+
+    def approve(self, moderator, comment=''):
+        """Одобрить жалобу — ограничить сообщество"""
+        self.status = 'restricted'
+        self.moderated_at = timezone.now()
+        self.moderated_by = moderator
+        self.moderator_comment = comment
+        self.save()
+
+        # Ограничиваем сообщество
+        self.community.status = 'restricted'
+        self.community.save()
+
+        # Уведомляем создателя
+        from accounts.utils import create_notification
+        create_notification(
+            recipient=self.community.creator,
+            sender=moderator,
+            notification_type='moderation',
+            title='⚠️ Ваше сообщество ограничено',
+            message=f'Сообщество "{self.community.name}" ограничено из-за жалобы.\n'
+                    f'Причина: {self.get_reason_display()}\n'
+                    f'Комментарий: {comment or "Свяжитесь с модерацией"}',
+            link=f'/communities/{self.community.slug}/'
+        )
+
+    def reject(self, moderator, comment=''):
+        """Отклонить жалобу"""
+        self.status = 'rejected'
+        self.moderated_at = timezone.now()
+        self.moderated_by = moderator
+        self.moderator_comment = comment
+        self.save()
+
+        from accounts.utils import create_notification
+        create_notification(
+            recipient=self.reporter,
+            sender=moderator,
+            notification_type='moderation',
+            title='📋 Жалоба на сообщество отклонена',
+            message=f'Ваша жалоба на "{self.community.name}" отклонена.\n'
+                    f'Причина: {comment or "Нарушений не обнаружено"}',
+            link=f'/communities/{self.community.slug}/'
+        )
+
+    def warn_creator(self, moderator, comment=''):
+        from django.utils import timezone
+
+        self.status = 'warning_issued'
+        self.moderated_at = timezone.now()
+        self.moderated_by = moderator
+        self.moderator_comment = comment
+        self.save()
+
+        # Увеличиваем счётчик предупреждений сообщества
+        self.community.warning_count += 1
+        self.community.save()
+
+        # Если 3 предупреждения — автоматически ограничить
+        if self.community.warning_count >= 3:
+            self.community.status = 'restricted'
+            self.community.restricted_at = timezone.now()
+            self.community.save()
+
+            self.status = 'restricted'
+            self.save()
+
+            warning_message = f"Сообщество \"{self.community.name}\" АВТОМАТИЧЕСКИ ОГРАНИЧЕНО из-за 3 предупреждений."
+        else:
+            warning_message = f"Предупреждение {self.community.warning_count}/3 для сообщества \"{self.community.name}\""
+
+        # Уведомление создателю
+        from accounts.utils import create_notification
+        create_notification(
+            recipient=self.community.creator,
+            sender=moderator,
+            notification_type='moderation',
+            title='⚠️ Предупреждение сообществу',
+            message=f'{warning_message}\nПричина: {self.get_reason_display()}\nКомментарий: {comment}\n\nИсправьте нарушения.',
+            link=f'/communities/{self.community.slug}/edit/'
+        )

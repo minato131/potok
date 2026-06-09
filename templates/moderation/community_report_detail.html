@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Жалоба на сообщество #{{ report.id }} · Модерация{% endblock %}
+{% block page_title %}Рассмотрение жалобы{% endblock %}
+
+{% block content %}
+<style>
+    .crd-page { max-width: 800px; margin: 0 auto; }
+    .crd-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+    .crd-status { padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+    .crd-status-pending { background: #fef3c7; color: #d97706; }
+    .crd-status-restricted { background: #fee2e2; color: #dc2626; }
+    .crd-status-rejected { background: #f3f4f6; color: #6b7280; }
+    .crd-status-warning_issued { background: #fed7aa; color: #ea580c; }
+    .crd-card { background: var(--color-bg-surface); border-radius: 20px; border: 1px solid var(--color-border-light); padding: 24px; margin-bottom: 20px; }
+    .crd-card h3 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--color-border-light); }
+    .crd-info-row { display: flex; padding: 10px 0; border-bottom: 1px solid var(--color-border-light); }
+    .crd-info-label { width: 140px; font-weight: 600; color: var(--color-text-secondary); }
+    .crd-info-value { flex: 1; color: var(--color-text); }
+    .crd-description { background: var(--color-bg-elevated); padding: 16px; border-radius: 12px; margin-top: 8px; }
+    .crd-actions { display: flex; flex-direction: column; gap: 20px; }
+    .action-form { background: var(--color-bg-elevated); padding: 20px; border-radius: 16px; border: 1px solid var(--color-border-light); }
+    .action-form h4 { margin-bottom: 12px; font-size: 0.95rem; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; margin-bottom: 6px; font-size: 0.85rem; font-weight: 500; }
+    .form-group textarea, .form-group input { width: 100%; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 10px; font-family: inherit; font-size: 0.85rem; background: var(--color-bg-surface); }
+    .btn { padding: 10px 20px; border-radius: 10px; border: none; cursor: pointer; font-family: inherit; font-weight: 500; }
+    .btn-danger { background: #dc2626; color: white; }
+    .btn-warning { background: #f59e0b; color: white; }
+    .btn-success { background: #10b981; color: white; }
+    .btn-secondary { background: #9ca3af; color: white; }
+    .btn-info { background: #3b82f6; color: white; }
+    .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+    .btn-link { background: none; color: var(--color-primary); text-decoration: underline; }
+    .moderator-note { margin-top: 20px; padding: 16px; background: #f0f9ff; border-radius: 12px; border-left: 4px solid #3b82f6; }
+    @media (max-width: 600px) { .crd-info-row { flex-direction: column; gap: 4px; } .crd-info-label { width: auto; } }
+</style>
+
+<div class="crd-page">
+    <div class="crd-header">
+        <h1>Жалоба на сообщество "{{ report.community.name }}"</h1>
+        <span class="crd-status crd-status-{{ report.status }}">{{ report.get_status_display }}</span>
+    </div>
+
+    <!-- Информация о жалобе -->
+    <div class="crd-card">
+        <h3>Детали жалобы</h3>
+        <div class="crd-info-row">
+            <div class="crd-info-label">Сообщество:</div>
+            <div class="crd-info-value">
+                <a href="{% url 'communities:community_detail' report.community.slug %}" target="_blank">{{ report.community.name }}</a>
+                (создатель: @{{ report.community.creator.username }})
+            </div>
+        </div>
+        <div class="crd-info-row">
+            <div class="crd-info-label">Жалобу подал:</div>
+            <div class="crd-info-value">@{{ report.reporter.username }} ({{ report.created_at|date:"d.m.Y H:i" }})</div>
+        </div>
+        <div class="crd-info-row">
+            <div class="crd-info-label">Причина:</div>
+            <div class="crd-info-value">{{ report.get_reason_display }}</div>
+        </div>
+        <div class="crd-info-row">
+            <div class="crd-info-label">Описание:</div>
+            <div class="crd-info-value">
+                <div class="crd-description">{{ report.description|linebreaks }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Информация о сообществе -->
+    <div class="crd-card">
+        <h3>Информация о сообществе</h3>
+        <div class="crd-info-row">
+            <div class="crd-info-label">Статус:</div>
+            <div class="crd-info-value">{{ report.community.get_status_display }}</div>
+        </div>
+        <div class="crd-info-row">
+            <div class="crd-info-label">Участников:</div>
+            <div class="crd-info-value">{{ report.community.members.count }}</div>
+        </div>
+        <div class="crd-info-row">
+            <div class="crd-info-label">Дата создания:</div>
+            <div class="crd-info-value">{{ report.community.created_at|date:"d.m.Y" }}</div>
+        </div>
+        <div class="crd-info-row">
+            <div class="crd-info-label">Действия:</div>
+            <div class="crd-info-value">
+                <a href="{% url 'communities:community_detail' report.community.slug %}" class="btn btn-secondary btn-sm" target="_blank">Просмотр</a>
+                <a href="{% url 'communities:community_edit' report.community.slug %}" class="btn btn-secondary btn-sm" target="_blank">Редактировать</a>
+                <a href="{% url 'moderation:user_detail' report.community.creator.id %}" class="btn btn-secondary btn-sm">Профиль создателя</a>
+            </div>
+        </div>
+    </div>
+
+    {% if report.status == 'pending' %}
+    <!-- Действия модератора -->
+    <div class="crd-card">
+        <h3>Действия модератора</h3>
+        <div class="crd-actions">
+            <!-- Ограничить сообщество -->
+            <form method="post" class="action-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="approve">
+                <h4>Ограничить сообщество</h4>
+                <div class="form-group">
+                    <label>Причина ограничения (видна создателю):</label>
+                    <textarea name="comment" rows="3" placeholder="Укажите причину ограничения сообщества..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-danger">Ограничить сообщество</button>
+            </form>
+
+            <!-- Предупреждение -->
+            <form method="post" class="action-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="warn">
+                <h4>Выдать предупреждение</h4>
+                <div class="form-group">
+                    <label>Текст предупреждения:</label>
+                    <textarea name="comment" rows="3" placeholder="Например: Удалите посты с нарушением в течение 24 часов..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-warning">Выдать предупреждение</button>
+            </form>
+
+            <!-- Написать создателю -->
+            <form method="post" class="action-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="write_creator">
+                <h4>Написать создателю</h4>
+                <div class="form-group">
+                    <label>Сообщение:</label>
+                    <textarea name="creator_message" rows="3" placeholder="Напишите создателю сообщества..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-info">Отправить сообщение</button>
+            </form>
+
+            <!-- Отклонить жалобу -->
+            <form method="post" class="action-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="reject">
+                <h4>Отклонить жалобу</h4>
+                <div class="form-group">
+                    <label>Причина отклонения (видна жалобщику):</label>
+                    <textarea name="comment" rows="2" placeholder="Нарушений не обнаружено..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-secondary">Отклонить жалобу</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if report.moderator_comment %}
+    <div class="moderator-note">
+        <strong>Комментарий модератора:</strong>
+        <p style="margin-top: 8px;">{{ report.moderator_comment }}</p>
+        <small style="color: var(--color-text-tertiary);">Модератор: @{{ report.moderated_by.username }}, {{ report.moderated_at|date:"d.m.Y H:i" }}</small>
+    </div>
+    {% endif %}
+
+    <div style="margin-top: 24px; text-align: center;">
+        <a href="{% url 'moderation:community_reports_list' %}" class="btn btn-secondary">← Назад к списку жалоб</a>
+    </div>
+</div>
+{% endblock %}

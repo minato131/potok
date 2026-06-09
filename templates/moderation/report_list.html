@@ -108,6 +108,16 @@
             </select>
         </div>
     </div>
+    <!-- Информация о типе отображаемых жалоб -->
+    {% if is_platform_moderator %}
+    <div class="info-banner" style="background: #e0e7ff; padding: 12px 16px; border-radius: 12px; margin-bottom: 20px;">
+        Вы модератор платформы. Здесь отображаются только жалобы на контент <strong>вне сообществ</strong>.
+    </div>
+    {% else %}
+    <div class="info-banner" style="background: #d1fae5; padding: 12px 16px; border-radius: 12px; margin-bottom: 20px;">
+        Вы модератор сообществ. Здесь отображаются только жалобы на контент <strong>внутри ваших сообществ</strong>.
+    </div>
+    {% endif %}
 
     <!-- Список -->
     <div class="rp-list">
@@ -128,8 +138,10 @@
                     От: @{{ report.reporter.username }} · {{ report.created_at|date:'d.m.Y H:i' }}
                     {% if report.moderated_by %} · Модератор: @{{ report.moderated_by.username }}{% endif %}
                 </div>
-                {% if report.description %}
-                <div class="rp-desc">{{ report.description|truncatechars:200 }}</div>
+                {% if report.community_note %}
+                <div style="font-size: 0.7rem; color: #d97706; margin-top: 4px; margin-bottom: 8px;">
+                    {{ report.community_note }}
+                </div>
                 {% endif %}
             </div>
             <div class="rp-actions">
