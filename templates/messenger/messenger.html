@@ -363,6 +363,67 @@
     const EMOJIS = ['😊','😂','❤️','👍','😍','🎉','😢','😡','🤔','🙏','👋','✨','🔥','💯','⭐','😎','🤩','😇','💪','👀','🎁','🏆','🎨','🎵'];
     document.getElementById('emojiGrid').innerHTML = EMOJIS.map(e => `<button onclick="insertEmoji('${e}')">${e}</button>`).join('');
 
+    // ========== УВЕДОМЛЕНИЯ (NOTIFY) ==========
+    function notify(message, type = 'info') {
+        // Удаляем старые уведомления
+        const oldNotify = document.querySelector('.custom-notify');
+        if (oldNotify) oldNotify.remove();
+
+        const notifyEl = document.createElement('div');
+        notifyEl.className = `custom-notify custom-notify--${type}`;
+        notifyEl.innerHTML = `
+            <div class="notify-icon">
+                ${type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️'}
+            </div>
+            <div class="notify-message">${escapeHtml(message)}</div>
+        `;
+        notifyEl.style.cssText = `
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            background: ${type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : '#3b82f6'};
+            color: white;
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 100000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            animation: notifySlideUp 0.3s ease;
+            backdrop-filter: blur(4px);
+        `;
+        document.body.appendChild(notifyEl);
+
+        setTimeout(() => {
+            notifyEl.style.opacity = '0';
+            notifyEl.style.transform = 'translateX(-50%) translateY(20px)';
+            notifyEl.style.transition = 'all 0.3s ease';
+            setTimeout(() => {
+                if (notifyEl.parentNode) notifyEl.remove();
+            }, 300);
+        }, 2500);
+    }
+
+    // Добавляем анимацию в CSS (если нет)
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes notifySlideUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+    `;
+    document.head.appendChild(style);
+
     function formatLocalTime(isoString) {
         if (!isoString) return '';
         const date = new Date(isoString);
@@ -561,12 +622,10 @@
                     });
                     if (response.ok) {
                         loadMessages(currentChatId);
-                        showToast('История очищена', 'success');
-                        closeChatMenu();
+                        notify('История очищена', 'success');
                     }
                 } catch (error) {
-                    console.error('Error:', error);
-                    showToast('Ошибка при очистке', 'error');
+                    notify('Ошибка при очистке', 'error');
                 }
             }
         );
@@ -1777,308 +1836,478 @@ function scrollToMessage(messageId) {
     function getCookie(n) { let v = null; document.cookie.split(';').forEach(c => { const [k, val] = c.trim().split('='); if (k === n) v = decodeURIComponent(val); }); return v; }
 
 
-    // ========== ВЫДЕЛЕНИЕ СООБЩЕНИЙ ==========
-    let selectedMessages = new Set();
-    let isSelectionMode = false;
-    let lastSelectedMessageId = null;
+// ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+function getCookie(name) {
+    let value = null;
+    document.cookie.split(';').forEach(c => {
+        const [key, val] = c.trim().split('=');
+        if (key === name) value = decodeURIComponent(val);
+    });
+    return value;
+}
 
-    function enableSelectionMode() {
-        isSelectionMode = true;
-        document.body.classList.add('selection-mode');
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 
-        let actionBar = document.getElementById('selectionActionBar');
-        if (!actionBar) {
-            actionBar = document.createElement('div');
-            actionBar.id = 'selectionActionBar';
-            actionBar.style.cssText = `
-                position: sticky;
-                top: 0;
-                z-index: 100;
-                background: var(--color-primary);
-                padding: 10px 16px;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                border-radius: 0 0 12px 12px;
-                margin-bottom: 8px;
-            `;
-            const header = document.querySelector('.tg-chat-header');
-            if (header) header.insertAdjacentElement('afterend', actionBar);
-        }
-        updateSelectionActionBar();
-    }
+// ========== УВЕДОМЛЕНИЯ ==========
+function notify(message, type = 'info') {
+    const oldNotify = document.querySelector('.custom-notify');
+    if (oldNotify) oldNotify.remove();
 
-    function disableSelectionMode() {
-        isSelectionMode = false;
-        selectedMessages.clear();
-        lastSelectedMessageId = null;
-        document.body.classList.remove('selection-mode');
-        const actionBar = document.getElementById('selectionActionBar');
-        if (actionBar) actionBar.remove();
-        document.querySelectorAll('.tg-msg').forEach(msg => {
-            msg.classList.remove('selected');
-        });
-    }
+    const notifyEl = document.createElement('div');
+    notifyEl.className = 'custom-notify';
+    notifyEl.style.cssText = `
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 20px;
+        background: ${type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : '#3b82f6'};
+        color: white;
+        border-radius: 50px;
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 100000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        animation: notifySlideUp 0.3s ease;
+    `;
+    notifyEl.innerHTML = `<div class="notify-icon">${type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️'}</div><div class="notify-message">${message}</div>`;
+    document.body.appendChild(notifyEl);
 
-    function updateSelectionActionBar() {
-        const actionBar = document.getElementById('selectionActionBar');
-        if (!actionBar) return;
+    setTimeout(() => {
+        notifyEl.style.opacity = '0';
+        notifyEl.style.transform = 'translateX(-50%) translateY(20px)';
+        notifyEl.style.transition = 'all 0.3s ease';
+        setTimeout(() => notifyEl.remove(), 300);
+    }, 2500);
+}
 
-        const count = selectedMessages.size;
-        actionBar.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <button onclick="disableSelectionMode()" style="background: none; border: none; color: white; cursor: pointer;">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-                <span style="color: white; font-weight: 500;">Выбрано: ${count}</span>
-            </div>
-            <div style="display: flex; gap: 16px;">
-                <button onclick="copySelectedMessages()" style="background: none; border: none; color: white; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                    Копировать
-                </button>
-                <button onclick="forwardSelectedMessages()" style="background: none; border: none; color: white; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                    Переслать
-                </button>
-                <button onclick="deleteSelectedMessages()" style="background: none; border: none; color: #ffcccc; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffcccc" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    Удалить
-                </button>
+// ========== КАСТОМНАЯ МОДАЛКА ПОДТВЕРЖДЕНИЯ ==========
+function showConfirmModal(options) {
+    return new Promise((resolve) => {
+        const existingModal = document.getElementById('customConfirmModal');
+        if (existingModal) existingModal.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'customConfirmModal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 100002;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+        modal.innerHTML = `
+            <div style="background: white; border-radius: 24px; width: 90%; max-width: 360px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.2);">
+                <div style="padding: 24px 20px 20px;">
+                    <h3 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 600; color: #111827;">${escapeHtml(options.title || 'Подтверждение')}</h3>
+                    <p style="margin: 0; font-size: 15px; color: #4b5563; line-height: 1.5;">${escapeHtml(options.message || 'Вы уверены?')}</p>
+                </div>
+                <div style="display: flex; border-top: 1px solid #e5e7eb;">
+                    <button id="confirmCancelBtn" style="flex: 1; padding: 16px; border: none; background: none; font-size: 15px; cursor: pointer; color: #6b7280; font-weight: 500; border-radius: 0 0 0 24px;">${escapeHtml(options.cancelText || 'Отмена')}</button>
+                    <button id="confirmOkBtn" style="flex: 1; padding: 16px; border: none; background: none; font-size: 15px; font-weight: 600; cursor: pointer; color: ${options.danger ? '#ef4444' : '#3b82f6'}; border-left: 1px solid #e5e7eb; border-radius: 0 0 24px 0;">${escapeHtml(options.confirmText || 'Подтвердить')}</button>
+                </div>
             </div>
         `;
-    }
+        document.body.appendChild(modal);
 
-    function toggleMessageSelection(messageId, element, event) {
-        if (!isSelectionMode) {
-            enableSelectionMode();
-            selectedMessages.clear();
-            selectedMessages.add(messageId);
-            if (element) element.classList.add('selected');
-            lastSelectedMessageId = messageId;
-            updateSelectionActionBar();
-            return;
-        }
+        const closeModal = (result) => {
+            modal.remove();
+            resolve(result);
+        };
 
-        if (event && event.shiftKey && lastSelectedMessageId) {
-            const allMessages = Array.from(document.querySelectorAll('.tg-msg'));
-            const ids = allMessages.map(msg => parseInt(msg.dataset.id));
-            const startIdx = ids.indexOf(lastSelectedMessageId);
-            const endIdx = ids.indexOf(messageId);
-            if (startIdx !== -1 && endIdx !== -1) {
-                const minIdx = Math.min(startIdx, endIdx);
-                const maxIdx = Math.max(startIdx, endIdx);
-                for (let i = minIdx; i <= maxIdx; i++) {
-                    const msgId = ids[i];
-                    const msgEl = allMessages[i];
-                    if (msgId && msgEl && msgEl.dataset.isown !== 'true') {
-                        selectedMessages.add(msgId);
-                        msgEl.classList.add('selected');
-                    }
-                }
+        document.getElementById('confirmCancelBtn').onclick = () => closeModal(false);
+        document.getElementById('confirmOkBtn').onclick = () => closeModal(true);
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal(false);
+        });
+
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                closeModal(false);
+                document.removeEventListener('keydown', handleEscape);
             }
-            lastSelectedMessageId = messageId;
-        } else {
-            if (selectedMessages.has(messageId)) {
-                selectedMessages.delete(messageId);
-                if (element) element.classList.remove('selected');
-            } else {
-                selectedMessages.add(messageId);
-                if (element) element.classList.add('selected');
-            }
-            lastSelectedMessageId = messageId;
-        }
+        };
+        document.addEventListener('keydown', handleEscape);
+    });
+}
 
-        updateSelectionActionBar();
+// ========== МОДАЛКА ВЫБОРА ПОЛЬЗОВАТЕЛЯ (ТОЛЬКО ДРУЗЬЯ) ==========
+function showUserSelectionModal() {
+    return new Promise((resolve) => {
+        const existingModal = document.getElementById('forwardUserSelectModal');
+        if (existingModal) existingModal.remove();
 
-        if (selectedMessages.size === 0) {
-            disableSelectionMode();
-        }
-    }
+        const modal = document.createElement('div');
+        modal.id = 'forwardUserSelectModal';
+        modal.style.cssText = `
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6); z-index: 100001;
+            display: flex; align-items: center; justify-content: center;
+        `;
+        modal.innerHTML = `
+            <div style="background: #fff; border-radius: 20px; width: 90%; max-width: 400px; overflow: hidden;">
+                <div style="padding: 16px 20px; border-bottom: 1px solid #e5e7eb;">
+                    <h3 style="margin: 0; font-size: 18px;">Переслать друзьям</h3>
+                </div>
+                <div style="padding: 16px;">
+                    <input type="text" id="forwardUserSearchInput" placeholder="Поиск среди друзей..." style="width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #e5e7eb; margin-bottom: 12px;">
+                    <div id="forwardUserList" style="max-height: 300px; overflow-y: auto;">
+                        <div style="text-align: center; padding: 20px;">Загрузка списка друзей...</div>
+                    </div>
+                </div>
+                <div style="padding: 16px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end;">
+                    <button onclick="closeForwardUserModal()" style="padding: 8px 16px; border-radius: 10px; border: 1px solid #e5e7eb; background: transparent; cursor: pointer;">Отмена</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
 
-    window.handleMessageClick = function(event, messageId, element) {
-        if (event.shiftKey || !isSelectionMode) {
-            event.preventDefault();
-            event.stopPropagation();
-            toggleMessageSelection(messageId, element, event);
-        }
-    };
+        window.closeForwardUserModal = () => { modal.remove(); resolve(null); };
+        window.selectForwardUser = (userId) => { modal.remove(); resolve(userId); };
 
-    async function copySelectedMessages() {
-        const messages = [];
-        for (const msgId of selectedMessages) {
-            const msgElement = document.querySelector(`.tg-msg[data-id="${msgId}"]`);
-            if (msgElement) {
-                const contentDiv = msgElement.querySelector('.tg-msg-bubble');
-                if (contentDiv) {
-                    messages.push(contentDiv.innerText.trim());
-                }
-            }
-        }
-        if (messages.length > 0) {
-            const text = messages.join('\n\n');
-            try {
-                await navigator.clipboard.writeText(text);
-                showToast(`✅ Скопировано ${messages.length} сообщений`);
-            } catch(e) {
-                showToast('❌ Ошибка копирования', 'error');
-            }
-        }
-        disableSelectionMode();
-    }
+        const searchInput = modal.querySelector('#forwardUserSearchInput');
+        const userList = modal.querySelector('#forwardUserList');
+        let allFriends = [];
 
-    async function forwardSelectedMessages() {
-        const messageIds = Array.from(selectedMessages);
-        if (messageIds.length === 0) return;
-
-        // Открываем модалку выбора получателя
-        const userId = await showUserSelectionModal();
-        if (!userId) {
-            disableSelectionMode();
-            return;
-        }
-
-        try {
-            const response = await fetch('/messenger/forward-multiple/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
-                },
-                body: JSON.stringify({
-                    user_id: userId,
-                    message_ids: messageIds
-                })
-            });
-            const data = await response.json();
-            if (response.ok) {
-                showToast(`✅ ${messageIds.length} сообщений переслано`);
-                disableSelectionMode();
-            } else {
-                showToast(data.error || 'Ошибка при пересылке', 'error');
-            }
-        } catch(e) {
-            showToast('Ошибка сервера', 'error');
-        }
-    }
-
-    async function deleteSelectedMessages() {
-        const messageIds = Array.from(selectedMessages);
-        if (messageIds.length === 0) return;
-
-        if (confirm(`Удалить ${messageIds.length} сообщений?`)) {
-            try {
-                const response = await fetch('/messenger/delete-multiple/', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCookie('csrftoken')
-                    },
-                    body: JSON.stringify({ message_ids: messageIds })
-                });
-                const data = await response.json();
-                if (response.ok) {
-                    messageIds.forEach(msgId => {
-                        const msgElement = document.querySelector(`.tg-msg[data-id="${msgId}"]`);
-                        if (msgElement) msgElement.remove();
-                    });
-                    showToast(`✅ ${messageIds.length} сообщений удалено`);
-                    disableSelectionMode();
+        fetch('/messenger/api/friends/')
+            .then(res => res.json())
+            .then(friends => {
+                allFriends = friends;
+                if (friends.length === 0) {
+                    userList.innerHTML = '<div style="text-align: center; padding: 20px;">У вас нет друзей</div>';
                 } else {
-                    showToast(data.error || 'Ошибка при удалении', 'error');
-                }
-            } catch(e) {
-                showToast('Ошибка сервера', 'error');
-            }
-        }
-    }
-
-    async function showUserSelectionModal() {
-        return new Promise((resolve) => {
-            let modal = document.getElementById('forwardUserSelectModal');
-            if (!modal) {
-                modal = document.createElement('div');
-                modal.id = 'forwardUserSelectModal';
-                modal.innerHTML = `
-                    <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:100001;display:flex;align-items:center;justify-content:center;">
-                        <div style="background:var(--color-bg-surface);border-radius:20px;width:90%;max-width:400px;overflow:hidden;">
-                            <div style="padding:16px 20px;border-bottom:1px solid var(--color-border);">
-                                <h3 style="margin:0;">Выберите получателя</h3>
+                    userList.innerHTML = friends.map(user => `
+                        <div onclick="selectForwardUser(${user.id})" style="display: flex; align-items: center; gap: 12px; padding: 12px; cursor: pointer; border-radius: 12px; transition: background 0.2s;">
+                            <div style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; background: linear-gradient(135deg, #6366f1, #8b5cf6); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700;">
+                                ${user.avatar ? `<img src="${user.avatar}" style="width:100%;height:100%;object-fit:cover;">` : (user.full_name || user.username).charAt(0).toUpperCase()}
                             </div>
-                            <div style="padding:16px;">
-                                <input type="text" id="forwardUserSearchInput" placeholder="Поиск..." style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--color-border);margin-bottom:12px;">
-                                <div id="forwardUserList" style="max-height:300px;overflow-y:auto;">
-                                    <div style="text-align:center;padding:20px;">Загрузка...</div>
-                                </div>
-                            </div>
-                            <div style="padding:16px;border-top:1px solid var(--color-border);display:flex;gap:12px;justify-content:flex-end;">
-                                <button onclick="closeForwardUserModal()" style="padding:8px 16px;border-radius:10px;border:1px solid var(--color-border);background:transparent;">Отмена</button>
+                            <div style="flex:1;">
+                                <div style="font-weight:600;">${escapeHtml(user.full_name || user.username)}</div>
+                                <div style="font-size:12px;color:#6b7280;">@${escapeHtml(user.username)}</div>
                             </div>
                         </div>
+                    `).join('');
+                }
+            })
+            .catch(() => {
+                userList.innerHTML = '<div style="text-align: center; padding: 20px;">Ошибка загрузки друзей</div>';
+            });
+
+        searchInput.addEventListener('input', function() {
+            const query = this.value.toLowerCase();
+            const filtered = allFriends.filter(f =>
+                (f.full_name || f.username).toLowerCase().includes(query) ||
+                f.username.toLowerCase().includes(query)
+            );
+
+            if (filtered.length === 0) {
+                userList.innerHTML = '<div style="text-align: center; padding: 20px;">Ничего не найдено</div>';
+            } else {
+                userList.innerHTML = filtered.map(user => `
+                    <div onclick="selectForwardUser(${user.id})" style="display: flex; align-items: center; gap: 12px; padding: 12px; cursor: pointer; border-radius: 12px;">
+                        <div style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; background: linear-gradient(135deg, #6366f1, #8b5cf6); display: flex; align-items: center; justify-content: center; color: white; font-weight: 700;">
+                            ${user.avatar ? `<img src="${user.avatar}" style="width:100%;height:100%;object-fit:cover;">` : (user.full_name || user.username).charAt(0).toUpperCase()}
+                        </div>
+                        <div style="flex:1;">
+                            <div style="font-weight:600;">${escapeHtml(user.full_name || user.username)}</div>
+                            <div style="font-size:12px;color:#6b7280;">@${escapeHtml(user.username)}</div>
+                        </div>
                     </div>
-                `;
-                document.body.appendChild(modal);
+                `).join('');
             }
-
-            window.closeForwardUserModal = () => {
-                modal.style.display = 'none';
-                resolve(null);
-            };
-
-            modal.style.display = 'flex';
-
-            fetch('/messenger/api/chats-list/')
-                .then(r => r.json())
-                .then(data => {
-                    const listDiv = document.getElementById('forwardUserList');
-                    if (data.chats && data.chats.length) {
-                        listDiv.innerHTML = data.chats.map(chat => `
-                            <div onclick="selectForwardUser(${chat.user_id}, '${escapeHtml(chat.name)}')" style="display:flex;align-items:center;gap:12px;padding:12px;cursor:pointer;border-radius:12px;transition:background 0.2s;">
-                                <div style="width:40px;height:40px;border-radius:50%;overflow:hidden;background:var(--color-primary-light);display:flex;align-items:center;justify-content:center;">
-                                    ${chat.avatar ? `<img src="${chat.avatar}" style="width:100%;height:100%;object-fit:cover;">` : `<span>${(chat.name || 'U')[0].toUpperCase()}</span>`}
-                                </div>
-                                <div style="flex:1;">
-                                    <div style="font-weight:600;">${escapeHtml(chat.name)}</div>
-                                    <div style="font-size:12px;color:var(--color-text-tertiary);">@${escapeHtml(chat.username)}</div>
-                                </div>
-                            </div>
-                        `).join('');
-                    } else {
-                        listDiv.innerHTML = '<div style="text-align:center;padding:20px;">Нет чатов</div>';
-                    }
-                });
-
-            window.selectForwardUser = (userId, name) => {
-                modal.style.display = 'none';
-                resolve(userId);
-            };
-
-            document.getElementById('forwardUserSearchInput').oninput = function() {
-                const query = this.value.trim();
-                if (query.length < 2) return;
-                fetch(`/messenger/api/search-users/?q=${encodeURIComponent(query)}`)
-                    .then(r => r.json())
-                    .then(data => {
-                        const listDiv = document.getElementById('forwardUserList');
-                        if (data.length) {
-                            listDiv.innerHTML = data.map(user => `
-                                <div onclick="selectForwardUser(${user.id}, '${escapeHtml(user.full_name || user.username)}')" style="display:flex;align-items:center;gap:12px;padding:12px;cursor:pointer;border-radius:12px;transition:background 0.2s;">
-                                    <div style="width:40px;height:40px;border-radius:50%;overflow:hidden;background:var(--color-primary-light);display:flex;align-items:center;justify-content:center;">
-                                        ${user.avatar ? `<img src="${user.avatar}" style="width:100%;height:100%;object-fit:cover;">` : `<span>${(user.full_name || user.username)[0].toUpperCase()}</span>`}
-                                    </div>
-                                    <div style="flex:1;">
-                                        <div style="font-weight:600;">${escapeHtml(user.full_name || user.username)}</div>
-                                        <div style="font-size:12px;color:var(--color-text-tertiary);">@${escapeHtml(user.username)}</div>
-                                    </div>
-                                </div>
-                            `).join('');
-                        } else {
-                            listDiv.innerHTML = '<div style="text-align:center;padding:20px;">Пользователи не найдены</div>';
-                        }
-                    });
-            };
         });
+
+        modal.addEventListener('click', (e) => { if (e.target === modal) { modal.remove(); resolve(null); } });
+        searchInput.focus();
+    });
+}
+
+// ========== ВЫДЕЛЕНИЕ СООБЩЕНИЙ ==========
+let selectedMsgs = new Set();
+let selectionMode = false;
+let lastSelected = null;
+let isDragging = false;
+let dragStartId = null;
+let dragScrollInterval = null;
+let suppressClick = false;
+
+function enableSelectMode() {
+    if (selectionMode) return;
+    selectionMode = true;
+    document.body.classList.add('selection-mode');
+
+    let bar = document.getElementById('selectActionBar');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'selectActionBar';
+        bar.style.cssText = `
+            position: sticky; top: 0; z-index: 1000; background: #3b82f6;
+            padding: 12px 16px; display: flex; align-items: center;
+            justify-content: space-between; border-radius: 0 0 12px 12px;
+            margin-bottom: 8px; color: white; font-weight: 500;
+        `;
+        const header = document.querySelector('.tg-chat-header');
+        if (header) header.insertAdjacentElement('afterend', bar);
     }
+    updateActionBar();
+}
+
+function disableSelectMode() {
+    if (!selectionMode) return;
+    selectionMode = false;
+    selectedMsgs.clear();
+    lastSelected = null;
+    isDragging = false;
+    dragStartId = null;
+    if (dragScrollInterval) clearInterval(dragScrollInterval);
+
+    document.body.classList.remove('selection-mode');
+    document.getElementById('selectActionBar')?.remove();
+    document.querySelectorAll('.tg-msg.selected').forEach(el => el.classList.remove('selected'));
+}
+
+function updateActionBar() {
+    const bar = document.getElementById('selectActionBar');
+    if (!bar) return;
+    const count = selectedMsgs.size;
+    bar.innerHTML = `
+        <span>Выбрано: ${count}</span>
+        <div style="display: flex; gap: 16px;">
+            <button onclick="copySelectedMsgs()" style="background:none;border:none;color:white;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Копировать
+            </button>
+            <button onclick="forwardSelectedMsgs()" style="background:none;border:none;color:white;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Переслать
+            </button>
+            <button onclick="deleteSelectedMsgs()" style="background:none;border:none;color:#ffcccc;cursor:pointer;display:flex;align-items:center;gap:6px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffcccc" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Удалить
+            </button>
+            <button onclick="disableSelectMode()" style="background:none;border:none;color:white;cursor:pointer;">✕</button>
+        </div>
+    `;
+}
+
+function selectMessage(msgId, element, isShift = false) {
+    if (isShift && lastSelected !== null && lastSelected !== msgId) {
+        const all = Array.from(document.querySelectorAll('.tg-msg'));
+        const ids = all.map(m => parseInt(m.dataset.id)).filter(id => !isNaN(id));
+        const start = ids.indexOf(lastSelected);
+        const end = ids.indexOf(msgId);
+        if (start !== -1 && end !== -1) {
+            const min = Math.min(start, end);
+            const max = Math.max(start, end);
+            for (let i = min; i <= max; i++) {
+                const id = ids[i];
+                const el = all[i];
+                if (id && el && !selectedMsgs.has(id)) {
+                    selectedMsgs.add(id);
+                    el.classList.add('selected');
+                }
+            }
+            lastSelected = msgId;
+            updateActionBar();
+            return;
+        }
+    }
+
+    if (selectedMsgs.has(msgId)) {
+        selectedMsgs.delete(msgId);
+        if (element) element.classList.remove('selected');
+    } else {
+        selectedMsgs.add(msgId);
+        if (element) element.classList.add('selected');
+    }
+    lastSelected = msgId;
+    updateActionBar();
+
+    if (selectedMsgs.size === 0 && selectionMode) disableSelectMode();
+}
+
+async function copySelectedMsgs() {
+    const texts = [];
+    const sorted = Array.from(selectedMsgs).sort((a, b) => a - b);
+    for (const id of sorted) {
+        const el = document.querySelector(`.tg-msg[data-id="${id}"]`);
+        const bubble = el?.querySelector('.tg-msg-bubble');
+        const forwarded = el?.querySelector('.tg-msg-forwarded-post');
+        if (bubble) texts.push(bubble.innerText);
+        else if (forwarded) texts.push(forwarded.innerText);
+    }
+    if (texts.length) {
+        await navigator.clipboard.writeText(texts.join('\n\n'));
+        notify(`Скопировано ${texts.length} сообщений`, 'success');
+        disableSelectMode();
+    } else {
+        notify('❌ Нет текста для копирования', 'error');
+    }
+}
+
+async function forwardSelectedMsgs() {
+    const ids = Array.from(selectedMsgs);
+    if (!ids.length) return;
+
+    const userId = await showUserSelectionModal();
+    if (!userId) { disableSelectMode(); return; }
+
+    try {
+        const res = await fetch('/messenger/forward-multiple/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ user_id: userId, message_ids: ids })
+        });
+        if (res.ok) {
+            notify(`${ids.length} сообщений переслано`, 'success');
+            disableSelectMode();
+        } else {
+            notify('❌ Ошибка при пересылке', 'error');
+        }
+    } catch(e) {
+        notify('❌ Ошибка сервера', 'error');
+    }
+}
+
+async function deleteSelectedMsgs() {
+    const ids = Array.from(selectedMsgs);
+    if (!ids.length) return;
+
+    const confirmed = await showConfirmModal({
+        title: 'Удалить сообщения?',
+        message: `Вы действительно хотите удалить ${ids.length} сообщение${ids.length > 1 ? 'ий' : 'ие'}? Это действие нельзя отменить.`,
+        confirmText: 'Удалить',
+        cancelText: 'Отмена',
+        danger: true
+    });
+
+    if (!confirmed) return;
+
+    try {
+        const res = await fetch('/messenger/delete-multiple/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ message_ids: ids })
+        });
+        if (res.ok) {
+            ids.forEach(id => document.querySelector(`.tg-msg[data-id="${id}"]`)?.remove());
+            notify(`${ids.length} сообщений удалено`, 'success');
+            disableSelectMode();
+        } else {
+            notify('❌ Ошибка при удалении', 'error');
+        }
+    } catch(e) {
+        notify('❌ Ошибка сервера', 'error');
+    }
+}
+
+// ========== ГЛОБАЛЬНЫЕ ОБРАБОТЧИКИ ==========
+document.addEventListener('click', function(e) {
+    if (suppressClick) { suppressClick = false; return; }
+    const msg = e.target.closest('.tg-msg');
+    if (!msg) {
+        if (selectionMode && !e.target.closest('#selectActionBar')) disableSelectMode();
+        return;
+    }
+    if (e.target.closest('a, button, .tg-reaction')) return;
+
+    const msgId = parseInt(msg.dataset.id);
+    if (isNaN(msgId)) return;
+
+    if (!selectionMode && !e.shiftKey) {
+        enableSelectMode();
+        selectedMsgs.clear();
+        document.querySelectorAll('.tg-msg.selected').forEach(el => el.classList.remove('selected'));
+    }
+    if (!selectionMode && e.shiftKey) enableSelectMode();
+    selectMessage(msgId, msg, e.shiftKey);
+    e.preventDefault();
+    e.stopPropagation();
+});
+
+// ========== ВЫДЕЛЕНИЕ МЫШЬЮ ==========
+function initDragSelection() {
+    const container = document.getElementById('tgMessages');
+    if (!container) return;
+
+    function autoScroll(dir) {
+        if (dragScrollInterval) clearInterval(dragScrollInterval);
+        dragScrollInterval = setInterval(() => { container.scrollTop += dir === 'up' ? -20 : 20; }, 30);
+    }
+    function stopAutoScroll() { if (dragScrollInterval) { clearInterval(dragScrollInterval); dragScrollInterval = null; } }
+
+    container.addEventListener('mousedown', (e) => {
+        if (e.target.closest('a, button, .tg-reaction')) return;
+        const msg = e.target.closest('.tg-msg');
+        if (!msg) return;
+        isDragging = true;
+        dragStartId = parseInt(msg.dataset.id);
+        suppressClick = true;
+        if (!selectionMode) enableSelectMode();
+        selectedMsgs.clear();
+        document.querySelectorAll('.tg-msg.selected').forEach(el => el.classList.remove('selected'));
+        selectedMsgs.add(dragStartId);
+        msg.classList.add('selected');
+        lastSelected = dragStartId;
+        updateActionBar();
+        e.preventDefault();
+    });
+
+    container.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const rect = container.getBoundingClientRect();
+        const y = e.clientY;
+        if (y < rect.top + 50) autoScroll('up');
+        else if (y > rect.bottom - 50) autoScroll('down');
+        else stopAutoScroll();
+
+        const msg = e.target.closest('.tg-msg');
+        if (!msg) return;
+        const currentId = parseInt(msg.dataset.id);
+        if (currentId === dragStartId) return;
+
+        const all = Array.from(document.querySelectorAll('.tg-msg'));
+        const ids = all.map(m => parseInt(m.dataset.id));
+        const startIdx = ids.indexOf(dragStartId);
+        const currentIdx = ids.indexOf(currentId);
+        if (startIdx !== -1 && currentIdx !== -1) {
+            const min = Math.min(startIdx, currentIdx);
+            const max = Math.max(startIdx, currentIdx);
+            selectedMsgs.clear();
+            document.querySelectorAll('.tg-msg.selected').forEach(el => el.classList.remove('selected'));
+            for (let i = min; i <= max; i++) {
+                const id = ids[i];
+                const el = all[i];
+                if (id && el) { selectedMsgs.add(id); el.classList.add('selected'); }
+            }
+            lastSelected = currentId;
+            updateActionBar();
+        }
+    });
+
+    container.addEventListener('mouseup', () => { isDragging = false; dragStartId = null; stopAutoScroll(); });
+    document.addEventListener('mouseup', () => { isDragging = false; dragStartId = null; stopAutoScroll(); });
+}
+
+setTimeout(initDragSelection, 500);
+
+// Feather Icons перерисовка
+function initFeatherIcons() { if (typeof feather !== 'undefined') feather.replace(); }
+document.addEventListener('DOMContentLoaded', initFeatherIcons);
+setTimeout(initFeatherIcons, 100);
+
+console.log('Система выделения загружена');
 </script>
 {% endblock %}
 

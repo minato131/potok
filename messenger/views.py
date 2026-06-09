@@ -805,16 +805,25 @@ def forward_post(request, post_id):
 @login_required
 @require_POST
 def forward_multiple_messages(request):
-    """Пересылка нескольких сообщений"""
+    """Пересылка нескольких сообщений другому пользователю"""
     try:
         data = json.loads(request.body)
         user_id = data.get('user_id')
         message_ids = data.get('message_ids', [])
 
-        target_user = get_object_or_404(User, id=user_id)
+        if not user_id or not message_ids:
+            return JsonResponse({'error': 'Не указан получатель или сообщения'}, status=400)
+
+        try:
+            target_user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return JsonResponse({'error': 'Пользователь не найден'}, status=404)
 
         # Находим или создаём чат
-        chat = Chat.objects.filter(chat_type='private', participants=request.user).filter(
+        chat = Chat.objects.filter(
+            chat_type='private',
+            participants=request.user
+        ).filter(
             participants=target_user
         ).distinct().first()
 
@@ -823,15 +832,23 @@ def forward_multiple_messages(request):
             ChatParticipant.objects.create(user=request.user, chat=chat)
             ChatParticipant.objects.create(user=target_user, chat=chat)
 
-        forwarded_content = []
+        # Формируем текст для пересылки
+        forwarded_texts = []
         for msg_id in message_ids:
-            original = get_object_or_404(Message, id=msg_id)
-            forwarded_content.append(f"📎 @{original.author.username}: {original.content[:100]}")
+            try:
+                original = Message.objects.get(id=msg_id)
+                author_name = original.author.get_full_name() or original.author.username
+                content = original.content if original.content else '[Файл]'
+                forwarded_texts.append(f"📎 {author_name}: {content[:100]}")
+            except Message.DoesNotExist:
+                forwarded_texts.append(f"Сообщение {msg_id} не найдено")
+
+        final_text = f"[Переслано {len(message_ids)} сообщений]\n\n" + "\n\n".join(forwarded_texts)
 
         Message.objects.create(
             chat=chat,
             author=request.user,
-            content=f"[Переслано {len(message_ids)} сообщений]\n\n" + "\n\n".join(forwarded_content),
+            content=final_text,
             is_delivered=True,
             delivered_at=timezone.now()
         )
@@ -879,3 +896,25 @@ def api_chats_list(request):
                 })
 
     return JsonResponse({'chats': result})
+
+
+@login_required
+def api_friends_list(request):
+    """API: получить список друзей пользователя"""
+    from accounts.models import Friendship
+
+    friends = Friendship.objects.filter(
+        user=request.user,
+        status='accepted'
+    ).select_related('friend', 'friend__profile')
+
+    result = []
+    for f in friends:
+        result.append({
+            'id': f.friend.id,
+            'username': f.friend.username,
+            'full_name': f.friend.get_full_name() or f.friend.username,
+            'avatar': f.friend.profile.avatar.url if f.friend.profile.avatar else None,
+        })
+
+    return JsonResponse(result, safe=False)
