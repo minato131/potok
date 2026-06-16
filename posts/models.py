@@ -98,7 +98,7 @@ class Category(models.Model):
     class Meta:
         verbose_name = 'Категория'
         verbose_name_plural = 'Категории'
-        ordering = ['order', 'name']
+        ordering = ['name']
 
     def __str__(self):
         if self.parent:
