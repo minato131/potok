@@ -62,6 +62,37 @@ class CustomUserAdmin(UserAdmin):
 
     avatar_preview.short_description = 'Аватар'
 
+    # ========== ЗАЩИТА ОТ САМОУДАЛЕНИЯ ==========
+
+    def delete_view(self, request, object_id, extra_context=None):
+        """
+        Переопределяем метод удаления: запрещаем удалять самого себя
+        """
+        obj = get_object_or_404(self.get_queryset(request), pk=object_id)
+
+        # Если текущий пользователь пытается удалить себя
+        if obj == request.user:
+            messages.error(request, "❌ Вы не можете удалить себя, поскольку вы администратор")
+            return redirect('admin:accounts_user_changelist')
+
+        # Иначе разрешаем стандартное удаление
+        return super().delete_view(request, object_id, extra_context)
+
+    def delete_queryset(self, request, queryset):
+        """
+        Защита от массового удаления через выделение и удаление
+        """
+        # Убираем текущего пользователя из списка на удаление
+        if request.user in queryset:
+            queryset = queryset.exclude(pk=request.user.pk)
+            messages.warning(request, "⚠️ Вы были исключены из массового удаления, так как нельзя удалить себя")
+
+        # Если после исключения остались объекты — удаляем их
+        if queryset.exists():
+            super().delete_queryset(request, queryset)
+        else:
+            messages.info(request, "Нет пользователей для удаления")
+
 
 @admin.register(Follow)
 class FollowAdmin(admin.ModelAdmin):

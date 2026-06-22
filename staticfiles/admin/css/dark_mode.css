@@ -12,7 +12,7 @@
       --breadcrumbs-link-fg: #e0e0e0;
       --breadcrumbs-bg: var(--primary);
   
-      --link-fg: #81d4fa;
+      --link-fg: #ffffff;
       --link-hover-color: #4ac1f7;
       --link-selected-fg: #6f94c6;
   
@@ -57,7 +57,7 @@ html[data-theme="dark"] {
     --breadcrumbs-link-fg: #e0e0e0;
     --breadcrumbs-bg: var(--primary);
 
-    --link-fg: #81d4fa;
+    --link-fg: #ffffff;
     --link-hover-color: #4ac1f7;
     --link-selected-fg: #6f94c6;
 
