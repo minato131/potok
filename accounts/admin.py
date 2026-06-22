@@ -1,6 +1,10 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.utils.html import format_html
+from django.shortcuts import get_object_or_404, redirect
+from django.contrib import messages
+from django.contrib.admin.actions import delete_selected
+from django.utils.translation import gettext_lazy as _
 from .models import User, Follow, Notification
 
 
@@ -82,16 +86,52 @@ class CustomUserAdmin(UserAdmin):
         """
         Защита от массового удаления через выделение и удаление
         """
-        # Убираем текущего пользователя из списка на удаление
+        # Проверяем, есть ли текущий пользователь в списке на удаление
         if request.user in queryset:
+            # Исключаем его
             queryset = queryset.exclude(pk=request.user.pk)
             messages.warning(request, "⚠️ Вы были исключены из массового удаления, так как нельзя удалить себя")
 
         # Если после исключения остались объекты — удаляем их
         if queryset.exists():
+            count = queryset.count()
             super().delete_queryset(request, queryset)
+            # Добавляем своё сообщение об успехе
+            messages.success(request, f"✅ Успешно удалены {count} пользователей")
         else:
-            messages.info(request, "Нет пользователей для удаления")
+            messages.info(request, "ℹ️ Нет пользователей для удаления (вы попытались удалить только себя)")
+
+    def response_action(self, request, queryset):
+        """
+        Переопределяем response_action, чтобы убрать дублирующиеся сообщения
+        """
+        action = request.POST.get('action')
+
+        # Если выбрано действие "delete_selected" и в списке есть текущий пользователь
+        if action == 'delete_selected' and request.user in queryset:
+            # Исключаем его из списка
+            queryset = queryset.exclude(pk=request.user.pk)
+
+            # Если после исключения никого не осталось
+            if not queryset.exists():
+                messages.warning(request, "⚠️ Вы были исключены из массового удаления, так как нельзя удалить себя")
+                messages.info(request, "ℹ️ Нет пользователей для удаления (вы попытались удалить только себя)")
+                # Возвращаем None, чтобы прервать выполнение и не вызывать стандартное удаление
+                return None
+
+        # Вызываем стандартный response_action
+        response = super().response_action(request, queryset)
+
+        # Если response - это HttpResponseRedirect (редирект после удаления)
+        if response and hasattr(response, 'status_code') and response.status_code == 302:
+            # Проверяем, было ли исключение себя из списка
+            if action == 'delete_selected' and request.user in queryset.exclude(pk=request.user.pk):
+                # Добавляем своё сообщение об успехе, если удаление произошло
+                count = queryset.count()
+                if count > 0:
+                    messages.success(request, f"✅ Успешно удалены {count} пользователей")
+
+        return response
 
 
 @admin.register(Follow)
