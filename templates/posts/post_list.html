@@ -736,25 +736,30 @@ window.loadComments = async function(pid, limit=null){
                 h += allComments[i].outerHTML;
             }
             inner.innerHTML = h;
-            inner.querySelectorAll('.cmt-card').forEach(card => {
-                // Проверяем, есть ли у комментария медиа
-                const commentId = card.id ? card.id.replace('comment-', '') : null;
-                if (commentId) {
-                    // Ищем медиа в загруженных данных
-                    const cmtData = allComments[i]?.querySelector('.cmt-media');
-                    if (cmtData) {
+
+            // ========== ДОБАВЛЯЕМ МЕДИА В КОММЕНТАРИИ ==========
+            // Находим все комментарии и добавляем отображение фото/видео
+            inner.querySelectorAll('.cmt-card').forEach((card, index) => {
+                // Получаем оригинальный комментарий из doc
+                const origCard = allComments[index];
+                if (origCard) {
+                    // Ищем медиа в оригинальном комментарии
+                    const origMedia = origCard.querySelector('.cmt-media');
+                    if (origMedia) {
+                        // Проверяем, есть ли уже медиа в текущем карде
                         const existingMedia = card.querySelector('.cmt-media');
                         if (!existingMedia) {
+                            // Копируем медиа в текущий комментарий
                             const cmtBody = card.querySelector('.cmt-body');
                             if (cmtBody) {
-                                // Копируем медиа из оригинального DOM
-                                const mediaClone = cmtData.cloneNode(true);
+                                const mediaClone = origMedia.cloneNode(true);
                                 cmtBody.appendChild(mediaClone);
                             }
                         }
                     }
                 }
             });
+
             feather.replace();
 
             // Обработчики для меню комментариев
@@ -772,7 +777,6 @@ window.loadComments = async function(pid, limit=null){
 
             // Добавляем обработчики для кнопки "Удалить" в комментариях
             inner.querySelectorAll('.delete-comment-btn, .menu-item.danger[onclick*="deleteComment"]').forEach(btn => {
-                // Если у кнопки есть onclick атрибут, заменяем его на обработчик
                 const oldOnclick = btn.getAttribute('onclick');
                 if (oldOnclick && oldOnclick.includes('deleteComment')) {
                     btn.removeAttribute('onclick');
@@ -828,6 +832,25 @@ window.loadComments = async function(pid, limit=null){
                     let all = '';
                     allComments.forEach(c => all += c.outerHTML);
                     inner.innerHTML = all;
+
+                    // Добавляем медиа для всех комментариев при показе всех
+                    inner.querySelectorAll('.cmt-card').forEach((card, idx) => {
+                        const origCard = allComments[idx];
+                        if (origCard) {
+                            const origMedia = origCard.querySelector('.cmt-media');
+                            if (origMedia) {
+                                const existingMedia = card.querySelector('.cmt-media');
+                                if (!existingMedia) {
+                                    const cmtBody = card.querySelector('.cmt-body');
+                                    if (cmtBody) {
+                                        const mediaClone = origMedia.cloneNode(true);
+                                        cmtBody.appendChild(mediaClone);
+                                    }
+                                }
+                            }
+                        }
+                    });
+
                     feather.replace();
                     // Переинициализируем обработчики для всех комментариев
                     inner.querySelectorAll('.post-vk-menu-btn').forEach(btn => {
