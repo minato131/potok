@@ -5,10 +5,6 @@
 {% block page_title %}Новый пост в «{{ community.name }}»{% endblock %}
 
 {% block content %}
-{% include 'posts/post_form_content.html' with is_community=True community=community %}
-{% endblock %}
-
-{% block content %}
 <div class="post-create-container">
     <form method="post" enctype="multipart/form-data" class="post-form" id="postForm" novalidate>
         {% csrf_token %}
