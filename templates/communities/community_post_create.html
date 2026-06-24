@@ -5,9 +5,28 @@
 {% block page_title %}Новый пост в «{{ community.name }}»{% endblock %}
 
 {% block content %}
+{% include 'posts/post_form_content.html' with is_community=True community=community %}
+{% endblock %}
+
+{% block content %}
 <div class="post-create-container">
     <form method="post" enctype="multipart/form-data" class="post-form" id="postForm" novalidate>
         {% csrf_token %}
+        <input type="hidden" name="community" value="{{ community.id }}">
+
+        <!-- Выбор сообщества -->
+        <div class="form-section">
+            <div class="form-group">
+                <label for="{{ form.community.id_for_label }}" class="form-label">
+                    <i data-feather="users"></i>
+                    Опубликовать в сообществе
+                </label>
+                {{ form.community }}
+                <div class="field-hint">
+                    Выберите сообщество или оставьте пустым для публикации в профиле
+                </div>
+            </div>
+        </div>
 
         <!-- Заголовок -->
         <div class="form-section">
@@ -26,18 +45,72 @@
             </div>
         </div>
 
-        <!-- Текст -->
+        <!-- Текст поста -->
         <div class="form-section">
             <div class="form-group">
                 <label for="{{ form.content.id_for_label }}" class="form-label">
                     <i data-feather="message-square"></i>
                     Текст поста
                 </label>
-                {{ form.content }}
+
+                <!-- Панель форматирования -->
+                <div class="editor-toolbar">
+                    <div class="toolbar-group">
+                        <button type="button" class="toolbar-btn" data-format="bold" title="Жирный (Ctrl+B)">
+                            <i data-feather="bold"></i>
+                        </button>
+                        <button type="button" class="toolbar-btn" data-format="italic" title="Курсив (Ctrl+I)">
+                            <i data-feather="italic"></i>
+                        </button>
+                        <button type="button" class="toolbar-btn" data-format="strikethrough" title="Зачеркнутый">
+                            <i data-feather="minus"></i>
+                        </button>
+                    </div>
+                    <div class="toolbar-group">
+                        <button type="button" class="toolbar-btn" data-format="link" title="Ссылка (Ctrl+K)">
+                            <i data-feather="link"></i>
+                        </button>
+                        <button type="button" class="toolbar-btn" data-format="image" title="Изображение">
+                            <i data-feather="image"></i>
+                        </button>
+                    </div>
+                    <div class="toolbar-group">
+                        <button type="button" class="toolbar-btn" data-format="list-ul" title="Маркированный список">
+                            <i data-feather="list"></i>
+                        </button>
+                        <button type="button" class="toolbar-btn" data-format="list-ol" title="Нумерованный список">
+                            <i data-feather="list"></i>
+                        </button>
+                    </div>
+                    <div class="toolbar-group">
+                        <button type="button" class="toolbar-btn" data-format="quote" title="Цитата">
+                            <i data-feather="message-square"></i>
+                        </button>
+                        <button type="button" class="toolbar-btn" data-format="code" title="Код">
+                            <i data-feather="code"></i>
+                        </button>
+                        <button type="button" class="toolbar-btn" data-format="spoiler" title="Спойлер">
+                            <i data-feather="alert-triangle"></i>
+                        </button>
+                    </div>
+                    <div class="toolbar-group">
+                        <button type="button" class="toolbar-btn" id="previewBtn" title="Предпросмотр">
+                            <i data-feather="eye"></i>
+                        </button>
+                        <button type="button" class="toolbar-btn" id="helpBtn" title="Справка по Markdown">
+                            <i data-feather="help-circle"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="editor-wrapper">
+                    {{ form.content }}
+                    <div class="editor-preview" id="contentPreview" style="display: none;"></div>
+                </div>
             </div>
         </div>
 
-        <!-- Медиа -->
+        <!-- Медиа-контент (фото/видео) -->
         <div class="form-section form-section--media">
             <h3 class="section-title">
                 <i data-feather="image"></i>
@@ -47,64 +120,353 @@
             <div class="media-tabs">
                 <button type="button" class="media-tab active" data-tab="photo">
                     <i data-feather="camera"></i>
-                    Фото (до 5)
+                    Фото
                 </button>
                 <button type="button" class="media-tab" data-tab="video">
                     <i data-feather="video"></i>
-                    Видео (до 2)
+                    Видео
+                </button>
+                <button type="button" class="media-tab" data-tab="link">
+                    <i data-feather="link"></i>
+                    Ссылка
                 </button>
             </div>
 
-            <!-- Фото -->
-            <div class="media-panel active" id="photoPanel">
-                <div class="photos-grid" style="display: grid; gap: 1rem;">
-                    {% for i in "12345"|make_list %}
-                    <div class="photo-upload-area" id="photoUploadArea{{ i }}">
-                        <input type="file" name="{% if i == '1' %}image{% else %}image{{ i }}{% endif %}" accept="image/*" class="photo-input">
-                        <div class="upload-placeholder" id="photoPlaceholder{{ i }}">
-                            <i data-feather="upload-cloud"></i>
-                            <span>Фото {{ i }}</span>
-                            <span class="upload-hint">PNG, JPG, GIF до 10MB</span>
+            <!-- Вкладка Фото -->
+            <div class="form-section form-section--media">
+                <h3 class="section-title">
+                    <i data-feather="image"></i>
+                    Медиа-контент
+                </h3>
+
+                <div class="media-tabs">
+                    <button type="button" class="media-tab active" data-tab="photo">
+                        <i data-feather="camera"></i>
+                        Фото (до 5)
+                    </button>
+                    <button type="button" class="media-tab" data-tab="video">
+                        <i data-feather="video"></i>
+                        Видео (до 2)
+                    </button>
+                </div>
+
+                <!-- Вкладка Фото (5 полей) -->
+                <div class="media-panel active" id="photoPanel">
+                    <div class="photos-grid" style="display: grid; gap: 1rem;">
+                        <!-- Фото 1 -->
+                        <div class="photo-upload-area" id="photoUploadArea1">
+                            <input type="file" name="image" accept="image/*" id="id_image" class="photo-input">
+                            <div class="upload-placeholder" id="photoPlaceholder1">
+                                <i data-feather="upload-cloud"></i>
+                                <span>Фото 1</span>
+                                <span class="upload-hint">PNG, JPG, GIF до 10MB</span>
+                            </div>
+                            <div class="photo-preview-container" id="photoPreviewContainer1" style="display: none;">
+                                <img id="photoPreview1" src="" alt="Preview">
+                                <div class="preview-actions">
+                                    <button type="button" class="preview-btn change-photo-btn" data-photo="1">
+                                        <i data-feather="edit"></i> Изменить
+                                    </button>
+                                    <button type="button" class="preview-btn preview-btn--danger remove-photo-btn" data-photo="1">
+                                        <i data-feather="trash-2"></i> Удалить
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        <div class="photo-preview-container" id="photoPreviewContainer{{ i }}" style="display: none;">
-                            <img id="photoPreview{{ i }}" src="" alt="Preview">
+
+                        <!-- Фото 2 -->
+                        <div class="photo-upload-area" id="photoUploadArea2" style="display: {% if form.instance.image2 %}block{% else %}block{% endif %};">
+                            <input type="file" name="image2" accept="image/*" id="id_image2" class="photo-input">
+                            <div class="upload-placeholder" id="photoPlaceholder2">
+                                <i data-feather="upload-cloud"></i>
+                                <span>Фото 2</span>
+                                <span class="upload-hint">PNG, JPG, GIF до 10MB</span>
+                            </div>
+                            <div class="photo-preview-container" id="photoPreviewContainer2" style="display: {% if form.instance.image2 %}block{% else %}none{% endif %};">
+                                <img id="photoPreview2" src="{% if form.instance.image2 %}{{ form.instance.image2.url }}{% endif %}" alt="Preview">
+                                <div class="preview-actions">
+                                    <button type="button" class="preview-btn change-photo-btn" data-photo="2">
+                                        <i data-feather="edit"></i> Изменить
+                                    </button>
+                                    <button type="button" class="preview-btn preview-btn--danger remove-photo-btn" data-photo="2">
+                                        <i data-feather="trash-2"></i> Удалить
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Фото 3 -->
+                        <div class="photo-upload-area" id="photoUploadArea3">
+                            <input type="file" name="image3" accept="image/*" id="id_image3" class="photo-input">
+                            <div class="upload-placeholder" id="photoPlaceholder3">
+                                <i data-feather="upload-cloud"></i>
+                                <span>Фото 3</span>
+                                <span class="upload-hint">PNG, JPG, GIF до 10MB</span>
+                            </div>
+                            <div class="photo-preview-container" id="photoPreviewContainer3" style="display: {% if form.instance.image3 %}block{% else %}none{% endif %};">
+                                <img id="photoPreview3" src="{% if form.instance.image3 %}{{ form.instance.image3.url }}{% endif %}" alt="Preview">
+                                <div class="preview-actions">
+                                    <button type="button" class="preview-btn change-photo-btn" data-photo="3">
+                                        <i data-feather="edit"></i> Изменить
+                                    </button>
+                                    <button type="button" class="preview-btn preview-btn--danger remove-photo-btn" data-photo="3">
+                                        <i data-feather="trash-2"></i> Удалить
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Фото 4 -->
+                        <div class="photo-upload-area" id="photoUploadArea4">
+                            <input type="file" name="image4" accept="image/*" id="id_image4" class="photo-input">
+                            <div class="upload-placeholder" id="photoPlaceholder4">
+                                <i data-feather="upload-cloud"></i>
+                                <span>Фото 4</span>
+                                <span class="upload-hint">PNG, JPG, GIF до 10MB</span>
+                            </div>
+                            <div class="photo-preview-container" id="photoPreviewContainer4" style="display: {% if form.instance.image4 %}block{% else %}none{% endif %};">
+                                <img id="photoPreview4" src="{% if form.instance.image4 %}{{ form.instance.image4.url }}{% endif %}" alt="Preview">
+                                <div class="preview-actions">
+                                    <button type="button" class="preview-btn change-photo-btn" data-photo="4">
+                                        <i data-feather="edit"></i> Изменить
+                                    </button>
+                                    <button type="button" class="preview-btn preview-btn--danger remove-photo-btn" data-photo="4">
+                                        <i data-feather="trash-2"></i> Удалить
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Фото 5 -->
+                        <div class="photo-upload-area" id="photoUploadArea5">
+                            <input type="file" name="image5" accept="image/*" id="id_image5" class="photo-input">
+                            <div class="upload-placeholder" id="photoPlaceholder5">
+                                <i data-feather="upload-cloud"></i>
+                                <span>Фото 5</span>
+                                <span class="upload-hint">PNG, JPG, GIF до 10MB</span>
+                            </div>
+                            <div class="photo-preview-container" id="photoPreviewContainer5" style="display: {% if form.instance.image5 %}block{% else %}none{% endif %};">
+                                <img id="photoPreview5" src="{% if form.instance.image5 %}{{ form.instance.image5.url }}{% endif %}" alt="Preview">
+                                <div class="preview-actions">
+                                    <button type="button" class="preview-btn change-photo-btn" data-photo="5">
+                                        <i data-feather="edit"></i> Изменить
+                                    </button>
+                                    <button type="button" class="preview-btn preview-btn--danger remove-photo-btn" data-photo="5">
+                                        <i data-feather="trash-2"></i> Удалить
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Текущие изображения (при редактировании) -->
+                    {% if form.instance.image or form.instance.image2 or form.instance.image3 or form.instance.image4 or form.instance.image5 %}
+                    <div class="current-media" style="margin-top: 1rem;">
+                        <span>Текущие изображения:</span>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                            {% if form.instance.image %}<img src="{{ form.instance.image.url }}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">{% endif %}
+                            {% if form.instance.image2 %}<img src="{{ form.instance.image2.url }}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">{% endif %}
+                            {% if form.instance.image3 %}<img src="{{ form.instance.image3.url }}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">{% endif %}
+                            {% if form.instance.image4 %}<img src="{{ form.instance.image4.url }}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">{% endif %}
+                            {% if form.instance.image5 %}<img src="{{ form.instance.image5.url }}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">{% endif %}
+                        </div>
+                        <label class="checkbox-label" style="margin-top: 0.5rem;">
+                            <input type="checkbox" name="clear_all_images" id="clearAllImages">
+                            <span class="checkbox-custom"></span>
+                            <span>Удалить все изображения</span>
+                        </label>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Вкладка Видео (2 поля) -->
+                <div class="media-panel" id="videoPanel">
+                    <!-- Видео 1 -->
+                    <div class="video-upload-area" id="videoUploadArea1" style="margin-bottom: 1rem;">
+                        <input type="file" name="video" accept="video/*" id="id_video" class="video-input">
+                        <div class="upload-placeholder" id="videoPlaceholder1">
+                            <i data-feather="video"></i>
+                            <span>Видео 1</span>
+                            <span class="upload-hint">MP4, WebM до 100MB</span>
+                        </div>
+                        <div class="video-preview-container" id="videoPreviewContainer1" style="display: {% if form.instance.video %}block{% else %}none{% endif %};">
+                            <video id="videoPreview1" controls>
+                                <source src="{% if form.instance.video %}{{ form.instance.video.url }}{% endif %}" type="video/mp4">
+                            </video>
                             <div class="preview-actions">
-                                <button type="button" class="preview-btn change-photo-btn" data-photo="{{ i }}">
+                                <button type="button" class="preview-btn change-video-btn" data-video="1">
                                     <i data-feather="edit"></i> Изменить
                                 </button>
-                                <button type="button" class="preview-btn preview-btn--danger remove-photo-btn" data-photo="{{ i }}">
+                                <button type="button" class="preview-btn preview-btn--danger remove-video-btn" data-video="1">
                                     <i data-feather="trash-2"></i> Удалить
                                 </button>
                             </div>
                         </div>
                     </div>
-                    {% endfor %}
+
+                    <!-- Видео 2 -->
+                    <div class="video-upload-area" id="videoUploadArea2">
+                        <input type="file" name="video2" accept="video/*" id="id_video2" class="video-input">
+                        <div class="upload-placeholder" id="videoPlaceholder2">
+                            <i data-feather="video"></i>
+                            <span>Видео 2</span>
+                            <span class="upload-hint">MP4, WebM до 100MB</span>
+                        </div>
+                        <div class="video-preview-container" id="videoPreviewContainer2" style="display: {% if form.instance.video2 %}block{% else %}none{% endif %};">
+                            <video id="videoPreview2" controls>
+                                <source src="{% if form.instance.video2 %}{{ form.instance.video2.url }}{% endif %}" type="video/mp4">
+                            </video>
+                            <div class="preview-actions">
+                                <button type="button" class="preview-btn change-video-btn" data-video="2">
+                                    <i data-feather="edit"></i> Изменить
+                                </button>
+                                <button type="button" class="preview-btn preview-btn--danger remove-video-btn" data-video="2">
+                                    <i data-feather="trash-2"></i> Удалить
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if form.instance.video or form.instance.video2 %}
+                    <div class="current-media" style="margin-top: 1rem;">
+                        <span>Текущие видео:</span>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                            {% if form.instance.video %}
+                            <video controls style="width: 150px; border-radius: 8px;">
+                                <source src="{{ form.instance.video.url }}">
+                            </video>
+                            {% endif %}
+                            {% if form.instance.video2 %}
+                            <video controls style="width: 150px; border-radius: 8px;">
+                                <source src="{{ form.instance.video2.url }}">
+                            </video>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
 
-            <!-- Видео -->
-            <div class="media-panel" id="videoPanel">
-                {% for i in "12"|make_list %}
-                <div class="video-upload-area" id="videoUploadArea{{ i }}" style="margin-bottom: 1rem;">
-                    <input type="file" name="{% if i == '1' %}video{% else %}video{{ i }}{% endif %}" accept="video/*" class="video-input">
-                    <div class="upload-placeholder" id="videoPlaceholder{{ i }}">
-                        <i data-feather="video"></i>
-                        <span>Видео {{ i }}</span>
-                        <span class="upload-hint">MP4, WebM до 100MB</span>
-                    </div>
-                    <div class="video-preview-container" id="videoPreviewContainer{{ i }}" style="display: none;">
-                        <video id="videoPreview{{ i }}" controls><source src=""></video>
-                        <div class="preview-actions">
-                            <button type="button" class="preview-btn change-video-btn" data-video="{{ i }}">
-                                <i data-feather="edit"></i> Изменить
+        <div class="form-section poll-section">
+            <div class="section-header">
+                <i data-feather="bar-chart-2"></i>
+                <h2>Опрос</h2>
+            </div>
+
+            <label class="checkbox-label" style="margin-bottom: 16px;">
+                <input type="checkbox" name="enable_poll" id="enablePollCheckbox" {% if existing_poll %}checked{% endif %}>
+                <span>Добавить опрос в пост</span>
+            </label>
+
+            <div id="pollFormContainer" style="display: {% if existing_poll %}block{% else %}none{% endif %};">
+                <div class="form-group">
+                    <label class="form-label">Вопрос опроса</label>
+                    <input type="text" name="question" class="form-input"
+                           placeholder="Например: Какой язык программирования лучше?"
+                           value="{{ poll_form.question.value|default:'' }}">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Варианты ответа (минимум 2)</label>
+                    <div id="pollOptionsContainer">
+                        <!-- Вариант 1 -->
+                        <div class="poll-option-row" style="margin-top: 0;">
+                            <input type="text" name="option_1" class="form-input" placeholder="Вариант 1" value="{{ poll_form.option_1.value|default:'' }}">
+                        </div>
+
+                        <!-- Вариант 2 -->
+                        <div class="poll-option-row" style="margin-top: 8px;">
+                            <input type="text" name="option_2" class="form-input" placeholder="Вариант 2" value="{{ poll_form.option_2.value|default:'' }}">
+                            <button type="button" class="remove-option-btn" style="margin-left: 8px; background: none; border: none; color: #ef4444; cursor: pointer;">
+                                <i data-feather="x"></i>
                             </button>
-                            <button type="button" class="preview-btn preview-btn--danger remove-video-btn" data-video="{{ i }}">
-                                <i data-feather="trash-2"></i> Удалить
+                        </div>
+
+                        <!-- Варианты 3-10 (скрыты по умолчанию) -->
+                        <div class="poll-option-row" style="margin-top: 8px; display: none;" id="optionRow3">
+                            <input type="text" name="option_3" class="form-input" placeholder="Вариант 3" value="{{ poll_form.option_3.value|default:'' }}">
+                            <button type="button" class="remove-option-btn" style="margin-left: 8px; background: none; border: none; color: #ef4444; cursor: pointer;">
+                                <i data-feather="x"></i>
+                            </button>
+                        </div>
+
+                        <div class="poll-option-row" style="margin-top: 8px; display: none;" id="optionRow4">
+                            <input type="text" name="option_4" class="form-input" placeholder="Вариант 4" value="{{ poll_form.option_4.value|default:'' }}">
+                            <button type="button" class="remove-option-btn" style="margin-left: 8px; background: none; border: none; color: #ef4444; cursor: pointer;">
+                                <i data-feather="x"></i>
+                            </button>
+                        </div>
+
+                        <div class="poll-option-row" style="margin-top: 8px; display: none;" id="optionRow5">
+                            <input type="text" name="option_5" class="form-input" placeholder="Вариант 5" value="{{ poll_form.option_5.value|default:'' }}">
+                            <button type="button" class="remove-option-btn" style="margin-left: 8px; background: none; border: none; color: #ef4444; cursor: pointer;">
+                                <i data-feather="x"></i>
+                            </button>
+                        </div>
+
+                        <div class="poll-option-row" style="margin-top: 8px; display: none;" id="optionRow6">
+                            <input type="text" name="option_6" class="form-input" placeholder="Вариант 6" value="{{ poll_form.option_6.value|default:'' }}">
+                            <button type="button" class="remove-option-btn" style="margin-left: 8px; background: none; border: none; color: #ef4444; cursor: pointer;">
+                                <i data-feather="x"></i>
+                            </button>
+                        </div>
+
+                        <div class="poll-option-row" style="margin-top: 8px; display: none;" id="optionRow7">
+                            <input type="text" name="option_7" class="form-input" placeholder="Вариант 7" value="{{ poll_form.option_7.value|default:'' }}">
+                            <button type="button" class="remove-option-btn" style="margin-left: 8px; background: none; border: none; color: #ef4444; cursor: pointer;">
+                                <i data-feather="x"></i>
+                            </button>
+                        </div>
+
+                        <div class="poll-option-row" style="margin-top: 8px; display: none;" id="optionRow8">
+                            <input type="text" name="option_8" class="form-input" placeholder="Вариант 8" value="{{ poll_form.option_8.value|default:'' }}">
+                            <button type="button" class="remove-option-btn" style="margin-left: 8px; background: none; border: none; color: #ef4444; cursor: pointer;">
+                                <i data-feather="x"></i>
+                            </button>
+                        </div>
+
+                        <div class="poll-option-row" style="margin-top: 8px; display: none;" id="optionRow9">
+                            <input type="text" name="option_9" class="form-input" placeholder="Вариант 9" value="{{ poll_form.option_9.value|default:'' }}">
+                            <button type="button" class="remove-option-btn" style="margin-left: 8px; background: none; border: none; color: #ef4444; cursor: pointer;">
+                                <i data-feather="x"></i>
+                            </button>
+                        </div>
+
+                        <div class="poll-option-row" style="margin-top: 8px; display: none;" id="optionRow10">
+                            <input type="text" name="option_10" class="form-input" placeholder="Вариант 10" value="{{ poll_form.option_10.value|default:'' }}">
+                            <button type="button" class="remove-option-btn" style="margin-left: 8px; background: none; border: none; color: #ef4444; cursor: pointer;">
+                                <i data-feather="x"></i>
                             </button>
                         </div>
                     </div>
+                    <button type="button" id="addPollOptionBtn" class="btn btn--outline btn--sm" style="margin-top: 8px;">
+                        <i data-feather="plus"></i> Добавить вариант
+                    </button>
                 </div>
-                {% endfor %}
+
+                <div class="settings-group" style="margin-top: 12px;">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <span class="setting-label">Анонимное голосование</span>
+                            <span class="setting-description">Результаты не показывают, кто за кого голосовал</span>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" name="is_anonymous" {% if poll_form.is_anonymous.value %}checked{% endif %}>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <span class="setting-label">Несколько вариантов</span>
+                            <span class="setting-description">Пользователи могут выбрать несколько ответов</span>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" name="allow_multiple" {% if poll_form.allow_multiple.value %}checked{% endif %}>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -115,28 +477,210 @@
                     <i data-feather="tag"></i>
                     Теги
                 </label>
-                {{ form.tags }}
-                <div class="field-hint">Теги через запятую</div>
+
+                <!-- Выбранные теги -->
+                <div class="selected-tags" id="selectedTags"></div>
+
+                <!-- Скрытое поле -->
+                <input type="hidden" name="tags" id="tagsInput" value="{{ form.tags_input.value|default:'' }}">
+
+                <!-- Поиск и создание тегов -->
+                <div class="tags-controls">
+                    <div class="tag-search-wrapper">
+                        <input type="text" id="tagSearchInput" class="form-input" placeholder="Поиск или создание тега..." autocomplete="off">
+                        <div class="tag-search-results" id="tagSearchResults"></div>
+                    </div>
+                    <button type="button" class="btn btn--outline btn--sm" id="showCreateTagBtn">
+                        <i data-feather="plus"></i>
+                        Создать
+                    </button>
+                </div>
+
+                <!-- Форма создания тега -->
+                <div class="create-tag-form" id="createTagForm" style="display: none;">
+                    <input type="text" id="newTagName" class="form-input" placeholder="Название тега" maxlength="30">
+                    <div class="tag-form-actions">
+                        <button type="button" class="btn btn--primary btn--sm" id="createTagBtn">
+                            <i data-feather="check"></i>
+                            Создать
+                        </button>
+                        <button type="button" class="btn btn--outline btn--sm" id="cancelCreateTagBtn">
+                            Отмена
+                        </button>
+                    </div>
+                    <div class="tag-create-message" id="tagCreateMessage" style="display: none;"></div>
+                </div>
+
+                <div class="field-hint">Максимум 5 тегов. Нажмите на тег чтобы удалить.</div>
+            </div>
+        </div>
+
+        <!-- Категория -->
+        <div class="form-section">
+            <div class="form-group">
+                <label for="{{ form.category.id_for_label }}" class="form-label">
+                    <i data-feather="folder"></i>
+                    Категория
+                </label>
+                {{ form.category }}
+            </div>
+        </div>
+
+        <!-- Дополнительно -->
+        <div class="form-section">
+            <h3 class="section-title">
+                <i data-feather="more-horizontal"></i>
+                Дополнительно
+            </h3>
+
+            <div class="settings-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="is_nsfw" id="id_is_nsfw" {% if form.is_nsfw.value %}checked{% endif %}>
+                    <span class="checkbox-custom"></span>
+                    <span class="checkbox-text">Контент 18+ (NSFW)</span>
+                </label>
+
+                <label class="checkbox-label">
+                    <input type="checkbox" name="is_spoiler" id="id_is_spoiler" {% if form.is_spoiler.value %}checked{% endif %}>
+                    <span class="checkbox-custom"></span>
+                    <span class="checkbox-text">Содержит спойлеры</span>
+                </label>
+
+                <label class="checkbox-label">
+                    <input type="checkbox" name="disable_comments" id="id_disable_comments" {% if form.disable_comments.value %}checked{% endif %}>
+                    <span class="checkbox-custom"></span>
+                    <span class="checkbox-text">Отключить комментарии</span>
+                </label>
             </div>
         </div>
 
         <!-- Действия -->
         <div class="form-actions">
-            <a href="{% url 'communities:community_detail' slug=community.slug %}" class="btn btn--outline">
+            <a href="{% if form.instance.pk %}{% url 'posts:post_detail' pk=form.instance.pk %}{% else %}{% url 'posts:post_list' %}{% endif %}" class="btn btn--outline">
                 <i data-feather="arrow-left"></i>
                 Отмена
             </a>
-            <button type="submit" class="btn btn--primary">
-                <i data-feather="send"></i>
-                Опубликовать
-            </button>
+            <div class="form-actions-right">
+                <button type="submit" name="action" value="draft" class="btn btn--outline">
+                    <i data-feather="save"></i>
+                    Черновик
+                </button>
+                <button type="submit" name="action" value="publish" class="btn btn--primary">
+                    <i data-feather="send"></i>
+                    {% if form.instance.pk %}Сохранить{% else %}Опубликовать{% endif %}
+                </button>
+            </div>
         </div>
     </form>
+    <!-- Вставь этот код после закрывающего тега </form> или в отдельную колонку -->
+    <div class="post-form-sidebar">
+        {% if moderation_info %}
+        <div class="moderation-warning-sidebar">
+            <div class="warning-card">
+                <div class="warning-card-header">
+                    <i data-feather="alert-triangle"></i>
+                    <h3>Пост скрыт модерацией</h3>
+                </div>
+                <div class="warning-card-body">
+                    <div class="warning-item">
+                        <span class="warning-label">Причина:</span>
+                        <span class="warning-value">{{ moderation_info.reason }}</span>
+                    </div>
+                    {% if moderation_info.comment %}
+                    <div class="warning-item">
+                        <span class="warning-label">Комментарий:</span>
+                        <span class="warning-value">{{ moderation_info.comment }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="warning-item">
+                        <span class="warning-label">Модератор:</span>
+                        <span class="warning-value">@{{ moderation_info.moderator.username }}</span>
+                    </div>
+                    <div class="warning-item">
+                        <span class="warning-label">Дата:</span>
+                        <span class="warning-value">{{ moderation_info.date|date:"d.m.Y H:i" }}</span>
+                    </div>
+                </div>
+                <div class="warning-card-footer">
+                    <i data-feather="info"></i>
+                    <span>После редактирования пост восстановится автоматически</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Справка по Markdown -->
+    <div class="markdown-help" id="markdownHelp" style="display: none;">
+        <div class="help-header">
+            <h3>Поддерживается Markdown</h3>
+            <button type="button" class="help-close" id="closeHelpBtn"><i data-feather="x"></i></button>
+        </div>
+        <div class="help-grid">
+            <div class="help-item"><code>**жирный**</code> → <strong>жирный</strong></div>
+            <div class="help-item"><code>*курсив*</code> → <em>курсив</em></div>
+            <div class="help-item"><code>~~зачеркнутый~~</code> → <del>зачеркнутый</del></div>
+            <div class="help-item"><code>[ссылка](url)</code> → <a href="#">ссылка</a></div>
+            <div class="help-item"><code>`код`</code> → <code>код</code></div>
+            <div class="help-item"><code>> цитата</code> → <span class="quote-example">цитата</span></div>
+            <div class="help-item"><code>- список</code> → • список</div>
+            <div class="help-item"><code>||спойлер||</code> → <span class="spoiler-example">спойлер</span></div>
+        </div>
+    </div>
 </div>
 
+<!-- Модалки -->
+<div class="modal-overlay" id="linkModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Вставить ссылку</h3>
+            <button class="modal-close" onclick="closeLinkModal()"><i data-feather="x"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Текст ссылки</label>
+                <input type="text" id="linkText" class="form-input" placeholder="Текст">
+            </div>
+            <div class="form-group">
+                <label>URL</label>
+                <input type="url" id="linkUrl" class="form-input" placeholder="https://...">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn--outline" onclick="closeLinkModal()">Отмена</button>
+            <button class="btn btn--primary" onclick="insertLink()">Вставить</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="imageModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Вставить изображение</h3>
+            <button class="modal-close" onclick="closeImageModal()"><i data-feather="x"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Описание</label>
+                <input type="text" id="imageAlt" class="form-input" placeholder="Описание">
+            </div>
+            <div class="form-group">
+                <label>URL изображения</label>
+                <input type="url" id="imageUrl" class="form-input" placeholder="https://...">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn--outline" onclick="closeImageModal()">Отмена</button>
+            <button class="btn btn--primary" onclick="insertImage()">Вставить</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
 <style>
     .post-create-container { max-width: 800px; margin: 0 auto; padding: 1.5rem 1rem; }
-    .post-form { background: var(--color-bg-surface); border-radius: 24px; padding: 2rem; border: 1px solid var(--color-border-light); }
+    .post-form { background: var(--color-bg-surface); border-radius: 24px; padding: 2rem; border: 1px solid var(--color-border-light); margin-bottom: 1.5rem; }
     .form-section { margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--color-border-light); }
     .form-section:last-of-type { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
     .section-title { display: flex; align-items: center; gap: 0.5rem; font-size: 1rem; font-weight: 600; margin-bottom: 1.25rem; }
@@ -150,6 +694,14 @@
     .form-textarea { min-height: 200px; resize: vertical; font-family: inherit; }
     .field-hint { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.375rem; font-size: 0.8125rem; color: var(--color-text-tertiary); }
     .char-counter { margin-left: auto; font-family: monospace; }
+
+    .editor-toolbar { display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.5rem; background: var(--color-bg-elevated); border-radius: 12px 12px 0 0; border: 1.5px solid var(--color-border); border-bottom: none; }
+    .toolbar-group { display: flex; gap: 0.125rem; padding: 0 0.5rem; border-right: 1px solid var(--color-border); }
+    .toolbar-group:last-child { border-right: none; }
+    .toolbar-btn { padding: 0.5rem; border-radius: 6px; color: var(--color-text-secondary); transition: all 0.2s; }
+    .toolbar-btn:hover { background: var(--color-border-light); color: var(--color-text-primary); }
+    .editor-wrapper { position: relative; }
+    .editor-preview { min-height: 200px; padding: 1rem; border: 1.5px solid var(--color-border); border-radius: 0 0 12px 12px; background: var(--color-bg-surface); line-height: 1.6; }
 
     .media-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--color-border); }
     .media-tab { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; background: none; border: none; color: var(--color-text-secondary); font-size: 0.9375rem; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
@@ -172,135 +724,818 @@
     .preview-btn:hover { background: var(--color-bg-elevated); }
     .preview-btn--danger { color: var(--color-danger); border-color: var(--color-danger-light); }
     .preview-btn--danger:hover { background: var(--color-danger); color: white; }
+    .current-media { margin-top: 1.5rem; padding: 1rem; background: var(--color-bg-elevated); border-radius: 12px; }
+    .current-image-preview { max-width: 200px; max-height: 150px; margin: 0.75rem 0; border-radius: 8px; }
+    .current-video-preview { max-width: 300px; max-height: 200px; margin: 0.75rem 0; border-radius: 8px; }
 
+    /* === ТЕГИ === */
+    ..selected-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    min-height: 2rem;
+}
+
+.selected-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.selected-tag:hover {
+    background: var(--color-danger);
+    color: white;
+}
+
+.selected-tag i {
+    width: 0.875rem;
+    height: 0.875rem;
+}
+
+.tags-controls {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    position: relative;
+}
+
+.tag-search-wrapper {
+    flex: 1;
+    position: relative;
+}
+
+.tag-search-wrapper > i {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-text-tertiary);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.tag-search-wrapper .form-input {
+    padding-left: 2.5rem;
+}
+
+.tag-search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 100;
+    display: none;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    margin-top: 4px;
+}
+
+.tag-search-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+.tag-search-item:last-child {
+    border-bottom: none;
+}
+
+.tag-search-item:hover {
+    background: var(--color-bg-elevated);
+}
+
+.tag-search-item.selected {
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+}
+
+.tag-search-name {
+    font-weight: 500;
+}
+
+.tag-search-count {
+    font-size: 0.75rem;
+    color: var(--color-text-tertiary);
+}
+
+.tag-no-results {
+    padding: 1rem;
+    text-align: center;
+    color: var(--color-text-tertiary);
+    font-size: 0.875rem;
+}
+
+.create-tag-form {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: var(--color-bg-elevated);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.tag-form-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.tag-create-message {
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+}
+
+.tag-create-message.success {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.tag-create-message.error {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+    /* === ЧЕКБОКСЫ === */
+    .settings-group { display: flex; flex-direction: column; gap: 1rem; }
+    .checkbox-label { display: flex; align-items: center; gap: 0.625rem; cursor: pointer; font-size: 0.9375rem; color: var(--color-text-primary); }
+    .checkbox-label input[type="checkbox"] { display: none; }
+    .checkbox-custom { width: 1.25rem; height: 1.25rem; border: 2px solid var(--color-border); border-radius: 5px; transition: all 0.2s; flex-shrink: 0; }
+    .checkbox-label input[type="checkbox"]:checked + .checkbox-custom { background: var(--color-primary); border-color: var(--color-primary); position: relative; }
+    .checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after { content: ''; position: absolute; left: 5px; top: 2px; width: 5px; height: 10px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+    .checkbox-text { user-select: none; }
+
+    /* === КНОПКИ === */
     .form-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border-light); }
+    .form-actions-right { display: flex; gap: 1rem; }
+
+    /* === СПРАВКА === */
+    .markdown-help { background: var(--color-bg-surface); border-radius: 16px; padding: 1.5rem; border: 1px solid var(--color-border-light); margin-top: 1.5rem; }
+    .help-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .help-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; }
+    .help-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; }
+    .help-item code { background: var(--color-bg-elevated); padding: 0.25rem 0.5rem; border-radius: 5px; }
+    .quote-example { border-left: 3px solid var(--color-primary); padding-left: 0.5rem; }
+    .spoiler-example { background: var(--color-bg-elevated); padding: 0.125rem 0.375rem; border-radius: 4px; }
+
+    /* === МОДАЛКИ === */
+    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
+    .modal { background: var(--color-bg-surface); border-radius: 20px; padding: 1.5rem; width: 90%; max-width: 450px; }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+    .modal-header h3 { font-size: 1.25rem; font-weight: 600; }
+    .modal-close { padding: 0.25rem; border-radius: 6px; color: var(--color-text-tertiary); }
+    .modal-footer { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem; }
 
     @media (max-width: 600px) {
         .post-form { padding: 1.5rem; }
         .media-tabs { flex-wrap: wrap; }
         .form-actions { flex-direction: column; gap: 1rem; }
         .form-actions-right { width: 100%; flex-direction: column; }
+        .help-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    /* Модерационное предупреждение - сайдбар */
+    .moderation-warning-sidebar {
+        margin-top: 1.5rem;
+    }
+
+    .warning-card {
+        background: #fef3c7;
+        border-left: 4px solid #f59e0b;
+        border-radius: 16px;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+
+    .warning-card-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem 1.25rem;
+        background: #fde68a;
+        border-bottom: 1px solid #fcd34d;
+    }
+
+    .warning-card-header i {
+        width: 1.25rem;
+        height: 1.25rem;
+        color: #d97706;
+    }
+
+    .warning-card-header h3 {
+        margin: 0;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #92400e;
+    }
+
+    .warning-card-body {
+        padding: 1rem 1.25rem;
+    }
+
+    .warning-item {
+        display: flex;
+        margin-bottom: 0.75rem;
+        font-size: 0.85rem;
+    }
+
+    .warning-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .warning-label {
+        width: 100px;
+        flex-shrink: 0;
+        font-weight: 600;
+        color: #92400e;
+    }
+
+    .warning-value {
+        flex: 1;
+        color: #78350f;
+        word-break: break-word;
+    }
+
+    .warning-card-footer {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        background: #fde68a;
+        border-top: 1px solid #fcd34d;
+        font-size: 0.75rem;
+        color: #92400e;
+    }
+
+    .warning-card-footer i {
+        width: 0.875rem;
+        height: 0.875rem;
+    }
+
+    /* Если форма и сайдбар в две колонки */
+    .post-form-layout {
+        display: flex;
+        gap: 2rem;
+        max-width: 1100px;
+        margin: 0 auto;
+    }
+
+    .post-form-main {
+        flex: 2;
+    }
+
+    .post-form-sidebar {
+        flex: 1;
+    }
+
+    @media (max-width: 768px) {
+        .post-form-layout {
+            flex-direction: column;
+        }
     }
 </style>
+{% endblock %}
 
+{% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // ========== МЕДИА-ТАБЫ ==========
-    document.querySelectorAll('.media-tab').forEach(tab => {
-        tab.addEventListener('click', function() {
-            document.querySelectorAll('.media-tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.media-panel').forEach(p => p.classList.remove('active'));
-            this.classList.add('active');
-            document.getElementById(this.dataset.tab + 'Panel').classList.add('active');
+    document.addEventListener('DOMContentLoaded', function() {
+        // ========== МЕДИА-ТАБЫ ==========
+        document.querySelectorAll('.media-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.media-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.media-panel').forEach(p => p.classList.remove('active'));
+                this.classList.add('active');
+                document.getElementById(this.dataset.tab + 'Panel').classList.add('active');
+            });
         });
-    });
 
-    // ========== ЗАГРУЗКА ФОТО ==========
-    for (let i = 1; i <= 5; i++) {
-        const fieldName = i === 1 ? 'image' : `image${i}`;
-        const photoInput = document.querySelector(`input[name="${fieldName}"]`);
-        if (photoInput) {
-            photoInput.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                const num = this.name === 'image' ? '1' : this.name.replace('image', '');
-                if (file) {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        const previewImg = document.getElementById(`photoPreview${num}`);
-                        if (previewImg) previewImg.src = e.target.result;
-                        const placeholder = document.getElementById(`photoPlaceholder${num}`);
-                        if (placeholder) placeholder.style.display = 'none';
-                        const container = document.getElementById(`photoPreviewContainer${num}`);
-                        if (container) container.style.display = 'block';
-                    };
-                    reader.readAsDataURL(file);
-                }
-            });
-        }
+        // ========== ЗАГРУЗКА ФОТО (5 полей) ==========
+        for (let i = 1; i <= 5; i++) {
+            const fieldName = i === 1 ? 'image' : `image${i}`;
+            const photoInput = document.querySelector(`input[name="${fieldName}"]`);
 
-        const changeBtn = document.querySelector(`.change-photo-btn[data-photo="${i}"]`);
-        if (changeBtn) {
-            changeBtn.addEventListener('click', () => {
-                const fieldName = i === 1 ? 'image' : `image${i}`;
-                const input = document.querySelector(`input[name="${fieldName}"]`);
-                if (input) input.click();
-            });
-        }
-
-        const removeBtn = document.querySelector(`.remove-photo-btn[data-photo="${i}"]`);
-        if (removeBtn) {
-            removeBtn.addEventListener('click', () => {
-                const fieldName = i === 1 ? 'image' : `image${i}`;
-                const input = document.querySelector(`input[name="${fieldName}"]`);
-                if (input) {
-                    input.value = '';
-                    const placeholder = document.getElementById(`photoPlaceholder${i}`);
-                    if (placeholder) placeholder.style.display = 'flex';
-                    const container = document.getElementById(`photoPreviewContainer${i}`);
-                    if (container) container.style.display = 'none';
-                    const previewImg = document.getElementById(`photoPreview${i}`);
-                    if (previewImg) previewImg.src = '';
-                }
-            });
-        }
-    }
-
-    // ========== ЗАГРУЗКА ВИДЕО ==========
-    for (let i = 1; i <= 2; i++) {
-        const fieldName = i === 1 ? 'video' : `video${i}`;
-        const videoInput = document.querySelector(`input[name="${fieldName}"]`);
-        if (videoInput) {
-            videoInput.addEventListener('change', function(e) {
-                const file = e.target.files[0];
-                const num = this.name === 'video' ? '1' : this.name.replace('video', '');
-                if (file) {
-                    const previewVideo = document.getElementById(`videoPreview${num}`);
-                    if (previewVideo) {
-                        previewVideo.src = URL.createObjectURL(file);
-                        previewVideo.load();
+            if (photoInput) {
+                photoInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    const num = this.name === 'image' ? '1' : this.name.replace('image', '');
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const previewImg = document.getElementById(`photoPreview${num}`);
+                            if (previewImg) previewImg.src = e.target.result;
+                            const placeholder = document.getElementById(`photoPlaceholder${num}`);
+                            if (placeholder) placeholder.style.display = 'none';
+                            const container = document.getElementById(`photoPreviewContainer${num}`);
+                            if (container) container.style.display = 'block';
+                        };
+                        reader.readAsDataURL(file);
                     }
-                    const placeholder = document.getElementById(`videoPlaceholder${num}`);
-                    if (placeholder) placeholder.style.display = 'none';
-                    const container = document.getElementById(`videoPreviewContainer${num}`);
-                    if (container) container.style.display = 'block';
+                });
+            }
+
+            // Кнопки изменения
+            const changeBtn = document.querySelector(`.change-photo-btn[data-photo="${i}"]`);
+            if (changeBtn) {
+                changeBtn.addEventListener('click', () => {
+                    const fieldName = i === 1 ? 'image' : `image${i}`;
+                    const input = document.querySelector(`input[name="${fieldName}"]`);
+                    if (input) input.click();
+                });
+            }
+
+            // Кнопки удаления
+            const removeBtn = document.querySelector(`.remove-photo-btn[data-photo="${i}"]`);
+            if (removeBtn) {
+                removeBtn.addEventListener('click', () => {
+                    const fieldName = i === 1 ? 'image' : `image${i}`;
+                    const input = document.querySelector(`input[name="${fieldName}"]`);
+                    if (input) {
+                        input.value = '';
+                        const placeholder = document.getElementById(`photoPlaceholder${i}`);
+                        if (placeholder) placeholder.style.display = 'flex';
+                        const container = document.getElementById(`photoPreviewContainer${i}`);
+                        if (container) container.style.display = 'none';
+                        const previewImg = document.getElementById(`photoPreview${i}`);
+                        if (previewImg) previewImg.src = '';
+                    }
+                });
+            }
+        }
+
+        // ========== ЗАГРУЗКА ВИДЕО (2 поля) ==========
+        for (let i = 1; i <= 2; i++) {
+            const fieldName = i === 1 ? 'video' : `video${i}`;
+            const videoInput = document.querySelector(`input[name="${fieldName}"]`);
+
+            if (videoInput) {
+                videoInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    const num = this.name === 'video' ? '1' : this.name.replace('video', '');
+                    if (file) {
+                        const previewVideo = document.getElementById(`videoPreview${num}`);
+                        if (previewVideo) {
+                            previewVideo.src = URL.createObjectURL(file);
+                            previewVideo.load();
+                        }
+                        const placeholder = document.getElementById(`videoPlaceholder${num}`);
+                        if (placeholder) placeholder.style.display = 'none';
+                        const container = document.getElementById(`videoPreviewContainer${num}`);
+                        if (container) container.style.display = 'block';
+                    }
+                });
+            }
+
+            // Кнопки изменения
+            const changeBtn = document.querySelector(`.change-video-btn[data-video="${i}"]`);
+            if (changeBtn) {
+                changeBtn.addEventListener('click', () => {
+                    const fieldName = i === 1 ? 'video' : `video${i}`;
+                    const input = document.querySelector(`input[name="${fieldName}"]`);
+                    if (input) input.click();
+                });
+            }
+
+            // Кнопки удаления
+            const removeBtn = document.querySelector(`.remove-video-btn[data-video="${i}"]`);
+            if (removeBtn) {
+                removeBtn.addEventListener('click', () => {
+                    const fieldName = i === 1 ? 'video' : `video${i}`;
+                    const input = document.querySelector(`input[name="${fieldName}"]`);
+                    if (input) {
+                        input.value = '';
+                        const placeholder = document.getElementById(`videoPlaceholder${i}`);
+                        if (placeholder) placeholder.style.display = 'flex';
+                        const container = document.getElementById(`videoPreviewContainer${i}`);
+                        if (container) container.style.display = 'none';
+                        const previewVideo = document.getElementById(`videoPreview${i}`);
+                        if (previewVideo) previewVideo.src = '';
+                    }
+                });
+            }
+        }
+
+        // ========== СЧЕТЧИК ЗАГОЛОВКА ==========
+        const titleInput = document.querySelector('input[name="title"]');
+        const titleCounter = document.getElementById('titleCounter');
+        if (titleInput) {
+            titleInput.addEventListener('input', () => titleCounter.textContent = titleInput.value.length);
+            titleCounter.textContent = titleInput.value.length;
+        }
+
+        // ========== ФОРМАТИРОВАНИЕ ==========
+        const textarea = document.querySelector('textarea[name="content"]');
+        const formats = {
+            'bold': { prefix: '**', suffix: '**', placeholder: 'жирный' },
+            'italic': { prefix: '*', suffix: '*', placeholder: 'курсив' },
+            'strikethrough': { prefix: '~~', suffix: '~~', placeholder: 'зачеркнутый' },
+            'list-ul': { prefix: '- ', suffix: '', placeholder: 'элемент' },
+            'list-ol': { prefix: '1. ', suffix: '', placeholder: 'элемент' },
+            'quote': { prefix: '> ', suffix: '', placeholder: 'цитата' },
+            'code': { prefix: '`', suffix: '`', placeholder: 'код' },
+            'spoiler': { prefix: '||', suffix: '||', placeholder: 'спойлер' }
+        };
+
+        document.querySelectorAll('.toolbar-btn[data-format]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const format = this.dataset.format;
+                if (format === 'link') return openLinkModal();
+                if (format === 'image') return openImageModal();
+                const f = formats[format];
+                if (f) {
+                    const s = textarea.selectionStart, e = textarea.selectionEnd;
+                    const t = textarea.value.substring(s, e) || f.placeholder;
+                    const r = f.prefix + t + f.suffix;
+                    textarea.value = textarea.value.substring(0, s) + r + textarea.value.substring(e);
+                    textarea.focus();
+                    textarea.setSelectionRange(s + r.length, s + r.length);
+                }
+            });
+        });
+
+        // ========== МОДАЛКИ ==========
+        function insertAtCursor(text) {
+            const s = textarea.selectionStart;
+            textarea.value = textarea.value.substring(0, s) + text + textarea.value.substring(textarea.selectionEnd);
+            textarea.focus();
+        }
+
+        window.openLinkModal = () => document.getElementById('linkModal').style.display = 'flex';
+        window.closeLinkModal = () => document.getElementById('linkModal').style.display = 'none';
+        window.insertLink = () => {
+            insertAtCursor(`[${document.getElementById('linkText').value || 'ссылка'}](${document.getElementById('linkUrl').value || '#'})`);
+            closeLinkModal();
+            document.getElementById('linkText').value = '';
+            document.getElementById('linkUrl').value = '';
+        };
+
+        window.openImageModal = () => document.getElementById('imageModal').style.display = 'flex';
+        window.closeImageModal = () => document.getElementById('imageModal').style.display = 'none';
+        window.insertImage = () => {
+            insertAtCursor(`![${document.getElementById('imageAlt').value || 'изображение'}](${document.getElementById('imageUrl').value || '#'})`);
+            closeImageModal();
+            document.getElementById('imageAlt').value = '';
+            document.getElementById('imageUrl').value = '';
+        };
+
+        // ========== ПРЕДПРОСМОТР ==========
+        let previewMode = false;
+        const previewBtn = document.getElementById('previewBtn');
+        const previewDiv = document.getElementById('contentPreview');
+
+        if (previewBtn) {
+            previewBtn.addEventListener('click', async function() {
+                previewMode = !previewMode;
+                if (previewMode) {
+                    previewDiv.innerHTML = '<p>Загрузка...</p>';
+                    previewDiv.style.display = 'block';
+                    textarea.style.display = 'none';
+                    try {
+                        const r = await fetch('/posts/preview/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+                            body: JSON.stringify({ content: textarea.value })
+                        });
+                        const data = await r.json();
+                        previewDiv.innerHTML = data.html || '<p>Ошибка рендеринга</p>';
+                    } catch {
+                        previewDiv.innerHTML = '<p>Ошибка загрузки предпросмотра</p>';
+                    }
+                    this.innerHTML = '<i data-feather="edit-2"></i>';
+                } else {
+                    previewDiv.style.display = 'none';
+                    textarea.style.display = 'block';
+                    this.innerHTML = '<i data-feather="eye"></i>';
+                }
+                feather.replace();
+            });
+        }
+
+        // ========== СПРАВКА ==========
+        const helpDiv = document.getElementById('markdownHelp');
+        const helpBtn = document.getElementById('helpBtn');
+        const closeHelpBtn = document.getElementById('closeHelpBtn');
+
+        if (helpBtn) {
+            helpBtn.addEventListener('click', () => {
+                if (helpDiv) helpDiv.style.display = helpDiv.style.display === 'none' ? 'block' : 'none';
+            });
+        }
+        if (closeHelpBtn) {
+            closeHelpBtn.addEventListener('click', () => {
+                if (helpDiv) helpDiv.style.display = 'none';
+            });
+        }
+
+        // =====================================================================
+        // ========== ТЕГИ ====================================================
+        // =====================================================================
+        const tagsHiddenInput = document.getElementById('tagsInput');
+        const selectedTagsContainer = document.getElementById('selectedTags');
+        const tagSearchInput = document.getElementById('tagSearchInput');
+        const tagSearchResults = document.getElementById('tagSearchResults');
+        const showCreateTagBtn = document.getElementById('showCreateTagBtn');
+        const createTagForm = document.getElementById('createTagForm');
+        const cancelCreateTagBtn = document.getElementById('cancelCreateTagBtn');
+        const createTagBtn = document.getElementById('createTagBtn');
+        const newTagNameInput = document.getElementById('newTagName');
+        const tagCreateMessage = document.getElementById('tagCreateMessage');
+
+        let selectedTags = [];
+        let searchTimeout;
+
+        // Инициализация
+        function initTags() {
+            const val = tagsHiddenInput.value.trim();
+            if (val) {
+                selectedTags = val.split(',').map(t => t.trim()).filter(Boolean);
+            }
+            renderTags();
+        }
+        initTags();
+
+        function renderTags() {
+            if (!selectedTagsContainer) return;
+            selectedTagsContainer.innerHTML = '';
+
+            selectedTags.forEach(tag => {
+                const span = document.createElement('span');
+                span.className = 'selected-tag';
+                span.innerHTML = `#${escapeHtml(tag)} <i data-feather="x"></i>`;
+                span.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    removeTag(tag);
+                });
+                selectedTagsContainer.appendChild(span);
+            });
+
+            if (typeof feather !== 'undefined') feather.replace();
+            if (tagsHiddenInput) tagsHiddenInput.value = selectedTags.join(', ');
+        }
+
+        function removeTag(tag) {
+            selectedTags = selectedTags.filter(t => t !== tag);
+            renderTags();
+        }
+
+        function addTag(tag) {
+            if (selectedTags.length >= 5) {
+                showMessage('Максимум 5 тегов', 'error');
+                return;
+            }
+            if (!selectedTags.includes(tag)) {
+                selectedTags.push(tag);
+                renderTags();
+            }
+            if (tagSearchInput) tagSearchInput.value = '';
+            if (tagSearchResults) tagSearchResults.style.display = 'none';
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showMessage(msg, type = 'info') {
+            const toast = document.createElement('div');
+            toast.textContent = msg;
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: ${type === 'error' ? '#ef4444' : '#22c55e'};
+                color: white;
+                padding: 10px 20px;
+                border-radius: 10px;
+                z-index: 10000;
+                font-size: 14px;
+                animation: fadeInUp 0.3s ease;
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // Поиск тегов
+        if (tagSearchInput) {
+            tagSearchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                const q = this.value.trim();
+
+                if (!q || q.length < 2) {
+                    if (tagSearchResults) tagSearchResults.style.display = 'none';
+                    return;
+                }
+
+                searchTimeout = setTimeout(async () => {
+                    try {
+                        const r = await fetch(`/tags/search/?q=${encodeURIComponent(q)}`);
+                        const data = await r.json();
+
+                        if (tagSearchResults) {
+                            if (data.tags && data.tags.length > 0) {
+                                tagSearchResults.innerHTML = data.tags.map(t =>
+                                    `<div class="tag-search-item ${selectedTags.includes(t.name) ? 'selected' : ''}" data-tag="${escapeHtml(t.name)}">
+                                        <span class="tag-search-name">#${escapeHtml(t.name)}</span>
+                                        <span class="tag-search-count">${t.posts_count || 0} постов</span>
+                                    </div>`
+                                ).join('');
+
+                                tagSearchResults.querySelectorAll('.tag-search-item').forEach(item => {
+                                    item.addEventListener('click', function() {
+                                        const tn = this.dataset.tag;
+                                        if (selectedTags.includes(tn)) {
+                                            removeTag(tn);
+                                        } else {
+                                            addTag(tn);
+                                        }
+                                    });
+                                });
+                            } else {
+                                tagSearchResults.innerHTML = `<div class="tag-no-results">Ничего не найдено</div>`;
+                            }
+                            tagSearchResults.style.display = 'block';
+                        }
+                    } catch (error) {
+                        console.error('Ошибка поиска:', error);
+                        if (tagSearchResults) tagSearchResults.style.display = 'none';
+                    }
+                }, 300);
+            });
+        }
+
+        // Скрыть результаты при клике вне
+        document.addEventListener('click', function(e) {
+            if (tagSearchInput && tagSearchResults &&
+                !tagSearchInput.contains(e.target) &&
+                !tagSearchResults.contains(e.target)) {
+                tagSearchResults.style.display = 'none';
+            }
+        });
+
+        // Создание тега
+        if (showCreateTagBtn && createTagForm) {
+            showCreateTagBtn.addEventListener('click', function() {
+                createTagForm.style.display = 'flex';
+                showCreateTagBtn.style.display = 'none';
+                if (newTagNameInput) newTagNameInput.focus();
+            });
+        }
+
+        if (cancelCreateTagBtn) {
+            cancelCreateTagBtn.addEventListener('click', function() {
+                if (createTagForm) createTagForm.style.display = 'none';
+                if (showCreateTagBtn) showCreateTagBtn.style.display = 'inline-flex';
+                if (newTagNameInput) newTagNameInput.value = '';
+                if (tagCreateMessage) tagCreateMessage.style.display = 'none';
+            });
+        }
+
+        if (createTagBtn) {
+            createTagBtn.addEventListener('click', async function() {
+                const name = newTagNameInput ? newTagNameInput.value.trim() : '';
+
+                if (!name || name.length < 2) {
+                    showMessage('Минимум 2 символа', 'error');
+                    return;
+                }
+                if (name.length > 30) {
+                    showMessage('Максимум 30 символов', 'error');
+                    return;
+                }
+
+                this.disabled = true;
+
+                try {
+                    const fd = new FormData();
+                    fd.append('name', name);
+
+                    const r = await fetch('/tags/create/', {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': getCookie('csrftoken') },
+                        body: fd
+                    });
+
+                    const data = await r.json();
+
+                    if (data.success) {
+                        addTag(data.tag.name);
+                        if (tagCreateMessage) {
+                            tagCreateMessage.textContent = `Тег "#${data.tag.name}" создан`;
+                            tagCreateMessage.className = 'tag-create-message success';
+                            tagCreateMessage.style.display = 'block';
+                        }
+                        showMessage(`Тег #${data.tag.name} создан`, 'success');
+
+                        setTimeout(() => {
+                            if (createTagForm) createTagForm.style.display = 'none';
+                            if (showCreateTagBtn) showCreateTagBtn.style.display = 'inline-flex';
+                            if (newTagNameInput) newTagNameInput.value = '';
+                            if (tagCreateMessage) tagCreateMessage.style.display = 'none';
+                        }, 1500);
+                    } else {
+                        showMessage(data.error || 'Ошибка при создании', 'error');
+                    }
+                } catch (error) {
+                    console.error('Ошибка:', error);
+                    showMessage('Ошибка сети', 'error');
+                } finally {
+                    this.disabled = false;
                 }
             });
         }
 
-        const changeBtn = document.querySelector(`.change-video-btn[data-video="${i}"]`);
-        if (changeBtn) {
-            changeBtn.addEventListener('click', () => {
-                const fieldName = i === 1 ? 'video' : `video${i}`;
-                const input = document.querySelector(`input[name="${fieldName}"]`);
-                if (input) input.click();
+        // ========== ЗАКРЫТИЕ МОДАЛОК ==========
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) this.style.display = 'none';
             });
-        }
+        });
 
-        const removeBtn = document.querySelector(`.remove-video-btn[data-video="${i}"]`);
-        if (removeBtn) {
-            removeBtn.addEventListener('click', () => {
-                const fieldName = i === 1 ? 'video' : `video${i}`;
-                const input = document.querySelector(`input[name="${fieldName}"]`);
-                if (input) {
-                    input.value = '';
-                    const placeholder = document.getElementById(`videoPlaceholder${i}`);
-                    if (placeholder) placeholder.style.display = 'flex';
-                    const container = document.getElementById(`videoPreviewContainer${i}`);
-                    if (container) container.style.display = 'none';
-                    const previewVideo = document.getElementById(`videoPreview${i}`);
-                    if (previewVideo) previewVideo.src = '';
-                }
-            });
-        }
-    }
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const linkModal = document.getElementById('linkModal');
+                const imageModal = document.getElementById('imageModal');
+                if (linkModal) linkModal.style.display = 'none';
+                if (imageModal) imageModal.style.display = 'none';
+            }
+        });
 
-    // ========== СЧЕТЧИК ==========
-    const titleInput = document.querySelector('input[name="title"]');
-    const titleCounter = document.getElementById('titleCounter');
-    if (titleInput && titleCounter) {
-        titleInput.addEventListener('input', () => titleCounter.textContent = titleInput.value.length);
-        titleCounter.textContent = titleInput.value.length;
-    }
+        // ========== HELPER ==========
+        function getCookie(name) {
+            let v = null;
+            if (document.cookie) {
+                document.cookie.split(';').forEach(c => {
+                    c = c.trim();
+                    if (c.startsWith(name + '=')) v = decodeURIComponent(c.substring(name.length + 1));
+                });
+            }
+            return v;
+        }
+    });
+</script>
+<script>
+// ========== ОПРОСЫ: ДОБАВЛЕНИЕ ВАРИАНТОВ ==========
+const enablePollCheckbox = document.getElementById('enablePollCheckbox');
+const pollFormContainer = document.getElementById('pollFormContainer');
+
+if (enablePollCheckbox) {
+    enablePollCheckbox.addEventListener('change', function() {
+        pollFormContainer.style.display = this.checked ? 'block' : 'none';
+    });
+}
+
+let nextOptionRow = 3;
+const addOptionBtn = document.getElementById('addPollOptionBtn');
+
+if (addOptionBtn) {
+    addOptionBtn.addEventListener('click', function() {
+        if (nextOptionRow <= 10) {
+            const row = document.getElementById(`optionRow${nextOptionRow}`);
+            if (row) {
+                row.style.display = 'flex';
+                row.style.gap = '8px';
+                nextOptionRow++;
+            }
+        }
+        if (nextOptionRow > 10) {
+            addOptionBtn.disabled = true;
+            addOptionBtn.style.opacity = '0.5';
+        }
+    });
+}
+
+// Обработчики удаления вариантов
+document.querySelectorAll('.remove-option-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        const row = this.closest('.poll-option-row');
+        const input = row.querySelector('input');
+        if (input) input.value = '';
+        row.style.display = 'none';
+        nextOptionRow--;
+        const addBtn = document.getElementById('addPollOptionBtn');
+        if (addBtn) {
+            addBtn.disabled = false;
+            addBtn.style.opacity = '1';
+        }
+    });
 });
 </script>
 {% endblock %}

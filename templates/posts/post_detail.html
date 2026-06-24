@@ -407,6 +407,17 @@
             <div class="cmt-body">
                 <div class="cmt-top"><span class="cmt-author">{{ comment.author.get_full_name|default:comment.author.username }}</span> <span class="cmt-time">{{ comment.created_at|date:"j E Y H:i" }}</span></div>
                 <div class="cmt-text">{{ comment.content|linebreaks }}</div>
+                {% if comment.image %}
+                    <div class="cmt-media" style="margin-top: 8px;">
+                        <img src="{{ comment.image.url }}" alt="Изображение в комментарии" style="max-width: 100%; max-height: 300px; border-radius: 8px; object-fit: cover;">
+                    </div>
+                {% endif %}
+
+                {% if comment.video %}
+                    <div class="cmt-media" style="margin-top: 8px;">
+                        <video src="{{ comment.video.url }}" controls preload="metadata" style="max-width: 100%; max-height: 300px; border-radius: 8px;"></video>
+                    </div>
+                {% endif %}
                 <div class="cmt-row">
                     <button class="cmt-like {% if comment.id in liked_comment_ids %}active{% endif %}" data-comment-id="{{ comment.id }}" onclick="likeComment({{ comment.id }},this)">❤️ <span>{{ comment.likes_count }}</span></button>
                     <button class="cmt-reply" onclick="showReplyForm({{ comment.id }})"><i data-feather="corner-up-left" style="width:14px;height:14px"></i> Ответить</button>

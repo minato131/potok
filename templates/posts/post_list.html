@@ -736,6 +736,25 @@ window.loadComments = async function(pid, limit=null){
                 h += allComments[i].outerHTML;
             }
             inner.innerHTML = h;
+            inner.querySelectorAll('.cmt-card').forEach(card => {
+                // Проверяем, есть ли у комментария медиа
+                const commentId = card.id ? card.id.replace('comment-', '') : null;
+                if (commentId) {
+                    // Ищем медиа в загруженных данных
+                    const cmtData = allComments[i]?.querySelector('.cmt-media');
+                    if (cmtData) {
+                        const existingMedia = card.querySelector('.cmt-media');
+                        if (!existingMedia) {
+                            const cmtBody = card.querySelector('.cmt-body');
+                            if (cmtBody) {
+                                // Копируем медиа из оригинального DOM
+                                const mediaClone = cmtData.cloneNode(true);
+                                cmtBody.appendChild(mediaClone);
+                            }
+                        }
+                    }
+                }
+            });
             feather.replace();
 
             // Обработчики для меню комментариев

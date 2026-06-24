@@ -471,40 +471,71 @@ def community_post_create(request, slug):
         return redirect('communities:community_detail', slug=community.slug)
 
     if request.method == 'POST':
-        form = CommunityPostForm(request.POST, request.FILES)
+        # ИСПОЛЬЗУЕМ ТУ ЖЕ ФОРМУ, ЧТО И В ЛЕНТЕ
+        from posts.forms import PostForm
+        form = PostForm(request.POST, request.FILES)
+
         if form.is_valid():
-            try:
-                post = form.save(community, request.user)
-                community.update_stats()
+            post = form.save(commit=False)
+            post.author = request.user
+            post.status = 'published'
+            post.save()
 
-                # ========== УВЕДОМЛЕНИЕ УЧАСТНИКАМ ==========
-                from accounts.utils import create_notification
-                members = CommunityMembership.objects.filter(
-                    community=community,
-                    status='active'
-                ).exclude(user=request.user).select_related('user')[:50]
-                for member in members:
-                    create_notification(
-                        recipient=member.user,
-                        sender=request.user,
-                        notification_type='community_post',
-                        title='📝 Новый пост в сообществе',
-                        message=f'{request.user.username} опубликовал пост в "{community.name}": {post.title[:50]}',
-                        link=f'/post/{post.pk}/'
-                    )
+            # Обработка тегов
+            tags_str = request.POST.get('tags', '') or request.POST.get('tags_input', '')
+            if tags_str:
+                from django.utils.text import slugify
+                from posts.models import Tag
+                import uuid
+                tag_names = [t.strip().lower() for t in tags_str.split(',') if t.strip()]
+                for tag_name in tag_names:
+                    tag = Tag.objects.filter(name__iexact=tag_name).first()
+                    if not tag:
+                        slug = slugify(tag_name)
+                        if not slug:
+                            slug = f"tag-{uuid.uuid4().hex[:8]}"
+                        if Tag.objects.filter(slug=slug).exists():
+                            slug = f"{slug}-{uuid.uuid4().hex[:4]}"
+                        tag = Tag.objects.create(name=tag_name, slug=slug)
+                    post.tags.add(tag)
 
-                messages.success(request, 'Пост успешно опубликован в сообществе!')
-                return redirect('posts:post_detail', pk=post.pk)
-            except Exception as e:
-                messages.error(request, f'Ошибка при сохранении: {str(e)}')
-                print("Ошибка сохранения:", e)
+            # Связываем с сообществом
+            from communities.models import CommunityPost
+            CommunityPost.objects.create(
+                community=community,
+                post=post,
+                is_pinned=False,
+                is_announcement=False
+            )
+
+            community.update_stats()
+
+            # Уведомления участникам
+            from accounts.utils import create_notification
+            members = CommunityMembership.objects.filter(
+                community=community,
+                status='active'
+            ).exclude(user=request.user).select_related('user')[:50]
+
+            for member in members:
+                create_notification(
+                    recipient=member.user,
+                    sender=request.user,
+                    notification_type='community_post',
+                    title='📝 Новый пост в сообществе',
+                    message=f'{request.user.username} опубликовал пост в "{community.name}": {post.title[:50]}',
+                    link=f'/post/{post.pk}/'
+                )
+
+            messages.success(request, 'Пост успешно опубликован в сообществе!')
+            return redirect('posts:post_detail', pk=post.pk)
         else:
             for field, errors in form.errors.items():
                 for error in errors:
                     messages.error(request, f'{field}: {error}')
-            print("Ошибки формы:", form.errors)
     else:
-        form = CommunityPostForm()
+        from posts.forms import PostForm
+        form = PostForm()
 
     return render(request, 'communities/community_post_create.html', {
         'form': form,
