@@ -1128,7 +1128,8 @@ def follow_view(request, user_id):
             link=f'/accounts/profile/{request.user.username}/'
         )
 
-    follower_count = target_user.profile_followers.count()
+    # ========== ИСПРАВЛЕННЫЙ ПОДСЧЁТ ==========
+    follower_count = Follow.objects.filter(following=target_user).count()
 
     return JsonResponse({
         'status': status,
