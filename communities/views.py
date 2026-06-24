@@ -477,15 +477,12 @@ def community_post_create(request, slug):
                 post = form.save(community, request.user)
                 community.update_stats()
 
-                # ========== УВЕДОМЛЕНИЕ УЧАСТНИКАМ СООБЩЕСТВА ==========
+                # ========== УВЕДОМЛЕНИЕ УЧАСТНИКАМ ==========
                 from accounts.utils import create_notification
-
-                # Получаем активных участников сообщества (кроме автора)
                 members = CommunityMembership.objects.filter(
                     community=community,
                     status='active'
-                ).exclude(user=request.user).select_related('user')[:50]  # Ограничим 50, чтобы не спамить
-
+                ).exclude(user=request.user).select_related('user')[:50]
                 for member in members:
                     create_notification(
                         recipient=member.user,
@@ -507,8 +504,7 @@ def community_post_create(request, slug):
                     messages.error(request, f'{field}: {error}')
             print("Ошибки формы:", form.errors)
     else:
-        initial_data = {}
-        form = CommunityPostForm(initial=initial_data)
+        form = CommunityPostForm()
 
     return render(request, 'communities/community_post_create.html', {
         'form': form,

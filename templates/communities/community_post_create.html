@@ -1,524 +1,306 @@
-<!-- templates/communities/community_post_create.html -->
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Создать пост · {{ community.name }} · Поток{% endblock %}
-{% block page_title %}Создать пост в {{ community.name }}{% endblock %}
+{% block title %}Новый пост в {{ community.name }} · Поток{% endblock %}
+{% block page_title %}Новый пост в «{{ community.name }}»{% endblock %}
 
 {% block content %}
 <div class="post-create-container">
-    <div class="community-context">
-        <a href="{% url 'communities:community_detail' slug=community.slug %}" class="back-link">
-            <i data-feather="arrow-left"></i>
-            <span>Вернуться в сообщество</span>
-        </a>
-        <div class="community-badge">
-            <div class="community-avatar-tiny">
-                {% if community.avatar %}
-                <img src="{{ community.avatar.url }}" alt="{{ community.name }}">
-                {% else %}
-                <div class="avatar-placeholder">{{ community.name|make_list|first|upper }}</div>
-                {% endif %}
-            </div>
-            <span>{{ community.name }}</span>
-        </div>
-    </div>
-
     <form method="post" enctype="multipart/form-data" class="post-form" id="postForm" novalidate>
         {% csrf_token %}
 
-        <div class="form-group">
-            <label for="{{ form.title.id_for_label }}" class="form-label">
-                Заголовок
-                <span class="required">*</span>
-            </label>
-            <input type="text" name="title" id="{{ form.title.id_for_label }}" class="form-input" value="{{ form.title.value|default:'' }}" maxlength="200" required>
-            <div class="field-hint">
-                <span class="char-counter">
-                    <span id="titleCounter">0</span>/200
-                </span>
+        <!-- Заголовок -->
+        <div class="form-section">
+            <div class="form-group">
+                <label for="{{ form.title.id_for_label }}" class="form-label">
+                    <i data-feather="type"></i>
+                    Заголовок
+                    <span class="required">*</span>
+                </label>
+                {{ form.title }}
+                <div class="field-hint">
+                    <span class="char-counter">
+                        <span id="titleCounter">0</span>/200
+                    </span>
+                </div>
             </div>
-            {% if form.title.errors %}
-            <div class="form-error">{{ form.title.errors.0 }}</div>
-            {% endif %}
         </div>
 
-        <!-- Тип контента -->
-        <div class="form-group">
-            <label class="form-label">Тип контента</label>
-            <div class="content-type-selector">
-                <button type="button" class="content-type-btn active" data-type="text">
-                    <i data-feather="file-text"></i>
-                    <span>Текст</span>
+        <!-- Текст -->
+        <div class="form-section">
+            <div class="form-group">
+                <label for="{{ form.content.id_for_label }}" class="form-label">
+                    <i data-feather="message-square"></i>
+                    Текст поста
+                </label>
+                {{ form.content }}
+            </div>
+        </div>
+
+        <!-- Медиа -->
+        <div class="form-section form-section--media">
+            <h3 class="section-title">
+                <i data-feather="image"></i>
+                Медиа-контент
+            </h3>
+
+            <div class="media-tabs">
+                <button type="button" class="media-tab active" data-tab="photo">
+                    <i data-feather="camera"></i>
+                    Фото (до 5)
                 </button>
-                <button type="button" class="content-type-btn" data-type="image">
-                    <i data-feather="image"></i>
-                    <span>Изображение</span>
-                </button>
-                <button type="button" class="content-type-btn" data-type="video">
+                <button type="button" class="media-tab" data-tab="video">
                     <i data-feather="video"></i>
-                    <span>Видео</span>
-                </button>
-                <button type="button" class="content-type-btn" data-type="mixed">
-                    <i data-feather="grid"></i>
-                    <span>Текст + Медиа</span>
+                    Видео (до 2)
                 </button>
             </div>
-        </div>
 
-        <!-- Текст поста -->
-        <div class="form-group content-group" id="textGroup">
-            <label for="{{ form.content.id_for_label }}" class="form-label">Текст поста</label>
-            <div class="editor-toolbar">
-                <button type="button" class="toolbar-btn" data-format="bold" title="Жирный (Ctrl+B)">
-                    <i data-feather="bold"></i>
-                </button>
-                <button type="button" class="toolbar-btn" data-format="italic" title="Курсив (Ctrl+I)">
-                    <i data-feather="italic"></i>
-                </button>
-                <button type="button" class="toolbar-btn" data-format="link" title="Ссылка (Ctrl+K)">
-                    <i data-feather="link"></i>
-                </button>
-                <button type="button" class="toolbar-btn" data-format="list" title="Список">
-                    <i data-feather="list"></i>
-                </button>
-                <button type="button" class="toolbar-btn" data-format="code" title="Код">
-                    <i data-feather="code"></i>
-                </button>
-                <button type="button" class="toolbar-btn" data-format="quote" title="Цитата">
-                    <i data-feather="quote"></i>
-                </button>
+            <!-- Фото -->
+            <div class="media-panel active" id="photoPanel">
+                <div class="photos-grid" style="display: grid; gap: 1rem;">
+                    {% for i in "12345"|make_list %}
+                    <div class="photo-upload-area" id="photoUploadArea{{ i }}">
+                        <input type="file" name="{% if i == '1' %}image{% else %}image{{ i }}{% endif %}" accept="image/*" class="photo-input">
+                        <div class="upload-placeholder" id="photoPlaceholder{{ i }}">
+                            <i data-feather="upload-cloud"></i>
+                            <span>Фото {{ i }}</span>
+                            <span class="upload-hint">PNG, JPG, GIF до 10MB</span>
+                        </div>
+                        <div class="photo-preview-container" id="photoPreviewContainer{{ i }}" style="display: none;">
+                            <img id="photoPreview{{ i }}" src="" alt="Preview">
+                            <div class="preview-actions">
+                                <button type="button" class="preview-btn change-photo-btn" data-photo="{{ i }}">
+                                    <i data-feather="edit"></i> Изменить
+                                </button>
+                                <button type="button" class="preview-btn preview-btn--danger remove-photo-btn" data-photo="{{ i }}">
+                                    <i data-feather="trash-2"></i> Удалить
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
-            <textarea name="content" id="{{ form.content.id_for_label }}" class="form-textarea" rows="8">{{ form.content.value|default:'' }}</textarea>
-            <div class="field-hint">
-                <span>Поддерживается Markdown разметка</span>
-                <span class="char-counter-text"><span id="contentCounter">0</span> символов</span>
-            </div>
-            {% if form.content.errors %}
-            <div class="form-error">{{ form.content.errors.0 }}</div>
-            {% endif %}
-        </div>
 
-        <!-- Загрузка изображения -->
-        <div class="form-group content-group" id="imageGroup" style="display: none;">
-            <label class="form-label">Изображение</label>
-            <div class="media-upload-area" id="imageUploadArea">
-                <input type="file" name="image" id="id_image" accept="image/jpeg,image/png,image/gif,image/webp" style="display: none;">
-                <div class="upload-placeholder" id="imagePlaceholder">
-                    <i data-feather="image"></i>
-                    <span>Нажмите или перетащите изображение</span>
-                    <span class="upload-hint">PNG, JPG, GIF, WEBP до 10MB</span>
+            <!-- Видео -->
+            <div class="media-panel" id="videoPanel">
+                {% for i in "12"|make_list %}
+                <div class="video-upload-area" id="videoUploadArea{{ i }}" style="margin-bottom: 1rem;">
+                    <input type="file" name="{% if i == '1' %}video{% else %}video{{ i }}{% endif %}" accept="video/*" class="video-input">
+                    <div class="upload-placeholder" id="videoPlaceholder{{ i }}">
+                        <i data-feather="video"></i>
+                        <span>Видео {{ i }}</span>
+                        <span class="upload-hint">MP4, WebM до 100MB</span>
+                    </div>
+                    <div class="video-preview-container" id="videoPreviewContainer{{ i }}" style="display: none;">
+                        <video id="videoPreview{{ i }}" controls><source src=""></video>
+                        <div class="preview-actions">
+                            <button type="button" class="preview-btn change-video-btn" data-video="{{ i }}">
+                                <i data-feather="edit"></i> Изменить
+                            </button>
+                            <button type="button" class="preview-btn preview-btn--danger remove-video-btn" data-video="{{ i }}">
+                                <i data-feather="trash-2"></i> Удалить
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <div class="media-preview-container" id="imagePreviewContainer" style="display: none;">
-                    <img id="imagePreview" src="" alt="Preview">
-                    <button type="button" class="remove-media" id="removeImageBtn">
-                        <i data-feather="x"></i>
-                    </button>
-                </div>
+                {% endfor %}
             </div>
-        </div>
-
-        <!-- Загрузка видео -->
-        <div class="form-group content-group" id="videoGroup" style="display: none;">
-            <label class="form-label">Видео</label>
-            <div class="media-upload-area" id="videoUploadArea">
-                <input type="file" name="video" id="id_video" accept="video/mp4,video/webm,video/quicktime" style="display: none;">
-                <div class="upload-placeholder" id="videoPlaceholder">
-                    <i data-feather="video"></i>
-                    <span>Нажмите или перетащите видео</span>
-                    <span class="upload-hint">MP4, WEBM, MOV до 100MB</span>
-                </div>
-                <div class="media-preview-container" id="videoPreviewContainer" style="display: none;">
-                    <video id="videoPreview" controls style="max-width: 100%; max-height: 300px;">
-                        <source id="videoSource" src="">
-                    </video>
-                    <button type="button" class="remove-media" id="removeVideoBtn">
-                        <i data-feather="x"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Смешанный тип -->
-        <div class="form-group content-group" id="mixedGroup" style="display: none;">
-            <label class="form-label">Медиафайлы</label>
-            <div class="mixed-upload-area">
-                <div class="mixed-upload-row">
-                    <button type="button" class="btn btn--outline btn--sm" id="addImageMixedBtn">
-                        <i data-feather="image"></i> Добавить изображение
-                    </button>
-                    <button type="button" class="btn btn--outline btn--sm" id="addVideoMixedBtn">
-                        <i data-feather="video"></i> Добавить видео
-                    </button>
-                </div>
-                <div id="mixedFilesList" class="mixed-files-list"></div>
-            </div>
-            <div class="field-hint">Можно добавить несколько изображений и видео</div>
         </div>
 
         <!-- Теги -->
-        <div class="form-group">
-            <label for="id_tags" class="form-label">Теги</label>
-            <input type="text" name="tags" id="id_tags" class="form-input" placeholder="python, django, программирование" value="{{ form.tags.value|default:'' }}">
-            <div class="field-hint">Разделяйте теги запятыми</div>
-            {% if form.tags.errors %}
-            <div class="form-error">{{ form.tags.errors.0 }}</div>
-            {% endif %}
+        <div class="form-section">
+            <div class="form-group">
+                <label class="form-label">
+                    <i data-feather="tag"></i>
+                    Теги
+                </label>
+                {{ form.tags }}
+                <div class="field-hint">Теги через запятую</div>
+            </div>
         </div>
 
-
+        <!-- Действия -->
         <div class="form-actions">
             <a href="{% url 'communities:community_detail' slug=community.slug %}" class="btn btn--outline">
-                <i data-feather="x"></i>
+                <i data-feather="arrow-left"></i>
                 Отмена
             </a>
-            <div class="form-actions-right">
-                <button type="submit" name="action" value="draft" class="btn btn--outline">
-                    <i data-feather="save"></i>
-                    Сохранить черновик
-                </button>
-                <button type="submit" name="action" value="publish" class="btn btn--primary">
-                    <i data-feather="send"></i>
-                    Опубликовать
-                </button>
-            </div>
-        </div>
-    </form>
-
-    <!-- Правила сообщества -->
-    {% if community.rules %}
-    <div class="community-rules-reminder">
-        <h3>
-            <i data-feather="alert-circle"></i>
-            Правила сообщества
-        </h3>
-        <div class="rules-preview">
-            {{ community.rules|truncatewords:30|linebreaks }}
-        </div>
-        <button type="button" class="btn btn--link" id="showFullRules">Показать полностью</button>
-    </div>
-    {% endif %}
-</div>
-
-<!-- Модальное окно с полными правилами -->
-<div class="modal-overlay" id="rulesModal">
-    <div class="modal">
-        <div class="modal-header">
-            <h3 class="modal-title">Правила {{ community.name }}</h3>
-            <button type="button" class="modal-close" id="closeRulesModal">
-                <i data-feather="x"></i>
+            <button type="submit" class="btn btn--primary">
+                <i data-feather="send"></i>
+                Опубликовать
             </button>
         </div>
-        <div class="modal-body">
-            <div class="rules-full">
-                {{ community.rules|linebreaks }}
-            </div>
-        </div>
-    </div>
+    </form>
 </div>
-{% endblock %}
 
-{% block extra_css %}
 <style>
-    .post-create-container { max-width: 800px; margin: 0 auto; }
-    .community-context { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
-    .back-link { display: flex; align-items: center; gap: 0.5rem; color: var(--color-text-secondary); text-decoration: none; transition: color 0.2s; }
-    .back-link:hover { color: var(--color-primary); }
-    .community-badge { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; background: var(--color-bg-surface); border-radius: 999px; border: 1px solid var(--color-border-light); }
-    .community-avatar-tiny { width: 1.5rem; height: 1.5rem; border-radius: 50%; overflow: hidden; }
-    .community-avatar-tiny img { width: 100%; height: 100%; object-fit: cover; }
-    .avatar-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--color-primary-light); color: var(--color-primary); font-weight: 600; }
-    .post-form { background: var(--color-bg-surface); border-radius: 16px; padding: 2rem; border: 1px solid var(--color-border-light); margin-bottom: 1.5rem; }
+    .post-create-container { max-width: 800px; margin: 0 auto; padding: 1.5rem 1rem; }
+    .post-form { background: var(--color-bg-surface); border-radius: 24px; padding: 2rem; border: 1px solid var(--color-border-light); }
+    .form-section { margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--color-border-light); }
+    .form-section:last-of-type { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .section-title { display: flex; align-items: center; gap: 0.5rem; font-size: 1rem; font-weight: 600; margin-bottom: 1.25rem; }
     .form-group { margin-bottom: 1.5rem; }
-    .form-label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+    .form-group:last-child { margin-bottom: 0; }
+    .form-label { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; font-weight: 500; }
+    .form-label i { width: 1rem; height: 1rem; color: var(--color-text-tertiary); }
     .required { color: var(--color-danger); }
-    .form-input, .form-textarea { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--color-border); border-radius: 12px; font-size: 0.9375rem; background: var(--color-bg-elevated); transition: all 0.2s; }
-    .form-input:focus, .form-textarea:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-light); }
-    .form-textarea { resize: vertical; min-height: 150px; font-family: inherit; }
-    .field-hint { display: flex; justify-content: space-between; margin-top: 0.375rem; font-size: 0.75rem; color: var(--color-text-tertiary); }
+    .form-input, .form-textarea, .form-select { width: 100%; padding: 0.875rem 1rem; border: 1.5px solid var(--color-border); border-radius: 12px; font-size: 0.9375rem; background: var(--color-bg-surface); transition: all 0.2s; }
+    .form-input:focus, .form-textarea:focus, .form-select:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-light); }
+    .form-textarea { min-height: 200px; resize: vertical; font-family: inherit; }
+    .field-hint { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.375rem; font-size: 0.8125rem; color: var(--color-text-tertiary); }
+    .char-counter { margin-left: auto; font-family: monospace; }
 
-    /* Типы контента */
-    .content-type-selector { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-    .content-type-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.2rem; background: var(--color-bg-elevated); border: 1px solid var(--color-border); border-radius: 12px; color: var(--color-text-secondary); cursor: pointer; transition: all 0.2s; }
-    .content-type-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-    .content-type-btn.active { background: var(--color-primary); border-color: var(--color-primary); color: white; }
-    .content-type-btn i { width: 1.2rem; height: 1.2rem; }
+    .media-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--color-border); }
+    .media-tab { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; background: none; border: none; color: var(--color-text-secondary); font-size: 0.9375rem; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+    .media-tab:hover { color: var(--color-text-primary); }
+    .media-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+    .media-panel { display: none; }
+    .media-panel.active { display: block; }
 
-    /* Редактор */
-    .editor-toolbar { display: flex; gap: 0.25rem; padding: 0.5rem; background: var(--color-bg-elevated); border-radius: 8px 8px 0 0; border: 1px solid var(--color-border); border-bottom: none; flex-wrap: wrap; }
-    .toolbar-btn { padding: 0.5rem; border-radius: 4px; color: var(--color-text-secondary); background: none; border: none; cursor: pointer; transition: all 0.2s; }
-    .toolbar-btn:hover { background: var(--color-border-light); color: var(--color-text-primary); }
+    .photo-upload-area, .video-upload-area { position: relative; border: 2px dashed var(--color-border); border-radius: 16px; transition: all 0.2s; cursor: pointer; min-height: 200px; }
+    .photo-upload-area:hover, .video-upload-area:hover { border-color: var(--color-primary); background: var(--color-primary-light); }
+    .photo-upload-area input[type="file"], .video-upload-area input[type="file"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+    .upload-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem; color: var(--color-text-tertiary); }
+    .upload-placeholder i { width: 3rem; height: 3rem; margin-bottom: 0.75rem; }
+    .upload-hint { font-size: 0.8125rem; margin-top: 0.25rem; }
+    .photo-preview-container, .video-preview-container { padding: 1.5rem; }
+    .photo-preview-container img { width: 100%; max-height: 400px; object-fit: contain; border-radius: 12px; }
+    .video-preview-container video { width: 100%; max-height: 400px; border-radius: 12px; }
+    .preview-actions { display: flex; gap: 0.75rem; margin-top: 1rem; justify-content: center; }
+    .preview-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1.25rem; background: var(--color-bg-surface); border: 1px solid var(--color-border); border-radius: 10px; color: var(--color-text-primary); font-size: 0.875rem; cursor: pointer; transition: all 0.2s; }
+    .preview-btn:hover { background: var(--color-bg-elevated); }
+    .preview-btn--danger { color: var(--color-danger); border-color: var(--color-danger-light); }
+    .preview-btn--danger:hover { background: var(--color-danger); color: white; }
 
-    /* Медиа загрузка */
-    .media-upload-area { border: 2px dashed var(--color-border); border-radius: 12px; transition: all 0.2s; cursor: pointer; }
-    .media-upload-area:hover { border-color: var(--color-primary); }
-    .media-upload-area.dragover { border-color: var(--color-primary); background: var(--color-primary-light); }
-    .upload-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; color: var(--color-text-tertiary); }
-    .upload-placeholder i { width: 2rem; height: 2rem; margin-bottom: 0.5rem; }
-    .upload-hint { font-size: 0.7rem; margin-top: 0.25rem; }
-    .media-preview-container { position: relative; padding: 1rem; }
-    .media-preview-container img, .media-preview-container video { width: 100%; max-height: 300px; object-fit: contain; border-radius: 8px; }
-    .remove-media { position: absolute; top: 0.5rem; right: 0.5rem; background: #ef4444; color: white; border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-
-    /* Смешанная загрузка */
-    .mixed-upload-area { padding: 1rem; background: var(--color-bg-elevated); border-radius: 12px; border: 1px solid var(--color-border); }
-    .mixed-upload-row { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
-    .mixed-files-list { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; }
-    .mixed-file-item { position: relative; width: 100px; border-radius: 8px; overflow: hidden; border: 1px solid var(--color-border); }
-    .mixed-file-item img, .mixed-file-item video { width: 100%; height: 80px; object-fit: cover; }
-    .remove-mixed-file { position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.6); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; }
-
-    /* Чекбокс */
-    .checkbox-label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
-    .checkbox-custom { width: 1.2rem; height: 1.2rem; border: 2px solid var(--color-border); border-radius: 4px; display: inline-block; position: relative; }
-    input[type="checkbox"] { display: none; }
-    input[type="checkbox"]:checked + .checkbox-custom::after { content: "✓"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.8rem; }
-
-    /* Кнопки */
     .form-actions { display: flex; align-items: center; justify-content: space-between; margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--color-border-light); }
-    .form-actions-right { display: flex; gap: 1rem; }
-    .btn { padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer; font-size: 0.875rem; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.5rem; }
-    .btn--outline { background: transparent; border: 1px solid var(--color-border); }
-    .btn--outline:hover { background: var(--color-bg-elevated); }
-    .btn--primary { background: var(--color-primary); border: none; color: white; }
-    .btn--primary:hover { background: var(--color-primary-hover); }
-    .btn--sm { padding: 0.4rem 0.8rem; font-size: 0.75rem; }
 
-    /* Правила */
-    .community-rules-reminder { background: var(--color-bg-surface); border-radius: 12px; padding: 1.5rem; border: 1px solid var(--color-border-light); }
-    .community-rules-reminder h3 { display: flex; align-items: center; gap: 0.5rem; font-size: 1rem; margin-bottom: 1rem; color: #f59e0b; }
-    .rules-preview { font-size: 0.875rem; color: var(--color-text-secondary); line-height: 1.6; margin-bottom: 0.5rem; }
-    .btn--link { background: none; color: var(--color-primary); padding: 0; border: none; cursor: pointer; }
-    .btn--link:hover { text-decoration: underline; }
-
-    /* Модалка */
-    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.2s; }
-    .modal-overlay.active { opacity: 1; visibility: visible; }
-    .modal { background: var(--color-bg-surface); border-radius: 16px; padding: 1.5rem; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; transform: scale(0.9); transition: transform 0.2s; }
-    .modal-overlay.active .modal { transform: scale(1); }
-    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-    .modal-close { background: none; border: none; cursor: pointer; color: var(--color-text-tertiary); }
-    .form-error { color: #ef4444; font-size: 0.75rem; margin-top: 0.25rem; }
-
-    @media (max-width: 768px) {
+    @media (max-width: 600px) {
         .post-form { padding: 1.5rem; }
+        .media-tabs { flex-wrap: wrap; }
         .form-actions { flex-direction: column; gap: 1rem; }
         .form-actions-right { width: 100%; flex-direction: column; }
-        .community-context { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
-        .content-type-selector { flex-wrap: wrap; }
     }
 </style>
-{% endblock %}
 
-{% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Скрипт загружен');
-
-    // Счетчики
-    const titleInput = document.getElementById('id_title');
-    const titleCounter = document.getElementById('titleCounter');
-    if (titleInput && titleCounter) {
-        titleInput.addEventListener('input', () => { titleCounter.textContent = titleInput.value.length; });
-        titleCounter.textContent = titleInput.value.length;
-    }
-
-    const contentTextarea = document.getElementById('id_content');
-    const contentCounter = document.getElementById('contentCounter');
-    if (contentTextarea && contentCounter) {
-        contentTextarea.addEventListener('input', () => { contentCounter.textContent = contentTextarea.value.length; });
-        contentCounter.textContent = contentTextarea.value.length;
-    }
-
-    // ========== ПРОВЕРКА СУЩЕСТВОВАНИЯ ЭЛЕМЕНТОВ ==========
-    console.log('id_image:', document.getElementById('id_image'));
-    console.log('imagePreview:', document.getElementById('imagePreview'));
-    console.log('imagePreviewContainer:', document.getElementById('imagePreviewContainer'));
-    console.log('imagePlaceholder:', document.getElementById('imagePlaceholder'));
-
-    // ========== ЗАГРУЗКА ИЗОБРАЖЕНИЯ ==========
-    const imageInput = document.getElementById('id_image');
-    const imagePreview = document.getElementById('imagePreview');
-    const imagePreviewContainer = document.getElementById('imagePreviewContainer');
-    const imagePlaceholder = document.getElementById('imagePlaceholder');
-    const imageUploadArea = document.getElementById('imageUploadArea');
-
-    if (imageInput) {
-        console.log('imageInput найден, добавляем обработчик');
-
-        imageInput.addEventListener('change', function(e) {
-            console.log('change событие сработало');
-            console.log('Выбранные файлы:', e.target.files);
-
-            if (e.target.files && e.target.files[0]) {
-                const file = e.target.files[0];
-                console.log('Файл:', file.name, file.type);
-
-                if (file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = function(ev) {
-                        console.log('Файл загружен, показываем превью');
-                        if (imagePreview) imagePreview.src = ev.target.result;
-                        if (imagePlaceholder) imagePlaceholder.style.display = 'none';
-                        if (imagePreviewContainer) imagePreviewContainer.style.display = 'block';
-                    };
-                    reader.readAsDataURL(file);
-                } else {
-                    alert('Пожалуйста, выберите изображение');
-                    imageInput.value = '';
-                }
-            }
-        });
-    } else {
-        console.log('imageInput НЕ найден! Проверьте ID элемента');
-    }
-
-    // Клик по области загрузки
-    if (imageUploadArea && imageInput) {
-        // Убираем старые обработчики
-        const newUploadArea = imageUploadArea.cloneNode(true);
-        imageUploadArea.parentNode.replaceChild(newUploadArea, imageUploadArea);
-
-        newUploadArea.addEventListener('click', function(e) {
-            if (e.target.closest('#removeImageBtn')) {
-                e.stopPropagation();
-                return;
-            }
-            console.log('Клик по области загрузки изображения');
-            imageInput.click();
-        });
-    }
-
-    // Кнопка удаления
-    const removeImageBtn = document.getElementById('removeImageBtn');
-    if (removeImageBtn) {
-        removeImageBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('Удаление изображения');
-            imageInput.value = '';
-            if (imagePlaceholder) imagePlaceholder.style.display = 'flex';
-            if (imagePreviewContainer) imagePreviewContainer.style.display = 'none';
-            if (imagePreview) imagePreview.src = '';
-        });
-    }
-
-    // ========== ЗАГРУЗКА ВИДЕО ==========
-    const videoInput = document.getElementById('id_video');
-    const videoPreview = document.getElementById('videoPreview');
-    const videoSource = document.getElementById('videoSource');
-    const videoPreviewContainer = document.getElementById('videoPreviewContainer');
-    const videoPlaceholder = document.getElementById('videoPlaceholder');
-    const videoUploadArea = document.getElementById('videoUploadArea');
-
-    if (videoInput) {
-        console.log('videoInput найден');
-
-        videoInput.addEventListener('change', function(e) {
-            console.log('video change событие');
-            if (e.target.files && e.target.files[0]) {
-                const file = e.target.files[0];
-                if (file.type.startsWith('video/')) {
-                    const url = URL.createObjectURL(file);
-                    if (videoSource) videoSource.src = url;
-                    if (videoPreview) videoPreview.load();
-                    if (videoPlaceholder) videoPlaceholder.style.display = 'none';
-                    if (videoPreviewContainer) videoPreviewContainer.style.display = 'block';
-                }
-            }
-        });
-    }
-
-    if (videoUploadArea && videoInput) {
-        const newVideoArea = videoUploadArea.cloneNode(true);
-        videoUploadArea.parentNode.replaceChild(newVideoArea, videoUploadArea);
-
-        newVideoArea.addEventListener('click', function(e) {
-            if (e.target.closest('#removeVideoBtn')) return;
-            console.log('Клик по области загрузки видео');
-            videoInput.click();
-        });
-    }
-
-    const removeVideoBtn = document.getElementById('removeVideoBtn');
-    if (removeVideoBtn) {
-        removeVideoBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            videoInput.value = '';
-            if (videoPlaceholder) videoPlaceholder.style.display = 'flex';
-            if (videoPreviewContainer) videoPreviewContainer.style.display = 'none';
-            if (videoSource) videoSource.src = '';
-        });
-    }
-
-    // ========== ПАНЕЛЬ ИНСТРУМЕНТОВ ==========
-    const toolbarBtns = document.querySelectorAll('.toolbar-btn');
-    const contentField = document.getElementById('id_content');
-
-    toolbarBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            if (!contentField) return;
-            const format = this.dataset.format;
-            const start = contentField.selectionStart;
-            const end = contentField.selectionEnd;
-            const selectedText = contentField.value.substring(start, end);
-            let formattedText = '';
-            let cursorOffset = 0;
-            switch(format) {
-                case 'bold': formattedText = `**${selectedText || 'жирный текст'}**`; cursorOffset = selectedText ? 0 : 2; break;
-                case 'italic': formattedText = `*${selectedText || 'курсив'}*`; cursorOffset = selectedText ? 0 : 1; break;
-                case 'link': formattedText = `[${selectedText || 'текст ссылки'}](url)`; cursorOffset = selectedText ? -4 : -3; break;
-                case 'list': formattedText = `\n- ${selectedText || 'элемент списка'}`; break;
-                case 'code': formattedText = `\`${selectedText || 'код'}\``; cursorOffset = selectedText ? 0 : 1; break;
-                case 'quote': formattedText = `> ${selectedText || 'цитата'}`; break;
-            }
-            contentField.value = contentField.value.substring(0, start) + formattedText + contentField.value.substring(end);
-            contentField.focus();
-            const newPosition = start + formattedText.length + cursorOffset;
-            contentField.setSelectionRange(newPosition, newPosition);
-            contentField.dispatchEvent(new Event('input'));
+    // ========== МЕДИА-ТАБЫ ==========
+    document.querySelectorAll('.media-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('.media-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.media-panel').forEach(p => p.classList.remove('active'));
+            this.classList.add('active');
+            document.getElementById(this.dataset.tab + 'Panel').classList.add('active');
         });
     });
 
-    // ========== ПЕРЕКЛЮЧЕНИЕ ТИПОВ КОНТЕНТА ==========
-    const contentTypeBtns = document.querySelectorAll('.content-type-btn');
-    const textGroup = document.getElementById('textGroup');
-    const imageGroup = document.getElementById('imageGroup');
-    const videoGroup = document.getElementById('videoGroup');
-    const mixedGroup = document.getElementById('mixedGroup');
+    // ========== ЗАГРУЗКА ФОТО ==========
+    for (let i = 1; i <= 5; i++) {
+        const fieldName = i === 1 ? 'image' : `image${i}`;
+        const photoInput = document.querySelector(`input[name="${fieldName}"]`);
+        if (photoInput) {
+            photoInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                const num = this.name === 'image' ? '1' : this.name.replace('image', '');
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const previewImg = document.getElementById(`photoPreview${num}`);
+                        if (previewImg) previewImg.src = e.target.result;
+                        const placeholder = document.getElementById(`photoPlaceholder${num}`);
+                        if (placeholder) placeholder.style.display = 'none';
+                        const container = document.getElementById(`photoPreviewContainer${num}`);
+                        if (container) container.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
 
-    function switchContentType(type) {
-        if (textGroup) textGroup.style.display = 'none';
-        if (imageGroup) imageGroup.style.display = 'none';
-        if (videoGroup) videoGroup.style.display = 'none';
-        if (mixedGroup) mixedGroup.style.display = 'none';
+        const changeBtn = document.querySelector(`.change-photo-btn[data-photo="${i}"]`);
+        if (changeBtn) {
+            changeBtn.addEventListener('click', () => {
+                const fieldName = i === 1 ? 'image' : `image${i}`;
+                const input = document.querySelector(`input[name="${fieldName}"]`);
+                if (input) input.click();
+            });
+        }
 
-        if (type === 'text') {
-            if (textGroup) textGroup.style.display = 'block';
-        } else if (type === 'image') {
-            if (textGroup) textGroup.style.display = 'block';
-            if (imageGroup) imageGroup.style.display = 'block';
-        } else if (type === 'video') {
-            if (textGroup) textGroup.style.display = 'block';
-            if (videoGroup) videoGroup.style.display = 'block';
-        } else if (type === 'mixed') {
-            if (textGroup) textGroup.style.display = 'block';
-            if (mixedGroup) mixedGroup.style.display = 'block';
+        const removeBtn = document.querySelector(`.remove-photo-btn[data-photo="${i}"]`);
+        if (removeBtn) {
+            removeBtn.addEventListener('click', () => {
+                const fieldName = i === 1 ? 'image' : `image${i}`;
+                const input = document.querySelector(`input[name="${fieldName}"]`);
+                if (input) {
+                    input.value = '';
+                    const placeholder = document.getElementById(`photoPlaceholder${i}`);
+                    if (placeholder) placeholder.style.display = 'flex';
+                    const container = document.getElementById(`photoPreviewContainer${i}`);
+                    if (container) container.style.display = 'none';
+                    const previewImg = document.getElementById(`photoPreview${i}`);
+                    if (previewImg) previewImg.src = '';
+                }
+            });
         }
     }
 
-    contentTypeBtns.forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            contentTypeBtns.forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            switchContentType(this.dataset.type);
-        });
-    });
+    // ========== ЗАГРУЗКА ВИДЕО ==========
+    for (let i = 1; i <= 2; i++) {
+        const fieldName = i === 1 ? 'video' : `video${i}`;
+        const videoInput = document.querySelector(`input[name="${fieldName}"]`);
+        if (videoInput) {
+            videoInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                const num = this.name === 'video' ? '1' : this.name.replace('video', '');
+                if (file) {
+                    const previewVideo = document.getElementById(`videoPreview${num}`);
+                    if (previewVideo) {
+                        previewVideo.src = URL.createObjectURL(file);
+                        previewVideo.load();
+                    }
+                    const placeholder = document.getElementById(`videoPlaceholder${num}`);
+                    if (placeholder) placeholder.style.display = 'none';
+                    const container = document.getElementById(`videoPreviewContainer${num}`);
+                    if (container) container.style.display = 'block';
+                }
+            });
+        }
 
-    // Feather иконки
-    if (typeof feather !== 'undefined') feather.replace();
+        const changeBtn = document.querySelector(`.change-video-btn[data-video="${i}"]`);
+        if (changeBtn) {
+            changeBtn.addEventListener('click', () => {
+                const fieldName = i === 1 ? 'video' : `video${i}`;
+                const input = document.querySelector(`input[name="${fieldName}"]`);
+                if (input) input.click();
+            });
+        }
+
+        const removeBtn = document.querySelector(`.remove-video-btn[data-video="${i}"]`);
+        if (removeBtn) {
+            removeBtn.addEventListener('click', () => {
+                const fieldName = i === 1 ? 'video' : `video${i}`;
+                const input = document.querySelector(`input[name="${fieldName}"]`);
+                if (input) {
+                    input.value = '';
+                    const placeholder = document.getElementById(`videoPlaceholder${i}`);
+                    if (placeholder) placeholder.style.display = 'flex';
+                    const container = document.getElementById(`videoPreviewContainer${i}`);
+                    if (container) container.style.display = 'none';
+                    const previewVideo = document.getElementById(`videoPreview${i}`);
+                    if (previewVideo) previewVideo.src = '';
+                }
+            });
+        }
+    }
+
+    // ========== СЧЕТЧИК ==========
+    const titleInput = document.querySelector('input[name="title"]');
+    const titleCounter = document.getElementById('titleCounter');
+    if (titleInput && titleCounter) {
+        titleInput.addEventListener('input', () => titleCounter.textContent = titleInput.value.length);
+        titleCounter.textContent = titleInput.value.length;
+    }
 });
 </script>
 {% endblock %}

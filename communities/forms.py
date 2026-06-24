@@ -88,15 +88,12 @@ class CommunityForm(forms.ModelForm):
 
 
 class CommunityPostForm(forms.Form):
-    """
-    Форма создания поста в сообществе
-    """
+    """Форма создания поста в сообществе (с медиа)"""
     title = forms.CharField(
         max_length=200,
         widget=forms.TextInput(attrs={
             'class': 'form-input',
-            'placeholder': 'Заголовок поста',
-            'id': 'id_title'
+            'placeholder': 'Заголовок поста'
         })
     )
     content = forms.CharField(
@@ -104,32 +101,63 @@ class CommunityPostForm(forms.Form):
         widget=forms.Textarea(attrs={
             'class': 'form-textarea',
             'rows': 8,
-            'placeholder': 'Содержание поста...',
-            'id': 'id_content'
+            'placeholder': 'Содержание поста...'
         })
     )
     image = forms.ImageField(
         required=False,
         widget=forms.FileInput(attrs={
             'class': 'form-input',
-            'accept': 'image/*',
-            'id': 'id_image'
+            'accept': 'image/*'
+        })
+    )
+    image2 = forms.ImageField(
+        required=False,
+        widget=forms.FileInput(attrs={
+            'class': 'form-input',
+            'accept': 'image/*'
+        })
+    )
+    image3 = forms.ImageField(
+        required=False,
+        widget=forms.FileInput(attrs={
+            'class': 'form-input',
+            'accept': 'image/*'
+        })
+    )
+    image4 = forms.ImageField(
+        required=False,
+        widget=forms.FileInput(attrs={
+            'class': 'form-input',
+            'accept': 'image/*'
+        })
+    )
+    image5 = forms.ImageField(
+        required=False,
+        widget=forms.FileInput(attrs={
+            'class': 'form-input',
+            'accept': 'image/*'
         })
     )
     video = forms.FileField(
         required=False,
         widget=forms.FileInput(attrs={
             'class': 'form-input',
-            'accept': 'video/*',
-            'id': 'id_video'
+            'accept': 'video/*'
+        })
+    )
+    video2 = forms.FileField(
+        required=False,
+        widget=forms.FileInput(attrs={
+            'class': 'form-input',
+            'accept': 'video/*'
         })
     )
     tags = forms.CharField(
         required=False,
         widget=forms.TextInput(attrs={
             'class': 'form-input',
-            'placeholder': 'python, django, программирование',
-            'id': 'id_tags'
+            'placeholder': 'python, django, программирование'
         })
     )
 
@@ -153,13 +181,18 @@ class CommunityPostForm(forms.Form):
         from posts.models import Post, Tag
         from .models import CommunityPost
 
-        # Создаем пост
+        # Создаём пост
         post = Post.objects.create(
             title=self.cleaned_data['title'],
             content=self.cleaned_data.get('content', ''),
             author=author,
             image=self.cleaned_data.get('image'),
+            image2=self.cleaned_data.get('image2'),
+            image3=self.cleaned_data.get('image3'),
+            image4=self.cleaned_data.get('image4'),
+            image5=self.cleaned_data.get('image5'),
             video=self.cleaned_data.get('video'),
+            video2=self.cleaned_data.get('video2'),
             status='published'
         )
 
@@ -169,6 +202,10 @@ class CommunityPostForm(forms.Form):
             tag_names = [tag.strip().lower() for tag in tags_data.split(',') if tag.strip()]
             for tag_name in tag_names:
                 tag, created = Tag.objects.get_or_create(name=tag_name)
+                if not tag.slug:
+                    from django.utils.text import slugify
+                    tag.slug = slugify(tag_name)
+                    tag.save()
                 post.tags.add(tag)
 
         # Связываем с сообществом
