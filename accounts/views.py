@@ -617,28 +617,22 @@ def export_data(request):
     if request.method == 'POST':
         export_type = request.POST.get('type', 'json')
 
-        # Собираем ВСЕ данные
-        posts = list(request.user.posts.filter(status='published').values('title', 'content', 'created_at'))
-        posts_count = len(posts)
-        comments = list(Comment.objects.filter(author=request.user).values('content', 'created_at', 'post__title'))
+        # Собираем базовые данные
+        from posts.models import Bookmark, Like
+        from communities.models import Community
+        from django.db.models import Count, Q
 
-        data = {
-            'username': request.user.username,
-            'email': request.user.email,
-            'first_name': request.user.first_name,
-            'last_name': request.user.last_name,
-            'date_joined': request.user.date_joined.isoformat(),
-            'posts_count': posts_count,
-            'posts': posts,
-            'comments_count': len(comments),
-            'comments': comments,
-        }
+        posts_count = request.user.posts.filter(status='published', is_hidden=False).count()
+        comments_count = Comment.objects.filter(author=request.user, is_deleted=False, is_hidden=False).count()
+        followers_count = request.user.profile_followers.count()
+        following_count = request.user.profile.following.count()
+        friends_count = Friendship.objects.filter(user=request.user, status='accepted').count()
+        bookmarks_count = Bookmark.objects.filter(user=request.user).count()
+        likes_count = Like.objects.filter(user=request.user, content_type='post').count()
+        communities_count = Community.objects.filter(members=request.user).count()
 
         if export_type == 'json':
             # Собираем полные данные
-            from posts.models import Bookmark, Like
-            from communities.models import Community
-
             full_data = {
                 'exported_at': timezone.now().isoformat(),
                 'profile': {
@@ -655,25 +649,26 @@ def export_data(request):
                 },
                 'stats': {
                     'posts_count': posts_count,
-                    'followers_count': request.user.profile_followers.count(),
-                    'following_count': request.user.profile.following.count(),
-                    'friends_count': Friendship.objects.filter(user=request.user).count(),
-                    'bookmarks_count': Bookmark.objects.filter(user=request.user).count(),
-                    'likes_count': Like.objects.filter(user=request.user, content_type='post').count(),
-                    'comments_count': len(comments),
+                    'followers_count': followers_count,
+                    'following_count': following_count,
+                    'friends_count': friends_count,
+                    'bookmarks_count': bookmarks_count,
+                    'likes_count': likes_count,
+                    'comments_count': comments_count,
+                    'communities_count': communities_count,
                 },
-                'posts': list(request.user.posts.filter(status='published').values(
+                'posts': list(request.user.posts.filter(status='published', is_hidden=False).values(
                     'id', 'title', 'content', 'created_at', 'updated_at', 'likes_count', 'views_count'
                 )),
-                'comments': list(Comment.objects.filter(author=request.user).values(
+                'comments': list(Comment.objects.filter(author=request.user, is_deleted=False, is_hidden=False).values(
                     'id', 'content', 'created_at', 'post__title'
                 )),
-                'bookmarks': list(Bookmark.objects.filter(user=request.user).select_related('post').values(
+                'bookmarks': list(Bookmark.objects.filter(user=request.user, post__is_hidden=False).select_related('post').values(
                     'post__id', 'post__title', 'created_at'
                 )),
                 'liked_posts': list(Post.objects.filter(
-                    id__in=Like.objects.filter(user=request.user, content_type='post').values_list('object_id',
-                                                                                                   flat=True)
+                    id__in=Like.objects.filter(user=request.user, content_type='post').values_list('object_id', flat=True),
+                    is_hidden=False
                 ).values('id', 'title', 'created_at')),
                 'communities': list(Community.objects.filter(members=request.user).values('id', 'name', 'slug')),
             }
@@ -691,200 +686,333 @@ def export_data(request):
                 json.dumps(full_data, indent=2, ensure_ascii=False, default=str),
                 content_type='application/json'
             )
-            response['Content-Disposition'] = f'attachment; filename="potok_data_{request.user.username}.json"'
+            response['Content-Disposition'] = f'attachment; filename="potok_data_{request.user.username}_{timezone.now().strftime("%Y%m%d_%H%M")}.json"'
             return response
 
         elif export_type == 'pdf':
             try:
                 from reportlab.lib.pagesizes import A4
-                from reportlab.pdfgen import canvas
+                from reportlab.lib import colors
+                from reportlab.lib.units import mm
+                from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+                from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                from reportlab.lib.enums import TA_CENTER, TA_LEFT
                 from reportlab.pdfbase import pdfmetrics
                 from reportlab.pdfbase.ttfonts import TTFont
                 from django.conf import settings
                 import os
+                from io import BytesIO
 
                 buffer = BytesIO()
-                p = canvas.Canvas(buffer, pagesize=A4)
 
+                # Регистрируем шрифт
                 font_path = os.path.join(settings.BASE_DIR, 'static', 'fonts', 'DejaVuSans.ttf')
                 if os.path.exists(font_path):
-                    pdfmetrics.registerFont(TTFont('DejaVu', font_path))
-                    font_name = 'DejaVu'
+                    pdfmetrics.registerFont(TTFont('DejaVuSans', font_path))
+                    pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', font_path))
+                    font_name = 'DejaVuSans'
+                    font_bold = 'DejaVuSans-Bold'
                 else:
                     font_name = 'Helvetica'
+                    font_bold = 'Helvetica-Bold'
 
-                y = 820
+                doc = SimpleDocTemplate(
+                    buffer,
+                    pagesize=A4,
+                    rightMargin=15 * mm,
+                    leftMargin=15 * mm,
+                    topMargin=20 * mm,
+                    bottomMargin=15 * mm
+                )
 
-                # Заголовок
-                p.setFont(font_name, 20)
-                p.drawString(50, y, "Архив данных • Поток")
-                y -= 30
-                p.setFont(font_name, 16)
-                p.drawString(50, y, f"Пользователь: @{request.user.username}")
-                y -= 30
+                styles = getSampleStyleSheet()
 
-                # Основная информация
-                p.setFont(font_name, 14)
-                p.drawString(50, y, "Основная информация")
-                y -= 22
-                p.setFont(font_name, 11)
-                info_lines = [
-                    f"Имя: {request.user.get_full_name() or 'Не указано'}",
-                    f"Email: {request.user.email}",
-                    f"Дата регистрации: {request.user.date_joined.strftime('%d.%m.%Y')}",
-                    f"Биография: {request.user.profile.bio or 'Не указана'}",
-                    f"Местоположение: {request.user.profile.location or 'Не указано'}",
-                    f"Веб-сайт: {request.user.profile.website or 'Не указан'}",
-                    f"Телефон: {request.user.profile.phone or 'Не указан'}",
+                # Стили
+                title_style = ParagraphStyle(
+                    'CustomTitle', parent=styles['Normal'],
+                    fontName=font_bold, fontSize=22,
+                    textColor=colors.HexColor('#2563eb'),
+                    alignment=TA_CENTER, spaceAfter=6
+                )
+                subtitle_style = ParagraphStyle(
+                    'Subtitle', parent=styles['Normal'],
+                    fontName=font_name, fontSize=12,
+                    textColor=colors.HexColor('#6b7280'),
+                    alignment=TA_CENTER, spaceAfter=15
+                )
+                heading_style = ParagraphStyle(
+                    'CustomHeading', parent=styles['Normal'],
+                    fontName=font_bold, fontSize=14,
+                    textColor=colors.HexColor('#1f2937'),
+                    spaceAfter=8, spaceBefore=12
+                )
+                meta_style = ParagraphStyle(
+                    'MetaStyle', parent=styles['Normal'],
+                    fontName=font_name, fontSize=9,
+                    textColor=colors.HexColor('#4b5563'),
+                    alignment=TA_CENTER, spaceAfter=4
+                )
+                normal_style = ParagraphStyle(
+                    'CustomNormal', parent=styles['Normal'],
+                    fontName=font_name, fontSize=9,
+                    alignment=TA_LEFT
+                )
+                footer_style = ParagraphStyle(
+                    'Footer', parent=styles['Normal'],
+                    fontName=font_name, fontSize=8,
+                    textColor=colors.HexColor('#9ca3af'),
+                    alignment=TA_CENTER
+                )
+
+                elements = []
+
+                # ========== ЗАГОЛОВОК ==========
+                elements.append(Paragraph("Архив данных пользователя", title_style))
+                elements.append(Paragraph(f"@{request.user.username}", subtitle_style))
+                elements.append(Spacer(1, 8 * mm))
+
+                # ========== МЕТАДАННЫЕ ==========
+                now = timezone.now()
+                elements.append(Paragraph(
+                    f"<b>Пользователь:</b> {request.user.get_full_name() or request.user.username} ({request.user.email})",
+                    meta_style
+                ))
+                elements.append(Paragraph(
+                    f"<b>Дата экспорта:</b> {now.strftime('%d.%m.%Y %H:%M:%S')}",
+                    meta_style
+                ))
+                elements.append(Spacer(1, 10 * mm))
+
+                # ========== 1. ОСНОВНАЯ ИНФОРМАЦИЯ ==========
+                elements.append(Paragraph("Основная информация", heading_style))
+
+                profile_data = [
+                    ['Поле', 'Значение'],
+                    ['Имя пользователя', request.user.username],
+                    ['Полное имя', request.user.get_full_name() or 'Не указано'],
+                    ['Email', request.user.email],
+                    ['Дата регистрации', request.user.date_joined.strftime('%d.%m.%Y %H:%M')],
+                    ['Биография', request.user.profile.bio or 'Не указана'],
+                    ['Местоположение', request.user.profile.location or 'Не указано'],
+                    ['Веб-сайт', request.user.profile.website or 'Не указан'],
+                    ['Телефон', request.user.profile.phone or 'Не указан'],
                 ]
-                for line in info_lines:
-                    if y < 60:
-                        p.showPage()
-                        y = 820
-                        p.setFont(font_name, 11)
-                    p.drawString(60, y, line)
-                    y -= 18
-                y -= 10
 
-                # Статистика
-                p.setFont(font_name, 14)
-                p.drawString(50, y, "Статистика")
-                y -= 22
-                p.setFont(font_name, 11)
-                stats = [
-                    f"Постов: {posts_count}",
-                    f"Подписчиков: {request.user.profile_followers.count()}",
-                    f"Подписок: {request.user.profile.following.count()}",
-                    f"Друзей: {Friendship.objects.filter(user=request.user).count()}",
+                profile_table = Table(profile_data, colWidths=[80 * mm, 100 * mm])
+                profile_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#374151')),
+                    ('TEXTCOLOR', (0, 0), (1, 0), colors.white),
+                    ('FONTNAME', (0, 0), (1, 0), font_bold),
+                    ('FONTSIZE', (0, 0), (1, 0), 10),
+                    ('FONTSIZE', (0, 1), (-1, -1), 9),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('FONTNAME', (0, 1), (-1, -1), font_name),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('PADDING', (0, 0), (-1, -1), 8),
+                    ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+                    ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                ]))
+                elements.append(profile_table)
+                elements.append(Spacer(1, 10 * mm))
+
+                # ========== 2. СТАТИСТИКА ==========
+                elements.append(Paragraph("Статистика", heading_style))
+
+                stats_data = [
+                    ['Показатель', 'Значение'],
+                    ['Постов', str(posts_count)],
+                    ['Комментариев', str(comments_count)],
+                    ['Подписчиков', str(followers_count)],
+                    ['Подписок', str(following_count)],
+                    ['Друзей', str(friends_count)],
+                    ['Закладок', str(bookmarks_count)],
+                    ['Лайков', str(likes_count)],
+                    ['Сообществ', str(communities_count)],
                 ]
-                for s in stats:
-                    if y < 60:
-                        p.showPage()
-                        y = 820
-                        p.setFont(font_name, 11)
-                    p.drawString(60, y, s)
-                    y -= 18
-                y -= 10
 
-                # Посты
-                p.setFont(font_name, 14)
-                p.drawString(50, y, f"Посты ({len(posts)})")
-                y -= 22
-                p.setFont(font_name, 11)
-                for i, post in enumerate(posts, 1):
-                    if y < 80:
-                        p.showPage()
-                        y = 820
-                        p.setFont(font_name, 11)
-                    p.setFont(font_name, 12)
-                    p.drawString(60, y, f"{i}. {post['title'][:90]}")
-                    y -= 18
-                    p.setFont(font_name, 10)
-                    content = post['content'][:200].replace('\n', ' ')
-                    p.drawString(70, y, f"{content}")
-                    y -= 16
-                    p.drawString(70, y, f"Опубликовано: {str(post['created_at'])[:19]}")
-                    y -= 22
-                y -= 10
+                stats_table = Table(stats_data, colWidths=[80 * mm, 100 * mm])
+                stats_table.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#2563eb')),
+                    ('TEXTCOLOR', (0, 0), (1, 0), colors.white),
+                    ('FONTNAME', (0, 0), (1, 0), font_bold),
+                    ('FONTSIZE', (0, 0), (1, 0), 10),
+                    ('FONTSIZE', (0, 1), (-1, -1), 9),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                    ('FONTNAME', (0, 1), (-1, -1), font_name),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('PADDING', (0, 0), (-1, -1), 8),
+                    ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+                    ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                ]))
+                elements.append(stats_table)
+                elements.append(Spacer(1, 10 * mm))
 
-                # Комментарии
-                p.setFont(font_name, 14)
-                p.drawString(50, y, f"Комментарии ({len(comments)})")
-                y -= 22
-                p.setFont(font_name, 10)
-                for i, comment in enumerate(comments[:30], 1):
-                    if y < 60:
-                        p.showPage()
-                        y = 820
-                        p.setFont(font_name, 10)
-                    p.drawString(60, y, f"{i}. [{str(comment['created_at'])[:19]}] {comment['content'][:150]}")
-                    y -= 16
-                y -= 10
+                # ========== 3. ПОСТЫ (первые 10) ==========
+                posts = request.user.posts.filter(
+                    status='published',
+                    is_hidden=False
+                ).order_by('-created_at')[:10]
 
-                # Закладки
+                if posts:
+                    elements.append(Paragraph(f"Последние посты ({posts.count()})", heading_style))
+                    posts_data = [['#', 'Заголовок', 'Дата', 'Лайки', 'Комментарии']]
+
+                    for i, post in enumerate(posts, 1):
+                        comments_count_post = post.comments.filter(is_deleted=False, is_hidden=False).count()
+                        posts_data.append([
+                            str(i),
+                            post.title[:80] + '...' if len(post.title) > 80 else post.title,
+                            post.created_at.strftime('%d.%m.%Y'),
+                            str(post.likes_count),
+                            str(comments_count_post)
+                        ])
+
+                    posts_table = Table(posts_data, colWidths=[20 * mm, 80 * mm, 40 * mm, 30 * mm, 30 * mm])
+                    posts_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#374151')),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                        ('FONTNAME', (0, 0), (-1, 0), font_bold),
+                        ('FONTSIZE', (0, 0), (-1, 0), 9),
+                        ('FONTSIZE', (0, 1), (-1, -1), 8),
+                        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                        ('FONTNAME', (0, 1), (-1, -1), font_name),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                        ('PADDING', (0, 0), (-1, -1), 6),
+                        ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+                        ('ALIGN', (3, 0), (4, -1), 'CENTER'),
+                    ]))
+                    elements.append(posts_table)
+                    elements.append(Spacer(1, 10 * mm))
+
+                # ========== 4. КОММЕНТАРИИ (первые 10) ==========
+                comments = Comment.objects.filter(
+                    author=request.user,
+                    is_deleted=False,
+                    is_hidden=False
+                ).select_related('post').order_by('-created_at')[:10]
+
+                if comments:
+                    elements.append(Paragraph(f"Последние комментарии ({comments.count()})", heading_style))
+                    comments_data = [['#', 'Текст', 'Пост', 'Дата']]
+
+                    for i, comment in enumerate(comments, 1):
+                        comments_data.append([
+                            str(i),
+                            comment.content[:60] + '...' if len(comment.content) > 60 else comment.content,
+                            comment.post.title[:40] + '...' if len(comment.post.title) > 40 else comment.post.title,
+                            comment.created_at.strftime('%d.%m.%Y')
+                        ])
+
+                    comments_table = Table(comments_data, colWidths=[15 * mm, 70 * mm, 60 * mm, 35 * mm])
+                    comments_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#374151')),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                        ('FONTNAME', (0, 0), (-1, 0), font_bold),
+                        ('FONTSIZE', (0, 0), (-1, 0), 9),
+                        ('FONTSIZE', (0, 1), (-1, -1), 8),
+                        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                        ('FONTNAME', (0, 1), (-1, -1), font_name),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                        ('PADDING', (0, 0), (-1, -1), 6),
+                        ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+                        ('ALIGN', (3, 0), (3, -1), 'CENTER'),
+                    ]))
+                    elements.append(comments_table)
+                    elements.append(Spacer(1, 10 * mm))
+
+                # ========== 5. ЗАКЛАДКИ (первые 10) ==========
                 from posts.models import Bookmark
-                bookmarks = Bookmark.objects.filter(user=request.user).select_related('post')[:20]
-                p.setFont(font_name, 14)
-                p.drawString(50, y, f"Закладки ({bookmarks.count()})")
-                y -= 22
-                p.setFont(font_name, 10)
-                for i, bm in enumerate(bookmarks, 1):
-                    if y < 60:
-                        p.showPage()
-                        y = 820
-                        p.setFont(font_name, 10)
-                    p.drawString(60, y, f"{i}. {bm.post.title[:90]} — {str(bm.created_at)[:19]}")
-                    y -= 16
-                y -= 10
+                bookmarks = Bookmark.objects.filter(
+                    user=request.user,
+                    post__is_hidden=False
+                ).select_related('post').order_by('-created_at')[:10]
 
-                # Лайки
-                from posts.models import Like
-                liked_ids = Like.objects.filter(
-                    user=request.user, content_type='post'
-                ).values_list('object_id', flat=True)[:20]
-                liked_posts = Post.objects.filter(id__in=liked_ids)
-                liked_count = Like.objects.filter(user=request.user, content_type='post').count()
-                p.setFont(font_name, 14)
-                p.drawString(50, y, f"Понравившиеся посты ({liked_count})")
-                y -= 22
-                p.setFont(font_name, 10)
-                for i, post in enumerate(liked_posts, 1):
-                    if y < 60:
-                        p.showPage()
-                        y = 820
-                        p.setFont(font_name, 10)
-                    p.drawString(60, y, f"{i}. {post.title[:90]}")
-                    y -= 16
-                y -= 10
+                if bookmarks:
+                    elements.append(Paragraph(f"Закладки ({bookmarks.count()})", heading_style))
+                    bookmarks_data = [['#', 'Пост', 'Дата']]
 
-                # Сообщества
+                    for i, bm in enumerate(bookmarks, 1):
+                        bookmarks_data.append([
+                            str(i),
+                            bm.post.title[:80] + '...' if len(bm.post.title) > 80 else bm.post.title,
+                            bm.created_at.strftime('%d.%m.%Y')
+                        ])
+
+                    bookmarks_table = Table(bookmarks_data, colWidths=[15 * mm, 110 * mm, 40 * mm])
+                    bookmarks_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#374151')),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                        ('FONTNAME', (0, 0), (-1, 0), font_bold),
+                        ('FONTSIZE', (0, 0), (-1, 0), 9),
+                        ('FONTSIZE', (0, 1), (-1, -1), 8),
+                        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                        ('FONTNAME', (0, 1), (-1, -1), font_name),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                        ('PADDING', (0, 0), (-1, -1), 6),
+                        ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+                    ]))
+                    elements.append(bookmarks_table)
+                    elements.append(Spacer(1, 10 * mm))
+
+                # ========== 6. СООБЩЕСТВА (первые 10) ==========
                 from communities.models import Community
-                communities = Community.objects.filter(members=request.user)[:20]
-                p.setFont(font_name, 14)
-                p.drawString(50, y, f"Сообщества ({communities.count()})")
-                y -= 22
-                p.setFont(font_name, 10)
-                for i, c in enumerate(communities, 1):
-                    if y < 60:
-                        p.showPage()
-                        y = 820
-                        p.setFont(font_name, 10)
-                    p.drawString(60, y, f"{i}. c/{c.name}")
-                    y -= 16
-                y -= 10
+                communities = Community.objects.filter(members=request.user).order_by('-created_at')[:10]
 
-                # Музыка
-                try:
-                    from music_app.models import SavedTrack
-                    tracks = SavedTrack.objects.filter(user=request.user)[:20]
-                    if tracks.exists():
-                        p.setFont(font_name, 14)
-                        p.drawString(50, y, f"Сохранённые треки ({tracks.count()})")
-                        y -= 22
-                        p.setFont(font_name, 10)
-                        for i, t in enumerate(tracks, 1):
-                            if y < 60:
-                                p.showPage()
-                                y = 820
-                                p.setFont(font_name, 10)
-                            p.drawString(60, y, f"{i}. {t.title} — {t.artist}")
-                            y -= 16
-                except ImportError:
-                    pass
+                if communities:
+                    elements.append(Paragraph(f"Сообщества ({communities.count()})", heading_style))
+                    communities_data = [['#', 'Название', 'Участников', 'Дата']]
 
-                # Футер
-                y -= 10
-                p.setFont(font_name, 8)
-                p.drawString(50, 30, f"Экспортировано: {timezone.now().strftime('%d.%m.%Y %H:%M')} • Поток")
+                    for i, community in enumerate(communities, 1):
+                        communities_data.append([
+                            str(i),
+                            community.name[:60] + '...' if len(community.name) > 60 else community.name,
+                            str(community.members.count()),
+                            community.created_at.strftime('%d.%m.%Y')
+                        ])
 
-                p.save()
+                    communities_table = Table(communities_data, colWidths=[15 * mm, 80 * mm, 40 * mm, 40 * mm])
+                    communities_table.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#374151')),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                        ('FONTNAME', (0, 0), (-1, 0), font_bold),
+                        ('FONTSIZE', (0, 0), (-1, 0), 9),
+                        ('FONTSIZE', (0, 1), (-1, -1), 8),
+                        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                        ('FONTNAME', (0, 1), (-1, -1), font_name),
+                        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                        ('PADDING', (0, 0), (-1, -1), 6),
+                        ('ALIGN', (0, 0), (0, -1), 'CENTER'),
+                    ]))
+                    elements.append(communities_table)
+                    elements.append(Spacer(1, 10 * mm))
+
+                # ========== ПОДВАЛ ==========
+                elements.append(Spacer(1, 10 * mm))
+                elements.append(Paragraph(
+                    "<i>Данные экспортированы из социальной сети «Поток»</i>",
+                    footer_style
+                ))
+                elements.append(Paragraph(
+                    f"Всего записей: {posts_count} постов, {comments_count} комментариев, {bookmarks_count} закладок",
+                    footer_style
+                ))
+
+                # Собираем PDF
+                doc.build(elements)
                 buffer.seek(0)
+
                 response = HttpResponse(buffer, content_type='application/pdf')
-                response['Content-Disposition'] = f'attachment; filename="potok_data_{request.user.username}.pdf"'
+                response['Content-Disposition'] = (
+                    f'attachment; filename="potok_data_{request.user.username}_'
+                    f'{timezone.now().strftime("%Y%m%d_%H%M")}.pdf"'
+                )
                 return response
 
-            except ImportError:
-                messages.error(request, 'PDF-экспорт недоступен. pip install reportlab')
+            except ImportError as e:
+                messages.error(request, f'PDF-экспорт недоступен. Установите reportlab: pip install reportlab')
+                return redirect('accounts:export_data')
+            except Exception as e:
+                messages.error(request, f'Ошибка при создании PDF: {str(e)}')
                 return redirect('accounts:export_data')
 
     return render(request, 'accounts/export_data.html')

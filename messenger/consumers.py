@@ -18,7 +18,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
 
-        # Проверяем, является ли пользователь участником чата
         if not await self.is_participant():
             await self.close()
             return
@@ -61,6 +60,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'reader_id': event['reader_id']
         }))
 
+    # ========== ДОБАВИТЬ ЭТОТ МЕТОД ==========
+    async def message_edited(self, event):
+        """Отправка обновления о редактировании сообщения"""
+        await self.send(text_data=json.dumps({
+            'type': 'message_edited',
+            'message_id': event['message_id'],
+            'content': event['content'],
+            'is_edited': True,
+            'author': event.get('author'),
+            'edited_at': event.get('edited_at'),
+        }))
+
     @database_sync_to_async
     def is_participant(self):
         return ChatParticipant.objects.filter(
@@ -77,7 +88,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 message.read_at = timezone.now()
                 message.save()
 
-                # Отправляем уведомление в группу
                 from channels.layers import get_channel_layer
                 from asgiref.sync import async_to_sync
                 channel_layer = get_channel_layer()

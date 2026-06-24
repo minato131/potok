@@ -159,7 +159,7 @@ function closeRejectModal() {
 
 async function submitApprove() {
     const comment = document.getElementById('approveComment').value;
-    const response = await fetch(`/moderation/unban-ticket/${currentTicketId}/approve/`, {
+    const response = await fetch(`/moderation/unban-tickets/${currentTicketId}/approve/`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -180,7 +180,7 @@ async function submitReject() {
         alert('Укажите причину отказа');
         return;
     }
-    const response = await fetch(`/moderation/unban-ticket/${currentTicketId}/reject/`, {
+    const response = await fetch(`/moderation/unban-tickets/${currentTicketId}/reject/`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

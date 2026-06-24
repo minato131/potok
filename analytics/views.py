@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.contrib.admin.views.decorators import staff_member_required
-from django.db.models import Count, Q, F, Sum
+from django.db.models import Count, Q, F, Sum, Value, OuterRef, Subquery
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 from datetime import timedelta
 from django.http import JsonResponse
@@ -10,14 +11,11 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Count, Q
 from django.utils import timezone
 from datetime import timedelta
-from posts.models import Post, Comment, Like, Category, Tag
+from posts.models import Post, Comment, Like, Category, Tag, PostView
 from accounts.models import User
 from communities.models import Community
 from moderation.models import Report, Ban
 from accounts.models import User
-from posts.models import Post, Comment, Like, PostView
-from communities.models import Community
-from moderation.models import Report, Ban
 import os
 from datetime import datetime
 from io import BytesIO
@@ -31,6 +29,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+
 
 @staff_member_required
 def dashboard(request):
@@ -58,9 +57,17 @@ def data(request):
         date_str = current.strftime('%d.%m')
 
         users_count = User.objects.filter(date_joined__date=current.date()).count()
-        posts_count = Post.objects.filter(created_at__date=current.date()).count()
-        comments_count = Comment.objects.filter(created_at__date=current.date()).count()
-        likes_count = Like.objects.filter(created_at__date=current.date()).count()
+        posts_count = Post.objects.filter(
+            created_at__date=current.date(),
+            status='published',
+            is_hidden=False
+        ).count()
+        comments_count = Comment.objects.filter(
+            created_at__date=current.date(),
+            is_deleted=False,
+            is_hidden=False
+        ).count()
+        likes_count = Like.objects.filter(created_at__date=current.date(), content_type='post').count()
         reports_count = Report.objects.filter(created_at__date=current.date()).count()
 
         dates.append(date_str)
@@ -72,24 +79,55 @@ def data(request):
 
         current += timedelta(days=1)
 
-    # Топ пользователей
+    # ========== ТОП ПОЛЬЗОВАТЕЛЕЙ — ПРАВИЛЬНЫЙ ПОДСЧЁТ ==========
+    # Используем Subquery для точного подсчёта, как в профиле
+    from django.db.models import OuterRef, Subquery
+
+    # Подсчёт постов для каждого пользователя (только опубликованные и видимые)
+    posts_subquery = Post.objects.filter(
+        author=OuterRef('pk'),
+        status='published',
+        is_hidden=False
+    ).values('author').annotate(count=Count('id')).values('count')
+
+    # Подсчёт комментариев для каждого пользователя (только не удалённые и видимые)
+    comments_subquery = Comment.objects.filter(
+        author=OuterRef('pk'),
+        is_deleted=False,
+        is_hidden=False
+    ).values('author').annotate(count=Count('id')).values('count')
+
     top_users = User.objects.annotate(
-        posts_count=Count('posts', filter=Q(posts__status='published')),
-        comments_count=Count('comments', filter=Q(comments__is_deleted=False)),
-        total_activity=Count('posts') + Count('comments') * 2
+        posts_count=Coalesce(Subquery(posts_subquery), Value(0)),
+        comments_count=Coalesce(Subquery(comments_subquery), Value(0)),
+        total_activity=Coalesce(Subquery(posts_subquery), Value(0)) +
+                       Coalesce(Subquery(comments_subquery), Value(0)) * 2
+    ).filter(
+        Q(posts_count__gt=0) | Q(comments_count__gt=0)
     ).order_by('-total_activity')[:10].values('id', 'username', 'posts_count', 'comments_count')
 
-    # Топ постов
-    top_posts = Post.objects.filter(status='published').annotate(
-        total_score=F('likes_count') * 2 + F('comments_count') * 3 + F('views_count')
-    ).order_by('-total_score')[:10].values('id', 'title', 'likes_count', 'comments_count', 'views_count')
+    # ========== ТОП ПОСТОВ ==========
+    top_posts = Post.objects.filter(
+        status='published',
+        is_hidden=False
+    ).order_by('-likes_count')[:10]
 
-    # Общая статистика
+    top_posts_data = []
+    for post in top_posts:
+        top_posts_data.append({
+            'id': post.id,
+            'title': post.title,
+            'likes_count': post.likes_count,
+            'comments_count': post.comments.filter(is_deleted=False, is_hidden=False).count(),
+            'views_count': post.views_count,
+        })
+
+    # ========== ОБЩАЯ СТАТИСТИКА ==========
     total_stats = {
         'users': User.objects.count(),
-        'posts': Post.objects.filter(status='published').count(),
-        'comments': Comment.objects.filter(is_deleted=False).count(),
-        'likes': Like.objects.count(),
+        'posts': Post.objects.filter(status='published', is_hidden=False).count(),
+        'comments': Comment.objects.filter(is_deleted=False, is_hidden=False).count(),
+        'likes': Like.objects.filter(content_type='post').count(),
         'communities': Community.objects.filter(status='active').count(),
         'reports': Report.objects.filter(status='pending').count(),
         'bans': Ban.objects.filter(lifted_at__isnull=True).count(),
@@ -103,7 +141,7 @@ def data(request):
         'likes_data': likes_data,
         'reports_data': reports_data,
         'top_users': list(top_users),
-        'top_posts': list(top_posts),
+        'top_posts': top_posts_data,
         'total_stats': total_stats,
     })
 
@@ -175,18 +213,35 @@ def export_pdf(request):
         })
         current += timedelta(days=1)
 
-    # Топ пользователей
-    user_stats = []
-    for user in User.objects.all()[:50]:
-        posts_count = Post.objects.filter(author=user, status='published', is_hidden=False).count()
-        comments_count = Comment.objects.filter(author=user, is_deleted=False, is_hidden=False).count()
-        if posts_count > 0 or comments_count > 0:
-            user_stats.append({
-                'username': user.username,
-                'posts_count': posts_count,
-                'comments_count': comments_count,
-            })
-    top_users = sorted(user_stats, key=lambda x: x['posts_count'], reverse=True)[:10]
+    # Топ пользователей — ПРАВИЛЬНЫЙ ПОДСЧЁТ
+    from django.db.models import OuterRef, Subquery
+
+    posts_subquery = Post.objects.filter(
+        author=OuterRef('pk'),
+        status='published',
+        is_hidden=False
+    ).values('author').annotate(count=Count('id')).values('count')
+
+    comments_subquery = Comment.objects.filter(
+        author=OuterRef('pk'),
+        is_deleted=False,
+        is_hidden=False
+    ).values('author').annotate(count=Count('id')).values('count')
+
+    user_stats = User.objects.annotate(
+        posts_count=Coalesce(Subquery(posts_subquery), Value(0)),
+        comments_count=Coalesce(Subquery(comments_subquery), Value(0))
+    ).filter(
+        Q(posts_count__gt=0) | Q(comments_count__gt=0)
+    ).order_by('-posts_count')[:10]
+
+    top_users = []
+    for user in user_stats:
+        top_users.append({
+            'username': user.username,
+            'posts_count': user.posts_count,
+            'comments_count': user.comments_count,
+        })
 
     # Топ постов
     top_posts = []
@@ -196,7 +251,7 @@ def export_pdf(request):
             'title': post.title,
             'author': post.author.username,
             'likes_count': post.likes_count,
-            'comments_count': post.comments_count,
+            'comments_count': post.comments.filter(is_deleted=False, is_hidden=False).count(),
             'views_count': post.views_count,
         })
 
@@ -430,6 +485,7 @@ def export_pdf(request):
         'Content-Disposition'] = f'attachment; filename="analytics_{export_type}_{datetime.now().strftime("%Y%m%d_%H%M")}.pdf"'
     return response
 
+
 @staff_member_required
 def export_analytics_json(request):
     """Экспорт аналитики в JSON с фильтрами"""
@@ -506,47 +562,63 @@ def export_analytics_json(request):
 
     # ===== 4. ТОП-10 ПОЛЬЗОВАТЕЛЕЙ =====
     from collections import defaultdict
-    user_stats = []
-    for user in User.objects.all()[:50]:
-        posts_count = Post.objects.filter(author=user, status='published', is_hidden=False).count()
-        comments_count = Comment.objects.filter(author=user, is_deleted=False, is_hidden=False).count()
-        if posts_count > 0 or comments_count > 0:
-            user_stats.append({
-                'id': user.id,
-                'username': user.username,
-                'full_name': user.get_full_name(),
-                'posts_count': posts_count,
-                'comments_count': comments_count,
-                'joined_at': user.date_joined.isoformat(),
-            })
-    top_users = sorted(user_stats, key=lambda x: x['posts_count'], reverse=True)[:10]
+    from django.db.models import OuterRef, Subquery
+
+    posts_subquery = Post.objects.filter(
+        author=OuterRef('pk'),
+        status='published',
+        is_hidden=False
+    ).values('author').annotate(count=Count('id')).values('count')
+
+    comments_subquery = Comment.objects.filter(
+        author=OuterRef('pk'),
+        is_deleted=False,
+        is_hidden=False
+    ).values('author').annotate(count=Count('id')).values('count')
+
+    top_users = User.objects.annotate(
+        posts_count=Coalesce(Subquery(posts_subquery), Value(0)),
+        comments_count=Coalesce(Subquery(comments_subquery), Value(0))
+    ).filter(
+        Q(posts_count__gt=0) | Q(comments_count__gt=0)
+    ).order_by('-posts_count')[:10]
+
+    top_users_data = []
+    for user in top_users:
+        top_users_data.append({
+            'id': user.id,
+            'username': user.username,
+            'full_name': user.get_full_name(),
+            'posts_count': user.posts_count,
+            'comments_count': user.comments_count,
+            'joined_at': user.date_joined.isoformat(),
+        })
 
     # ===== 5. ТОП-10 ПОСТОВ =====
-    top_posts = []
+    top_posts_data = []
     for post in Post.objects.filter(status='published', is_hidden=False).select_related('author').order_by(
             '-likes_count')[:10]:
-        top_posts.append({
+        top_posts_data.append({
             'id': post.id,
             'title': post.title,
             'author': post.author.username,
             'likes_count': post.likes_count,
-            'comments_count': post.comments_count,
+            'comments_count': post.comments.filter(is_deleted=False, is_hidden=False).count(),
             'views_count': post.views_count,
             'created_at': post.created_at.isoformat(),
         })
 
     # ===== 6. ТОП-10 СООБЩЕСТВ =====
-    top_communities = []
+    from communities.models import CommunityPost
+    top_communities_data = []
     for community in Community.objects.filter(status='active')[:10]:
-        # Считаем посты через CommunityPost
-        from communities.models import CommunityPost
         posts_count = CommunityPost.objects.filter(
             community=community,
             post__status='published',
             post__is_hidden=False
         ).count()
 
-        top_communities.append({
+        top_communities_data.append({
             'id': community.id,
             'name': community.name,
             'slug': community.slug,
@@ -554,12 +626,12 @@ def export_analytics_json(request):
             'posts_count': posts_count,
             'created_at': community.created_at.isoformat(),
         })
-    top_communities = sorted(top_communities, key=lambda x: x['posts_count'], reverse=True)[:10]
+    top_communities_data = sorted(top_communities_data, key=lambda x: x['posts_count'], reverse=True)[:10]
 
     # ===== 7. АКТИВНОСТЬ ПО ДНЯМ НЕДЕЛИ =====
     weekday_stats = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0}
     for post in Post.objects.filter(created_at__date__gte=start_date_obj, created_at__date__lte=end_date_obj,
-                                    status='published'):
+                                    status='published', is_hidden=False):
         weekday_stats[post.created_at.weekday()] += 1
 
     weekdays = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье']
@@ -588,12 +660,12 @@ def export_analytics_json(request):
         export_data['weekday_activity'] = weekday_activity
 
     if export_type in ['full', 'users']:
-        export_data['top_users'] = top_users
+        export_data['top_users'] = top_users_data
 
     if export_type in ['full', 'posts']:
-        export_data['top_posts'] = top_posts
+        export_data['top_posts'] = top_posts_data
 
     if export_type in ['full', 'communities']:
-        export_data['top_communities'] = top_communities
+        export_data['top_communities'] = top_communities_data
 
     return JsonResponse(export_data, json_dumps_params={'ensure_ascii': False, 'indent': 2})

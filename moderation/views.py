@@ -8,6 +8,8 @@ from django.db.models import Q, Count
 from django.utils import timezone
 from django.contrib.contenttypes.models import ContentType
 from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+
 from accounts.utils import create_notification
 from .models import Report, Ban, ModerationLog, UnbanTicket
 from .forms import ReportForm, BanForm, ModerationActionForm
@@ -1267,3 +1269,97 @@ def platform_moderator_dashboard(request):
         'is_platform_admin': is_platform_admin(request.user),  # Для отображения админ-ссылок
     }
     return render(request, 'moderation/platform_moderator_dashboard.html', context)
+
+
+@login_required
+@user_passes_test(is_moderator)
+@require_POST
+def hide_all_user_posts(request, user_id):
+    """Скрыть все посты пользователя"""
+    user = get_object_or_404(User, id=user_id)
+    count = Post.objects.filter(author=user, is_hidden=False).update(is_hidden=True)
+
+    ModerationLog.objects.create(
+        moderator=request.user,
+        action='hide_user_posts',
+        description=f'Скрыты все посты пользователя {user.username} (кол-во: {count})',
+        ip_address=request.META.get('REMOTE_ADDR')
+    )
+
+    return JsonResponse({'status': 'ok', 'message': f'Скрыто постов: {count}'})
+
+
+@login_required
+@user_passes_test(is_moderator)
+@require_POST
+def hide_all_user_comments(request, user_id):
+    """Скрыть все комментарии пользователя"""
+    user = get_object_or_404(User, id=user_id)
+    count = Comment.objects.filter(author=user, is_hidden=False).update(is_hidden=True)
+
+    ModerationLog.objects.create(
+        moderator=request.user,
+        action='hide_user_comments',
+        description=f'Скрыты все комментарии пользователя {user.username} (кол-во: {count})',
+        ip_address=request.META.get('REMOTE_ADDR')
+    )
+
+    return JsonResponse({'status': 'ok', 'message': f'Скрыто комментариев: {count}'})
+
+
+@login_required
+@user_passes_test(is_moderator)
+@require_POST
+def unhide_all_user_posts(request, user_id):
+    """Показать все посты пользователя"""
+    user = get_object_or_404(User, id=user_id)
+    count = Post.objects.filter(author=user, is_hidden=True).update(is_hidden=False)
+
+    # Обновляем статус жалоб
+    from django.contrib.contenttypes.models import ContentType
+    ct = ContentType.objects.get_for_model(Post)
+    post_ids = Post.objects.filter(author=user).values_list('id', flat=True)
+    Report.objects.filter(content_type=ct, object_id__in=post_ids, status='approved').update(
+        status='lifted',
+        moderation_comment='Контент восстановлен модератором',
+        moderated_by=request.user,
+        moderated_at=timezone.now()
+    )
+
+    ModerationLog.objects.create(
+        moderator=request.user,
+        action='unhide_user_posts',
+        description=f'Восстановлены все посты пользователя {user.username} (кол-во: {count})',
+        ip_address=request.META.get('REMOTE_ADDR')
+    )
+
+    return JsonResponse({'status': 'ok', 'message': f'Восстановлено постов: {count}'})
+
+
+@login_required
+@user_passes_test(is_moderator)
+@require_POST
+def unhide_all_user_comments(request, user_id):
+    """Показать все комментарии пользователя"""
+    user = get_object_or_404(User, id=user_id)
+    count = Comment.objects.filter(author=user, is_hidden=True).update(is_hidden=False)
+
+    # Обновляем статус жалоб
+    from django.contrib.contenttypes.models import ContentType
+    ct = ContentType.objects.get_for_model(Comment)
+    comment_ids = Comment.objects.filter(author=user).values_list('id', flat=True)
+    Report.objects.filter(content_type=ct, object_id__in=comment_ids, status='approved').update(
+        status='lifted',
+        moderation_comment='Контент восстановлен модератором',
+        moderated_by=request.user,
+        moderated_at=timezone.now()
+    )
+
+    ModerationLog.objects.create(
+        moderator=request.user,
+        action='unhide_user_comments',
+        description=f'Восстановлены все комментарии пользователя {user.username} (кол-во: {count})',
+        ip_address=request.META.get('REMOTE_ADDR')
+    )
+
+    return JsonResponse({'status': 'ok', 'message': f'Восстановлено комментариев: {count}'})

@@ -1538,7 +1538,14 @@ function scrollToMessage(messageId) {
         closeContexts();
     }
     function contextCopy() { navigator.clipboard.writeText(contextMessageContent).catch(() => {}); closeContexts(); }
-    function contextEdit() { closeContexts(); openEditModal(contextMessageId, contextMessageContent); }
+    function contextEdit() {
+        if (contextMessageId) {
+            // Закрываем контекстное меню
+            closeContexts();
+            // Открываем inline-редактирование
+            editMessage(contextMessageId);
+        }
+    }
     async function contextDelete() {
         if (!confirm('Удалить сообщение?')) return;
         try {
@@ -1555,18 +1562,211 @@ function scrollToMessage(messageId) {
     function openEditModal(msgId, content) { editMessageId = msgId; document.getElementById('editMessageInput').value = content; document.getElementById('editModal').style.display = 'flex'; document.getElementById('editMessageInput').focus(); }
     function closeEditModal() { document.getElementById('editModal').style.display = 'none'; editMessageId = null; }
 
-    function saveEditMessage() {
-        const c = document.getElementById('editMessageInput').value.trim();
-        if (c && editMessageId) {
-            fetch(`/messenger/message/${editMessageId}/edit/`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': getCookie('csrftoken') },
-                body: 'content=' + encodeURIComponent(c)
-            }).then(response => {
-                if (response.ok && currentChatId) loadMessages(currentChatId);
-            }).catch(console.error);
+    // ========== РЕДАКТИРОВАНИЕ СООБЩЕНИЙ (INLINE) ==========
+
+    function editMessage(messageId) {
+        const messageEl = document.querySelector(`.tg-msg[data-id="${messageId}"]`);
+        if (!messageEl) {
+            showToast('Ошибка: сообщение не найдено', 'error');
+            return;
         }
-        closeEditModal();
+
+        closeContexts();
+
+        // Ищем bubble с текстом
+        let bubble = messageEl.querySelector('.tg-msg-bubble');
+        if (!bubble) {
+            showToast('Не найден текст сообщения', 'error');
+            return;
+        }
+
+        const currentText = bubble.textContent.trim();
+
+        // Сохраняем оригинальный текст
+        bubble.dataset.originalText = currentText;
+
+        // Создаём textarea
+        const textarea = document.createElement('textarea');
+        textarea.value = currentText;
+        textarea.className = 'edit-message-input';
+        textarea.style.cssText = `
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: 12px;
+            border: 2px solid #3b82f6;
+            font-family: inherit;
+            font-size: 0.9rem;
+            resize: vertical;
+            min-height: 60px;
+            background: #fff;
+            color: #111827;
+            outline: none;
+            box-sizing: border-box;
+        `;
+
+        // Заменяем bubble на textarea
+        bubble.replaceWith(textarea);
+
+        // Добавляем кнопки
+        const contentDiv = messageEl.querySelector('.tg-msg-content');
+        const actions = document.createElement('div');
+        actions.className = 'edit-actions';
+        actions.style.cssText = 'margin-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;';
+        actions.innerHTML = `
+            <button onclick="saveInlineEdit(${messageId})" style="background:#3b82f6;color:#fff;border:none;padding:6px 16px;border-radius:8px;cursor:pointer;font-size:0.8rem;font-weight:500;display:flex;align-items:center;gap:4px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Сохранить
+            </button>
+            <button onclick="cancelInlineEdit(${messageId})" style="background:transparent;color:#6b7280;border:1px solid #e5e7eb;padding:6px 16px;border-radius:8px;cursor:pointer;font-size:0.8rem;font-weight:500;display:flex;align-items:center;gap:4px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Отмена
+            </button>
+            <span style="font-size:0.65rem;color:#9aa7b4;margin-left:auto;">Ctrl+Enter — сохранить</span>
+        `;
+        contentDiv.insertAdjacentElement('afterend', actions);
+
+        // Фокус
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+
+        // Сохранение по Ctrl+Enter
+        textarea.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                saveInlineEdit(messageId);
+            }
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelInlineEdit(messageId);
+            }
+        });
+    }
+
+    async function saveInlineEdit(messageId) {
+        const messageEl = document.querySelector(`.tg-msg[data-id="${messageId}"]`);
+        if (!messageEl) {
+            showToast('Ошибка: сообщение не найдено', 'error');
+            return;
+        }
+
+        const textarea = messageEl.querySelector('.edit-message-input');
+        if (!textarea) {
+            showToast('Ошибка: поле ввода не найдено', 'error');
+            return;
+        }
+
+        const newContent = textarea.value.trim();
+
+        if (!newContent) {
+            showToast('Сообщение не может быть пустым', 'error');
+            return;
+        }
+
+        // Блокируем кнопки
+        const saveBtn = messageEl.querySelector('.edit-actions button:first-child');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '⏳ Сохранение...';
+        }
+
+        try {
+            const response = await fetch(`/messenger/message/${messageId}/edit/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ content: newContent })
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'ok') {
+                // Удаляем textarea и кнопки
+                textarea.remove();
+                const actions = messageEl.querySelector('.edit-actions');
+                if (actions) actions.remove();
+
+                // Создаём или обновляем bubble
+                const contentDiv = messageEl.querySelector('.tg-msg-content');
+                if (contentDiv) {
+                    const oldBubble = contentDiv.querySelector('.tg-msg-bubble');
+                    if (oldBubble) oldBubble.remove();
+
+                    const bubble = document.createElement('div');
+                    bubble.className = 'tg-msg-bubble';
+                    bubble.textContent = newContent;
+                    contentDiv.prepend(bubble);
+                }
+
+                // Показываем индикатор "отредактировано"
+                let editedSpan = messageEl.querySelector('.message-edited');
+                if (!editedSpan) {
+                    const meta = messageEl.querySelector('.tg-msg-meta');
+                    if (meta) {
+                        editedSpan = document.createElement('span');
+                        editedSpan.className = 'message-edited';
+                        editedSpan.style.cssText = 'font-size:0.65rem;color:#9aa7b4;margin-left:6px;font-style:italic;';
+                        meta.appendChild(editedSpan);
+                    }
+                }
+                if (editedSpan) {
+                    const editTime = data.edited_at ? new Date(data.edited_at).toLocaleString('ru-RU', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }) : '';
+                    editedSpan.textContent = '(отредактировано)';
+                    editedSpan.title = `Отредактировано ${editTime}`;
+                    editedSpan.style.display = 'inline';
+                }
+
+                // Обновляем флаг
+                messageEl.dataset.isEdited = 'true';
+
+                showToast('Сообщение обновлено', 'success');
+            } else {
+                showToast(data.message || 'Ошибка при сохранении', 'error');
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = '💾 Сохранить';
+                }
+            }
+        } catch (error) {
+            console.error('Edit error:', error);
+            showToast('Ошибка сервера', 'error');
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '💾 Сохранить';
+            }
+        }
+    }
+
+    function cancelInlineEdit(messageId) {
+        const messageEl = document.querySelector(`.tg-msg[data-id="${messageId}"]`);
+        if (!messageEl) return;
+
+        const textarea = messageEl.querySelector('.edit-message-input');
+        const actions = messageEl.querySelector('.edit-actions');
+
+        const originalText = textarea ? textarea.dataset.originalText || textarea.value || '' : '';
+
+        if (textarea) textarea.remove();
+        if (actions) actions.remove();
+
+        if (originalText) {
+            const contentDiv = messageEl.querySelector('.tg-msg-content');
+            if (contentDiv) {
+                const oldBubble = contentDiv.querySelector('.tg-msg-bubble');
+                if (oldBubble) oldBubble.remove();
+
+                const bubble = document.createElement('div');
+                bubble.className = 'tg-msg-bubble';
+                bubble.textContent = originalText;
+                contentDiv.prepend(bubble);
+            }
+        }
     }
 
     document.getElementById('editMessageInput').addEventListener('keydown', function(e) {
@@ -1815,6 +2015,45 @@ function scrollToMessage(messageId) {
                     if (statusIcon) {
                         statusIcon.outerHTML = '<svg class="status-read" width="14" height="14" viewBox="0 0 24 24" fill="#4fc877"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>';
                     }
+                }
+            }
+
+            // ========== ДОБАВИТЬ ОБРАБОТКУ РЕДАКТИРОВАНИЯ ==========
+            if (data.type === 'message_edited') {
+                const msgElement = document.querySelector(`.tg-msg[data-id="${data.message_id}"]`);
+                if (msgElement) {
+                    // Обновляем текст
+                    const bubble = msgElement.querySelector('.tg-msg-bubble');
+                    if (bubble) {
+                        bubble.textContent = data.content;
+                    }
+
+                    // Добавляем индикатор "отредактировано"
+                    let editedSpan = msgElement.querySelector('.message-edited');
+                    if (!editedSpan) {
+                        const meta = msgElement.querySelector('.tg-msg-meta');
+                        if (meta) {
+                            editedSpan = document.createElement('span');
+                            editedSpan.className = 'message-edited';
+                            editedSpan.style.cssText = 'font-size:0.65rem;color:#9aa7b4;margin-left:6px;font-style:italic;';
+                            meta.appendChild(editedSpan);
+                        }
+                    }
+                    if (editedSpan) {
+                        const editTime = data.edited_at ? new Date(data.edited_at).toLocaleString('ru-RU', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        }) : '';
+                        editedSpan.textContent = '(отредактировано)';
+                        editedSpan.title = `Отредактировано ${editTime}`;
+                        editedSpan.style.display = 'inline';
+                    }
+
+                    // Обновляем флаг на элементе
+                    msgElement.dataset.isEdited = 'true';
                 }
             }
         };

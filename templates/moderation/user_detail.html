@@ -103,6 +103,23 @@
         </div>
         {% endif %}
     </div>
+    <div class="user-mod-card">
+        <h3><i data-feather="eye-off"></i> Управление контентом</h3>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <button class="btn btn--warning btn--sm" onclick="hideAllUserPosts({{ target_user.id }})">
+                <i data-feather="eye-off"></i> Скрыть все посты
+            </button>
+            <button class="btn btn--warning btn--sm" onclick="hideAllUserComments({{ target_user.id }})">
+                <i data-feather="eye-off"></i> Скрыть все комментарии
+            </button>
+            <button class="btn btn--success btn--sm" onclick="unhideAllUserPosts({{ target_user.id }})">
+                <i data-feather="eye"></i> Показать все посты
+            </button>
+            <button class="btn btn--success btn--sm" onclick="unhideAllUserComments({{ target_user.id }})">
+                <i data-feather="eye"></i> Показать все комментарии
+            </button>
+        </div>
+    </div>
     <!-- Тикеты на разбан -->
     <div class="user-mod-card">
         <h3><i data-feather="mail"></i> Заявки на разбан</h3>
@@ -551,5 +568,101 @@
             };
         });
     });
+    // Функции для скрытия/показа контента пользователя
+    async function hideAllUserPosts(userId) {
+        if (!confirm('Скрыть ВСЕ посты этого пользователя?')) return;
+        try {
+            const response = await fetch(`/moderation/hide/user/${userId}/posts/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                alert(`✅ ${data.message || 'Все посты скрыты'}`);
+                location.reload();
+            } else {
+                alert('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            alert('❌ Ошибка сервера');
+        }
+    }
+
+    async function hideAllUserComments(userId) {
+        if (!confirm('Скрыть ВСЕ комментарии этого пользователя?')) return;
+        try {
+            const response = await fetch(`/moderation/hide/user/${userId}/comments/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                alert(`✅ ${data.message || 'Все комментарии скрыты'}`);
+                location.reload();
+            } else {
+                alert('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            alert('❌ Ошибка сервера');
+        }
+    }
+
+    async function unhideAllUserPosts(userId) {
+        if (!confirm('Показать ВСЕ посты этого пользователя?')) return;
+        try {
+            const response = await fetch(`/moderation/unhide/user/${userId}/posts/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                alert(`✅ ${data.message || 'Все посты восстановлены'}`);
+                location.reload();
+            } else {
+                alert('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            alert('❌ Ошибка сервера');
+        }
+    }
+
+    async function unhideAllUserComments(userId) {
+        if (!confirm('Показать ВСЕ комментарии этого пользователя?')) return;
+        try {
+            const response = await fetch(`/moderation/unhide/user/${userId}/comments/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                alert(`✅ ${data.message || 'Все комментарии восстановлены'}`);
+                location.reload();
+            } else {
+                alert('❌ Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            alert('❌ Ошибка сервера');
+        }
+    }
 </script>
 {% endblock %}

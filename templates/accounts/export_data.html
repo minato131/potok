@@ -7,15 +7,67 @@
 {% block content %}
 <style>
     .settings-page { max-width: 500px; margin: 0 auto; }
-    .settings-card { background: var(--color-bg-surface); border-radius: 14px; border: 1px solid var(--color-border-light); padding: 24px; text-align: center; }
-    .settings-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
-    .settings-card p { color: var(--color-text-secondary); margin-bottom: 20px; font-size: 0.9rem; }
-    .export-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-    .btn-export { padding: 14px 28px; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; }
-    .btn-json { background: var(--color-primary); color: #fff; }
-    .btn-csv { background: var(--color-bg-elevated); color: var(--color-text); border: 1px solid var(--color-border); }
-    .btn-pdf { background: #dc2626; color: #fff; }
-    .btn-export:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .settings-card {
+        background: var(--color-bg-surface);
+        border-radius: 14px;
+        border: 1px solid var(--color-border-light);
+        padding: 24px;
+        text-align: center;
+    }
+    .settings-card h3 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
+    .settings-card p {
+        color: var(--color-text-secondary);
+        margin-bottom: 20px;
+        font-size: 0.9rem;
+    }
+    .export-btns {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    .btn-export {
+        padding: 14px 28px;
+        border: none;
+        border-radius: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+    }
+    .btn-json {
+        background: var(--color-primary);
+        color: #fff;
+    }
+    .btn-json:hover {
+        background: var(--color-primary-dark);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .btn-pdf {
+        background: #dc2626;
+        color: #fff;
+    }
+    .btn-pdf:hover {
+        background: #b91c1c;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .export-meta {
+        margin-top: 16px;
+        padding-top: 14px;
+        border-top: 1px solid var(--color-border-light);
+        font-size: 0.8rem;
+        color: var(--color-text-tertiary);
+    }
+    .export-meta span {
+        display: inline-block;
+        margin: 0 6px;
+    }
 </style>
 
 <div class="settings-page">
@@ -25,10 +77,21 @@
         <form method="post">
             {% csrf_token %}
             <div class="export-btns">
-                <button type="submit" name="type" value="json" class="btn-export btn-json">JSON</button>
-                <button type="submit" name="type" value="pdf" class="btn-export btn-pdf">PDF</button>
+                <button type="submit" name="type" value="json" class="btn-export btn-json">
+                    <i data-feather="file-text" style="width: 18px; height: 18px; vertical-align: middle;"></i>
+                    JSON
+                </button>
+                <button type="submit" name="type" value="pdf" class="btn-export btn-pdf">
+                    <i data-feather="file" style="width: 18px; height: 18px; vertical-align: middle;"></i>
+                    PDF
+                </button>
             </div>
         </form>
+        <div class="export-meta">
+            <span>📅 {{ now|date:"d.m.Y H:i" }}</span>
+            <span>·</span>
+            <span>👤 @{{ user.username }}</span>
+        </div>
     </div>
 </div>
 {% endblock %}

@@ -350,6 +350,16 @@
 
     <h2 style="font-size:1.2rem;font-weight:700;margin-bottom:8px">{{ post.title }}</h2>
     <div class="pd-content markdown-content" data-raw="{{ post.get_clean_content|escapejs }}"></div>
+    <!-- После pd-content -->
+    {% if post.tags.exists %}
+    <div class="post-tags-row" style="padding: 8px 0 12px 0; display: flex; flex-wrap: wrap; gap: 4px;">
+        {% for tag in post.tags.all %}
+            <a href="{% url 'posts:tag_detail' slug=tag.slug %}" class="post-tag" style="background: var(--color-bg-elevated); color: var(--color-primary); padding: 2px 10px; border-radius: 12px; font-size: 0.72rem; text-decoration: none; font-weight: 500; transition: all 0.15s;">
+                #{{ tag.name }}
+            </a>
+        {% endfor %}
+    </div>
+    {% endif %}
     {% include 'posts/includes/media_grid.html' with post=post %}
     {% if post.poll %}
         {% include 'posts/includes/poll.html' with poll=post.poll %}
@@ -767,7 +777,6 @@ window.togglePostMenu = function(btn) {
 
     if (!menu) return;
 
-    // Закрываем все другие открытые меню
     document.querySelectorAll('.post-menu-dropdown.open').forEach(m => {
         if (m !== menu) {
             m.classList.remove('open');
@@ -775,30 +784,24 @@ window.togglePostMenu = function(btn) {
         }
     });
 
-    // Получаем координаты кнопки
     const rect = btn.getBoundingClientRect();
 
-    // Позиционируем меню рядом с кнопкой
     menu.style.position = 'fixed';
     menu.style.top = (rect.bottom + 4) + 'px';
-    menu.style.left = (rect.right - 220) + 'px'; // 220 - примерная ширина меню
+    menu.style.left = (rect.right - 220) + 'px';
 
-    // Корректировка, если меню выходит за правый край
     if (rect.right - 220 < 10) {
         menu.style.left = (rect.right - 240) + 'px';
     }
 
-    // Корректировка, если меню выходит за левый край
     if (rect.right - 220 < 0) {
         menu.style.left = (rect.right + 10) + 'px';
     }
 
-    // Корректировка, если меню выходит за нижний край
     if (rect.bottom + menu.offsetHeight + 10 > window.innerHeight) {
         menu.style.top = (rect.top - menu.offsetHeight - 4) + 'px';
     }
 
-    // Переключаем текущее меню
     if (menu.classList.contains('open')) {
         menu.classList.remove('open');
         menu.style.display = 'none';
@@ -806,7 +809,6 @@ window.togglePostMenu = function(btn) {
         menu.classList.add('open');
         menu.style.display = 'flex';
     }
-};
 };
 
 // Закрытие меню при клике вне

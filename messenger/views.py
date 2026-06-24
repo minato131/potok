@@ -310,16 +310,57 @@ def create_group_chat(request):
 @login_required
 def edit_message(request, message_id):
     """Редактирование сообщения"""
-    msg = get_object_or_404(Message, id=message_id, author=request.user)
-    if request.method == 'POST':
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Метод не разрешен'}, status=405)
+
+    message = get_object_or_404(Message, id=message_id)
+
+    # Проверка прав — только автор может редактировать
+    if message.author != request.user:
+        return JsonResponse({'status': 'error', 'message': 'Вы не можете редактировать это сообщение'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+        new_content = data.get('content', '').strip()
+    except:
         new_content = request.POST.get('content', '').strip()
-        if new_content:
-            msg.content = new_content
-            msg.is_edited = True
-            msg.save()
-            return JsonResponse({'status': 'ok'})
-        return JsonResponse({'status': 'error'}, status=400)
-    return render(request, 'messenger/edit_message.html', {'message': msg})
+
+    if not new_content:
+        return JsonResponse({'status': 'error', 'message': 'Сообщение не может быть пустым'}, status=400)
+
+    # Сохраняем оригинальный контент для истории (опционально)
+    original_content = message.content
+
+    # Обновляем сообщение
+    message.content = new_content
+    message.is_edited = True  # ← УСТАНАВЛИВАЕМ ФЛАГ РЕДАКТИРОВАНИЯ
+    message.save(update_fields=['content', 'is_edited', 'updated_at'])
+
+    # Отправляем уведомление через WebSocket о редактировании
+    from channels.layers import get_channel_layer
+    from asgiref.sync import async_to_sync
+
+    channel_layer = get_channel_layer()
+    for participant in message.chat.participants.exclude(id=request.user.id):
+        async_to_sync(channel_layer.group_send)(
+            f'chat_{message.chat.id}',
+            {
+                'type': 'message_edited',
+                'message_id': message.id,
+                'content': new_content,
+                'is_edited': True,
+                'author': request.user.username,
+                'edited_at': timezone.now().isoformat(),
+            }
+        )
+
+    return JsonResponse({
+        'status': 'ok',
+        'message_id': message.id,
+        'content': new_content,
+        'is_edited': True,
+        'edited_at': timezone.now().isoformat(),
+    })
 
 
 @login_required
